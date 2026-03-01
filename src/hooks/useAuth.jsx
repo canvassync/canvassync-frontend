@@ -20,7 +20,6 @@ export function AuthProvider({ children }) {
       const refreshToken = hashParams.get("refresh_token");
 
       if (accessToken) {
-        // Envia o token do Supabase para o backend trocar por um JWT próprio
         fetch(`${API_URL}/auth/google-callback`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -31,12 +30,16 @@ export function AuthProvider({ children }) {
             if (data.token && data.user) {
               saveSession(data.token, data.user);
               setUser(data.user);
-              // Limpa o hash da URL sem recarregar
-              window.history.replaceState(null, "", window.location.pathname + window.location.search);
+              // Redireciona baseado no plano após OAuth Google
+              const userIsPro = data.user?.plan === "pro" && data.user?.subscriptionStatus === "active";
+              const searchParams = new URLSearchParams(window.location.search);
+              const redirectTo = searchParams.get("redirect");
+              window.location.href = redirectTo || (userIsPro ? "/editor" : "/editor-free");
+            } else {
+              setLoading(false);
             }
           })
-          .catch(() => {})
-          .finally(() => setLoading(false));
+          .catch(() => setLoading(false));
         return;
       }
     }
