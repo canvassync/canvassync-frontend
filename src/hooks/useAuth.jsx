@@ -10,7 +10,12 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3001";
+  console.log("[Auth] URL completa:", window.location.href);
+  console.log("[Auth] Search params:", window.location.search);
+  console.log("[Auth] Hash:", window.location.hash);
+  const params = new URLSearchParams(window.location.search);
+  const code = params.get("code");
+  console.log("[Auth] Code encontrado:", code);
 
     // ── Verifica se voltou de um OAuth (PKCE flow: ?code= na URL) ──────────────
     const exchangeCodeForSession = async () => {
