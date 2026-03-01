@@ -1,0 +1,58 @@
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+:root {
+  font-family: 'DM Sans', system-ui, Avenir, Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+  color-scheme: dark;
+  color: rgba(255, 255, 255, 0.87);
+  background-color: #080808;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+a {
+  font-weight: 500;
+  color: #00BFFF;
+  text-decoration: inherit;
+}
+a:hover {
+  color: #29ccff;
+}
+
+/* Corrigido: removido place-items (causava a coluna branca lateral) */
+body {
+  margin: 0;
+  padding: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  width: 100%;
+  background-color: #080808;
+  overflow-x: hidden;
+}
+
+/* #root ocupa largura total sem centralizar */
+#root {
+  width: 100%;
+  min-height: 100vh;
+  background-color: #080808;
+}
+
+h1 {
+  font-size: 3.2em;
+  line-height: 1.1;
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+}
+button:focus,
+button:focus-visible {
+  outline: 2px solid rgba(0, 191, 255, 0.5);
+  outline-offset: 2px;
+}
