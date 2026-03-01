@@ -1,6 +1,7 @@
 // src/pages/Entrar.jsx
 import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { supabase } from "../services/supabase";
 import { useAuth } from "../hooks/useAuth.jsx";
 
 export default function Entrar() {

@@ -1,60 +1,80 @@
 // src/hooks/useAuth.jsx
 import { useState, useEffect, createContext, useContext } from "react";
+import { supabase } from "../services/supabase";
 import { authApi, saveSession, clearSession, getCachedUser, isPro } from "../services/api";
-
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3001";
 
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
-  // Start with cached user for instant UI, but always verify with server
   const [user, setUser]       = useState(getCachedUser());
-  const [loading, setLoading] = useState(true); // always true until /me returns
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // ── Detecta retorno do OAuth Google (Supabase retorna #access_token=... na URL) ──
-    const hash = window.location.hash;
-    if (hash && hash.includes("access_token")) {
-      const hashParams = new URLSearchParams(hash.replace("#", ""));
-      const accessToken = hashParams.get("access_token");
-      const refreshToken = hashParams.get("refresh_token");
+    const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3001";
 
-      if (accessToken) {
-        fetch(`${API_URL}/auth/google-callback`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ access_token: accessToken, refresh_token: refreshToken }),
-        })
-          .then(r => r.json())
-          .then(data => {
-            if (data.token && data.user) {
-              saveSession(data.token, data.user);
-              setUser(data.user);
-              // Redireciona baseado no plano após OAuth Google
-              const userIsPro = data.user?.plan === "pro" && data.user?.subscriptionStatus === "active";
-              const searchParams = new URLSearchParams(window.location.search);
-              const redirectTo = searchParams.get("redirect");
-              window.location.href = redirectTo || (userIsPro ? "/editor" : "/editor-free");
-            } else {
-              setLoading(false);
-            }
-          })
-          .catch(() => setLoading(false));
+    // ── Verifica se voltou de um OAuth (PKCE flow: ?code= na URL) ──────────────
+    const exchangeCodeForSession = async () => {
+      const params = new URLSearchParams(window.location.search);
+      const code   = params.get("code");
+
+      if (code) {
+        try {
+          // Supabase troca o code por uma sessão
+          const { data, error } = await supabase.auth.exchangeCodeForSession(
+            window.location.href
+          );
+
+          if (error || !data?.session) {
+            console.error("[OAuth] Erro ao trocar code:", error);
+            setLoading(false);
+            return;
+          }
+
+          const accessToken = data.session.access_token;
+
+          // Envia para o backend trocar por JWT próprio
+          const res = await fetch(`${API_URL}/auth/google-callback`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ access_token: accessToken }),
+          });
+
+          const json = await res.json();
+
+          if (json.token && json.user) {
+            saveSession(json.token, json.user);
+            setUser(json.user);
+            const userIsPro = json.user?.plan === "pro" && json.user?.subscriptionStatus === "active";
+            // Verifica redirect param (ex: vindo de /planos)
+            const redirectTo = params.get("redirect");
+            // Limpa a URL antes de redirecionar
+            window.history.replaceState(null, "", window.location.pathname);
+            window.location.href = redirectTo || (userIsPro ? "/editor" : "/editor-free");
+          } else {
+            console.error("[OAuth] Backend não retornou token:", json);
+            setLoading(false);
+          }
+        } catch (err) {
+          console.error("[OAuth] Erro:", err);
+          setLoading(false);
+        }
         return;
       }
-    }
 
-    // ── Sessão normal via JWT ──
-    const token = localStorage.getItem("canvassync_token");
-    if (!token) { setLoading(false); return; }
-    authApi.me()
-      .then(freshUser => {
-        // Always overwrite cache with fresh data from server (plan may have changed)
-        setUser(freshUser);
-        localStorage.setItem("canvassync_user", JSON.stringify(freshUser));
-      })
-      .catch(() => { clearSession(); setUser(null); })
-      .finally(() => setLoading(false));
+      // ── Sessão normal via JWT ──────────────────────────────────────────────
+      const token = localStorage.getItem("canvassync_token");
+      if (!token) { setLoading(false); return; }
+
+      authApi.me()
+        .then(freshUser => {
+          setUser(freshUser);
+          localStorage.setItem("canvassync_user", JSON.stringify(freshUser));
+        })
+        .catch(() => { clearSession(); setUser(null); })
+        .finally(() => setLoading(false));
+    };
+
+    exchangeCodeForSession();
   }, []);
 
   const login = async (email, password) => {

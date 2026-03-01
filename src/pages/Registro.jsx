@@ -38,7 +38,10 @@ export default function Registro() {
     if (!supabaseUrl) { setError('Login com Google não configurado ainda.'); return; }
     // Redireciona de volta para /cadastro?auth=ok para o hook processar a sessão
     const redirectTo = `${window.location.origin}/cadastro?auth=ok`;
-    window.location.href = `${supabaseUrl}/auth/v1/authorize?provider=google&redirect_to=${encodeURIComponent(redirectTo)}`;
+    await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: { redirectTo: `${window.location.origin}/cadastro` },
+      });
   };
 
   // ─── Estilos ──────────────────────────────────────────────────────────────
