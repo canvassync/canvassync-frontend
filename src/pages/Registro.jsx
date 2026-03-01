@@ -3,6 +3,7 @@
 
 import { useState } from 'react';
 import { useAuth } from '../hooks/useAuth.jsx';
+import { supabase } from '../services/supabase';
 
 export default function Registro() {
   const { isLoggedIn, isPro, login, register } = useAuth();
