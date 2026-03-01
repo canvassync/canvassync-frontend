@@ -44,13 +44,22 @@ export default function Entrar() {
     }
   };
 
-  const handleGoogle = () => {
-    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-    if (!supabaseUrl) { setError("Login com Google não configurado."); return; }
-    // Retorna para /entrar?auth=ok para processar a sessão antes de redirecionar
-    const redirectTo = `${window.location.origin}/entrar?auth=ok&redirect=${encodeURIComponent(redirectParam || '')}`;
-    window.location.href = `${supabaseUrl}/auth/v1/authorize?provider=google&redirect_to=${encodeURIComponent(redirectTo)}`;
-  };
+  const handleGoogle = async () => {
+  try {
+    console.log("Supabase URL:", import.meta.env.VITE_SUPABASE_URL);
+    console.log("Supabase ANON:", import.meta.env.VITE_SUPABASE_ANON_KEY);
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: `${window.location.origin}/entrar` },
+    });
+    console.log("OAuth data:", data);
+    console.log("OAuth error:", error);
+    if (error) setError("Erro: " + error.message);
+  } catch (err) {
+    console.error("Catch error:", err);
+    setError("Erro: " + err.message);
+  }
+};
 
   const handleKey = (e) => { if (e.key === "Enter") handleSubmit(); };
 
