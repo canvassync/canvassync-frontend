@@ -33,15 +33,16 @@ export default function Registro() {
     } finally { setLoading(false); }
   };
 
-  const handleGoogle = () => {
-    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-    if (!supabaseUrl) { setError('Login com Google não configurado ainda.'); return; }
-    // Redireciona de volta para /cadastro?auth=ok para o hook processar a sessão
-    const redirectTo = `${window.location.origin}/cadastro?auth=ok`;
-    await supabase.auth.signInWithOAuth({
+  const handleGoogle = async () => {
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: { redirectTo: `${window.location.origin}/cadastro` },
       });
+      if (error) setError('Erro ao iniciar login com Google.');
+    } catch (err) {
+      setError('Erro ao iniciar login com Google.');
+    }
   };
 
   // ─── Estilos ──────────────────────────────────────────────────────────────
