@@ -3,11 +3,13 @@
 
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
+import { useLanguage, LangToggle } from "../hooks/useLanguage.jsx";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3001";
 
 export default function Sucesso() {
   const [searchParams] = useSearchParams();
+  const { t } = useLanguage();
   const [status, setStatus]   = useState("loading"); // loading | pix_pending | success | error
   const [plan, setPlan]       = useState("");
 
@@ -61,7 +63,7 @@ export default function Sucesso() {
     return (
       <div style={containerStyle}>
         <div style={{ fontSize: 40, marginBottom: 20, animation: "spin 1s linear infinite" }}>⚡</div>
-        <p style={{ color: "#555", fontSize: 16 }}>Verificando seu pagamento…</p>
+        <p style={{ color: "#555", fontSize: 16 }}>{t('verifying')}</p>
         <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
       </div>
     );
@@ -73,11 +75,10 @@ export default function Sucesso() {
       <div style={containerStyle}>
         <div style={{ fontSize: 56, marginBottom: 20 }}>🏦</div>
         <h1 style={{ fontSize: 28, fontWeight: 800, marginBottom: 12 }}>
-          Aguardando confirmação do PIX
+          {t('pix_pending_title')}
         </h1>
         <p style={{ color: "#666", fontSize: 16, maxWidth: 420, lineHeight: 1.7, marginBottom: 32 }}>
-          Seu QR Code foi gerado. Assim que o pagamento for confirmado pelo banco,
-          seu acesso Pro será ativado <strong style={{ color: "#f0f0f0" }}>automaticamente</strong> — normalmente leva alguns segundos.
+          {t('pix_pending_sub')}
         </p>
 
         <div style={{
@@ -85,8 +86,7 @@ export default function Sucesso() {
           borderRadius: 16, padding: "20px 28px", marginBottom: 32, maxWidth: 380,
         }}>
           <p style={{ fontSize: 13, color: "#888", margin: 0, lineHeight: 1.7 }}>
-            💡 Você receberá acesso assim que o Stripe confirmar o pagamento.
-            Pode fechar esta janela — o acesso será liberado automaticamente.
+            {t('pix_tip')}
           </p>
         </div>
 
@@ -114,11 +114,10 @@ export default function Sucesso() {
       <div style={containerStyle}>
         <div style={{ fontSize: 56, marginBottom: 20 }}>⚠️</div>
         <h1 style={{ fontSize: 28, fontWeight: 800, marginBottom: 12 }}>
-          Algo deu errado
+          {t('error_title')}
         </h1>
         <p style={{ color: "#666", fontSize: 16, maxWidth: 380, lineHeight: 1.7, marginBottom: 32 }}>
-          Não conseguimos verificar seu pagamento. Se você realizou o pagamento e
-          o problema persistir, entre em contato com o suporte.
+          {t('error_sub')}
         </p>
         <div style={{ display: "flex", gap: 12, flexWrap: "wrap", justifyContent: "center" }}>
           <button
@@ -166,7 +165,7 @@ export default function Sucesso() {
         marginBottom: 14, letterSpacing: "-1px",
         animation: "fadeUp 0.5s ease 0.1s both",
       }}>
-        Bem-vindo ao Pro! 🎉
+        {t('welcome_pro')}
       </h1>
 
       <p style={{
@@ -174,8 +173,7 @@ export default function Sucesso() {
         marginBottom: 36,
         animation: "fadeUp 0.5s ease 0.2s both",
       }}>
-        Seu acesso foi ativado com sucesso. Agora você tem tudo que precisa para
-        criar <strong style={{ color: "#f0f0f0" }}>lyric videos profissionais</strong> sem limitações.
+        {t('welcome_sub')}
       </p>
 
       {/* Card de benefícios */}
@@ -187,14 +185,14 @@ export default function Sucesso() {
         boxShadow: "0 0 40px rgba(0,191,255,0.05)",
       }}>
         <p style={{ fontSize: 12, color: "#00BFFF", fontWeight: 700, letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 16, marginTop: 0 }}>
-          O que você desbloqueou
+          {t('unlocked_label')}
         </p>
         {[
-          "Exportação de vídeo completo (WEBM + áudio)",
-          "Sincronização de letras em tempo real",
-          "Textos e imagens ilimitados",
-          "Sem marca d'água",
-          "Suporte prioritário",
+          t('unlock1'),
+          t('unlock2'),
+          t('unlock3'),
+          t('unlock4'),
+          t('unlock5'),
         ].map((item, i) => (
           <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
             <span style={{ color: "#00BFFF", fontSize: 14, flexShrink: 0 }}>✓</span>
@@ -217,7 +215,7 @@ export default function Sucesso() {
             display: "flex", alignItems: "center", gap: 8,
           }}
         >
-          Abrir o Editor Pro ⚡
+          {t('open_editor')}
         </button>
         <button
           onClick={() => window.location.href = "/"}

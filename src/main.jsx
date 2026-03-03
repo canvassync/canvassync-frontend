@@ -1,10 +1,8 @@
-console.log("VITE_SUPABASE_ANON_KEY:", import.meta.env.VITE_SUPABASE_ANON_KEY);
-console.log("VITE_API_URL:", import.meta.env.VITE_API_URL);
-
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "./hooks/useAuth.jsx";
+import { LanguageProvider } from "./hooks/useLanguage.jsx";
 import "./index.css";
 
 import Landing  from "./CanvasSync.jsx";
@@ -18,7 +16,8 @@ import Registro from "./pages/Registro.jsx";
 createRoot(document.getElementById("root")).render(
   <StrictMode>
     <BrowserRouter>
-      <AuthProvider>
+      <LanguageProvider>
+        <AuthProvider>
         <Routes>
           <Route path="/"            element={<Landing />} />
           <Route path="/entrar"      element={<Entrar />} />
@@ -29,7 +28,8 @@ createRoot(document.getElementById("root")).render(
           <Route path="/sucesso"     element={<Sucesso />} />
           <Route path="*"            element={<Navigate to="/" replace />} />
         </Routes>
-      </AuthProvider>
+        </AuthProvider>
+      </LanguageProvider>
     </BrowserRouter>
   </StrictMode>
 );
