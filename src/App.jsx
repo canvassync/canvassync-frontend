@@ -1,8 +1,10 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from './hooks/useAuth.jsx';
+import { useLanguage, LangToggle } from './hooks/useLanguage.jsx';
 
 function App() {
   const { user, isLoggedIn, isPro, loading: authLoading } = useAuth();
+  const { t } = useLanguage();
   const [image, setImage] = useState(null);
   const [audioSrc, setAudioSrc] = useState(null);
   const [lyrics, setLyrics] = useState([]);
@@ -27,6 +29,8 @@ function App() {
   const [isExporting, setIsExporting] = useState(false);
   const [exportProgress, setExportProgress] = useState(0);
   const [audioFile, setAudioFile] = useState(null);
+  const [audioBase64, setAudioBase64] = useState(null);
+  const [audioMimeType, setAudioMimeType] = useState(null);
   const [waveformPeaks, setWaveformPeaks] = useState([]);
 
   // Estado de Zoom (Multiplicador de largura)
@@ -49,6 +53,11 @@ function App() {
   const playheadRef = useRef(null);
   const timelineScrollRef = useRef(null);
   const waveformCanvasRef = useRef(null);
+  // Refs para capturar valores atuais dentro de callbacks estáveis
+  const fontSizeRef = useRef(fontSize);
+  const fontFamilyRef = useRef(fontFamily);
+  useEffect(() => { fontSizeRef.current = fontSize; }, [fontSize]);
+  useEffect(() => { fontFamilyRef.current = fontFamily; }, [fontFamily]);
   const [dragging, setDragging] = useState(null);
   const [isScrubbing, setIsScrubbing] = useState(false);
   const [editingLyricId, setEditingLyricId] = useState(null);
@@ -225,37 +234,48 @@ function App() {
     handleImageUpload(e);
   };
 
+  const decodeWaveformFromBuffer = async (arrayBuffer) => {
+    try {
+      const ac = new (window.AudioContext || window.webkitAudioContext)();
+      const buffer = await ac.decodeAudioData(arrayBuffer);
+      const sampleCount = 1200;
+      const channelL = buffer.getChannelData(0);
+      const channelR = buffer.numberOfChannels > 1 ? buffer.getChannelData(1) : null;
+      const blockSize = Math.floor(channelL.length / sampleCount);
+      const peaks = Array.from({ length: sampleCount }, (_, i) => {
+        const start = i * blockSize;
+        let max = 0;
+        for (let j = 0; j < blockSize; j++) {
+          const idx = start + j;
+          const l = Math.abs(channelL[idx] || 0);
+          const r = channelR ? Math.abs(channelR[idx] || 0) : 0;
+          const v = channelR ? (l + r) / 2 : l;
+          if (v > max) max = v;
+        }
+        return max;
+      });
+      setWaveformPeaks(peaks);
+      ac.close();
+    } catch {
+      setWaveformPeaks([]);
+    }
+  };
+
   const handleAudioChange = (e) => {
     const file = e.target.files[0];
     if (file) {
       setAudioSrc(URL.createObjectURL(file));
       setAudioFile(file);
+      setAudioMimeType(file.type || 'audio/mpeg');
+      // Save as base64 for project export/import
+      const b64Reader = new FileReader();
+      b64Reader.onload = (ev) => setAudioBase64(ev.target.result);
+      b64Reader.readAsDataURL(file);
       const decode = async () => {
         try {
           const arrayBuffer = await file.arrayBuffer();
-          const ac = new (window.AudioContext || window.webkitAudioContext)();
-          const buffer = await ac.decodeAudioData(arrayBuffer);
-          const sampleCount = 1200;
-          const channelL = buffer.getChannelData(0);
-          const channelR = buffer.numberOfChannels > 1 ? buffer.getChannelData(1) : null;
-          const blockSize = Math.floor(channelL.length / sampleCount);
-          const peaks = Array.from({ length: sampleCount }, (_, i) => {
-            const start = i * blockSize;
-            let max = 0;
-            for (let j = 0; j < blockSize; j++) {
-              const idx = start + j;
-              const l = Math.abs(channelL[idx] || 0);
-              const r = channelR ? Math.abs(channelR[idx] || 0) : 0;
-              const v = channelR ? (l + r) / 2 : l;
-              if (v > max) max = v;
-            }
-            return max;
-          });
-          setWaveformPeaks(peaks);
-          ac.close();
-        } catch {
-          setWaveformPeaks([]);
-        }
+          await decodeWaveformFromBuffer(arrayBuffer);
+        } catch { void 0; }
       };
       decode();
     }
@@ -310,6 +330,11 @@ function App() {
           img.onload = () => setImage(img);
           img.src = p.imageSrc;
         }
+        if (p.audioBase64) {
+          setAudioBase64(p.audioBase64);
+          setAudioMimeType(p.audioMimeType || 'audio/mpeg');
+          setAudioSrc(p.audioBase64);
+        }
       }
     } catch { void 0; }
   }, [buildImagePlacement]);
@@ -335,6 +360,8 @@ function App() {
       fontFamily,
       zoom,
       imageSrc,
+      audioBase64: audioBase64 || null,
+      audioMimeType: audioMimeType || null,
     };
     const t = setTimeout(() => {
       try {
@@ -342,7 +369,7 @@ function App() {
       } catch { void 0; }
     }, 400);
     return () => clearTimeout(t);
-  }, [bulkText, lyrics, images, extraTexts, fontSize, textColor, fontFamily, zoom, imageSrc]);
+  }, [bulkText, lyrics, images, extraTexts, fontSize, textColor, fontFamily, zoom, imageSrc, audioBase64]);
 
   // Ref para evitar stale closure no markLyricTiming
   const textLinesRef = useRef(textLines);
@@ -371,6 +398,8 @@ function App() {
         x: canvas ? canvas.width / 2 : 135,
         y: canvas ? Math.round(canvas.height / 2) : 240,
         rotation: 0,
+        fontSize: fontSizeRef.current,
+        fontFamily: fontFamilyRef.current,
       };
       setLyrics(prevLyrics => [...prevLyrics, newLine].sort((a, b) => a.start - b.start));
       return prev + 1;
@@ -428,6 +457,8 @@ function App() {
     setImageSrc(null);
     setAudioSrc(null);
     setAudioFile(null);
+    setAudioBase64(null);
+    setAudioMimeType(null);
     setWaveformPeaks([]);
     setDuration(0);
     setActiveImageId(null);
@@ -445,11 +476,14 @@ function App() {
     } catch { void 0; }
   };
 
-  // Quebra o texto da letra em linhas de no máx. 4 palavras
+  // Quebra o texto da letra respeitando \n manuais e auto-wrap
   const wrapLyricText = useCallback((text, ctx, maxWidth) => {
+    // Respeita quebras manuais de linha primeiro
+    const manualLines = text.split('\n').filter(l => l.trim() !== '');
+    if (manualLines.length > 1) return manualLines;
+    // Auto-wrap: divide ao meio se muitas palavras
     const words = text.split(' ');
     if (words.length <= 4) return [text];
-    // Divide ao meio em palavras
     const mid = Math.ceil(words.length / 2);
     return [words.slice(0, mid).join(' '), words.slice(mid).join(' ')];
   }, []);
@@ -580,9 +614,11 @@ function App() {
     const time = audioRef.current ? audioRef.current.currentTime : currentTime;
     const visibleLyric = lyrics.find(l => time >= l.start && time <= l.end);
     if (visibleLyric) {
-      ctx.font = `bold ${fontSize}px ${fontFamily}`;
+      const vFontSize = visibleLyric.fontSize || fontSize;
+      const vFontFamily = visibleLyric.fontFamily || fontFamily;
+      ctx.font = `bold ${vFontSize}px ${vFontFamily}`;
       const lines = wrapLyricText(visibleLyric.text, ctx, canvas.width - 40);
-      const lineH = fontSize * 1.3;
+      const lineH = vFontSize * 1.3;
       const totalH = lines.length * lineH;
       const lx = visibleLyric.x ?? canvas.width / 2;
       const ly = visibleLyric.y ?? canvas.height * 0.75;
@@ -619,50 +655,35 @@ function App() {
     }
 
     setActiveLyricId(null);
-    const activeItem = images.slice().reverse().find((item) => {
+    // ── Procura imagem clicada (inclui área dos handles de resize) ──────────
+    const hs = 10; // margem para hit nos handles
+    const clickedItem = images.slice().reverse().find((item) => {
       if (!item || !item.img) return false;
-      if (activeImageId && item.id !== activeImageId) return false;
-      return time >= item.start && time <= item.end;
+      return time >= item.start && time <= item.end &&
+        mouseX >= item.x - hs && mouseX <= item.x + item.width + hs &&
+        mouseY >= item.y - hs && mouseY <= item.y + item.height + hs;
     });
-    if (!activeItem) { setActiveImageId(null); return; }
-    const withinX2 = mouseX >= activeItem.x && mouseX <= activeItem.x + activeItem.width;
-    const withinY2 = mouseY >= activeItem.y && mouseY <= activeItem.y + activeItem.height;
-    if (!withinX2 || !withinY2) { setActiveImageId(null); return; }
-    if (activeItem) {
-      const withinX = withinX2;
-      const withinY = withinY2;
-      if (withinX && withinY) {
-        setActiveImageId(activeItem.id);
-        const handleSize = 12;
-        const nearLeft = Math.abs(mouseX - activeItem.x) <= handleSize;
-        const nearRight = Math.abs(mouseX - (activeItem.x + activeItem.width)) <= handleSize;
-        const nearTop = Math.abs(mouseY - activeItem.y) <= handleSize;
-        const nearBottom = Math.abs(mouseY - (activeItem.y + activeItem.height)) <= handleSize;
-        const corner = `${nearTop ? 'n' : ''}${nearBottom ? 's' : ''}${nearLeft ? 'w' : ''}${nearRight ? 'e' : ''}`;
-        if (corner.length >= 2) {
-          setDragging({
-            itemKind: 'canvas-image',
-            type: 'resize',
-            id: activeItem.id,
-            corner,
-            startX: mouseX,
-            startY: mouseY,
-            startWidth: activeItem.width,
-            startHeight: activeItem.height,
-            startXPos: activeItem.x,
-            startYPos: activeItem.y
-          });
-          return;
-        } else {
-          setDragging({
-            itemKind: 'canvas-image',
-            type: 'move',
-            id: activeItem.id,
-            offsetX: mouseX - activeItem.x,
-            offsetY: mouseY - activeItem.y
-          });
-        }
-      }
+    if (!clickedItem) { setActiveImageId(null); return; }
+    const activeItem = clickedItem;
+    setActiveImageId(activeItem.id);
+    const handleSize = 12;
+    const nearLeft   = Math.abs(mouseX - activeItem.x) <= handleSize;
+    const nearRight  = Math.abs(mouseX - (activeItem.x + activeItem.width)) <= handleSize;
+    const nearTop    = Math.abs(mouseY - activeItem.y) <= handleSize;
+    const nearBottom = Math.abs(mouseY - (activeItem.y + activeItem.height)) <= handleSize;
+    const corner = `${nearTop ? 'n' : ''}${nearBottom ? 's' : ''}${nearLeft ? 'w' : ''}${nearRight ? 'e' : ''}`;
+    if (corner.length >= 2) {
+      setDragging({
+        itemKind: 'canvas-image', type: 'resize', id: activeItem.id, corner,
+        startX: mouseX, startY: mouseY,
+        startWidth: activeItem.width, startHeight: activeItem.height,
+        startXPos: activeItem.x, startYPos: activeItem.y
+      });
+    } else {
+      setDragging({
+        itemKind: 'canvas-image', type: 'move', id: activeItem.id,
+        offsetX: mouseX - activeItem.x, offsetY: mouseY - activeItem.y
+      });
     }
   };
 
@@ -1022,9 +1043,12 @@ function App() {
       const lx = activeLine.x ?? canvas.width / 2;
       const ly = activeLine.y ?? canvas.height * 0.75;
       const lRot = (activeLine.rotation || 0) * Math.PI / 180;
-      ctx.font = `bold ${fontSize}px ${fontFamily}`;
+      // ── Usa font/size por-lyric se definido, senão usa global ──────────────
+      const lFontSize = activeLine.fontSize || fontSize;
+      const lFontFamily = activeLine.fontFamily || fontFamily;
+      ctx.font = `bold ${lFontSize}px ${lFontFamily}`;
       const lines = wrapLyricText(activeLine.text, ctx, canvas.width - 40);
-      const lineH = fontSize * 1.3;
+      const lineH = lFontSize * 1.3;
       const totalH = lines.length * lineH;
 
       ctx.save();
@@ -1044,10 +1068,10 @@ function App() {
 
       // Indicador de seleção / arrasto + handle de rotação
       if (activeLyricId === activeLine.id && editingLyricId !== activeLine.id) {
+        ctx.font = `bold ${lFontSize}px ${lFontFamily}`;
         const maxW = lines.reduce((m, l) => Math.max(m, ctx.measureText(l.toUpperCase()).width), 0);
         const hw = maxW / 2 + 14;
         const hh = totalH / 2 + 10;
-        const lRot = (activeLine.rotation || 0) * Math.PI / 180;
         ctx.save();
         ctx.translate(lx, ly);
         ctx.rotate(lRot);
@@ -1170,15 +1194,16 @@ function App() {
       });
       ctx.restore();
     });
-    ctx.fillStyle = textColor;
-    ctx.font = `bold ${fontSize}px ${fontFamily}`;
     const activeLine = lyrics.find(l => t >= l.start && t <= l.end);
     if (activeLine) {
       const lx = activeLine.x ?? targetCanvas.width / 2;
       const ly = activeLine.y ?? targetCanvas.height * 0.75;
       const lRot = (activeLine.rotation || 0) * Math.PI / 180;
+      const lFontSize = activeLine.fontSize || fontSize;
+      const lFontFamily = activeLine.fontFamily || fontFamily;
+      ctx.font = `bold ${lFontSize}px ${lFontFamily}`;
       const lines = wrapLyricText(activeLine.text, ctx, targetCanvas.width - 40);
-      const lineH = fontSize * 1.3;
+      const lineH = lFontSize * 1.3;
       const totalH = lines.length * lineH;
       ctx.save();
       ctx.translate(lx, ly);
@@ -1265,7 +1290,7 @@ function App() {
       const muxer = new Muxer({
         target,
         video: { codec: 'V_VP8', width: offCanvas.width, height: offCanvas.height, frameRate: fps },
-        audio: audioFile ? { codec: 'A_OPUS', sampleRate: 48000, numberOfChannels: 2 } : undefined
+        audio: (audioFile || audioBase64) ? { codec: 'A_OPUS', sampleRate: 48000, numberOfChannels: 2 } : undefined
       });
       const vEncoder = new VideoEncoder({
         output: (chunk, meta) => muxer.addVideoChunk(chunk, meta),
@@ -1273,14 +1298,24 @@ function App() {
       });
       vEncoder.configure({ codec: 'vp8', width: offCanvas.width, height: offCanvas.height, bitrate: 2_000_000 });
       let aEncoder = null;
-      if (audioFile) {
+      if (audioFile || audioBase64) {
         try {
           aEncoder = new AudioEncoder({
             output: (chunk, meta) => muxer.addAudioChunk(chunk, meta),
             error: () => {}
           });
           aEncoder.configure({ codec: 'opus', sampleRate: 48000, numberOfChannels: 2, bitrate: 128000 });
-          const audioBufferData = await audioFile.arrayBuffer();
+          let audioBufferData;
+          if (audioFile) {
+            audioBufferData = await audioFile.arrayBuffer();
+          } else {
+            // Reconstrói do base64 (projeto importado)
+            const b64 = audioBase64.split(',')[1];
+            const binary = atob(b64);
+            const bytes = new Uint8Array(binary.length);
+            for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+            audioBufferData = bytes.buffer;
+          }
           const ac = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 48000 });
           const buffer = await ac.decodeAudioData(audioBufferData);
           const totalSamples = Math.floor(buffer.sampleRate * effectiveDuration);
@@ -1400,6 +1435,8 @@ function App() {
     fontFamily,
     zoom,
     imageSrc,
+    audioBase64: audioBase64 || null,
+    audioMimeType: audioMimeType || null,
   });
 
   const exportProject = () => {
@@ -1458,6 +1495,21 @@ function App() {
           const img = new Image();
           img.onload = () => setImage(img);
           img.src = p.imageSrc;
+        }
+        // Restaura áudio do projeto
+        if (p.audioBase64) {
+          setAudioBase64(p.audioBase64);
+          setAudioMimeType(p.audioMimeType || 'audio/mpeg');
+          setAudioSrc(p.audioBase64); // data URL funciona diretamente como src
+          setAudioFile(null); // sem File object, mas audioBase64 disponível
+          // Decodifica waveform
+          try {
+            const b64 = p.audioBase64.split(',')[1];
+            const binary = atob(b64);
+            const bytes = new Uint8Array(binary.length);
+            for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+            decodeWaveformFromBuffer(bytes.buffer);
+          } catch { void 0; }
         }
       } catch { void 0; }
     };
@@ -1547,15 +1599,15 @@ function App() {
       {/* HEADER CONTROLS */}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '14px', padding: '14px 18px', background: 'rgba(8,8,8,0.97)', borderBottom: '1px solid rgba(0,191,255,0.12)', fontSize: '12px', alignItems: 'center', width: '100%', boxSizing: 'border-box', backdropFilter: 'blur(12px)', boxShadow: '0 1px 0 rgba(0,191,255,0.08)' }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-          <label style={{ fontSize: '11px', color: '#00BFFF', fontWeight: 600, letterSpacing: '0.5px' }}>Fundo</label>
+          <label style={{ fontSize: '11px', color: '#00BFFF', fontWeight: 600, letterSpacing: '0.5px' }}>{t('ed_background')}</label>
           <input type="file" onChange={handleImageChange} accept="image/*" style={{ color: '#f8fafc', fontSize: '11px' }} />
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-          <label style={{ fontSize: '11px', color: '#00BFFF', fontWeight: 600, letterSpacing: '0.5px' }}>Imagens</label>
+          <label style={{ fontSize: '11px', color: '#00BFFF', fontWeight: 600, letterSpacing: '0.5px' }}>{t('ed_images')}</label>
           <input type="file" onChange={handleImagesChange} accept="image/*" multiple style={{ color: '#aaa', fontSize: '11px' }} />
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-          <label style={{ fontSize: '11px', color: '#00BFFF', fontWeight: 600, letterSpacing: '0.5px' }}>Música</label>
+          <label style={{ fontSize: '11px', color: '#00BFFF', fontWeight: 600, letterSpacing: '0.5px' }}>{t('ed_audio')}</label>
           <input type="file" onChange={handleAudioChange} accept="audio/*" style={{ color: '#f8fafc', fontSize: '11px' }} />
         </div>
         <input type="color" value={textColor} onChange={(e) => setTextColor(e.target.value)} style={{ width: '38px', height: '32px', borderRadius: '12px', border: '1px solid rgba(0,191,255,0.25)', backgroundColor: '#111' }} />
@@ -1578,7 +1630,7 @@ function App() {
           <option value="webm">Vídeo (WEBM em tempo real)</option>
         </select>
         <button onClick={handleSave} disabled={isExporting} style={{ background: isExporting ? '#0a1a1a' : '#00BFFF', border: 'none', padding: '10px 18px', borderRadius: '18px', cursor: isExporting ? 'not-allowed' : 'pointer', fontWeight: 'bold', fontSize: '12px', color: isExporting ? '#555' : '#000', boxShadow: isExporting ? 'none' : '0 6px 20px rgba(0,191,255,0.3)', opacity: 1 }}>
-          {isExporting ? `Exportando ${Math.round(exportProgress * 100)}%` : 'Salvar'}
+          {isExporting ? `${t('ed_exporting')} ${Math.round(exportProgress * 100)}%` : t('ed_save')}
         </button>
         <button onClick={exportProject} style={{ background: 'rgba(0,191,255,0.08)', border: '1px solid rgba(0,191,255,0.2)', padding: '10px 18px', borderRadius: '18px', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px', color: '#00BFFF', boxShadow: 'none' }}>
           Exportar Projeto
@@ -1600,7 +1652,7 @@ function App() {
           {/* ══ SEÇÃO TEXTOS EXTRAS ══ */}
           <div style={{ padding: '14px 18px 12px', borderBottom: '1px solid rgba(255,255,255,0.07)', display: 'flex', flexDirection: 'column', gap: '10px' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '6px' }}>
-              <label style={{ fontSize: '11px', color: '#00BFFF', fontWeight: '700', letterSpacing: '0.6px' }}>TEXTOS EXTRAS NO VÍDEO</label>
+              <label style={{ fontSize: '11px', color: '#00BFFF', fontWeight: '700', letterSpacing: '0.6px' }}>{t('ed_extra_texts')}</label>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <input type="color"
                   value={activeExtraTextId ? (extraTexts.find(t=>t.id===activeExtraTextId)?.color || extraTextColor) : (extraTexts.length ? extraTexts[extraTexts.length-1].color || extraTextColor : extraTextColor)}
@@ -1644,11 +1696,20 @@ function App() {
           {/* ══ SEÇÃO LETRA DA MÚSICA ══ */}
           <div style={{ flex: 1, padding: '14px 18px 14px', display: 'flex', flexDirection: 'column', gap: '10px', minHeight: 0 }}>
             
-            {/* Linha config letra */}
+            {/* Linha config letra — por lyric selecionada ou padrão global */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-              <label style={{ fontSize: '11px', color: '#00BFFF', fontWeight: '700', letterSpacing: '0.5px' }}>LETRA DA MÚSICA</label>
-              <input type="color" value={textColor} onChange={(e) => setTextColor(e.target.value)} style={{ width: '26px', height: '26px', padding: 0, border: '1px solid rgba(0,191,255,0.2)', background: '#111', borderRadius: '7px', cursor: 'pointer' }} />
-              <select value={fontFamily} onChange={(e) => setFontFamily(e.target.value)} style={{ fontSize: '11px', backgroundColor: '#111', color: '#f0f0f0', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px', padding: '5px 8px' }}>
+              <label style={{ fontSize: '11px', color: '#00BFFF', fontWeight: '700', letterSpacing: '0.5px' }}>
+                LETRA DA MÚSICA
+                {activeLyricId && <span style={{ marginLeft: 6, color: 'rgba(0,191,255,0.6)', fontWeight: 400, fontSize: 10 }}>(selecionada)</span>}
+              </label>
+              <input type="color" value={textColor} onChange={(e) => setTextColor(e.target.value)} title="Cor da letra" style={{ width: '26px', height: '26px', padding: 0, border: '1px solid rgba(0,191,255,0.2)', background: '#111', borderRadius: '7px', cursor: 'pointer' }} />
+              <select
+                value={activeLyricId ? (lyrics.find(l => l.id === activeLyricId)?.fontFamily || fontFamily) : fontFamily}
+                onChange={(e) => {
+                  setFontFamily(e.target.value);
+                  if (activeLyricId) setLyrics(prev => prev.map(l => l.id === activeLyricId ? {...l, fontFamily: e.target.value} : l));
+                }}
+                style={{ fontSize: '11px', backgroundColor: '#111', color: '#f0f0f0', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px', padding: '5px 8px' }}>
                 <option value="Poppins">Poppins</option>
                 <option value="Bebas Neue">Bebas Neue</option>
                 <option value="Montserrat">Montserrat</option>
@@ -1658,8 +1719,17 @@ function App() {
                 <option value="Playfair Display">Playfair</option>
                 <option value="Lora">Lora</option>
               </select>
-              <span style={{ fontSize: '10px', color: '#94a3b8' }}>{fontSize}px</span>
-              <input type="range" min="15" max="70" value={fontSize} onChange={(e) => setFontSize(e.target.value)} style={{ flex: 1, minWidth: '60px', accentColor: '#00BFFF' }} />
+              <span style={{ fontSize: '10px', color: '#94a3b8' }}>
+                {activeLyricId ? (lyrics.find(l => l.id === activeLyricId)?.fontSize || fontSize) : fontSize}px
+              </span>
+              <input type="range" min="15" max="70"
+                value={activeLyricId ? (lyrics.find(l => l.id === activeLyricId)?.fontSize || fontSize) : fontSize}
+                onChange={(e) => {
+                  const v = parseInt(e.target.value);
+                  setFontSize(v);
+                  if (activeLyricId) setLyrics(prev => prev.map(l => l.id === activeLyricId ? {...l, fontSize: v} : l));
+                }}
+                style={{ flex: 1, minWidth: '60px', accentColor: '#00BFFF' }} />
             </div>
 
             {/* Textarea letra — flex:1 para preencher espaço disponível */}
@@ -1667,7 +1737,7 @@ function App() {
               className="lyrics-textarea"
               value={bulkText}
               onChange={(e) => setBulkText(e.target.value)}
-              placeholder="Cole aqui toda a letra da música, uma frase por linha..."
+              placeholder={t('ed_paste_lyrics')}
               style={{ flex: 1, minHeight: '140px', backgroundColor: '#111', color: '#f0f0f0', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px', padding: '14px', resize: 'none', fontSize: '12px', lineHeight: '1.6', scrollbarColor: '#00BFFF #0a0a0a', scrollbarWidth: 'thin' }}
             />
 
@@ -1675,11 +1745,11 @@ function App() {
             <div style={{ display: 'flex', gap: '10px', alignItems: 'stretch' }}>
               <div style={{ flex: 1, background: 'rgba(0,191,255,0.05)', border: '1px solid rgba(0,191,255,0.15)', padding: '10px 14px', borderRadius: '16px', minHeight: '56px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
                 <div style={{ fontSize: '10px', color: '#00BFFF', letterSpacing: '0.6px', fontWeight: 600, marginBottom: '4px' }}>
-                  ⚡ PRÓXIMA FRASE
+                  {t('ed_next_line')}
                   {textLines.length > 0 && <span style={{ color: 'rgba(0,191,255,0.65)', marginLeft: '6px' }}>({currentLineIndex}/{textLines.length})</span>}
                 </div>
                 <div style={{ fontWeight: 'bold', color: '#f8fafc', fontSize: '13px', wordBreak: 'break-word', lineHeight: 1.4 }}>
-                  {textLines[currentLineIndex] || (textLines.length === 0 ? 'Cole a letra acima' : '✅ Todas marcadas!')}
+                  {textLines[currentLineIndex] || (textLines.length === 0 ? t('ed_paste_lyrics_short') : t('ed_all_marked'))}
                 </div>
               </div>
               <button
@@ -1704,7 +1774,7 @@ function App() {
                   transition: 'all 0.2s',
                 }}
               >
-                {textLines.length === 0 ? 'Cole a\nletra' : currentLineIndex >= textLines.length ? '✅ Fim' : '⚡ MARCAR\nAGORA'}
+                {textLines.length === 0 ? t('ed_paste_lyrics_short') : currentLineIndex >= textLines.length ? t('ed_all_done') : t('ed_mark_now')}
               </button>
             </div>
             <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.22)', marginTop: '-4px' }}>
@@ -1821,15 +1891,15 @@ function App() {
               else audioRef.current.play();
               setIsPlaying(!isPlaying);
             }} style={{ background: isPlaying ? '#00BFFF' : 'rgba(255,255,255,0.06)', border: '1px solid rgba(0,191,255,0.25)', padding: '9px 22px', borderRadius: '18px', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px', color: isPlaying ? '#000' : '#f0f0f0', boxShadow: isPlaying ? '0 8px 20px rgba(0,191,255,0.3)' : 'none' }}>
-              {isPlaying ? 'PAUSE' : 'PLAY'}
+              {isPlaying ? t('ed_pause') : t('ed_play')}
             </button>
             <button onClick={handleStopPlayback} style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', padding: '9px 22px', borderRadius: '18px', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px', color: '#f87171', boxShadow: 'none' }}>
-              STOP
+              {t('ed_stop')}
             </button>
             <span style={{ fontSize: '12px', color: '#00BFFF', fontWeight: 'bold', minWidth: '85px' }}>{formatTime(currentTime)} / {formatTime(duration)}</span>
             
             <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <span style={{ fontSize: '11px', color: '#555' }}>Zoom Timeline:</span>
+              <span style={{ fontSize: '11px', color: '#555' }}>{t('ed_zoom')}</span>
               <input type="range" min="20" max="150" value={zoom} onChange={(e) => setZoom(parseInt(e.target.value))} style={{ cursor: 'pointer', accentColor: '#00BFFF' }} />
             </div>
         </div>

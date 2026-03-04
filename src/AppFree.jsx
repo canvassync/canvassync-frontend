@@ -1,6 +1,8 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { useLanguage, LangToggle } from './hooks/useLanguage.jsx';
 
 function AppFree() {
+  const { t } = useLanguage();
 
   const [image, setImage]                 = useState(null);
   const [imageSrc, setImageSrc]           = useState(null);
@@ -206,31 +208,27 @@ function AppFree() {
     }
     setActiveExtraTextId(null);
 
-    // Imagens sobrepostas — sem restrição de tempo (tudo visível sempre no Free)
-    const activeItem = images.slice().reverse().find(item => item?.img);
-    if (activeItem) {
-      const hitX = mx >= activeItem.x && mx <= activeItem.x + activeItem.width;
-      const hitY = my >= activeItem.y && my <= activeItem.y + activeItem.height;
-      if (!hitX || !hitY) {
-        // Clicou fora — deseleciona
-        setActiveImageId(null);
-        return;
-      }
-      if (hitX && hitY) {
-        setActiveImageId(activeItem.id);
-        const s = 12;
-        const nL = Math.abs(mx - activeItem.x) <= s,         nR = Math.abs(mx - (activeItem.x + activeItem.width)) <= s;
-        const nT = Math.abs(my - activeItem.y) <= s,         nB = Math.abs(my - (activeItem.y + activeItem.height)) <= s;
-        const corner = `${nT ? 'n' : ''}${nB ? 's' : ''}${nL ? 'w' : ''}${nR ? 'e' : ''}`;
-        if (corner.length >= 2) {
-          setDragging({ itemKind: 'canvas-image', type: 'resize', id: activeItem.id, corner, startX: mx, startY: my, startWidth: activeItem.width, startHeight: activeItem.height, startXPos: activeItem.x, startYPos: activeItem.y });
-        } else {
-          setDragging({ itemKind: 'canvas-image', type: 'move', id: activeItem.id, offsetX: mx - activeItem.x, offsetY: my - activeItem.y });
-        }
-      }
-    } else {
-      // Nenhuma imagem — deseleciona
+    // ── Imagens sobrepostas — hit test inclui área dos handles (hs = margem) ──
+    const hs = 10;
+    const clickedImage = images.slice().reverse().find(item => {
+      if (!item?.img) return false;
+      return mx >= item.x - hs && mx <= item.x + item.width + hs &&
+             my >= item.y - hs && my <= item.y + item.height + hs;
+    });
+    if (!clickedImage) {
       setActiveImageId(null);
+      return;
+    }
+    const activeItem = clickedImage;
+    setActiveImageId(activeItem.id);
+    const s = 12;
+    const nL = Math.abs(mx - activeItem.x) <= s,         nR = Math.abs(mx - (activeItem.x + activeItem.width)) <= s;
+    const nT = Math.abs(my - activeItem.y) <= s,         nB = Math.abs(my - (activeItem.y + activeItem.height)) <= s;
+    const corner = `${nT ? 'n' : ''}${nB ? 's' : ''}${nL ? 'w' : ''}${nR ? 'e' : ''}`;
+    if (corner.length >= 2) {
+      setDragging({ itemKind: 'canvas-image', type: 'resize', id: activeItem.id, corner, startX: mx, startY: my, startWidth: activeItem.width, startHeight: activeItem.height, startXPos: activeItem.x, startYPos: activeItem.y });
+    } else {
+      setDragging({ itemKind: 'canvas-image', type: 'move', id: activeItem.id, offsetX: mx - activeItem.x, offsetY: my - activeItem.y });
     }
   };
 
@@ -499,19 +497,20 @@ function AppFree() {
           <div style={{ width: 26, height: 26, borderRadius: 8, background: 'linear-gradient(135deg,#00BFFF,#0070ff)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 900 }}>⚡</div>
           <span style={{ fontWeight: 800, fontSize: 15, background: 'linear-gradient(135deg,#fff 30%,#00BFFF 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>CanvasSync</span>
           <span style={{ background: 'rgba(0,191,255,0.1)', border: '1px solid rgba(0,191,255,0.25)', borderRadius: 999, padding: '2px 8px', fontSize: 10, color: '#00BFFF', fontWeight: 700, letterSpacing: 1 }}>FREE</span>
+          <LangToggle />
         </div>
 
         <div style={{ width: 1, height: 28, background: 'rgba(255,255,255,0.07)' }} />
 
         {/* Fundo */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <label style={{ fontSize: '11px', color: '#00BFFF', fontWeight: 600, letterSpacing: '0.5px' }}>Fundo</label>
+          <label style={{ fontSize: '11px', color: '#00BFFF', fontWeight: 600, letterSpacing: '0.5px' }}>{t('ed_background')}</label>
           <input type="file" onChange={handleImageChange} accept="image/*" style={{ color: '#aaa', fontSize: '11px' }} />
         </div>
 
         {/* Imagens */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <label style={{ fontSize: '11px', color: '#00BFFF', fontWeight: 600, letterSpacing: '0.5px' }}>Imagens</label>
+          <label style={{ fontSize: '11px', color: '#00BFFF', fontWeight: 600, letterSpacing: '0.5px' }}>{t('ed_images')}</label>
           <input type="file" onChange={handleImagesChange} accept="image/*" multiple style={{ color: '#aaa', fontSize: '11px' }} />
         </div>
 
@@ -532,7 +531,7 @@ function AppFree() {
           onClick={handleSave}
           style={{ background: '#00BFFF', border: 'none', padding: '10px 18px', borderRadius: '18px', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px', color: '#000', boxShadow: '0 6px 20px rgba(0,191,255,0.3)' }}
         >
-          Salvar
+          {t('ed_save')}
         </button>
 
         {/* Limpar */}
@@ -540,17 +539,17 @@ function AppFree() {
           onClick={handleClearProject}
           style={{ background: 'rgba(239,68,68,0.07)', border: '1px solid rgba(239,68,68,0.18)', padding: '10px 18px', borderRadius: '18px', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px', color: '#f87171' }}
         >
-          Limpar
+          {t('ed_clear')}
         </button>
 
         {/* Banner upgrade */}
         <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 10, background: 'rgba(0,191,255,0.05)', border: '1px solid rgba(0,191,255,0.15)', borderRadius: 12, padding: '6px 14px' }}>
-          <span style={{ fontSize: 11, color: '#888' }}>Quer exportar vídeo e sincronizar letras?</span>
+          <span style={{ fontSize: 11, color: '#888' }}>{t('ed_upgrade_msg')}</span>
           <button
             onClick={() => window.location.href = '/planos'}
             style={{ background: '#00BFFF', border: 'none', borderRadius: 999, padding: '5px 14px', fontSize: 11, fontWeight: 700, color: '#000', cursor: 'pointer' }}
           >
-            Upgrade Pro →
+            {t('ed_upgrade_pro')}
           </button>
         </div>
       </div>
@@ -570,7 +569,7 @@ function AppFree() {
           <div style={{ padding: '16px 18px 14px', borderBottom: '1px solid rgba(255,255,255,0.07)', display: 'flex', flexDirection: 'column', gap: '10px' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 6 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <label style={{ fontSize: '11px', color: '#00BFFF', fontWeight: '700', letterSpacing: '0.6px' }}>TEXTO EXTRA</label>
+                <label style={{ fontSize: '11px', color: '#00BFFF', fontWeight: '700', letterSpacing: '0.6px' }}>{t('ed_extra_text')}</label>
                 <span style={{ background: 'rgba(0,191,255,0.08)', border: '1px solid rgba(0,191,255,0.2)', borderRadius: 999, padding: '2px 8px', fontSize: 10, color: '#00BFFF' }}>
                   {extraTexts.length}/1
                 </span>
@@ -665,7 +664,7 @@ function AppFree() {
           {/* IMAGENS NA COMPOSIÇÃO */}
           <div style={{ padding: '16px 18px', borderBottom: '1px solid rgba(255,255,255,0.07)', display: 'flex', flexDirection: 'column', gap: 10 }}>
             <label style={{ fontSize: '11px', color: '#00BFFF', fontWeight: '700', letterSpacing: '0.6px' }}>
-              IMAGENS NA COMPOSIÇÃO
+              {t('ed_images_in_comp')}
               <span style={{ marginLeft: 8, color: '#555', fontWeight: 400 }}>({images.length} adicionada{images.length !== 1 ? 's' : ''})</span>
             </label>
             {images.length > 0 ? (
@@ -693,7 +692,7 @@ function AppFree() {
 
           {/* RECURSO BLOQUEADO — MÚSICA */}
           <div style={{ padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <label style={{ fontSize: '11px', color: '#444', fontWeight: '700', letterSpacing: '0.6px' }}>SINCRONIZAÇÃO DE LETRAS</label>
+            <label style={{ fontSize: '11px', color: '#444', fontWeight: '700', letterSpacing: '0.6px' }}>{t('ed_lyric_sync')}</label>
             <div style={{
               background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.06)',
               borderRadius: 14, padding: '20px 16px', textAlign: 'center',
@@ -747,7 +746,7 @@ function AppFree() {
             borderRadius: 10, padding: '6px 14px', fontSize: 11, color: '#555',
             whiteSpace: 'nowrap', pointerEvents: 'none',
           }}>
-            ⚡ Marca d'água removida no plano Pro
+{t('ed_watermark_msg')}
           </div>
         </div>
       </div>
