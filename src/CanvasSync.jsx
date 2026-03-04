@@ -870,116 +870,6 @@ export default function CanvasSyncLanding() {
           </button>
         </Reveal>
       </section>
-
-
-      {/* ═══ TERMOS DE USO ═══════════════════════════════════════════════════ */}
-      <section id="termos" style={{ background: "#060606", borderTop: "1px solid rgba(255,255,255,0.05)", padding: "60px 24px" }}>
-        <div style={{ maxWidth: 780, margin: "0 auto" }}>
-          <h2 className="syne" style={{ fontSize: 24, fontWeight: 700, marginBottom: 24, color: "#f0f0f0" }}>Termos de Uso</h2>
-          <div style={{ color: "#666", fontSize: 14, lineHeight: 1.8, display: "flex", flexDirection: "column", gap: 16 }}>
-            <p><strong style={{ color: "#888" }}>1. Aceitação</strong><br />Ao usar o CanvasSync você concorda com estes termos. Se não concordar, não utilize o serviço.</p>
-            <p><strong style={{ color: "#888" }}>2. Uso Permitido</strong><br />O CanvasSync é destinado à criação de conteúdo visual para fins pessoais e comerciais legítimos. É proibido usar a plataforma para criar conteúdo que viole direitos autorais, seja difamatório, ilegal ou prejudicial.</p>
-            <p><strong style={{ color: "#888" }}>3. Conteúdo do Usuário</strong><br />Você é responsável por todo conteúdo (áudio, imagem, vídeo e texto) que inserir na plataforma. O CanvasSync não se responsabiliza pelo uso indevido de material protegido por direitos autorais.</p>
-            <p><strong style={{ color: "#888" }}>4. Planos e Pagamentos</strong><br />Os planos pagos são cobrados conforme descrito na página de preços. Cancelamentos podem ser realizados a qualquer momento, sem multa, mas sem reembolso proporcional do período em curso.</p>
-            <p><strong style={{ color: "#888" }}>5. Disponibilidade</strong><br />Nos esforçamos para manter o serviço disponível 24/7, mas não garantimos disponibilidade ininterrupta. Manutenções programadas serão comunicadas com antecedência.</p>
-            <p><strong style={{ color: "#888" }}>6. Alterações</strong><br />Podemos atualizar estes termos a qualquer momento. O uso continuado do serviço após as alterações implica aceitação dos novos termos.</p>
-            <p><strong style={{ color: "#888" }}>7. Contato</strong><br />Dúvidas sobre os termos: <a href="mailto:canvassynclyrics@gmail.com" style={{ color: "#00BFFF" }}>canvassynclyrics@gmail.com</a></p>
-          </div>
-        </div>
-      </section>
-
-      {/* ═══ PRIVACIDADE ══════════════════════════════════════════════════════ */}
-      <section id="privacidade" style={{ background: "#070707", borderTop: "1px solid rgba(255,255,255,0.05)", padding: "60px 24px" }}>
-        <div style={{ maxWidth: 780, margin: "0 auto" }}>
-          <h2 className="syne" style={{ fontSize: 24, fontWeight: 700, marginBottom: 24, color: "#f0f0f0" }}>Política de Privacidade</h2>
-          <div style={{ color: "#666", fontSize: 14, lineHeight: 1.8, display: "flex", flexDirection: "column", gap: 16 }}>
-            <p><strong style={{ color: "#888" }}>Dados Coletados</strong><br />Coletamos nome, e-mail e dados de uso para fornecer e melhorar o serviço. Não vendemos seus dados a terceiros.</p>
-            <p><strong style={{ color: "#888" }}>Autenticação</strong><br />Oferecemos login via Google OAuth. Neste caso, recebemos apenas nome, e-mail e foto de perfil públicos da sua conta Google.</p>
-            <p><strong style={{ color: "#888" }}>Pagamentos</strong><br />Pagamentos são processados pelo Stripe. Não armazenamos dados de cartão de crédito em nossos servidores.</p>
-            <p><strong style={{ color: "#888" }}>Conteúdo Criado</strong><br />Áudios, imagens e vídeos que você carrega são processados localmente no seu navegador para criação do vídeo final. Não armazenamos seu conteúdo em nossos servidores.</p>
-            <p><strong style={{ color: "#888" }}>Cookies</strong><br />Usamos cookies essenciais para manter sua sessão ativa. Não usamos cookies de rastreamento de terceiros.</p>
-            <p><strong style={{ color: "#888" }}>Seus Direitos</strong><br />Você pode solicitar exclusão da sua conta e dados a qualquer momento pelo e-mail: <a href="mailto:canvassynclyrics@gmail.com" style={{ color: "#00BFFF" }}>canvassynclyrics@gmail.com</a></p>
-          </div>
-        </div>
-      </section>
-
-      {/* ═══ CHAT DE SUPORTE ══════════════════════════════════════════════════ */}
-      {/* Botão flutuante */}
-      <button
-        onClick={() => setChatOpen(o => !o)}
-        style={{
-          position: "fixed", bottom: 24, right: 24, zIndex: 9999,
-          width: 54, height: 54, borderRadius: "50%",
-          background: "linear-gradient(135deg, #00BFFF, #0070ff)",
-          border: "none", cursor: "pointer",
-          display: "flex", alignItems: "center", justifyContent: "center",
-          boxShadow: "0 4px 20px rgba(0,191,255,0.4)",
-          transition: "transform 0.2s",
-        }}
-        onMouseEnter={e => e.currentTarget.style.transform = "scale(1.08)"}
-        onMouseLeave={e => e.currentTarget.style.transform = "scale(1)"}
-        title="Suporte CanvasSync"
-      >
-        {chatOpen ? <X size={22} color="#fff" /> : <MessageSquare size={22} color="#fff" />}
-      </button>
-
-      {/* Janela do chat */}
-      {chatOpen && (
-        <div style={{
-          position: "fixed", bottom: 88, right: 24, zIndex: 9998,
-          width: 340, maxHeight: 480, borderRadius: 18,
-          background: "#111", border: "1px solid rgba(0,191,255,0.2)",
-          boxShadow: "0 16px 48px rgba(0,0,0,0.6)",
-          display: "flex", flexDirection: "column", overflow: "hidden",
-        }}>
-          {/* Header */}
-          <div style={{ padding: "14px 18px", background: "linear-gradient(135deg,rgba(0,191,255,0.15),rgba(0,112,255,0.1))", borderBottom: "1px solid rgba(255,255,255,0.06)", display: "flex", alignItems: "center", gap: 10 }}>
-            <div style={{ width: 32, height: 32, borderRadius: "50%", background: "linear-gradient(135deg,#00BFFF,#0070ff)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <Bot size={17} color="#fff" />
-            </div>
-            <div>
-              <div style={{ fontSize: 13, fontWeight: 700, color: "#f0f0f0" }}>Suporte CanvasSync</div>
-              <div style={{ fontSize: 11, color: "#00BFFF" }}>● Online</div>
-            </div>
-          </div>
-          {/* Messages */}
-          <div style={{ flex: 1, overflowY: "auto", padding: "14px 14px 8px", display: "flex", flexDirection: "column", gap: 10 }}>
-            {chatMessages.map((m, i) => (
-              <div key={i} style={{ display: "flex", justifyContent: m.role === "user" ? "flex-end" : "flex-start" }}>
-                <div style={{
-                  maxWidth: "82%", padding: "9px 13px", borderRadius: m.role === "user" ? "16px 16px 4px 16px" : "16px 16px 16px 4px",
-                  background: m.role === "user" ? "linear-gradient(135deg,#00BFFF,#0070ff)" : "rgba(255,255,255,0.06)",
-                  color: m.role === "user" ? "#000" : "#ddd", fontSize: 13, lineHeight: 1.5,
-                }}>
-                  {m.text}
-                </div>
-              </div>
-            ))}
-            {chatLoading && (
-              <div style={{ display: "flex" }}>
-                <div style={{ padding: "9px 13px", borderRadius: "16px 16px 16px 4px", background: "rgba(255,255,255,0.06)", color: "#888", fontSize: 13 }}>
-                  Digitando...
-                </div>
-              </div>
-            )}
-          </div>
-          {/* Input */}
-          <div style={{ padding: "10px 12px", borderTop: "1px solid rgba(255,255,255,0.06)", display: "flex", gap: 8 }}>
-            <input
-              value={chatInput}
-              onChange={e => setChatInput(e.target.value)}
-              onKeyDown={e => e.key === "Enter" && sendChat()}
-              placeholder="Digite sua dúvida..."
-              style={{ flex: 1, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 12, padding: "9px 14px", color: "#f0f0f0", fontSize: 13, outline: "none" }}
-            />
-            <button onClick={sendChat} disabled={chatLoading}
-              style={{ width: 38, height: 38, borderRadius: "50%", background: chatLoading ? "rgba(0,191,255,0.2)" : "linear-gradient(135deg,#00BFFF,#0070ff)", border: "none", cursor: chatLoading ? "not-allowed" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-              <Send size={16} color="#fff" />
-            </button>
-          </div>
-        </div>
-      )}
-
       {/* ═══ FOOTER ══════════════════════════════════════════════════════════ */}
       <footer style={{
         borderTop: "1px solid var(--border)",
@@ -1001,11 +891,11 @@ export default function CanvasSyncLanding() {
 
           {/* Links */}
           <div style={{ display: "flex", gap: 24, flexWrap: "wrap" }}>
-            <a href="#termos" style={{ color: "#444", fontSize: 13, textDecoration: "none", transition: "color 0.2s" }}
+            <a href="/termos" onClick={e => { e.preventDefault(); navigate("/termos"); }} style={{ color: "#444", fontSize: 13, textDecoration: "none", transition: "color 0.2s" }}
               onMouseEnter={e => e.target.style.color = "#888"} onMouseLeave={e => e.target.style.color = "#444"}>
               Termos de Uso
             </a>
-            <a href="#privacidade" style={{ color: "#444", fontSize: 13, textDecoration: "none", transition: "color 0.2s" }}
+            <a href="/privacidade" onClick={e => { e.preventDefault(); navigate("/privacidade"); }} style={{ color: "#444", fontSize: 13, textDecoration: "none", transition: "color 0.2s" }}
               onMouseEnter={e => e.target.style.color = "#888"} onMouseLeave={e => e.target.style.color = "#444"}>
               Privacidade
             </a>
