@@ -1,10 +1,9 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { useLanguage, LangToggle } from "./hooks/useLanguage.jsx";
 import {
   Play, Zap, Download, Layers, Star, Check, ChevronRight,
   Music, Image, Sparkles, ArrowRight, Menu, X, Twitter,
-  Instagram, Youtube
+  Instagram, Youtube, MessageSquare, Send, Bot, Video
 } from "lucide-react";
 
 /* ─── Intersection Observer hook for scroll-reveal ─── */
@@ -67,7 +66,12 @@ export default function CanvasSyncLanding() {
   const [billingAnnual, setBillingAnnual] = useState(false);
   const navigate = useNavigate();
   const [scrolled, setScrolled] = useState(false);
-  const { t } = useLanguage();
+  const [chatOpen, setChatOpen] = useState(false);
+  const [chatMessages, setChatMessages] = useState([
+    { role: 'assistant', text: 'Olá! Sou o suporte CanvasSync. Como posso ajudar?' }
+  ]);
+  const [chatInput, setChatInput] = useState('');
+  const [chatLoading, setChatLoading] = useState(false);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 40);
@@ -76,23 +80,90 @@ export default function CanvasSyncLanding() {
   }, []);
 
   const features = [
-    { icon: <Music size={22} />, title: t("feat1_title"), desc: t("feat1_desc") },
-    { icon: <Download size={22} />, title: t("feat2_title"), desc: t("feat2_desc") },
-    { icon: <Layers size={22} />, title: t("feat3_title"), desc: t("feat3_desc") },
-    { icon: <Zap size={22} />, title: t("feat4_title"), desc: t("feat4_desc") },
-    { icon: <Image size={22} />, title: t("feat5_title"), desc: t("feat5_desc") },
-    { icon: <Sparkles size={22} />, title: t("feat6_title"), desc: t("feat6_desc") },
+    {
+      icon: <Music size={22} />,
+      title: "Sincronia Manual Intuitiva",
+      desc: "Marque cada frase da letra no ritmo da música em tempo real. Precisão total, sem complicação.",
+    },
+    {
+      icon: <Download size={22} />,
+      title: "Exportação em Alta Qualidade",
+      desc: "Vídeo WEBM com áudio embutido e exportação HD 1080p, pronto para upload direto no Reels e TikTok.",
+    },
+    {
+      icon: <Layers size={22} />,
+      title: "Elementos Arrastáveis",
+      desc: "Textos, imagens e sobreposições que você move, redimensiona e gira diretamente na tela.",
+    },
+    {
+      icon: <Zap size={22} />,
+      title: "Timeline Profissional",
+      desc: "Controle total sobre cada elemento: duração, posição e encaixes via drag na timeline.",
+    },
+    {
+      icon: <Image size={22} />,
+      title: "Múltiplos Fundos & Fotos",
+      desc: "Adicione quantas imagens quiser e distribua-as automaticamente ao longo da música.",
+    },
+    {
+      icon: <Sparkles size={22} />,
+      title: "Vídeos, Textos e Rotação",
+      desc: "Adicione vídeos à composição, textos extras com múltiplas linhas, fontes premium e rotação livre para imagens e vídeos.",
+    },
   ];
 
-  const freePlan = [t("free_feat1"),t("free_feat2"),t("free_feat3"),t("free_feat4"),t("free_feat5")];
+  const freePlan = [
+    "Geração de imagens estáticas",
+    "1 texto extra na composição",
+    "Exportação PNG / JPG",
+    "Marca d'água CanvasSync",
+    "Acesso à timeline básica",
+  ];
 
-  const proPlan = [t("pro_feat1"),t("pro_feat2"),t("pro_feat3"),t("pro_feat4"),t("pro_feat5"),t("pro_feat6"),t("pro_feat7"),t("pro_feat8")];
+  const proPlan = [
+    "Exportação de vídeo completo (WEBM)",
+    "Sincronia de letras em tempo real",
+    "Textos e imagens ilimitados",
+    "Sem marca d'água",
+    "Suporte prioritário",
+    "Histórico de projetos",
+    "Fontes premium exclusivas",
+    "Exportação com áudio embutido",
+  ];
 
   const testimonials = [
-    { name: t("test1_name"), role: t("test1_role"), text: t("test1_text"), stars: 5 },
-    { name: t("test2_name"), role: t("test2_role"), text: t("test2_text"), stars: 5 },
-    { name: t("test3_name"), role: t("test3_role"), text: t("test3_text"), stars: 5 },
+    { name: "Luana M.", role: "Produtora Musical", text: "Em 5 minutos meu lyric video estava pronto. Economizo horas toda semana.", stars: 5 },
+    { name: "Caio R.", role: "Criador de Conteúdo", text: "A sincronização da letra no ritmo é absurdamente precisa. Melhor que qualquer outra ferramenta.", stars: 5 },
+    { name: "Fernanda S.", role: "DJ & Artista", text: "Meus Reels explodiram depois que comecei a usar. Visual profissional em minutos.", stars: 5 },
   ];
+
+  const sendChat = async () => {
+    const text = chatInput.trim();
+    if (!text || chatLoading) return;
+    setChatInput('');
+    const userMsg = { role: 'user', text };
+    setChatMessages(prev => [...prev, userMsg]);
+    setChatLoading(true);
+    try {
+      const res = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 500,
+          system: 'Você é o assistente de suporte do CanvasSync, um editor de vídeo para criar conteúdos para Reels e TikTok com sincronização de letras de música. Responda de forma objetiva e amigável em português. Se não souber algo específico, oriente o usuário a enviar email para canvassynclyrics@gmail.com.',
+          messages: [...chatMessages, userMsg].map(m => ({ role: m.role === 'assistant' ? 'assistant' : 'user', content: m.text }))
+        })
+      });
+      const data = await res.json();
+      const reply = data.content?.[0]?.text || 'Desculpe, não consegui responder agora.';
+      setChatMessages(prev => [...prev, { role: 'assistant', text: reply }]);
+    } catch {
+      setChatMessages(prev => [...prev, { role: 'assistant', text: 'Erro de conexão. Tente novamente ou envie email para canvassynclyrics@gmail.com.' }]);
+    } finally {
+      setChatLoading(false);
+    }
+  };
 
   return (
     <div
@@ -264,13 +335,12 @@ export default function CanvasSyncLanding() {
         <nav className="hide-mobile" style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <a href="#features" style={{ color: "#999", fontSize: 14, textDecoration: "none", padding: "8px 14px", transition: "color 0.2s" }}
             onMouseEnter={e => e.target.style.color = "#fff"}
-            onMouseLeave={e => e.target.style.color = "#999"}>{t("nav_features")}</a>
+            onMouseLeave={e => e.target.style.color = "#999"}>Recursos</a>
           <a href="#pricing" style={{ color: "#999", fontSize: 14, textDecoration: "none", padding: "8px 14px", transition: "color 0.2s" }}
             onMouseEnter={e => e.target.style.color = "#fff"}
-            onMouseLeave={e => e.target.style.color = "#999"}>{t("nav_plans")}</a>
-          <LangToggle style={{ marginLeft: 4 }} />
-          <button className="btn-ghost" style={{ marginLeft: 4 }} onClick={() => navigate("/entrar")}>{t("nav_signin")}</button>
-          <button className="btn-primary" onClick={() => navigate("/cadastro")}>{t("nav_start")}</button>
+            onMouseLeave={e => e.target.style.color = "#999"}>Planos</a>
+          <button className="btn-ghost" style={{ marginLeft: 8 }} onClick={() => navigate("/entrar")}>Entrar</button>
+          <button className="btn-primary" onClick={() => navigate("/cadastro")}>Começar Agora</button>
         </nav>
 
         {/* Mobile menu toggle */}
@@ -290,11 +360,10 @@ export default function CanvasSyncLanding() {
           background: "#0e0e0e", borderBottom: "1px solid var(--border)",
           padding: "20px 24px", display: "flex", flexDirection: "column", gap: 12,
         }}>
-          <a href="#features" style={{ color: "#ccc", textDecoration: "none", fontSize: 15, padding: "8px 0" }} onClick={() => setMenuOpen(false)}>{t("nav_features")}</a>
-          <a href="#pricing" style={{ color: "#ccc", textDecoration: "none", fontSize: 15, padding: "8px 0" }} onClick={() => setMenuOpen(false)}>{t("nav_plans")}</a>
-          <LangToggle />
-          <button className="btn-ghost" style={{ width: "100%", marginTop: 4 }} onClick={() => navigate("/entrar")}>{t("nav_signin")}</button>
-          <button className="btn-primary" style={{ width: "100%", padding: "14px 24px" }} onClick={() => navigate("/cadastro")}>{t("nav_start")}</button>
+          <a href="#features" style={{ color: "#ccc", textDecoration: "none", fontSize: 15, padding: "8px 0" }} onClick={() => setMenuOpen(false)}>Recursos</a>
+          <a href="#pricing" style={{ color: "#ccc", textDecoration: "none", fontSize: 15, padding: "8px 0" }} onClick={() => setMenuOpen(false)}>Planos</a>
+          <button className="btn-ghost" style={{ width: "100%", marginTop: 4 }} onClick={() => navigate("/entrar")}>Entrar</button>
+          <button className="btn-primary" style={{ width: "100%", padding: "14px 24px" }} onClick={() => navigate("/cadastro")}>Começar Agora</button>
         </div>
       )}
 
@@ -336,7 +405,7 @@ export default function CanvasSyncLanding() {
             animation: "fadeInDown 0.6s ease both",
           }}>
             <span className="glow-dot" style={{ margin: 0 }} />
-            {t("hero_badge")}
+            Novo · Lyric Video Creator
           </div>
 
           {/* Main headline */}
@@ -351,11 +420,11 @@ export default function CanvasSyncLanding() {
               animation: "fadeInUp 0.7s ease 0.1s both",
             }}
           >
-            <span className="gradient-text">{t("hero_title1")}</span>
+            <span className="gradient-text">Seus vídeos</span>
             <br />
-            <span style={{ color: "#fff" }}>{t("hero_title2")}</span>
+            <span style={{ color: "#fff" }}>sincronizados</span>
             <br />
-            <span style={{ color: "#00BFFF" }}>{t("hero_title3")}</span>
+            <span style={{ color: "#00BFFF" }}>em um clique.</span>
           </h1>
 
           {/* Subheadline */}
@@ -368,7 +437,8 @@ export default function CanvasSyncLanding() {
             fontWeight: 300,
             animation: "fadeInUp 0.7s ease 0.2s both",
           }}>
-            {t("hero_sub").split(t("hero_sub_bold"))[0]}<strong style={{ color: "#bbb", fontWeight: 500 }}>{t("hero_sub_bold")}</strong>{t("hero_sub").split(t("hero_sub_bold"))[1]}
+            A maneira mais rápida de transformar áudio, imagem e vídeo em conteúdos{" "}
+            <strong style={{ color: "#bbb", fontWeight: 500 }}>virais para Reels e TikTok</strong>.
           </p>
 
           {/* CTAs */}
@@ -377,16 +447,16 @@ export default function CanvasSyncLanding() {
             animation: "fadeInUp 0.7s ease 0.3s both",
           }}>
             <button className="btn-primary" style={{ fontSize: 15, padding: "14px 32px", display: "flex", alignItems: "center", gap: 8 }} onClick={() => navigate("/cadastro")}>
-              {t("hero_cta_primary")} <ArrowRight size={16} />
+              Começar Grátis <ArrowRight size={16} />
             </button>
             <button className="btn-ghost" style={{ fontSize: 15, padding: "14px 28px", display: "flex", alignItems: "center", gap: 8 }}>
-              <Play size={14} fill="currentColor" /> {t("hero_cta_demo")}
+              <Play size={14} fill="currentColor" /> Ver demonstração
             </button>
           </div>
 
           {/* Trust micro-copy */}
           <p style={{ marginTop: 18, fontSize: 12, color: "#555" }}>
-            {t("hero_trust")}
+            Sem cartão de crédito · Grátis para sempre no plano Free
           </p>
         </div>
       </section>
@@ -466,8 +536,8 @@ export default function CanvasSyncLanding() {
                 </div>
 
                 <div style={{ position: "relative", zIndex: 1, textAlign: "center" }}>
-                  <p style={{ color: "#555", fontSize: 14, fontWeight: 500 }}>{t("video_demo")}</p>
-                  <p style={{ color: "#333", fontSize: 12, marginTop: 4 }}>{t("video_soon")}</p>
+                  <p style={{ color: "#555", fontSize: 14, fontWeight: 500 }}>Vídeo demonstrativo</p>
+                  <p style={{ color: "#333", fontSize: 12, marginTop: 4 }}>em breve disponível</p>
                 </div>
 
                 {/* Decorative corner accent */}
@@ -512,10 +582,10 @@ export default function CanvasSyncLanding() {
             }}
           >
             {[
-              { value: 12000, suffix: "+", label: t("stat_videos") },
-              { value: 97, suffix: "%", label: t("stat_satisfaction") },
-              { value: 5, suffix: "min", label: t("stat_time") },
-              { value: 0, suffix: "R$", label: t("stat_free") },
+              { value: 12000, suffix: "+", label: "Vídeos criados" },
+              { value: 97, suffix: "%", label: "Satisfação dos usuários" },
+              { value: 5, suffix: "min", label: "Tempo médio por vídeo" },
+              { value: 0, suffix: "R$", label: "Para começar" },
             ].map((stat, i) => (
               <div
                 key={i}
@@ -540,14 +610,14 @@ export default function CanvasSyncLanding() {
           <Reveal>
             <div style={{ textAlign: "center", marginBottom: 60 }}>
               <p style={{ color: "#00BFFF", fontSize: 12, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", marginBottom: 14 }}>
-                {t("features_label")}
+                RECURSOS
               </p>
               <h2 className="syne" style={{ fontSize: "clamp(28px, 5vw, 48px)", fontWeight: 800, letterSpacing: "-1px" }}>
-                {t("features_title1")}{" "}
-                <span className="gradient-text">{t("features_title2")}</span>
+                Tudo que você precisa,{" "}
+                <span className="gradient-text">sem complicação</span>
               </h2>
               <p style={{ color: "#666", marginTop: 16, fontSize: 16, maxWidth: 480, margin: "16px auto 0" }}>
-                {t("features_sub")}
+                Construído para criadores que precisam de resultado rápido e visual profissional.
               </p>
             </div>
           </Reveal>
@@ -585,10 +655,10 @@ export default function CanvasSyncLanding() {
         <div style={{ maxWidth: 1000, margin: "0 auto" }}>
           <Reveal>
             <p style={{ textAlign: "center", color: "#00BFFF", fontSize: 12, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", marginBottom: 14 }}>
-              {t("testimonials_label")}
+              DEPOIMENTOS
             </p>
             <h2 className="syne" style={{ textAlign: "center", fontSize: "clamp(26px, 4vw, 42px)", fontWeight: 800, letterSpacing: "-1px", marginBottom: 48 }}>
-              {t("testimonials_title1")} <span className="gradient-text">{t("testimonials_title2")}</span>
+              Criadores já estão <span className="gradient-text">amando</span>
             </h2>
           </Reveal>
 
@@ -634,16 +704,16 @@ export default function CanvasSyncLanding() {
           <Reveal>
             <div style={{ textAlign: "center", marginBottom: 48 }}>
               <p style={{ color: "#00BFFF", fontSize: 12, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", marginBottom: 14 }}>
-                {t("pricing_label")}
+                PLANOS
               </p>
               <h2 className="syne" style={{ fontSize: "clamp(28px, 5vw, 48px)", fontWeight: 800, letterSpacing: "-1px", marginBottom: 24 }}>
-                {t("pricing_title1")} <span className="gradient-text">{t("pricing_title2")}</span>
+                Simples e <span className="gradient-text">transparente</span>
               </h2>
 
               {/* Billing toggle */}
               <div style={{ display: "flex", justifyContent: "center" }}>
                 <div className="pricing-toggle">
-                  <span style={{ fontSize: 13, color: billingAnnual ? "#555" : "#ddd", fontWeight: 500 }}>{t("billing_monthly")}</span>
+                  <span style={{ fontSize: 13, color: billingAnnual ? "#555" : "#ddd", fontWeight: 500 }}>Mensal</span>
                   <div
                     className={`toggle-pill ${billingAnnual ? "on" : ""}`}
                     onClick={() => setBillingAnnual(!billingAnnual)}
@@ -651,7 +721,7 @@ export default function CanvasSyncLanding() {
                   >
                     <div className={`toggle-thumb ${billingAnnual ? "on" : ""}`} />
                   </div>
-                  <span style={{ fontSize: 13, color: billingAnnual ? "#ddd" : "#555", fontWeight: 500 }}>{t("billing_annual")}</span>
+                  <span style={{ fontSize: 13, color: billingAnnual ? "#ddd" : "#555", fontWeight: 500 }}>Anual</span>
                   {billingAnnual && (
                     <div style={{
                       background: "rgba(0,191,255,0.12)", border: "1px solid rgba(0,191,255,0.25)",
@@ -691,7 +761,7 @@ export default function CanvasSyncLanding() {
                 </ul>
 
                 <button className="btn-ghost" style={{ width: "100%", padding: "13px 0", borderRadius: 12, fontSize: 14 }} onClick={() => navigate("/cadastro")}>
-                  {t("free_cta")}
+                  Criar conta grátis
                 </button>
               </div>
             </Reveal>
@@ -732,17 +802,17 @@ export default function CanvasSyncLanding() {
                       {billingAnnual ? "R$ 399" : "R$ 39,90"}
                     </div>
                     <span style={{ color: "#555", fontSize: 14, marginBottom: 6 }}>
-                      {billingAnnual ? t("pro_per_year") : t("pro_per_month")}
+                      /{billingAnnual ? "ano" : "mês"}
                     </span>
                   </div>
                   {billingAnnual && (
                     <p style={{ color: "#00BFFF", fontSize: 12, marginTop: 6 }}>
-                      {t("pro_annual_note")}
+                      ≈ R$ 33,25/mês — economize R$ 79,80
                     </p>
                   )}
                   {!billingAnnual && (
                     <p style={{ color: "#555", fontSize: 12, marginTop: 6 }}>
-                      {t("pro_monthly_note")}
+                      ou R$ 399/ano
                     </p>
                   )}
                 </div>
@@ -763,11 +833,11 @@ export default function CanvasSyncLanding() {
                   style={{ width: "100%", padding: "14px 0", borderRadius: 12, fontSize: 15, position: "relative", zIndex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}
                   onClick={() => navigate("/planos")}
                 >
-                  {t("pro_cta")} <ChevronRight size={16} />
+                  Assinar Pro <ChevronRight size={16} />
                 </button>
 
                 <p style={{ textAlign: "center", fontSize: 11, color: "#444", marginTop: 14, position: "relative", zIndex: 1 }}>
-                  {t("pro_cancel")}
+                  Cancele quando quiser
                 </p>
               </div>
             </Reveal>
@@ -785,21 +855,130 @@ export default function CanvasSyncLanding() {
         }} />
         <Reveal>
           <p style={{ color: "#00BFFF", fontSize: 12, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", marginBottom: 20 }}>
-            {t("cta_label")}
+            PRONTO PARA COMEÇAR?
           </p>
           <h2 className="syne" style={{ fontSize: "clamp(30px, 5vw, 54px)", fontWeight: 800, letterSpacing: "-1.5px", marginBottom: 20 }}>
-            {t("cta_title1")}
+            Crie seu primeiro vídeo
             <br />
-            <span className="gradient-text">{t("cta_title2")}</span>
+            <span className="gradient-text">em menos de 5 minutos.</span>
           </h2>
           <p style={{ color: "#555", fontSize: 16, marginBottom: 40, maxWidth: 400, margin: "0 auto 40px" }}>
-            {t("cta_sub")}
+            Sem cartão de crédito. Sem tutorial. Só você, sua música e o resultado.
           </p>
           <button className="btn-primary" style={{ fontSize: 16, padding: "16px 40px", display: "inline-flex", alignItems: "center", gap: 10 }} onClick={() => navigate("/cadastro")}>
-            {t("cta_btn")} <ArrowRight size={18} />
+            Começar Agora — É Grátis <ArrowRight size={18} />
           </button>
         </Reveal>
       </section>
+
+
+      {/* ═══ TERMOS DE USO ═══════════════════════════════════════════════════ */}
+      <section id="termos" style={{ background: "#060606", borderTop: "1px solid rgba(255,255,255,0.05)", padding: "60px 24px" }}>
+        <div style={{ maxWidth: 780, margin: "0 auto" }}>
+          <h2 className="syne" style={{ fontSize: 24, fontWeight: 700, marginBottom: 24, color: "#f0f0f0" }}>Termos de Uso</h2>
+          <div style={{ color: "#666", fontSize: 14, lineHeight: 1.8, display: "flex", flexDirection: "column", gap: 16 }}>
+            <p><strong style={{ color: "#888" }}>1. Aceitação</strong><br />Ao usar o CanvasSync você concorda com estes termos. Se não concordar, não utilize o serviço.</p>
+            <p><strong style={{ color: "#888" }}>2. Uso Permitido</strong><br />O CanvasSync é destinado à criação de conteúdo visual para fins pessoais e comerciais legítimos. É proibido usar a plataforma para criar conteúdo que viole direitos autorais, seja difamatório, ilegal ou prejudicial.</p>
+            <p><strong style={{ color: "#888" }}>3. Conteúdo do Usuário</strong><br />Você é responsável por todo conteúdo (áudio, imagem, vídeo e texto) que inserir na plataforma. O CanvasSync não se responsabiliza pelo uso indevido de material protegido por direitos autorais.</p>
+            <p><strong style={{ color: "#888" }}>4. Planos e Pagamentos</strong><br />Os planos pagos são cobrados conforme descrito na página de preços. Cancelamentos podem ser realizados a qualquer momento, sem multa, mas sem reembolso proporcional do período em curso.</p>
+            <p><strong style={{ color: "#888" }}>5. Disponibilidade</strong><br />Nos esforçamos para manter o serviço disponível 24/7, mas não garantimos disponibilidade ininterrupta. Manutenções programadas serão comunicadas com antecedência.</p>
+            <p><strong style={{ color: "#888" }}>6. Alterações</strong><br />Podemos atualizar estes termos a qualquer momento. O uso continuado do serviço após as alterações implica aceitação dos novos termos.</p>
+            <p><strong style={{ color: "#888" }}>7. Contato</strong><br />Dúvidas sobre os termos: <a href="mailto:canvassynclyrics@gmail.com" style={{ color: "#00BFFF" }}>canvassynclyrics@gmail.com</a></p>
+          </div>
+        </div>
+      </section>
+
+      {/* ═══ PRIVACIDADE ══════════════════════════════════════════════════════ */}
+      <section id="privacidade" style={{ background: "#070707", borderTop: "1px solid rgba(255,255,255,0.05)", padding: "60px 24px" }}>
+        <div style={{ maxWidth: 780, margin: "0 auto" }}>
+          <h2 className="syne" style={{ fontSize: 24, fontWeight: 700, marginBottom: 24, color: "#f0f0f0" }}>Política de Privacidade</h2>
+          <div style={{ color: "#666", fontSize: 14, lineHeight: 1.8, display: "flex", flexDirection: "column", gap: 16 }}>
+            <p><strong style={{ color: "#888" }}>Dados Coletados</strong><br />Coletamos nome, e-mail e dados de uso para fornecer e melhorar o serviço. Não vendemos seus dados a terceiros.</p>
+            <p><strong style={{ color: "#888" }}>Autenticação</strong><br />Oferecemos login via Google OAuth. Neste caso, recebemos apenas nome, e-mail e foto de perfil públicos da sua conta Google.</p>
+            <p><strong style={{ color: "#888" }}>Pagamentos</strong><br />Pagamentos são processados pelo Stripe. Não armazenamos dados de cartão de crédito em nossos servidores.</p>
+            <p><strong style={{ color: "#888" }}>Conteúdo Criado</strong><br />Áudios, imagens e vídeos que você carrega são processados localmente no seu navegador para criação do vídeo final. Não armazenamos seu conteúdo em nossos servidores.</p>
+            <p><strong style={{ color: "#888" }}>Cookies</strong><br />Usamos cookies essenciais para manter sua sessão ativa. Não usamos cookies de rastreamento de terceiros.</p>
+            <p><strong style={{ color: "#888" }}>Seus Direitos</strong><br />Você pode solicitar exclusão da sua conta e dados a qualquer momento pelo e-mail: <a href="mailto:canvassynclyrics@gmail.com" style={{ color: "#00BFFF" }}>canvassynclyrics@gmail.com</a></p>
+          </div>
+        </div>
+      </section>
+
+      {/* ═══ CHAT DE SUPORTE ══════════════════════════════════════════════════ */}
+      {/* Botão flutuante */}
+      <button
+        onClick={() => setChatOpen(o => !o)}
+        style={{
+          position: "fixed", bottom: 24, right: 24, zIndex: 9999,
+          width: 54, height: 54, borderRadius: "50%",
+          background: "linear-gradient(135deg, #00BFFF, #0070ff)",
+          border: "none", cursor: "pointer",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          boxShadow: "0 4px 20px rgba(0,191,255,0.4)",
+          transition: "transform 0.2s",
+        }}
+        onMouseEnter={e => e.currentTarget.style.transform = "scale(1.08)"}
+        onMouseLeave={e => e.currentTarget.style.transform = "scale(1)"}
+        title="Suporte CanvasSync"
+      >
+        {chatOpen ? <X size={22} color="#fff" /> : <MessageSquare size={22} color="#fff" />}
+      </button>
+
+      {/* Janela do chat */}
+      {chatOpen && (
+        <div style={{
+          position: "fixed", bottom: 88, right: 24, zIndex: 9998,
+          width: 340, maxHeight: 480, borderRadius: 18,
+          background: "#111", border: "1px solid rgba(0,191,255,0.2)",
+          boxShadow: "0 16px 48px rgba(0,0,0,0.6)",
+          display: "flex", flexDirection: "column", overflow: "hidden",
+        }}>
+          {/* Header */}
+          <div style={{ padding: "14px 18px", background: "linear-gradient(135deg,rgba(0,191,255,0.15),rgba(0,112,255,0.1))", borderBottom: "1px solid rgba(255,255,255,0.06)", display: "flex", alignItems: "center", gap: 10 }}>
+            <div style={{ width: 32, height: 32, borderRadius: "50%", background: "linear-gradient(135deg,#00BFFF,#0070ff)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <Bot size={17} color="#fff" />
+            </div>
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: "#f0f0f0" }}>Suporte CanvasSync</div>
+              <div style={{ fontSize: 11, color: "#00BFFF" }}>● Online</div>
+            </div>
+          </div>
+          {/* Messages */}
+          <div style={{ flex: 1, overflowY: "auto", padding: "14px 14px 8px", display: "flex", flexDirection: "column", gap: 10 }}>
+            {chatMessages.map((m, i) => (
+              <div key={i} style={{ display: "flex", justifyContent: m.role === "user" ? "flex-end" : "flex-start" }}>
+                <div style={{
+                  maxWidth: "82%", padding: "9px 13px", borderRadius: m.role === "user" ? "16px 16px 4px 16px" : "16px 16px 16px 4px",
+                  background: m.role === "user" ? "linear-gradient(135deg,#00BFFF,#0070ff)" : "rgba(255,255,255,0.06)",
+                  color: m.role === "user" ? "#000" : "#ddd", fontSize: 13, lineHeight: 1.5,
+                }}>
+                  {m.text}
+                </div>
+              </div>
+            ))}
+            {chatLoading && (
+              <div style={{ display: "flex" }}>
+                <div style={{ padding: "9px 13px", borderRadius: "16px 16px 16px 4px", background: "rgba(255,255,255,0.06)", color: "#888", fontSize: 13 }}>
+                  Digitando...
+                </div>
+              </div>
+            )}
+          </div>
+          {/* Input */}
+          <div style={{ padding: "10px 12px", borderTop: "1px solid rgba(255,255,255,0.06)", display: "flex", gap: 8 }}>
+            <input
+              value={chatInput}
+              onChange={e => setChatInput(e.target.value)}
+              onKeyDown={e => e.key === "Enter" && sendChat()}
+              placeholder="Digite sua dúvida..."
+              style={{ flex: 1, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 12, padding: "9px 14px", color: "#f0f0f0", fontSize: 13, outline: "none" }}
+            />
+            <button onClick={sendChat} disabled={chatLoading}
+              style={{ width: 38, height: 38, borderRadius: "50%", background: chatLoading ? "rgba(0,191,255,0.2)" : "linear-gradient(135deg,#00BFFF,#0070ff)", border: "none", cursor: chatLoading ? "not-allowed" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+              <Send size={16} color="#fff" />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* ═══ FOOTER ══════════════════════════════════════════════════════════ */}
       <footer style={{
@@ -822,14 +1001,22 @@ export default function CanvasSyncLanding() {
 
           {/* Links */}
           <div style={{ display: "flex", gap: 24, flexWrap: "wrap" }}>
-            {[t("footer_terms"), t("footer_privacy"), t("footer_support"), t("footer_contact")].map(link => (
-              <a key={link} href="#" style={{ color: "#444", fontSize: 13, textDecoration: "none", transition: "color 0.2s" }}
-                onMouseEnter={e => e.target.style.color = "#888"}
-                onMouseLeave={e => e.target.style.color = "#444"}
-              >
-                {link}
-              </a>
-            ))}
+            <a href="#termos" style={{ color: "#444", fontSize: 13, textDecoration: "none", transition: "color 0.2s" }}
+              onMouseEnter={e => e.target.style.color = "#888"} onMouseLeave={e => e.target.style.color = "#444"}>
+              Termos de Uso
+            </a>
+            <a href="#privacidade" style={{ color: "#444", fontSize: 13, textDecoration: "none", transition: "color 0.2s" }}
+              onMouseEnter={e => e.target.style.color = "#888"} onMouseLeave={e => e.target.style.color = "#444"}>
+              Privacidade
+            </a>
+            <button onClick={() => setChatOpen(true)} style={{ background: "none", border: "none", color: "#444", fontSize: 13, textDecoration: "none", cursor: "pointer", padding: 0, transition: "color 0.2s" }}
+              onMouseEnter={e => e.target.style.color = "#888"} onMouseLeave={e => e.target.style.color = "#444"}>
+              Suporte
+            </button>
+            <a href="mailto:canvassynclyrics@gmail.com" style={{ color: "#444", fontSize: 13, textDecoration: "none", transition: "color 0.2s" }}
+              onMouseEnter={e => e.target.style.color = "#888"} onMouseLeave={e => e.target.style.color = "#444"}>
+              Contato
+            </a>
           </div>
 
           {/* Social icons */}
@@ -852,7 +1039,7 @@ export default function CanvasSyncLanding() {
 
         <div style={{ maxWidth: 1100, margin: "24px auto 0", paddingTop: 24, borderTop: "1px solid rgba(255,255,255,0.04)", textAlign: "center" }}>
           <p style={{ color: "#333", fontSize: 12 }}>
-            © {new Date().getFullYear()} CanvasSync. {t("footer_rights")}
+            © {new Date().getFullYear()} CanvasSync. Todos os direitos reservados.
           </p>
         </div>
       </footer>
