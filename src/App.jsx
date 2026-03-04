@@ -55,6 +55,8 @@ function App() {
   const playheadRef = useRef(null);
   const timelineScrollRef = useRef(null);
   const waveformCanvasRef = useRef(null);
+  const virtualTimeRef    = useRef(0);   // relógio virtual quando não há áudio
+  const clockIntervalRef  = useRef(null);
   // Refs para capturar valores atuais dentro de callbacks estáveis
   const fontSizeRef = useRef(fontSize);
   const fontFamilyRef = useRef(fontFamily);
@@ -480,10 +482,9 @@ function App() {
 
   const handleStopPlayback = () => {
     const audio = audioRef.current;
-    if (audio) {
-      audio.pause();
-      audio.currentTime = 0;
-    }
+    if (audio) { audio.pause(); audio.currentTime = 0; }
+    if (clockIntervalRef.current) { clearInterval(clockIntervalRef.current); clockIntervalRef.current = null; }
+    virtualTimeRef.current = 0;
     setIsPlaying(false);
     setCurrentTime(0);
   };
@@ -585,14 +586,15 @@ function App() {
   const scrubToClientX = (clientX) => {
     const container = timelineScrollRef.current;
     const audio = audioRef.current;
-    if (!container || !audio) return;
+    if (!container) return;
     const rect = container.getBoundingClientRect();
     const rawX = clientX - rect.left + container.scrollLeft;
     const lyricMax = lyrics.reduce((max, l) => Math.max(max, l.end || 0), 0);
     const imageMax = images.reduce((max, item) => Math.max(max, item.end || 0), 0);
     const maxTime = Math.max(duration, lyricMax, imageMax);
     const nextTime = Math.max(0, Math.min(maxTime, rawX / zoom));
-    audio.currentTime = nextTime;
+    if (audio) audio.currentTime = nextTime;
+    virtualTimeRef.current = nextTime;
     setCurrentTime(nextTime);
     if (playheadRef.current) {
       playheadRef.current.style.transform = `translateX(${nextTime * zoom}px)`;
@@ -670,7 +672,7 @@ function App() {
     setActiveExtraTextId(null);
 
     // Verifica clique em lyric ativa no canvas
-    const time = audioRef.current ? audioRef.current.currentTime : currentTime;
+    const time = audioRef.current ? audioRef.current.currentTime : virtualTimeRef.current;
     const visibleLyric = lyrics.find(l => time >= l.start && time <= l.end);
     if (visibleLyric) {
       const vFontSize = visibleLyric.fontSize || fontSize;
@@ -714,17 +716,46 @@ function App() {
     }
 
     setActiveLyricId(null);
-    // ── Procura vídeo clicado (acima das imagens na ordem de renderização)
-    const hs2 = 10;
+    const hs = 10;
+
+    // ── Imagens têm prioridade (desenhadas por cima dos vídeos) ─────────────
+    const clickedItem = images.slice().reverse().find((item) => {
+      if (!item || !item.img) return false;
+      return time >= item.start && time <= item.end &&
+        mouseX >= item.x - hs && mouseX <= item.x + item.width + hs &&
+        mouseY >= item.y - hs && mouseY <= item.y + item.height + hs;
+    });
+    if (clickedItem) {
+      setActiveImageId(clickedItem.id);
+      setActiveVideoId(null);
+      const handleSize = 12;
+      const nearLeft   = Math.abs(mouseX - clickedItem.x) <= handleSize;
+      const nearRight  = Math.abs(mouseX - (clickedItem.x + clickedItem.width)) <= handleSize;
+      const nearTop    = Math.abs(mouseY - clickedItem.y) <= handleSize;
+      const nearBottom = Math.abs(mouseY - (clickedItem.y + clickedItem.height)) <= handleSize;
+      const corner = `${nearTop?'n':''}${nearBottom?'s':''}${nearLeft?'w':''}${nearRight?'e':''}`;
+      if (corner.length >= 2) {
+        setDragging({ itemKind: 'canvas-image', type: 'resize', id: clickedItem.id, corner,
+          startX: mouseX, startY: mouseY,
+          startWidth: clickedItem.width, startHeight: clickedItem.height,
+          startXPos: clickedItem.x, startYPos: clickedItem.y });
+      } else {
+        setDragging({ itemKind: 'canvas-image', type: 'move', id: clickedItem.id,
+          offsetX: mouseX - clickedItem.x, offsetY: mouseY - clickedItem.y });
+      }
+      return;
+    }
+    setActiveImageId(null);
+
+    // ── Vídeos (desenhados abaixo das imagens) ────────────────────────────
     const clickedVideo = videos.slice().reverse().find(v => {
       if (!v.videoEl) return false;
       return time >= v.start && time <= v.end &&
-        mouseX >= v.x - hs2 && mouseX <= v.x + v.width + hs2 &&
-        mouseY >= v.y - hs2 && mouseY <= v.y + v.height + hs2;
+        mouseX >= v.x - hs && mouseX <= v.x + v.width + hs &&
+        mouseY >= v.y - hs && mouseY <= v.y + v.height + hs;
     });
     if (clickedVideo) {
       setActiveVideoId(clickedVideo.id);
-      setActiveImageId(null);
       const s = 12;
       const nL = Math.abs(mouseX - clickedVideo.x) <= s;
       const nR = Math.abs(mouseX - (clickedVideo.x + clickedVideo.width)) <= s;
@@ -743,37 +774,6 @@ function App() {
       return;
     }
     setActiveVideoId(null);
-
-    // ── Procura imagem clicada entre TODAS ativas (camadas, do topo para baixo)
-    const hs = 10;
-    const clickedItem = images.slice().reverse().find((item) => {
-      if (!item || !item.img) return false;
-      return time >= item.start && time <= item.end &&
-        mouseX >= item.x - hs && mouseX <= item.x + item.width + hs &&
-        mouseY >= item.y - hs && mouseY <= item.y + item.height + hs;
-    });
-    if (!clickedItem) { setActiveImageId(null); return; }
-    const activeItem = clickedItem;
-    setActiveImageId(activeItem.id);
-    const handleSize = 12;
-    const nearLeft   = Math.abs(mouseX - activeItem.x) <= handleSize;
-    const nearRight  = Math.abs(mouseX - (activeItem.x + activeItem.width)) <= handleSize;
-    const nearTop    = Math.abs(mouseY - activeItem.y) <= handleSize;
-    const nearBottom = Math.abs(mouseY - (activeItem.y + activeItem.height)) <= handleSize;
-    const corner = `${nearTop ? 'n' : ''}${nearBottom ? 's' : ''}${nearLeft ? 'w' : ''}${nearRight ? 'e' : ''}`;
-    if (corner.length >= 2) {
-      setDragging({
-        itemKind: 'canvas-image', type: 'resize', id: activeItem.id, corner,
-        startX: mouseX, startY: mouseY,
-        startWidth: activeItem.width, startHeight: activeItem.height,
-        startXPos: activeItem.x, startYPos: activeItem.y
-      });
-    } else {
-      setDragging({
-        itemKind: 'canvas-image', type: 'move', id: activeItem.id,
-        offsetX: mouseX - activeItem.x, offsetY: mouseY - activeItem.y
-      });
-    }
   };
 
   const handleGlobalMouseMove = useCallback((e) => {
@@ -880,7 +880,7 @@ function App() {
     // Cursor style for resize handles
     let newCursor = 'default';
     if (!dragging) {
-      const time = audioRef.current ? audioRef.current.currentTime : currentTime;
+      const time = audioRef.current ? audioRef.current.currentTime : virtualTimeRef.current;
       const activeItem = images.find((item) => item.id === activeImageId && time >= item.start && time <= item.end);
       if (activeItem) {
         const handleSize = 12;
@@ -1094,7 +1094,7 @@ function App() {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
-    const time = audioRef.current ? audioRef.current.currentTime : 0;
+    const time = audioRef.current ? audioRef.current.currentTime : virtualTimeRef.current;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     
     if (image) {
@@ -1261,7 +1261,7 @@ function App() {
   // Não usa useEffect reativo — evita closure stale de isPlaying
   const syncVideosInRAF = useCallback(() => {
     const audio = audioRef.current;
-    const t = audio ? audio.currentTime : 0;
+    const t = audio ? audio.currentTime : virtualTimeRef.current;
     const playing = isPlayingRef.current;
     videosRef.current.forEach(v => {
       if (!v.videoEl) return;
@@ -1325,8 +1325,9 @@ function App() {
     const loop = () => {
       // 1) Mover o playhead
       const audio = audioRef.current;
-      if (audio && playheadRef.current) {
-        playheadRef.current.style.transform = `translateX(${audio.currentTime * zoomRef.current}px)`;
+      const t_now = audio ? audio.currentTime : virtualTimeRef.current;
+      if (playheadRef.current) {
+        playheadRef.current.style.transform = `translateX(${t_now * zoomRef.current}px)`;
       }
       // 2) Sincronizar vídeos
       if (syncVideosInRAFRef.current) syncVideosInRAFRef.current();
@@ -2223,9 +2224,30 @@ function App() {
         {/* CONTROLES E ZOOM */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '15px', padding: '12px 20px', background: 'rgba(0,0,0,0.6)', borderBottom: '1px solid rgba(255,255,255,0.07)', width: '100%', boxSizing: 'border-box' }}>
             <button onClick={() => {
-              if (isPlaying) audioRef.current.pause();
-              else audioRef.current.play();
-              setIsPlaying(!isPlaying);
+              const audio = audioRef.current;
+              if (isPlaying) {
+                // Pausar
+                if (audio) audio.pause();
+                // Para o clock virtual
+                if (clockIntervalRef.current) { clearInterval(clockIntervalRef.current); clockIntervalRef.current = null; }
+                setIsPlaying(false);
+              } else {
+                // Iniciar
+                if (audio) {
+                  audio.play().catch(() => {});
+                } else {
+                  // Sem áudio: clock virtual baseado em Date.now()
+                  const startWall = Date.now();
+                  const startVirt = virtualTimeRef.current;
+                  if (clockIntervalRef.current) clearInterval(clockIntervalRef.current);
+                  clockIntervalRef.current = setInterval(() => {
+                    const elapsed = (Date.now() - startWall) / 1000;
+                    virtualTimeRef.current = startVirt + elapsed;
+                    setCurrentTime(startVirt + elapsed);
+                  }, 30);
+                }
+                setIsPlaying(true);
+              }
             }} style={{ background: isPlaying ? '#00BFFF' : 'rgba(255,255,255,0.06)', border: '1px solid rgba(0,191,255,0.25)', padding: '9px 22px', borderRadius: '18px', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px', color: isPlaying ? '#000' : '#f0f0f0', boxShadow: isPlaying ? '0 8px 20px rgba(0,191,255,0.3)' : 'none' }}>
               {isPlaying ? t('ed_pause') : t('ed_play')}
             </button>
