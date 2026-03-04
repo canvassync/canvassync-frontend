@@ -1378,7 +1378,7 @@ function App() {
     return () => audio.removeEventListener('timeupdate', onTime);
   }, [audioSrc]);
 
-  const renderAtTimeToCanvas = (targetCanvas, t, scale = 1) => {
+  const renderAtTimeToCanvas = async (targetCanvas, t, scale = 1) => {
     const ctx = targetCanvas.getContext('2d');
     // ⚠️ Reseta transform antes de cada frame para não acumular ctx.scale entre chamadas
     ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -1393,11 +1393,22 @@ function App() {
       ctx.fillStyle = '#000';
       ctx.fillRect(0, 0, logicalW, logicalH);
     }
-    // Renderiza TODOS os vídeos ativos no instante t (seek síncrono)
-    getVideosForTime(t).forEach(v => {
-      if (!v.videoEl || v.videoEl.readyState < 2) return;
+    // Renderiza TODOS os vídeos ativos no instante t (seek assíncrono correto)
+    const activeVids = getVideosForTime(t);
+    await Promise.all(activeVids.map(v => new Promise(resolve => {
+      if (!v.videoEl) return resolve();
       const relTime = Math.max(0, Math.min(t - v.start, v.videoEl.duration || 0));
-      if (Math.abs(v.videoEl.currentTime - relTime) > 0.05) v.videoEl.currentTime = relTime;
+      // Se já está no tempo certo, desenha direto
+      if (Math.abs(v.videoEl.currentTime - relTime) < 0.04) return resolve();
+      // Aguarda o evento 'seeked' antes de desenhar
+      const onSeeked = () => { v.videoEl.removeEventListener('seeked', onSeeked); resolve(); };
+      const timeout  = setTimeout(() => { v.videoEl.removeEventListener('seeked', onSeeked); resolve(); }, 300);
+      v.videoEl.addEventListener('seeked', () => { clearTimeout(timeout); onSeeked(); });
+      v.videoEl.pause();
+      v.videoEl.currentTime = relTime;
+    })));
+    activeVids.forEach(v => {
+      if (!v.videoEl || v.videoEl.readyState < 2) return;
       drawRotatedElement(ctx, () => drawRoundedImage(ctx, v.videoEl, v.x, v.y, v.width, v.height, v.radius ?? 12), v.x, v.y, v.width, v.height, v.rotation);
     });
     // Renderiza TODAS as imagens ativas no instante t
@@ -1480,7 +1491,7 @@ function App() {
       const writer = new WebMWriter({ frameRate: fps, quality: 0.95 });
       for (let i = 0; i < totalFrames; i++) {
         const t = i / fps;
-        renderAtTimeToCanvas(offCanvas, t);
+        await renderAtTimeToCanvas(offCanvas, t);
         writer.addFrame(offCanvas);
         setExportProgress(((i + 1) / totalFrames));
         await new Promise(r => setTimeout(r, 0));
@@ -1515,6 +1526,8 @@ function App() {
       return 3;
     })();
     if (!effectiveDuration || effectiveDuration <= 0) return;
+    // Pausa todos os vídeos antes de exportar
+    videosRef.current.forEach(v => { if (v.videoEl && !v.videoEl.paused) v.videoEl.pause(); });
     setIsExporting(true);
     setExportProgress(0);
     try {
@@ -1585,7 +1598,7 @@ function App() {
       }
       for (let i = 0; i < totalFrames; i++) {
         const t = i / fps;
-        renderAtTimeToCanvas(offCanvas, t);
+        await renderAtTimeToCanvas(offCanvas, t);
         const bitmap = await createImageBitmap(offCanvas);
         const videoFrame = new VideoFrame(bitmap, { timestamp: Math.round((t) * 1_000_000) });
         vEncoder.encode(videoFrame);
@@ -1778,6 +1791,8 @@ function App() {
     const hdW   = baseCanvas.width  * SCALE;
     const hdH   = baseCanvas.height * SCALE;
 
+    // Pausa todos os vídeos antes de exportar HD
+    videosRef.current.forEach(v => { if (v.videoEl && !v.videoEl.paused) v.videoEl.pause(); });
     setIsExporting(true);
     setExportProgress(0);
     try {
@@ -1855,7 +1870,7 @@ function App() {
       // Frames HD
       for (let i = 0; i < totalFrames; i++) {
         const t = i / fps;
-        renderAtTimeToCanvas(offCanvas, t, SCALE);
+        await renderAtTimeToCanvas(offCanvas, t, SCALE);
         const bitmap     = await createImageBitmap(offCanvas);
         const videoFrame = new VideoFrame(bitmap, { timestamp: Math.round(t * 1_000_000) });
         vEncoder.encode(videoFrame);
