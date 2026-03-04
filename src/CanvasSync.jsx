@@ -2,8 +2,8 @@ import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Play, Zap, Download, Layers, Star, Check, ChevronRight,
-  Music, Image, Sparkles, ArrowRight, Menu, X, Twitter,
-  Instagram, Youtube, MessageSquare, Send, Bot, Video
+  Music, Image, Sparkles, ArrowRight, Menu, X,
+  MessageSquare, Bot
 } from "lucide-react";
 
 /* ─── Intersection Observer hook for scroll-reveal ─── */
@@ -67,11 +67,7 @@ export default function CanvasSyncLanding() {
   const navigate = useNavigate();
   const [scrolled, setScrolled] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
-  const [chatMessages, setChatMessages] = useState([
-    { role: 'assistant', text: 'Olá! Sou o suporte CanvasSync. Como posso ajudar?' }
-  ]);
-  const [chatInput, setChatInput] = useState('');
-  const [chatLoading, setChatLoading] = useState(false);
+  const [chatTopic, setChatTopic] = useState(null);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 40);
@@ -136,34 +132,6 @@ export default function CanvasSyncLanding() {
     { name: "Caio R.", role: "Criador de Conteúdo", text: "A sincronização da letra no ritmo é absurdamente precisa. Melhor que qualquer outra ferramenta.", stars: 5 },
     { name: "Fernanda S.", role: "DJ & Artista", text: "Meus Reels explodiram depois que comecei a usar. Visual profissional em minutos.", stars: 5 },
   ];
-
-  const sendChat = async () => {
-    const text = chatInput.trim();
-    if (!text || chatLoading) return;
-    setChatInput('');
-    const userMsg = { role: 'user', text };
-    setChatMessages(prev => [...prev, userMsg]);
-    setChatLoading(true);
-    try {
-      const res = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-20250514',
-          max_tokens: 500,
-          system: 'Você é o assistente de suporte do CanvasSync, um editor de vídeo para criar conteúdos para Reels e TikTok com sincronização de letras de música. Responda de forma objetiva e amigável em português. Se não souber algo específico, oriente o usuário a enviar email para canvassynclyrics@gmail.com.',
-          messages: [...chatMessages, userMsg].map(m => ({ role: m.role === 'assistant' ? 'assistant' : 'user', content: m.text }))
-        })
-      });
-      const data = await res.json();
-      const reply = data.content?.[0]?.text || 'Desculpe, não consegui responder agora.';
-      setChatMessages(prev => [...prev, { role: 'assistant', text: reply }]);
-    } catch {
-      setChatMessages(prev => [...prev, { role: 'assistant', text: 'Erro de conexão. Tente novamente ou envie email para canvassynclyrics@gmail.com.' }]);
-    } finally {
-      setChatLoading(false);
-    }
-  };
 
   return (
     <div
@@ -870,6 +838,7 @@ export default function CanvasSyncLanding() {
           </button>
         </Reveal>
       </section>
+
       {/* ═══ FOOTER ══════════════════════════════════════════════════════════ */}
       <footer style={{
         borderTop: "1px solid var(--border)",
@@ -890,39 +859,19 @@ export default function CanvasSyncLanding() {
           </div>
 
           {/* Links */}
-          <div style={{ display: "flex", gap: 24, flexWrap: "wrap" }}>
-            <a href="/termos" onClick={e => { e.preventDefault(); navigate("/termos"); }} style={{ color: "#444", fontSize: 13, textDecoration: "none", transition: "color 0.2s" }}
-              onMouseEnter={e => e.target.style.color = "#888"} onMouseLeave={e => e.target.style.color = "#444"}>
-              Termos de Uso
-            </a>
-            <a href="/privacidade" onClick={e => { e.preventDefault(); navigate("/privacidade"); }} style={{ color: "#444", fontSize: 13, textDecoration: "none", transition: "color 0.2s" }}
-              onMouseEnter={e => e.target.style.color = "#888"} onMouseLeave={e => e.target.style.color = "#444"}>
-              Privacidade
-            </a>
-            <button onClick={() => setChatOpen(true)} style={{ background: "none", border: "none", color: "#444", fontSize: 13, textDecoration: "none", cursor: "pointer", padding: 0, transition: "color 0.2s" }}
-              onMouseEnter={e => e.target.style.color = "#888"} onMouseLeave={e => e.target.style.color = "#444"}>
-              Suporte
-            </button>
-            <a href="mailto:canvassynclyrics@gmail.com" style={{ color: "#444", fontSize: 13, textDecoration: "none", transition: "color 0.2s" }}
-              onMouseEnter={e => e.target.style.color = "#888"} onMouseLeave={e => e.target.style.color = "#444"}>
-              Contato
-            </a>
-          </div>
-
-          {/* Social icons */}
-          <div style={{ display: "flex", gap: 12 }}>
-            {[Twitter, Instagram, Youtube].map((Icon, i) => (
-              <a key={i} href="#" style={{
-                width: 34, height: 34, borderRadius: 8,
-                background: "var(--surface)", border: "1px solid var(--border)",
-                display: "flex", alignItems: "center", justifyContent: "center",
-                color: "#555", transition: "all 0.2s", textDecoration: "none",
-              }}
-                onMouseEnter={e => { e.currentTarget.style.borderColor = "rgba(0,191,255,0.3)"; e.currentTarget.style.color = "#00BFFF"; }}
-                onMouseLeave={e => { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.color = "#555"; }}
-              >
-                <Icon size={14} />
-              </a>
+          <div style={{ display: "flex", gap: 24, flexWrap: "wrap", alignItems: "center" }}>
+            {[
+              { label: "Termos de Uso", action: () => navigate("/termos") },
+              { label: "Privacidade",   action: () => navigate("/privacidade") },
+              { label: "Suporte",       action: () => { setChatOpen(true); setChatTopic(null); } },
+              { label: "Contato",       action: () => { window.location.href = "mailto:canvassynclyrics@gmail.com"; } },
+            ].map(({ label, action }) => (
+              <button key={label} onClick={action}
+                style={{ background: "none", border: "none", color: "#444", fontSize: 13, cursor: "pointer", padding: 0, transition: "color 0.2s", fontFamily: "inherit" }}
+                onMouseEnter={e => e.currentTarget.style.color = "#888"}
+                onMouseLeave={e => e.currentTarget.style.color = "#444"}>
+                {label}
+              </button>
             ))}
           </div>
         </div>
@@ -933,6 +882,70 @@ export default function CanvasSyncLanding() {
           </p>
         </div>
       </footer>
+
+
+      {/* ═══ CHAT SUPORTE ════════════════════════════════════════════════════ */}
+      <button
+        onClick={() => { setChatOpen(o => !o); setChatTopic(null); }}
+        style={{ position: "fixed", bottom: 24, right: 24, zIndex: 9999, width: 54, height: 54, borderRadius: "50%", background: "linear-gradient(135deg,#00BFFF,#0070ff)", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 4px 20px rgba(0,191,255,0.4)", transition: "transform 0.2s" }}
+        onMouseEnter={e => e.currentTarget.style.transform = "scale(1.08)"}
+        onMouseLeave={e => e.currentTarget.style.transform = "scale(1)"}
+      >
+        {chatOpen ? <X size={22} color="#fff" /> : <MessageSquare size={22} color="#fff" />}
+      </button>
+      {chatOpen && (() => {
+        const faqs = [
+          { q: "Como exportar o vídeo?", a: "No editor Pro, selecione o formato (WEBM + Áudio ou HD 1080p) e clique em Salvar. O arquivo será baixado automaticamente." },
+          { q: "Como sincronizar a letra?", a: "Cole a letra no campo de texto (uma frase por linha), dê Play e clique em ⚡ MARCAR AGORA no ritmo de cada frase." },
+          { q: "Como adicionar vídeos?", a: "No editor Pro há a opção 🎬 Vídeos no topo. Adicione vídeos, ajuste posição, tamanho, rotação e áudio na timeline." },
+          { q: "Diferença Free vs Pro?", a: "Free: imagens estáticas (PNG/JPG). Pro: vídeo com áudio, HD 1080p, sincronização de letras, vídeos e sem marca d'água." },
+          { q: "Problemas com pagamento", a: "Pagamentos são processados pelo Stripe. Para problemas, entre em contato pelo e-mail abaixo." },
+        ];
+        return (
+          <div style={{ position: "fixed", bottom: 88, right: 24, zIndex: 9998, width: 340, borderRadius: 18, background: "#111", border: "1px solid rgba(0,191,255,0.2)", boxShadow: "0 16px 48px rgba(0,0,0,0.6)", overflow: "hidden" }}>
+            <div style={{ padding: "14px 18px", background: "linear-gradient(135deg,rgba(0,191,255,0.15),rgba(0,112,255,0.1))", borderBottom: "1px solid rgba(255,255,255,0.06)", display: "flex", alignItems: "center", gap: 10 }}>
+              <div style={{ width: 32, height: 32, borderRadius: "50%", background: "linear-gradient(135deg,#00BFFF,#0070ff)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                <Bot size={17} color="#fff" />
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: "#f0f0f0" }}>Suporte CanvasSync</div>
+                <div style={{ fontSize: 11, color: "#00BFFF" }}>Como podemos ajudar?</div>
+              </div>
+              {chatTopic !== null && (
+                <button onClick={() => setChatTopic(null)} style={{ background: "none", border: "none", color: "#666", cursor: "pointer", fontSize: 20, lineHeight: 1, padding: "0 4px" }}>←</button>
+              )}
+            </div>
+            <div style={{ padding: 14, maxHeight: 360, overflowY: "auto" }}>
+              {chatTopic === null ? (
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  <p style={{ fontSize: 12, color: "#555", marginBottom: 4 }}>Selecione um tópico:</p>
+                  {faqs.map((item, i) => (
+                    <button key={i} onClick={() => setChatTopic(i)}
+                      style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 12, padding: "10px 14px", color: "#ccc", fontSize: 13, cursor: "pointer", textAlign: "left", transition: "all 0.15s", fontFamily: "inherit" }}
+                      onMouseEnter={e => { e.currentTarget.style.borderColor = "rgba(0,191,255,0.3)"; e.currentTarget.style.color = "#fff"; }}
+                      onMouseLeave={e => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.08)"; e.currentTarget.style.color = "#ccc"; }}>
+                      {item.q}
+                    </button>
+                  ))}
+                  <a href="mailto:canvassynclyrics@gmail.com" style={{ marginTop: 4, background: "rgba(0,191,255,0.08)", border: "1px solid rgba(0,191,255,0.2)", borderRadius: 12, padding: "10px 14px", color: "#00BFFF", fontSize: 13, textAlign: "center", textDecoration: "none", display: "block" }}>
+                    ✉️ Enviar e-mail para o suporte
+                  </a>
+                </div>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                  <div style={{ background: "rgba(0,191,255,0.08)", border: "1px solid rgba(0,191,255,0.15)", borderRadius: 12, padding: "12px 14px" }}>
+                    <p style={{ fontSize: 12, color: "#00BFFF", fontWeight: 700, marginBottom: 8 }}>{faqs[chatTopic].q}</p>
+                    <p style={{ fontSize: 13, color: "#ccc", lineHeight: 1.6 }}>{faqs[chatTopic].a}</p>
+                  </div>
+                  <a href="mailto:canvassynclyrics@gmail.com" style={{ background: "rgba(0,191,255,0.08)", border: "1px solid rgba(0,191,255,0.2)", borderRadius: 12, padding: "10px 14px", color: "#00BFFF", fontSize: 13, textAlign: "center", textDecoration: "none", display: "block" }}>
+                    ✉️ canvassynclyrics@gmail.com
+                  </a>
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Global keyframes */}
       <style>{`
