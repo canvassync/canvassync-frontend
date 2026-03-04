@@ -246,9 +246,13 @@ function App() {
       const src = URL.createObjectURL(file);
       const videoEl = document.createElement('video');
       videoEl.src = src;
-      videoEl.muted = true; // mudo por padrão para não conflitar com áudio principal
+      videoEl.muted = false;        // áudio ativo por padrão
       videoEl.playsInline = true;
       videoEl.preload = 'auto';
+      videoEl.crossOrigin = 'anonymous';
+      // Precisa estar no DOM para o browser liberar reprodução de áudio
+      videoEl.style.cssText = 'position:fixed;width:1px;height:1px;opacity:0;pointer-events:none;top:-9999px';
+      document.body.appendChild(videoEl);
       const id = Date.now() + index;
       videoEl.onloadedmetadata = () => {
         const vidDuration = videoEl.duration || 3;
@@ -494,7 +498,7 @@ function App() {
     setBulkText('');
     setLyrics([]);
     setImages([]);
-    setVideos(prev => { prev.forEach(v => { if (v.videoEl) { v.videoEl.pause(); URL.revokeObjectURL(v.src); } }); return []; });
+    setVideos(prev => { prev.forEach(v => { if (v.videoEl) { v.videoEl.pause(); if (v.videoEl.parentNode) v.videoEl.parentNode.removeChild(v.videoEl); URL.revokeObjectURL(v.src); } }); return []; });
     setActiveVideoId(null);
     setExtraTexts([]);
     setNewExtraInput('');
@@ -1012,7 +1016,7 @@ function App() {
       const activeEl = document.activeElement;
       if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA' || activeEl.tagName === 'SELECT' || activeEl.isContentEditable)) return;
       if (activeVideoId) {
-        setVideos(prev => { const v = prev.find(vv => vv.id === activeVideoId); if (v?.videoEl) URL.revokeObjectURL(v.src); return prev.filter(vv => vv.id !== activeVideoId); });
+        setVideos(prev => { const v = prev.find(vv => vv.id === activeVideoId); if (v?.videoEl) { v.videoEl.pause(); if (v.videoEl.parentNode) v.videoEl.parentNode.removeChild(v.videoEl); URL.revokeObjectURL(v.src); } return prev.filter(vv => vv.id !== activeVideoId); });
         setActiveVideoId(null);
         return;
       }
@@ -2369,7 +2373,7 @@ function App() {
               <div
                 key={v.id}
                 onMouseDown={(e) => handleVideoTimelineMouseDown(v.id, 'move', e)}
-                onContextMenu={(e) => { e.preventDefault(); v.videoEl?.pause(); URL.revokeObjectURL(v.src); setVideos(prev => prev.filter(vv => vv.id !== v.id)); if (activeVideoId === v.id) setActiveVideoId(null); }}
+                onContextMenu={(e) => { e.preventDefault(); if (v.videoEl) { v.videoEl.pause(); if (v.videoEl.parentNode) v.videoEl.parentNode.removeChild(v.videoEl); } URL.revokeObjectURL(v.src); setVideos(prev => prev.filter(vv => vv.id !== v.id)); if (activeVideoId === v.id) setActiveVideoId(null); }}
                 style={{
                   position: 'absolute',
                   left: v.start * zoom + 'px',
