@@ -111,6 +111,20 @@ function App() {
     return { x, y, width, height, radius: 18 };
   }, [getCanvasSize]);
 
+  // Desenha imagem/vídeo com rotação ao redor do centro
+  const drawRotatedElement = useCallback((ctx, drawFn, x, y, width, height, rotation) => {
+    const rot = (rotation || 0) * Math.PI / 180;
+    if (rot === 0) { drawFn(); return; }
+    const cx = x + width / 2;
+    const cy = y + height / 2;
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(rot);
+    ctx.translate(-cx, -cy);
+    drawFn();
+    ctx.restore();
+  }, []);
+
   const drawRoundedImage = useCallback((ctx, img, x, y, width, height, radius) => {
     const r = Math.min(radius, width / 2, height / 2);
     ctx.save();
@@ -209,7 +223,7 @@ function App() {
             setImages(prevImages => prevImages.map((item) => item.id === id ? { ...item, ...placement } : item));
           };
           img.src = src;
-          return { id, src, img, start, end, x: 40, y: 60, width: 180, height: 180, radius: 18 };
+          return { id, src, img, start, end, x: 40, y: 60, width: 180, height: 180, radius: 18, rotation: 0 };
         });
 
         return [...redistributed, ...newItems].sort((a, b) => a.start - b.start);
@@ -227,7 +241,7 @@ function App() {
           setImages(prevImages => prevImages.map((item) => item.id === id ? { ...item, ...placement } : item));
         };
         img.src = src;
-        return { id, src, img, start, end, x: 40, y: 60, width: 180, height: 180, radius: 18 };
+        return { id, src, img, start, end, x: 40, y: 60, width: 180, height: 180, radius: 18, rotation: 0 };
       });
       return [...prev, ...newItems].sort((a, b) => a.start - b.start);
     });
@@ -249,7 +263,6 @@ function App() {
       videoEl.muted = false;        // áudio ativo por padrão
       videoEl.playsInline = true;
       videoEl.preload = 'auto';
-      videoEl.crossOrigin = 'anonymous';
       // Precisa estar no DOM para o browser liberar reprodução de áudio
       videoEl.style.cssText = 'position:fixed;width:1px;height:1px;opacity:0;pointer-events:none;top:-9999px';
       document.body.appendChild(videoEl);
@@ -364,7 +377,8 @@ function App() {
               y: item.y ?? 60,
               width: item.width ?? 180,
               height: item.height ?? 180,
-              radius: item.radius ?? 18
+              radius: item.radius ?? 18,
+              rotation: item.rotation ?? 0
             };
           });
           setImages(loadedImages);
@@ -402,7 +416,8 @@ function App() {
         y: item.y,
         width: item.width,
         height: item.height,
-        radius: item.radius
+        radius: item.radius,
+      rotation: item.rotation ?? 0
       })),
       extraTexts,
       fontSize,
@@ -1111,30 +1126,36 @@ function App() {
     // Desenha TODOS os vídeos ativos (abaixo das imagens)
     getVideosForTime(time).forEach(v => {
       if (!v.videoEl || v.videoEl.readyState < 2) return;
-      drawRoundedImage(ctx, v.videoEl, v.x, v.y, v.width, v.height, v.radius ?? 12);
+      const vRot = (v.rotation || 0) * Math.PI / 180;
+      drawRotatedElement(ctx, () => drawRoundedImage(ctx, v.videoEl, v.x, v.y, v.width, v.height, v.radius ?? 12), v.x, v.y, v.width, v.height, v.rotation);
       if (activeVideoId === v.id) {
+        const cx = v.x + v.width / 2, cy = v.y + v.height / 2;
         ctx.save();
+        ctx.translate(cx, cy); ctx.rotate(vRot); ctx.translate(-cx, -cy);
         ctx.strokeStyle = 'rgba(167,139,250,0.9)';
         ctx.lineWidth = 2;
         drawRoundedRect(ctx, v.x, v.y, v.width, v.height, (v.radius ?? 12) + 2);
         ctx.stroke();
-        ctx.restore();
         drawResizeHandles(ctx, v.x, v.y, v.width, v.height);
+        ctx.restore();
       }
     });
 
     // Desenha TODAS as imagens ativas no instante (camadas simultâneas)
     const overlayImages = getImagesForTime(time);
     overlayImages.forEach(overlayImage => {
-      drawRoundedImage(ctx, overlayImage.img, overlayImage.x, overlayImage.y, overlayImage.width, overlayImage.height, overlayImage.radius ?? 18);
+      const iRot = (overlayImage.rotation || 0) * Math.PI / 180;
+      drawRotatedElement(ctx, () => drawRoundedImage(ctx, overlayImage.img, overlayImage.x, overlayImage.y, overlayImage.width, overlayImage.height, overlayImage.radius ?? 18), overlayImage.x, overlayImage.y, overlayImage.width, overlayImage.height, overlayImage.rotation);
       if (activeImageId === overlayImage.id) {
+        const cx = overlayImage.x + overlayImage.width / 2, cy = overlayImage.y + overlayImage.height / 2;
         ctx.save();
+        ctx.translate(cx, cy); ctx.rotate(iRot); ctx.translate(-cx, -cy);
         ctx.strokeStyle = 'rgba(248, 250, 252, 0.9)';
         ctx.lineWidth = 2;
         drawRoundedRect(ctx, overlayImage.x, overlayImage.y, overlayImage.width, overlayImage.height, (overlayImage.radius ?? 18) + 2);
         ctx.stroke();
-        ctx.restore();
         drawResizeHandles(ctx, overlayImage.x, overlayImage.y, overlayImage.width, overlayImage.height);
+        ctx.restore();
       }
     });
 
@@ -1258,7 +1279,7 @@ function App() {
       }
     }
     // Não agenda mais RAF aqui — o loop unificado abaixo cuida disso
-  }, [activeImageId, activeVideoId, activeExtraTextId, activeLyricId, editingLyricId, drawRoundedImage, drawRoundedRect, drawResizeHandles, extraTextColor, extraTextFontFamily, extraTextFontSize, extraTexts, fontFamily, fontSize, getImagesForTime, getVideosForTime, image, lyrics, textColor, wrapLyricText, videos]);
+  }, [activeImageId, activeVideoId, activeExtraTextId, activeLyricId, editingLyricId, drawRotatedElement, drawRoundedImage, drawRoundedRect, drawResizeHandles, extraTextColor, extraTextFontFamily, extraTextFontSize, extraTexts, fontFamily, fontSize, getImagesForTime, getVideosForTime, image, lyrics, textColor, wrapLyricText, videos]);
 
 
   // ── Sync de vídeos via função chamada pelo loop RAF ──────────────────────
@@ -1272,10 +1293,15 @@ function App() {
       const active = t >= v.start && t <= v.end;
       const relTime = Math.max(0, Math.min(t - v.start, v.videoEl.duration || 0));
       if (active) {
-        if (Math.abs(v.videoEl.currentTime - relTime) > 0.2) {
+        // Só faz seek quando pausado ou com desvio grande (>1s)
+        // Fazer seek enquanto tocando interrompe o áudio
+        if (v.videoEl.paused && Math.abs(v.videoEl.currentTime - relTime) > 0.1) {
+          v.videoEl.currentTime = relTime;
+        } else if (!v.videoEl.paused && Math.abs(v.videoEl.currentTime - relTime) > 1.0) {
           v.videoEl.currentTime = relTime;
         }
         if (playing && v.videoEl.paused) {
+          v.videoEl.muted = v.muted || false;
           v.videoEl.play().catch(() => {});
         } else if (!playing && !v.videoEl.paused) {
           v.videoEl.pause();
@@ -1371,14 +1397,12 @@ function App() {
     getVideosForTime(t).forEach(v => {
       if (!v.videoEl || v.videoEl.readyState < 2) return;
       const relTime = Math.max(0, Math.min(t - v.start, v.videoEl.duration || 0));
-      if (Math.abs(v.videoEl.currentTime - relTime) > 0.05) {
-        v.videoEl.currentTime = relTime;
-      }
-      drawRoundedImage(ctx, v.videoEl, v.x, v.y, v.width, v.height, v.radius ?? 12);
+      if (Math.abs(v.videoEl.currentTime - relTime) > 0.05) v.videoEl.currentTime = relTime;
+      drawRotatedElement(ctx, () => drawRoundedImage(ctx, v.videoEl, v.x, v.y, v.width, v.height, v.radius ?? 12), v.x, v.y, v.width, v.height, v.rotation);
     });
     // Renderiza TODAS as imagens ativas no instante t
     getImagesForTime(t).forEach(overlayImage => {
-      drawRoundedImage(ctx, overlayImage.img, overlayImage.x, overlayImage.y, overlayImage.width, overlayImage.height, overlayImage.radius ?? 18);
+      drawRotatedElement(ctx, () => drawRoundedImage(ctx, overlayImage.img, overlayImage.x, overlayImage.y, overlayImage.width, overlayImage.height, overlayImage.radius ?? 18), overlayImage.x, overlayImage.y, overlayImage.width, overlayImage.height, overlayImage.rotation);
     });
     ctx.fillStyle = textColor;
     ctx.textAlign = 'center';
@@ -1641,7 +1665,8 @@ function App() {
       y: item.y,
       width: item.width,
       height: item.height,
-      radius: item.radius
+      radius: item.radius,
+      rotation: item.rotation ?? 0
     })),
     extraTexts,
     fontSize,
@@ -1694,7 +1719,8 @@ function App() {
               y: item.y ?? 60,
               width: item.width ?? 180,
               height: item.height ?? 180,
-              radius: item.radius ?? 18
+              radius: item.radius ?? 18,
+              rotation: item.rotation ?? 0
             };
           });
           setImages(loadedImages);
@@ -1990,6 +2016,50 @@ function App() {
         {/* EDITOR ESQUERDA — 520PX */}
         <div style={{ width: '520px', minWidth: '520px', borderRight: '1px solid rgba(255,255,255,0.07)', display: 'flex', flexDirection: 'column', background: '#0d0d0d', boxShadow: 'none', overflowY: 'auto' }}>
 
+          {/* ══ SEÇÃO SELEÇÃO IMAGEM/VÍDEO — rotação ══ */}
+          {(activeImageId || activeVideoId) && (() => {
+            const selImg  = activeImageId ? images.find(i => i.id === activeImageId) : null;
+            const selVid  = activeVideoId ? videos.find(v => v.id === activeVideoId) : null;
+            const sel     = selImg || selVid;
+            const isVid   = !!selVid;
+            if (!sel) return null;
+            const rot     = sel.rotation ?? 0;
+            const setRot  = (deg) => {
+              if (isVid) setVideos(prev => prev.map(v => v.id === sel.id ? { ...v, rotation: deg } : v));
+              else        setImages(prev => prev.map(i => i.id === sel.id ? { ...i, rotation: deg } : i));
+            };
+            return (
+              <div style={{ padding: '12px 18px', borderBottom: '1px solid rgba(255,255,255,0.07)', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <label style={{ fontSize: '11px', color: isVid ? '#a78bfa' : '#fbbf24', fontWeight: 700, letterSpacing: '0.6px' }}>
+                    {isVid ? '🎬 VÍDEO SELECIONADO' : '🖼️ IMAGEM SELECIONADA'}
+                  </label>
+                  <button onClick={() => { if (isVid) setActiveVideoId(null); else setActiveImageId(null); }}
+                    style={{ background: 'none', border: 'none', color: '#555', cursor: 'pointer', fontSize: 14 }}>✕</button>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <span style={{ fontSize: 11, color: '#888', minWidth: 52 }}>Rotação</span>
+                  <input type="range" min="-180" max="180" value={rot}
+                    onChange={e => setRot(parseInt(e.target.value))}
+                    style={{ flex: 1, accentColor: isVid ? '#a78bfa' : '#fbbf24' }} />
+                  <span style={{ fontSize: 11, color: '#ccc', minWidth: 40, textAlign: 'right' }}>{rot}°</span>
+                  <button onClick={() => setRot(0)}
+                    style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '3px 8px', fontSize: 11, color: '#888', cursor: 'pointer' }}>
+                    0°
+                  </button>
+                </div>
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                  {[-90, -45, 0, 45, 90, 180].map(d => (
+                    <button key={d} onClick={() => setRot(d)}
+                      style={{ background: rot === d ? (isVid ? 'rgba(167,139,250,0.2)' : 'rgba(251,191,36,0.2)') : 'rgba(255,255,255,0.04)', border: `1px solid ${rot === d ? (isVid ? 'rgba(167,139,250,0.5)' : 'rgba(251,191,36,0.5)') : 'rgba(255,255,255,0.08)'}`, borderRadius: 8, padding: '3px 10px', fontSize: 11, color: rot === d ? '#fff' : '#666', cursor: 'pointer' }}>
+                      {d}°
+                    </button>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
+
           {/* ══ SEÇÃO TEXTOS EXTRAS ══ */}
           <div style={{ padding: '14px 18px 12px', borderBottom: '1px solid rgba(255,255,255,0.07)', display: 'flex', flexDirection: 'column', gap: '10px' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '6px' }}>
@@ -2236,7 +2306,17 @@ function App() {
                 if (clockIntervalRef.current) { clearInterval(clockIntervalRef.current); clockIntervalRef.current = null; }
                 setIsPlaying(false);
               } else {
-                // Iniciar
+                // Iniciar — dispara play nos vídeos ativos dentro do gesto do usuário
+                const tNow = virtualTimeRef.current;
+                videosRef.current.forEach(v => {
+                  if (!v.videoEl) return;
+                  if (tNow >= v.start && tNow <= v.end) {
+                    const rel = Math.max(0, Math.min(tNow - v.start, v.videoEl.duration || 0));
+                    v.videoEl.currentTime = rel;
+                    v.videoEl.muted = v.muted || false;
+                    v.videoEl.play().catch(() => {});
+                  }
+                });
                 if (audio) {
                   audio.play().catch(() => {});
                 } else {
