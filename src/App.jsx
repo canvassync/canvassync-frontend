@@ -1156,14 +1156,19 @@ function App() {
     return () => audio.removeEventListener('timeupdate', onTime);
   }, [audioSrc]);
 
-  const renderAtTimeToCanvas = (targetCanvas, t) => {
+  const renderAtTimeToCanvas = (targetCanvas, t, scale = 1) => {
     const ctx = targetCanvas.getContext('2d');
     ctx.clearRect(0, 0, targetCanvas.width, targetCanvas.height);
+    // Aplica escala para HD: todos os elementos são desenhados nas coordenadas
+    // originais (270×480) e o ctx.scale amplia para a resolução final
+    if (scale !== 1) ctx.scale(scale, scale);
+    const logicalW = targetCanvas.width / scale;
+    const logicalH = targetCanvas.height / scale;
     if (image) {
-      ctx.drawImage(image, 0, 0, targetCanvas.width, targetCanvas.height);
+      ctx.drawImage(image, 0, 0, logicalW, logicalH);
     } else {
       ctx.fillStyle = '#000';
-      ctx.fillRect(0, 0, targetCanvas.width, targetCanvas.height);
+      ctx.fillRect(0, 0, logicalW, logicalH);
     }
     // Renderiza TODAS as imagens ativas no instante t
     getImagesForTime(t).forEach(overlayImage => {
@@ -1197,13 +1202,13 @@ function App() {
     });
     const activeLine = lyrics.find(l => t >= l.start && t <= l.end);
     if (activeLine) {
-      const lx = activeLine.x ?? targetCanvas.width / 2;
-      const ly = activeLine.y ?? targetCanvas.height * 0.75;
+      const lx = activeLine.x ?? logicalW / 2;
+      const ly = activeLine.y ?? logicalH * 0.75;
       const lRot = (activeLine.rotation || 0) * Math.PI / 180;
       const lFontSize = activeLine.fontSize || fontSize;
       const lFontFamily = activeLine.fontFamily || fontFamily;
       ctx.font = `bold ${lFontSize}px ${lFontFamily}`;
-      const lines = wrapLyricText(activeLine.text, ctx, targetCanvas.width - 40);
+      const lines = wrapLyricText(activeLine.text, ctx, logicalW - 40);
       const lineH = lFontSize * 1.3;
       const totalH = lines.length * lineH;
       ctx.save();
@@ -1517,19 +1522,141 @@ function App() {
     reader.readAsText(file);
   };
 
+
+  // ── Exportação HD 1080×1920 — WebCodecs, VP8, 8 Mbps ──────────────────────
+  const handleSaveHD = async () => {
+    if (!window.VideoEncoder || !window.AudioEncoder) {
+      alert('Exportação HD disponível apenas em Chrome/Edge.');
+      return;
+    }
+    const baseCanvas = canvasRef.current;
+    if (!baseCanvas) return;
+    const effectiveDuration = (() => {
+      if (duration && duration > 0) return duration;
+      if (lyrics && lyrics.length) return Math.max(...lyrics.map(l => l.end || 0));
+      if (images && images.length) return Math.max(...images.map(i => i.end || 0));
+      return 3;
+    })();
+    if (!effectiveDuration || effectiveDuration <= 0) return;
+
+    const SCALE = 4; // 270×480 → 1080×1920
+    const hdW   = baseCanvas.width  * SCALE;
+    const hdH   = baseCanvas.height * SCALE;
+
+    setIsExporting(true);
+    setExportProgress(0);
+    try {
+      const { Muxer, ArrayBufferTarget } = await import('webm-muxer');
+      const offCanvas    = document.createElement('canvas');
+      offCanvas.width    = hdW;
+      offCanvas.height   = hdH;
+      const fps          = 30;
+      const totalFrames  = Math.ceil(effectiveDuration * fps);
+      const target       = new ArrayBufferTarget();
+
+      const muxer = new Muxer({
+        target,
+        video: { codec: 'V_VP8', width: hdW, height: hdH, frameRate: fps },
+        audio: (audioFile || audioBase64)
+          ? { codec: 'A_OPUS', sampleRate: 48000, numberOfChannels: 2 }
+          : undefined,
+      });
+
+      const vEncoder = new VideoEncoder({
+        output: (chunk, meta) => muxer.addVideoChunk(chunk, meta),
+        error:  () => {},
+      });
+      vEncoder.configure({ codec: 'vp8', width: hdW, height: hdH, bitrate: 8_000_000 });
+
+      // Áudio
+      let aEncoder = null;
+      if (audioFile || audioBase64) {
+        try {
+          aEncoder = new AudioEncoder({
+            output: (chunk, meta) => muxer.addAudioChunk(chunk, meta),
+            error:  () => {},
+          });
+          aEncoder.configure({ codec: 'opus', sampleRate: 48000, numberOfChannels: 2, bitrate: 192000 });
+
+          let audioBufferData;
+          if (audioFile) {
+            audioBufferData = await audioFile.arrayBuffer();
+          } else {
+            const b64    = audioBase64.split(',')[1];
+            const binary = atob(b64);
+            const bytes  = new Uint8Array(binary.length);
+            for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+            audioBufferData = bytes.buffer;
+          }
+
+          const ac     = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 48000 });
+          const buffer = await ac.decodeAudioData(audioBufferData);
+          const totalSamples = Math.floor(buffer.sampleRate * effectiveDuration);
+          const block = 1200;
+
+          for (let pos = 0; pos < totalSamples; pos += block) {
+            const frameL      = buffer.getChannelData(0).slice(pos, pos + block);
+            const frameR      = buffer.numberOfChannels > 1
+              ? buffer.getChannelData(1).slice(pos, pos + block) : frameL;
+            const interleaved = new Float32Array(block * 2);
+            for (let i = 0; i < block; i++) {
+              interleaved[i * 2]     = frameL[i] || 0;
+              interleaved[i * 2 + 1] = frameR[i] || 0;
+            }
+            const audioDataObj = new AudioData({
+              format: 'f32', sampleRate: 48000, numberOfChannels: 2,
+              numberOfFrames: block,
+              timestamp: Math.round((pos / 48000) * 1_000_000),
+              data: interleaved.buffer,
+            });
+            aEncoder.encode(audioDataObj);
+            audioDataObj.close();
+          }
+          await aEncoder.flush();
+          ac.close();
+        } catch { aEncoder = null; }
+      }
+
+      // Frames HD
+      for (let i = 0; i < totalFrames; i++) {
+        const t = i / fps;
+        renderAtTimeToCanvas(offCanvas, t, SCALE);
+        const bitmap     = await createImageBitmap(offCanvas);
+        const videoFrame = new VideoFrame(bitmap, { timestamp: Math.round(t * 1_000_000) });
+        vEncoder.encode(videoFrame);
+        videoFrame.close();
+        bitmap.close();
+        setExportProgress((i + 1) / totalFrames);
+        await new Promise(r => setTimeout(r, 0));
+      }
+
+      await vEncoder.flush();
+      muxer.finalize();
+
+      const blob = new Blob([target.buffer], { type: 'video/webm' });
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement('a');
+      a.href     = url;
+      a.download = 'canvas_hd_1080.webm';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } finally {
+      setIsExporting(false);
+      setExportProgress(0);
+    }
+  };
+
   const handleSave = () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    if (exportFormat === 'webm_offline') {
-      handleSaveWebmOffline();
-      return;
-    }
     if (exportFormat === 'webm_offline_audio') {
       handleSaveWebmOfflineWithAudio();
       return;
     }
-    if (exportFormat === 'webm') {
-      handleSaveVideo();
+    if (exportFormat === 'webm_hd') {
+      handleSaveHD();
       return;
     }
     const isPng = exportFormat === 'png';
@@ -1624,11 +1751,10 @@ function App() {
         </select>
         <input type="range" min="15" max="70" value={fontSize} onChange={(e) => setFontSize(e.target.value)} style={{ accentColor: '#00BFFF' }} />
         <select value={exportFormat} onChange={(e) => setExportFormat(e.target.value)} style={{ backgroundColor: '#111', color: '#f0f0f0', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '14px', padding: '7px 10px', fontSize: '12px' }}>
-          <option value="webm_offline_audio">Vídeo (WEBM Offline + Áudio)</option>
-          <option value="png">PNG (Canva)</option>
-          <option value="jpg">JPG (Canva)</option>
-          <option value="webm_offline">Vídeo (WEBM Offline)</option>
-          <option value="webm">Vídeo (WEBM em tempo real)</option>
+          <option value="webm_offline_audio">🎬 Vídeo WEBM + Áudio</option>
+          <option value="webm_hd">✨ Vídeo HD 1080p + Áudio</option>
+          <option value="png">🖼️ PNG</option>
+          <option value="jpg">🖼️ JPG</option>
         </select>
         <button onClick={handleSave} disabled={isExporting} style={{ background: isExporting ? '#0a1a1a' : '#00BFFF', border: 'none', padding: '10px 18px', borderRadius: '18px', cursor: isExporting ? 'not-allowed' : 'pointer', fontWeight: 'bold', fontSize: '12px', color: isExporting ? '#555' : '#000', boxShadow: isExporting ? 'none' : '0 6px 20px rgba(0,191,255,0.3)', opacity: 1 }}>
           {isExporting ? `${t('ed_exporting')} ${Math.round(exportProgress * 100)}%` : t('ed_save')}
