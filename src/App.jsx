@@ -1257,40 +1257,30 @@ function App() {
   }, [activeImageId, activeVideoId, activeExtraTextId, activeLyricId, editingLyricId, drawRoundedImage, drawRoundedRect, drawResizeHandles, extraTextColor, extraTextFontFamily, extraTextFontSize, extraTexts, fontFamily, fontSize, getImagesForTime, getVideosForTime, image, lyrics, textColor, wrapLyricText, videos]);
 
 
-  // ── Sincroniza todos os vídeos com o playhead ────────────────────────────
-  useEffect(() => {
+  // ── Sync de vídeos via função chamada pelo loop RAF ──────────────────────
+  // Não usa useEffect reativo — evita closure stale de isPlaying
+  const syncVideosInRAF = useCallback(() => {
     const audio = audioRef.current;
-    const syncVideos = () => {
-      const t = audio ? audio.currentTime : currentTime;
-      videos.forEach(v => {
-        if (!v.videoEl) return;
-        const active = t >= v.start && t <= v.end;
-        const relTime = Math.max(0, Math.min(t - v.start, v.videoEl.duration || 0));
-        if (active) {
-          // Sincroniza o tempo interno do vídeo
-          if (Math.abs(v.videoEl.currentTime - relTime) > 0.15) {
-            v.videoEl.currentTime = relTime;
-          }
-          if (isPlaying && v.videoEl.paused) {
-            v.videoEl.play().catch(() => {});
-          } else if (!isPlaying && !v.videoEl.paused) {
-            v.videoEl.pause();
-          }
-        } else {
-          if (!v.videoEl.paused) v.videoEl.pause();
+    const t = audio ? audio.currentTime : 0;
+    const playing = isPlayingRef.current;
+    videosRef.current.forEach(v => {
+      if (!v.videoEl) return;
+      const active = t >= v.start && t <= v.end;
+      const relTime = Math.max(0, Math.min(t - v.start, v.videoEl.duration || 0));
+      if (active) {
+        if (Math.abs(v.videoEl.currentTime - relTime) > 0.2) {
+          v.videoEl.currentTime = relTime;
         }
-      });
-    };
-    syncVideos();
-    if (audio) {
-      audio.addEventListener('timeupdate', syncVideos);
-      audio.addEventListener('seeked', syncVideos);
-      return () => {
-        audio.removeEventListener('timeupdate', syncVideos);
-        audio.removeEventListener('seeked', syncVideos);
-      };
-    }
-  }, [videos, isPlaying, currentTime, audioSrc]);
+        if (playing && v.videoEl.paused) {
+          v.videoEl.play().catch(() => {});
+        } else if (!playing && !v.videoEl.paused) {
+          v.videoEl.pause();
+        }
+      } else {
+        if (!v.videoEl.paused) v.videoEl.pause();
+      }
+    });
+  }, []);
 
   // ── REFS para o loop RAF unificado ────────────────────────────────────────
   // Mantemos todas as dependências em refs para que o loop NUNCA precise ser
@@ -1298,8 +1288,17 @@ function App() {
   const drawRef = useRef(null);
   useEffect(() => { drawRef.current = draw; }, [draw]);
 
+  const syncVideosInRAFRef = useRef(null);
+  useEffect(() => { syncVideosInRAFRef.current = syncVideosInRAF; }, [syncVideosInRAF]);
+
   const zoomRef = useRef(zoom);
   useEffect(() => { zoomRef.current = zoom; }, [zoom]);
+
+  const isPlayingRef = useRef(isPlaying);
+  useEffect(() => { isPlayingRef.current = isPlaying; }, [isPlaying]);
+
+  const videosRef = useRef(videos);
+  useEffect(() => { videosRef.current = videos; }, [videos]);
 
   // ── Waveform estático em canvas (sem re-renders do React) ─────────────────
   useEffect(() => {
@@ -1329,7 +1328,9 @@ function App() {
       if (audio && playheadRef.current) {
         playheadRef.current.style.transform = `translateX(${audio.currentTime * zoomRef.current}px)`;
       }
-      // 2) Desenhar o canvas
+      // 2) Sincronizar vídeos
+      if (syncVideosInRAFRef.current) syncVideosInRAFRef.current();
+      // 3) Desenhar o canvas
       if (drawRef.current) drawRef.current();
       rafId = requestAnimationFrame(loop);
     };
@@ -2369,22 +2370,31 @@ function App() {
                   overflow: 'hidden',
                 }}
               >
-                <div onMouseDown={(e) => handleVideoTimelineMouseDown(v.id, 'resize-start', e)} style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: '12px', cursor: 'ew-resize', backgroundColor: 'rgba(0,0,0,0.25)', borderTopLeftRadius: '18px', borderBottomLeftRadius: '18px' }} />
-                <div style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '0 14px', pointerEvents: 'none', overflow: 'hidden', whiteSpace: 'nowrap' }}>
-                  <span style={{ fontSize: 13 }}>🎬</span>
-                  <span style={{ fontSize: 10, overflow: 'hidden', textOverflow: 'ellipsis' }}>VID</span>
-                  {/* Botão mute no próprio bloco */}
-                  <button
-                    pointerEvents="all"
-                    onMouseDown={(e) => { e.stopPropagation(); }}
-                    onClick={(e) => { e.stopPropagation(); setVideos(prev => prev.map(vv => vv.id === v.id ? { ...vv, muted: !vv.muted, videoEl: Object.assign(vv.videoEl, { muted: !vv.muted }) || vv.videoEl } : vv)); }}
-                    style={{ background: v.muted ? 'rgba(239,68,68,0.7)' : 'rgba(0,0,0,0.3)', border: 'none', borderRadius: 6, padding: '1px 5px', fontSize: 9, color: '#fff', cursor: 'pointer', pointerEvents: 'all', flexShrink: 0 }}
-                    title={v.muted ? 'Áudio desativado — clique para ativar' : 'Clique para remover áudio do vídeo'}
-                  >
-                    {v.muted ? '🔇' : '🔊'}
-                  </button>
-                </div>
-                <div onMouseDown={(e) => handleVideoTimelineMouseDown(v.id, 'resize-end', e)} style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: '12px', cursor: 'ew-resize', backgroundColor: 'rgba(0,0,0,0.25)', borderTopRightRadius: '18px', borderBottomRightRadius: '18px' }} />
+                {/* Alça resize esquerda */}
+                <div onMouseDown={(e) => handleVideoTimelineMouseDown(v.id, 'resize-start', e)} style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: '12px', cursor: 'ew-resize', backgroundColor: 'rgba(0,0,0,0.25)', borderTopLeftRadius: '18px', borderBottomLeftRadius: '18px', zIndex: 3 }} />
+                {/* Botão mute — fixo no canto esquerdo, sobre tudo */}
+                <button
+                  onMouseDown={(e) => e.stopPropagation()}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    const newMuted = !v.muted;
+                    if (v.videoEl) v.videoEl.muted = newMuted;
+                    setVideos(prev => prev.map(vv => vv.id === v.id ? { ...vv, muted: newMuted } : vv));
+                  }}
+                  style={{
+                    position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)',
+                    zIndex: 10, background: v.muted ? 'rgba(239,68,68,0.85)' : 'rgba(0,0,0,0.5)',
+                    border: 'none', borderRadius: 6, padding: '2px 6px',
+                    fontSize: 11, color: '#fff', cursor: 'pointer', lineHeight: 1.4,
+                  }}
+                  title={v.muted ? 'Áudio mudo — clique para ativar' : 'Clique para mutar áudio'}
+                >
+                  {v.muted ? '🔇' : '🔊'}
+                </button>
+                {/* Label central */}
+                <span style={{ fontSize: 10, fontWeight: 'bold', color: '#000', pointerEvents: 'none', paddingLeft: 36 }}>🎬 VID</span>
+                {/* Alça resize direita */}
+                <div onMouseDown={(e) => handleVideoTimelineMouseDown(v.id, 'resize-end', e)} style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: '12px', cursor: 'ew-resize', backgroundColor: 'rgba(0,0,0,0.25)', borderTopRightRadius: '18px', borderBottomRightRadius: '18px', zIndex: 3 }} />
               </div>
             ))}
 
