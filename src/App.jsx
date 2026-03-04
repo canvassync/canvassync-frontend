@@ -22,6 +22,8 @@ function App() {
   const [imageSrc, setImageSrc] = useState(null);
   const [images, setImages] = useState([]);
   const [activeImageId, setActiveImageId] = useState(null);
+  const [videos, setVideos] = useState([]);      // { id, src, videoEl, start, end, x, y, width, height, radius, muted }
+  const [activeVideoId, setActiveVideoId] = useState(null);
   const [extraTextColor, setExtraTextColor] = useState('#ffffff');
   const [extraTextFontFamily, setExtraTextFontFamily] = useState('Poppins');
   const [extraTextFontSize, setExtraTextFontSize] = useState(18);
@@ -233,6 +235,48 @@ function App() {
   const handleImagesChange = (e) => {
     handleImageUpload(e);
   };
+
+  // ── Upload de vídeos ────────────────────────────────────────────────────────
+  const handleVideoUpload = async (e) => {
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
+    files.forEach((file, index) => {
+      const src = URL.createObjectURL(file);
+      const videoEl = document.createElement('video');
+      videoEl.src = src;
+      videoEl.muted = true; // mudo por padrão para não conflitar com áudio principal
+      videoEl.playsInline = true;
+      videoEl.preload = 'auto';
+      const id = Date.now() + index;
+      videoEl.onloadedmetadata = () => {
+        const vidDuration = videoEl.duration || 3;
+        const audioDuration = audioRef.current?.duration || duration;
+        // Posiciona após o último item existente
+        const lastEnd = videos.reduce((max, v) => Math.max(max, v.end || 0), 0);
+        const start = lastEnd;
+        const end   = start + vidDuration;
+        // Tamanho inicial: ocupa ~70% do canvas mantendo aspect ratio
+        const canvas = canvasRef.current;
+        const cW = canvas?.width || 270;
+        const cH = canvas?.height || 480;
+        const aspectRatio = videoEl.videoWidth / videoEl.videoHeight || 1;
+        const maxW = cW * 0.72;
+        const maxH = cH * 0.72;
+        const scale = Math.min(maxW / videoEl.videoWidth, maxH / videoEl.videoHeight, 1);
+        const w = Math.max(40, videoEl.videoWidth * scale);
+        const h = Math.max(40, videoEl.videoHeight * scale);
+        const x = (cW - w) / 2;
+        const y = (cH - h) / 2;
+        setVideos(prev => [...prev, {
+          id, src, videoEl, start, end,
+          x, y, width: w, height: h, radius: 12, muted: false,
+        }]);
+      };
+    });
+    e.target.value = '';
+  };
+
+
 
   const decodeWaveformFromBuffer = async (arrayBuffer) => {
     try {
@@ -449,6 +493,8 @@ function App() {
     setBulkText('');
     setLyrics([]);
     setImages([]);
+    setVideos(prev => { prev.forEach(v => { if (v.videoEl) { v.videoEl.pause(); URL.revokeObjectURL(v.src); } }); return []; });
+    setActiveVideoId(null);
     setExtraTexts([]);
     setNewExtraInput('');
     setTextLines([]);
@@ -521,6 +567,19 @@ function App() {
       }
     }
     setDragging({ id, type, initialX: e.clientX, itemKind: 'image', initialStart: item?.start ?? 0, initialEnd: item?.end ?? 3 });
+  };
+
+  const handleVideoTimelineMouseDown = (id, type, e) => {
+    e.stopPropagation();
+    setActiveVideoId(id);
+    const item = videos.find(v => v.id === id);
+    if (item && audioRef.current) {
+      const seekTo = item.start + 0.05;
+      audioRef.current.currentTime = seekTo;
+      setCurrentTime(seekTo);
+      if (playheadRef.current) playheadRef.current.style.transform = `translateX(${seekTo * zoom}px)`;
+    }
+    setDragging({ id, type, initialX: e.clientX, itemKind: 'video', initialStart: item?.start ?? 0, initialEnd: item?.end ?? 3 });
   };
 
   const scrubToClientX = (clientX) => {
@@ -655,6 +714,36 @@ function App() {
     }
 
     setActiveLyricId(null);
+    // ── Procura vídeo clicado (acima das imagens na ordem de renderização)
+    const hs2 = 10;
+    const clickedVideo = videos.slice().reverse().find(v => {
+      if (!v.videoEl) return false;
+      return time >= v.start && time <= v.end &&
+        mouseX >= v.x - hs2 && mouseX <= v.x + v.width + hs2 &&
+        mouseY >= v.y - hs2 && mouseY <= v.y + v.height + hs2;
+    });
+    if (clickedVideo) {
+      setActiveVideoId(clickedVideo.id);
+      setActiveImageId(null);
+      const s = 12;
+      const nL = Math.abs(mouseX - clickedVideo.x) <= s;
+      const nR = Math.abs(mouseX - (clickedVideo.x + clickedVideo.width)) <= s;
+      const nT = Math.abs(mouseY - clickedVideo.y) <= s;
+      const nB = Math.abs(mouseY - (clickedVideo.y + clickedVideo.height)) <= s;
+      const corner = `${nT?'n':''}${nB?'s':''}${nL?'w':''}${nR?'e':''}`;
+      if (corner.length >= 2) {
+        setDragging({ itemKind: 'canvas-video', type: 'resize', id: clickedVideo.id, corner,
+          startX: mouseX, startY: mouseY,
+          startWidth: clickedVideo.width, startHeight: clickedVideo.height,
+          startXPos: clickedVideo.x, startYPos: clickedVideo.y });
+      } else {
+        setDragging({ itemKind: 'canvas-video', type: 'move', id: clickedVideo.id,
+          offsetX: mouseX - clickedVideo.x, offsetY: mouseY - clickedVideo.y });
+      }
+      return;
+    }
+    setActiveVideoId(null);
+
     // ── Procura imagem clicada entre TODAS ativas (camadas, do topo para baixo)
     const hs = 10;
     const clickedItem = images.slice().reverse().find((item) => {
@@ -707,6 +796,23 @@ function App() {
       } else if (dragging.type === 'resize-end') {
         const newEnd = Math.max(dragging.initialStart + 0.1, dragging.initialEnd + dx);
         setLyrics(prev => prev.map(l => l.id === dragging.id ? { ...l, end: newEnd } : l));
+      }
+      return;
+    }
+
+    // Timeline video drag/resize
+    if (dragging && dragging.itemKind === 'video') {
+      const dx = (e.clientX - dragging.initialX) / zoom;
+      if (dragging.type === 'move') {
+        const dur = dragging.initialEnd - dragging.initialStart;
+        const newStart = Math.max(0, dragging.initialStart + dx);
+        setVideos(prev => prev.map(v => v.id === dragging.id ? { ...v, start: newStart, end: newStart + dur } : v));
+      } else if (dragging.type === 'resize-start') {
+        const newStart = Math.max(0, Math.min(dragging.initialStart + dx, dragging.initialEnd - 0.1));
+        setVideos(prev => prev.map(v => v.id === dragging.id ? { ...v, start: newStart } : v));
+      } else if (dragging.type === 'resize-end') {
+        const newEnd = Math.max(dragging.initialStart + 0.1, dragging.initialEnd + dx);
+        setVideos(prev => prev.map(v => v.id === dragging.id ? { ...v, end: newEnd } : v));
       }
       return;
     }
@@ -792,6 +898,29 @@ function App() {
       }
     }
     canvas.style.cursor = newCursor;
+
+    if (dragging && dragging.itemKind === 'canvas-video') {
+      if (dragging.type === 'move') {
+        setVideos(prev => prev.map(v => v.id === dragging.id ? { ...v, x: mouseX - dragging.offsetX, y: mouseY - dragging.offsetY } : v));
+      } else if (dragging.type === 'resize') {
+        const { id, corner, startX, startY, startWidth, startHeight, startXPos, startYPos } = dragging;
+        let nW = startWidth, nH = startHeight, nX = startXPos, nY = startYPos;
+        const dx = mouseX - startX, dy = mouseY - startY;
+        if (corner.includes('e')) nW = Math.max(20, startWidth + dx);
+        if (corner.includes('s')) nH = Math.max(20, startHeight + dy);
+        if (corner.includes('w')) { nW = Math.max(20, startWidth - dx); nX = startXPos + startWidth - nW; }
+        if (corner.includes('n')) { nH = Math.max(20, startHeight - dy); nY = startYPos + startHeight - nH; }
+        if (e.shiftKey || corner.length === 2) {
+          const ar = startWidth / startHeight;
+          if (corner.includes('e') || corner.includes('w')) { nH = Math.max(20, nW / ar); if (corner.includes('n')) nY = startYPos + startHeight - nH; }
+          else { nW = Math.max(20, nH * ar); if (corner.includes('w')) nX = startXPos + startWidth - nW; }
+        }
+        if (corner.includes('w')) nX = startXPos + startWidth - nW;
+        if (corner.includes('n')) nY = startYPos + startHeight - nH;
+        setVideos(prev => prev.map(v => v.id === id ? { ...v, x: nX, y: nY, width: nW, height: nH } : v));
+      }
+      return;
+    }
 
     if (dragging && dragging.itemKind === 'canvas-image') {
       if (dragging.type === 'move') {
@@ -882,6 +1011,11 @@ function App() {
       if (e.key !== 'Delete' && e.key !== 'Backspace') return;
       const activeEl = document.activeElement;
       if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA' || activeEl.tagName === 'SELECT' || activeEl.isContentEditable)) return;
+      if (activeVideoId) {
+        setVideos(prev => { const v = prev.find(vv => vv.id === activeVideoId); if (v?.videoEl) URL.revokeObjectURL(v.src); return prev.filter(vv => vv.id !== activeVideoId); });
+        setActiveVideoId(null);
+        return;
+      }
       if (activeImageId) {
         setImages(prev => prev.filter(img => img.id !== activeImageId));
         setActiveImageId(null);
@@ -904,6 +1038,11 @@ function App() {
     return `${min}:${sec < 10 ? '0' : ''}${sec}`;
   };
 
+  // Retorna TODOS os vídeos ativos no instante t
+  const getVideosForTime = useCallback((t) => {
+    return videos.filter(v => v.videoEl && t >= v.start && t <= v.end);
+  }, [videos]);
+
   // Retorna TODAS as imagens ativas no instante t (suporte a camadas simultâneas)
   const getImagesForTime = useCallback((t) => {
     return images.filter(item => item?.img && t >= item.start && t <= item.end);
@@ -915,9 +1054,9 @@ function App() {
   }, [images]);
 
   const timelineMaxTime = useMemo(() => {
-    // Timeline is driven only by audio duration. Fallback 60s se sem áudio.
-    return duration > 0 ? duration : 60;
-  }, [duration]);
+    const videoMax = videos.reduce((max, v) => Math.max(max, v.end || 0), 0);
+    return Math.max(duration > 0 ? duration : 60, videoMax);
+  }, [duration, videos]);
 
   const timelineWidth = useMemo(() => Math.max(timelineMaxTime * zoom, 800), [timelineMaxTime, zoom]);
 
@@ -964,6 +1103,21 @@ function App() {
       ctx.fillStyle = '#000';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
     }
+
+    // Desenha TODOS os vídeos ativos (abaixo das imagens)
+    getVideosForTime(time).forEach(v => {
+      if (!v.videoEl || v.videoEl.readyState < 2) return;
+      drawRoundedImage(ctx, v.videoEl, v.x, v.y, v.width, v.height, v.radius ?? 12);
+      if (activeVideoId === v.id) {
+        ctx.save();
+        ctx.strokeStyle = 'rgba(167,139,250,0.9)';
+        ctx.lineWidth = 2;
+        drawRoundedRect(ctx, v.x, v.y, v.width, v.height, (v.radius ?? 12) + 2);
+        ctx.stroke();
+        ctx.restore();
+        drawResizeHandles(ctx, v.x, v.y, v.width, v.height);
+      }
+    });
 
     // Desenha TODAS as imagens ativas no instante (camadas simultâneas)
     const overlayImages = getImagesForTime(time);
@@ -1100,7 +1254,43 @@ function App() {
       }
     }
     // Não agenda mais RAF aqui — o loop unificado abaixo cuida disso
-  }, [activeImageId, activeExtraTextId, activeLyricId, editingLyricId, drawRoundedImage, drawRoundedRect, drawResizeHandles, extraTextColor, extraTextFontFamily, extraTextFontSize, extraTexts, fontFamily, fontSize, getImagesForTime, image, lyrics, textColor, wrapLyricText]);
+  }, [activeImageId, activeVideoId, activeExtraTextId, activeLyricId, editingLyricId, drawRoundedImage, drawRoundedRect, drawResizeHandles, extraTextColor, extraTextFontFamily, extraTextFontSize, extraTexts, fontFamily, fontSize, getImagesForTime, getVideosForTime, image, lyrics, textColor, wrapLyricText, videos]);
+
+
+  // ── Sincroniza todos os vídeos com o playhead ────────────────────────────
+  useEffect(() => {
+    const audio = audioRef.current;
+    const syncVideos = () => {
+      const t = audio ? audio.currentTime : currentTime;
+      videos.forEach(v => {
+        if (!v.videoEl) return;
+        const active = t >= v.start && t <= v.end;
+        const relTime = Math.max(0, Math.min(t - v.start, v.videoEl.duration || 0));
+        if (active) {
+          // Sincroniza o tempo interno do vídeo
+          if (Math.abs(v.videoEl.currentTime - relTime) > 0.15) {
+            v.videoEl.currentTime = relTime;
+          }
+          if (isPlaying && v.videoEl.paused) {
+            v.videoEl.play().catch(() => {});
+          } else if (!isPlaying && !v.videoEl.paused) {
+            v.videoEl.pause();
+          }
+        } else {
+          if (!v.videoEl.paused) v.videoEl.pause();
+        }
+      });
+    };
+    syncVideos();
+    if (audio) {
+      audio.addEventListener('timeupdate', syncVideos);
+      audio.addEventListener('seeked', syncVideos);
+      return () => {
+        audio.removeEventListener('timeupdate', syncVideos);
+        audio.removeEventListener('seeked', syncVideos);
+      };
+    }
+  }, [videos, isPlaying, currentTime, audioSrc]);
 
   // ── REFS para o loop RAF unificado ────────────────────────────────────────
   // Mantemos todas as dependências em refs para que o loop NUNCA precise ser
@@ -1171,6 +1361,15 @@ function App() {
       ctx.fillStyle = '#000';
       ctx.fillRect(0, 0, logicalW, logicalH);
     }
+    // Renderiza TODOS os vídeos ativos no instante t (seek síncrono)
+    getVideosForTime(t).forEach(v => {
+      if (!v.videoEl || v.videoEl.readyState < 2) return;
+      const relTime = Math.max(0, Math.min(t - v.start, v.videoEl.duration || 0));
+      if (Math.abs(v.videoEl.currentTime - relTime) > 0.05) {
+        v.videoEl.currentTime = relTime;
+      }
+      drawRoundedImage(ctx, v.videoEl, v.x, v.y, v.width, v.height, v.radius ?? 12);
+    });
     // Renderiza TODAS as imagens ativas no instante t
     getImagesForTime(t).forEach(overlayImage => {
       drawRoundedImage(ctx, overlayImage.img, overlayImage.x, overlayImage.y, overlayImage.width, overlayImage.height, overlayImage.radius ?? 18);
@@ -1235,6 +1434,7 @@ function App() {
       if (duration && duration > 0) return duration;
       if (lyrics && lyrics.length) return Math.max(...lyrics.map(l => l.end || 0));
       if (images && images.length) return Math.max(...images.map(i => i.end || 0));
+      if (videos && videos.length) return Math.max(...videos.map(v => v.end || 0));
       return 3;
     })();
     if (!effectiveDuration || effectiveDuration <= 0) return;
@@ -1281,6 +1481,7 @@ function App() {
       if (duration && duration > 0) return duration;
       if (lyrics && lyrics.length) return Math.max(...lyrics.map(l => l.end || 0));
       if (images && images.length) return Math.max(...images.map(i => i.end || 0));
+      if (videos && videos.length) return Math.max(...videos.map(v => v.end || 0));
       return 3;
     })();
     if (!effectiveDuration || effectiveDuration <= 0) return;
@@ -1536,6 +1737,7 @@ function App() {
       if (duration && duration > 0) return duration;
       if (lyrics && lyrics.length) return Math.max(...lyrics.map(l => l.end || 0));
       if (images && images.length) return Math.max(...images.map(i => i.end || 0));
+      if (videos && videos.length) return Math.max(...videos.map(v => v.end || 0));
       return 3;
     })();
     if (!effectiveDuration || effectiveDuration <= 0) return;
@@ -1738,6 +1940,10 @@ function App() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
           <label style={{ fontSize: '11px', color: '#00BFFF', fontWeight: 600, letterSpacing: '0.5px' }}>{t('ed_audio')}</label>
           <input type="file" onChange={handleAudioChange} accept="audio/*" style={{ color: '#f8fafc', fontSize: '11px' }} />
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+          <label style={{ fontSize: '11px', color: '#a78bfa', fontWeight: 600, letterSpacing: '0.5px' }}>🎬 Vídeos</label>
+          <input type="file" onChange={handleVideoUpload} accept="video/*" multiple style={{ color: '#aaa', fontSize: '11px' }} />
         </div>
         <input type="color" value={textColor} onChange={(e) => setTextColor(e.target.value)} style={{ width: '38px', height: '32px', borderRadius: '12px', border: '1px solid rgba(0,191,255,0.25)', backgroundColor: '#111' }} />
         <select value={fontFamily} onChange={(e) => setFontFamily(e.target.value)} style={{ backgroundColor: '#111', color: '#f0f0f0', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '14px', padding: '7px 10px', fontSize: '12px' }}>
@@ -2005,7 +2211,7 @@ function App() {
 
       {/* TIMELINE INFERIOR */}
       <div style={{ 
-        height: '240px', 
+        height: '280px', 
         background: '#080808', 
         borderTop: '1px solid rgba(255,255,255,0.07)', 
         width: '100%',
@@ -2059,7 +2265,7 @@ function App() {
             }
           }}
         >
-          <div id="track-bg" style={{ position: 'relative', height: '160px', width: timelineWidth + 'px', background: '#0d0d0d', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.06)', boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.02)', overflow: 'hidden' }}>
+          <div id="track-bg" style={{ position: 'relative', height: '200px', width: timelineWidth + 'px', background: '#0d0d0d', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.06)', boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.02)', overflow: 'hidden' }}>
 
             {/* RÉGUA DE TEMPO */}
             <div style={{ position: 'absolute', top: 0, left: 0, width: audioPxWidth + 'px', height: '18px', pointerEvents: 'none', zIndex: 5 }}>
@@ -2079,7 +2285,7 @@ function App() {
               ref={waveformCanvasRef}
               width={Math.ceil(audioPxWidth)}
               height={24}
-              style={{ position: 'absolute', top: '120px', left: 0, opacity: 0.65, pointerEvents: 'none' }}
+              style={{ position: 'absolute', top: '162px', left: 0, opacity: 0.65, pointerEvents: 'none' }}
             />
 
             {/* BARRA FINA QUE MARCA O FIM DA MÚSICA */}
@@ -2100,6 +2306,11 @@ function App() {
 
             <div style={{ position: 'absolute', top: '54px', left: 0, right: 0, height: '1px', backgroundColor: 'rgba(255,255,255,0.05)' }} />
             <div style={{ position: 'absolute', top: '104px', left: 0, right: 0, height: '1px', backgroundColor: 'rgba(255,255,255,0.05)' }} />
+            <div style={{ position: 'absolute', top: '148px', left: 0, right: 0, height: '1px', backgroundColor: 'rgba(255,255,255,0.05)' }} />
+            {/* Labels das faixas */}
+            <div style={{ position: 'absolute', right: 6, top: 20, fontSize: 9, color: 'rgba(0,191,255,0.4)', pointerEvents: 'none' }}>LETRA</div>
+            <div style={{ position: 'absolute', right: 6, top: 72, fontSize: 9, color: 'rgba(251,191,36,0.4)', pointerEvents: 'none' }}>IMG</div>
+            <div style={{ position: 'absolute', right: 6, top: 116, fontSize: 9, color: 'rgba(167,139,250,0.4)', pointerEvents: 'none' }}>VID</div>
             
             {lyrics.map((l) => (
               <div 
@@ -2128,6 +2339,52 @@ function App() {
                 <div onMouseDown={(e) => handleTimelineMouseDown(l.id, 'resize-start', e)} style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: '12px', cursor: 'ew-resize', backgroundColor: 'rgba(0,0,0,0.25)', borderTopLeftRadius: '18px', borderBottomLeftRadius: '18px' }} />
                 <span style={{ padding: '0 10px', textAlign: 'center', pointerEvents: 'none', fontWeight: 'bold' }}>{l.text}</span>
                 <div onMouseDown={(e) => handleTimelineMouseDown(l.id, 'resize-end', e)} style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: '12px', cursor: 'ew-resize', backgroundColor: 'rgba(0,0,0,0.25)', borderTopRightRadius: '18px', borderBottomRightRadius: '18px' }} />
+              </div>
+            ))}
+
+            {videos.map((v) => (
+              <div
+                key={v.id}
+                onMouseDown={(e) => handleVideoTimelineMouseDown(v.id, 'move', e)}
+                onContextMenu={(e) => { e.preventDefault(); v.videoEl?.pause(); URL.revokeObjectURL(v.src); setVideos(prev => prev.filter(vv => vv.id !== v.id)); if (activeVideoId === v.id) setActiveVideoId(null); }}
+                style={{
+                  position: 'absolute',
+                  left: v.start * zoom + 'px',
+                  width: (v.end - v.start) * zoom + 'px',
+                  height: '34px',
+                  top: '108px',
+                  background: activeVideoId === v.id ? 'rgba(167,139,250,1)' : 'rgba(167,139,250,0.55)',
+                  borderRadius: '18px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '10px',
+                  cursor: 'grab',
+                  border: activeVideoId === v.id ? '2px solid #c4b5fd' : '1px solid rgba(167,139,250,0.3)',
+                  userSelect: 'none',
+                  zIndex: activeVideoId === v.id ? 65 : 25,
+                  color: '#000',
+                  fontWeight: 'bold',
+                  boxShadow: '0 4px 14px rgba(167,139,250,0.2)',
+                  overflow: 'hidden',
+                }}
+              >
+                <div onMouseDown={(e) => handleVideoTimelineMouseDown(v.id, 'resize-start', e)} style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: '12px', cursor: 'ew-resize', backgroundColor: 'rgba(0,0,0,0.25)', borderTopLeftRadius: '18px', borderBottomLeftRadius: '18px' }} />
+                <div style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '0 14px', pointerEvents: 'none', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+                  <span style={{ fontSize: 13 }}>🎬</span>
+                  <span style={{ fontSize: 10, overflow: 'hidden', textOverflow: 'ellipsis' }}>VID</span>
+                  {/* Botão mute no próprio bloco */}
+                  <button
+                    pointerEvents="all"
+                    onMouseDown={(e) => { e.stopPropagation(); }}
+                    onClick={(e) => { e.stopPropagation(); setVideos(prev => prev.map(vv => vv.id === v.id ? { ...vv, muted: !vv.muted, videoEl: Object.assign(vv.videoEl, { muted: !vv.muted }) || vv.videoEl } : vv)); }}
+                    style={{ background: v.muted ? 'rgba(239,68,68,0.7)' : 'rgba(0,0,0,0.3)', border: 'none', borderRadius: 6, padding: '1px 5px', fontSize: 9, color: '#fff', cursor: 'pointer', pointerEvents: 'all', flexShrink: 0 }}
+                    title={v.muted ? 'Áudio desativado — clique para ativar' : 'Clique para remover áudio do vídeo'}
+                  >
+                    {v.muted ? '🔇' : '🔊'}
+                  </button>
+                </div>
+                <div onMouseDown={(e) => handleVideoTimelineMouseDown(v.id, 'resize-end', e)} style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: '12px', cursor: 'ew-resize', backgroundColor: 'rgba(0,0,0,0.25)', borderTopRightRadius: '18px', borderBottomRightRadius: '18px' }} />
               </div>
             ))}
 
