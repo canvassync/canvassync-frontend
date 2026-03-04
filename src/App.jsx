@@ -1158,10 +1158,11 @@ function App() {
 
   const renderAtTimeToCanvas = (targetCanvas, t, scale = 1) => {
     const ctx = targetCanvas.getContext('2d');
+    // ⚠️ Reseta transform antes de cada frame para não acumular ctx.scale entre chamadas
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, targetCanvas.width, targetCanvas.height);
-    // Aplica escala para HD: todos os elementos são desenhados nas coordenadas
-    // originais (270×480) e o ctx.scale amplia para a resolução final
-    if (scale !== 1) ctx.scale(scale, scale);
+    // Aplica escala HD: coordenadas lógicas (270×480) × scale = resolução final
+    ctx.scale(scale, scale);
     const logicalW = targetCanvas.width / scale;
     const logicalH = targetCanvas.height / scale;
     if (image) {
