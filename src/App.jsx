@@ -655,8 +655,8 @@ function App() {
     }
 
     setActiveLyricId(null);
-    // ── Procura imagem clicada (inclui área dos handles de resize) ──────────
-    const hs = 10; // margem para hit nos handles
+    // ── Procura imagem clicada entre TODAS ativas (camadas, do topo para baixo)
+    const hs = 10;
     const clickedItem = images.slice().reverse().find((item) => {
       if (!item || !item.img) return false;
       return time >= item.start && time <= item.end &&
@@ -904,14 +904,14 @@ function App() {
     return `${min}:${sec < 10 ? '0' : ''}${sec}`;
   };
 
+  // Retorna TODAS as imagens ativas no instante t (suporte a camadas simultâneas)
+  const getImagesForTime = useCallback((t) => {
+    return images.filter(item => item?.img && t >= item.start && t <= item.end);
+  }, [images]);
+  // Compat: retorna a mais recente (usada no hit-test do canvas)
   const getImageForTime = useCallback((t) => {
-    if (images.length) {
-      for (let i = images.length - 1; i >= 0; i--) {
-        const item = images[i];
-        if (t >= item.start && t <= item.end && item.img) return item;
-      }
-    }
-    return null;
+    const all = images.filter(item => item?.img && t >= item.start && t <= item.end);
+    return all.length ? all[all.length - 1] : null;
   }, [images]);
 
   const timelineMaxTime = useMemo(() => {
@@ -965,8 +965,9 @@ function App() {
       ctx.fillRect(0, 0, canvas.width, canvas.height);
     }
 
-    const overlayImage = getImageForTime(time);
-    if (overlayImage?.img) {
+    // Desenha TODAS as imagens ativas no instante (camadas simultâneas)
+    const overlayImages = getImagesForTime(time);
+    overlayImages.forEach(overlayImage => {
       drawRoundedImage(ctx, overlayImage.img, overlayImage.x, overlayImage.y, overlayImage.width, overlayImage.height, overlayImage.radius ?? 18);
       if (activeImageId === overlayImage.id) {
         ctx.save();
@@ -977,7 +978,7 @@ function App() {
         ctx.restore();
         drawResizeHandles(ctx, overlayImage.x, overlayImage.y, overlayImage.width, overlayImage.height);
       }
-    }
+    });
 
     ctx.fillStyle = textColor;
     ctx.textAlign = 'center';
@@ -1099,7 +1100,7 @@ function App() {
       }
     }
     // Não agenda mais RAF aqui — o loop unificado abaixo cuida disso
-  }, [activeImageId, activeExtraTextId, activeLyricId, editingLyricId, drawRoundedImage, drawRoundedRect, drawResizeHandles, extraTextColor, extraTextFontFamily, extraTextFontSize, extraTexts, fontFamily, fontSize, getImageForTime, image, lyrics, textColor, wrapLyricText]);
+  }, [activeImageId, activeExtraTextId, activeLyricId, editingLyricId, drawRoundedImage, drawRoundedRect, drawResizeHandles, extraTextColor, extraTextFontFamily, extraTextFontSize, extraTexts, fontFamily, fontSize, getImagesForTime, image, lyrics, textColor, wrapLyricText]);
 
   // ── REFS para o loop RAF unificado ────────────────────────────────────────
   // Mantemos todas as dependências em refs para que o loop NUNCA precise ser
@@ -1164,10 +1165,10 @@ function App() {
       ctx.fillStyle = '#000';
       ctx.fillRect(0, 0, targetCanvas.width, targetCanvas.height);
     }
-    const overlayImage = getImageForTime(t);
-    if (overlayImage?.img) {
+    // Renderiza TODAS as imagens ativas no instante t
+    getImagesForTime(t).forEach(overlayImage => {
       drawRoundedImage(ctx, overlayImage.img, overlayImage.x, overlayImage.y, overlayImage.width, overlayImage.height, overlayImage.radius ?? 18);
-    }
+    });
     ctx.fillStyle = textColor;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
@@ -1633,15 +1634,16 @@ function App() {
           {isExporting ? `${t('ed_exporting')} ${Math.round(exportProgress * 100)}%` : t('ed_save')}
         </button>
         <button onClick={exportProject} style={{ background: 'rgba(0,191,255,0.08)', border: '1px solid rgba(0,191,255,0.2)', padding: '10px 18px', borderRadius: '18px', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px', color: '#00BFFF', boxShadow: 'none' }}>
-          Exportar Projeto
+          {t('ed_export_project')}
         </button>
         <input ref={importInputRef} type="file" accept="application/json" style={{ display: 'none' }} onChange={(e) => importProjectFromFile(e.target.files[0])} />
         <button onClick={() => importInputRef.current && importInputRef.current.click()} style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', padding: '10px 18px', borderRadius: '18px', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px', color: '#888', boxShadow: 'none' }}>
-          Importar Projeto
+          {t('ed_import_project')}
         </button>
         <button onClick={handleClearProject} style={{ background: 'rgba(239,68,68,0.07)', border: '1px solid rgba(239,68,68,0.18)', padding: '10px 18px', borderRadius: '18px', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px', color: '#f87171', boxShadow: 'none' }}>
-          Limpar Projeto
+          {t('ed_clear_project')}
         </button>
+        <LangToggle style={{ marginLeft: 'auto' }} />
       </div>
 
       <div style={{ display: 'flex', flex: 1, width: '100%', overflow: 'hidden' }}>
