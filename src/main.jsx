@@ -5,6 +5,7 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "./hooks/useAuth.jsx";
+import { LanguageProvider } from "./hooks/useLanguage.jsx";
 import "./index.css";
 
 import Landing  from "./CanvasSync.jsx";
@@ -21,6 +22,7 @@ createRoot(document.getElementById("root")).render(
   <StrictMode>
     <BrowserRouter>
       <AuthProvider>
+        <LanguageProvider>
         <Routes>
           <Route path="/"            element={<Landing />} />
           <Route path="/entrar"      element={<Entrar />} />
@@ -33,6 +35,7 @@ createRoot(document.getElementById("root")).render(
           <Route path="/privacidade" element={<Privacidade />} />
           <Route path="*"            element={<Navigate to="/" replace />} />
         </Routes>
+        </LanguageProvider>
       </AuthProvider>
     </BrowserRouter>
   </StrictMode>
