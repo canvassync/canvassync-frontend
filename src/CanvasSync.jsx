@@ -6,6 +6,61 @@ import {
   MessageSquare, Bot
 } from "lucide-react";
 
+function SupportChat({ chatTopic, setChatTopic, setChatOpen }) {
+  const faqs = [
+    { q: "Como exportar o vídeo?", a: "No editor Pro, selecione o formato (WEBM + Áudio ou HD 1080p) e clique em Salvar. O arquivo será baixado automaticamente." },
+    { q: "Como sincronizar a letra?", a: "Cole a letra no campo de texto (uma frase por linha), dê Play e clique em ⚡ MARCAR AGORA no ritmo de cada frase." },
+    { q: "Como adicionar vídeos?", a: "No editor Pro há a opção 🎬 Vídeos no topo. Adicione vídeos, ajuste posição, tamanho, rotação e áudio na timeline." },
+    { q: "Diferença Free vs Pro?", a: "Free: imagens estáticas (PNG/JPG). Pro: vídeo com áudio, HD 1080p, sincronização de letras, vídeos e sem marca d'água." },
+    { q: "Problemas com pagamento", a: "Pagamentos são processados pelo Stripe. Para problemas, entre em contato pelo e-mail abaixo." },
+  ];
+  return (
+    <div style={{ position: "fixed", bottom: 88, right: 24, zIndex: 9998, width: 340, borderRadius: 18, background: "#111", border: "1px solid rgba(0,191,255,0.2)", boxShadow: "0 16px 48px rgba(0,0,0,0.6)", overflow: "hidden" }}>
+      <div style={{ padding: "14px 18px", background: "linear-gradient(135deg,rgba(0,191,255,0.15),rgba(0,112,255,0.1))", borderBottom: "1px solid rgba(255,255,255,0.06)", display: "flex", alignItems: "center", gap: 10 }}>
+        <div style={{ width: 32, height: 32, borderRadius: "50%", background: "linear-gradient(135deg,#00BFFF,#0070ff)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+          <Bot size={17} color="#fff" />
+        </div>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: "#f0f0f0" }}>Suporte CanvasSync</div>
+          <div style={{ fontSize: 11, color: "#00BFFF" }}>Como podemos ajudar?</div>
+        </div>
+        {chatTopic !== null && (
+          <button onClick={() => setChatTopic(null)} style={{ background: "none", border: "none", color: "#666", cursor: "pointer", fontSize: 20, lineHeight: 1, padding: "0 4px" }}>←</button>
+        )}
+        <button onClick={() => setChatOpen(false)} style={{ background: "none", border: "none", color: "#444", cursor: "pointer", fontSize: 18, lineHeight: 1, padding: "0 4px" }}>✕</button>
+      </div>
+      <div style={{ padding: 14, maxHeight: 360, overflowY: "auto" }}>
+        {chatTopic === null ? (
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <p style={{ fontSize: 12, color: "#555", marginBottom: 4 }}>Selecione um tópico:</p>
+            {faqs.map((item, i) => (
+              <button key={i} onClick={() => setChatTopic(i)}
+                style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 12, padding: "10px 14px", color: "#ccc", fontSize: 13, cursor: "pointer", textAlign: "left", fontFamily: "inherit", width: "100%" }}
+                onMouseEnter={e => { e.currentTarget.style.borderColor = "rgba(0,191,255,0.3)"; e.currentTarget.style.color = "#fff"; }}
+                onMouseLeave={e => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.08)"; e.currentTarget.style.color = "#ccc"; }}>
+                {item.q}
+              </button>
+            ))}
+            <a href="mailto:canvassynclyrics@gmail.com" style={{ marginTop: 4, background: "rgba(0,191,255,0.08)", border: "1px solid rgba(0,191,255,0.2)", borderRadius: 12, padding: "10px 14px", color: "#00BFFF", fontSize: 13, textAlign: "center", textDecoration: "none", display: "block" }}>
+              ✉️ Enviar e-mail para o suporte
+            </a>
+          </div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <div style={{ background: "rgba(0,191,255,0.08)", border: "1px solid rgba(0,191,255,0.15)", borderRadius: 12, padding: "12px 14px" }}>
+              <p style={{ fontSize: 12, color: "#00BFFF", fontWeight: 700, marginBottom: 8 }}>{faqs[chatTopic].q}</p>
+              <p style={{ fontSize: 13, color: "#ccc", lineHeight: 1.6 }}>{faqs[chatTopic].a}</p>
+            </div>
+            <a href="mailto:canvassynclyrics@gmail.com" style={{ background: "rgba(0,191,255,0.08)", border: "1px solid rgba(0,191,255,0.2)", borderRadius: 12, padding: "10px 14px", color: "#00BFFF", fontSize: 13, textAlign: "center", textDecoration: "none", display: "block" }}>
+              ✉️ canvassynclyrics@gmail.com
+            </a>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 /* ─── Intersection Observer hook for scroll-reveal ─── */
 function useInView(threshold = 0.15) {
   const ref = useRef(null);
@@ -893,59 +948,8 @@ export default function CanvasSyncLanding() {
       >
         {chatOpen ? <X size={22} color="#fff" /> : <MessageSquare size={22} color="#fff" />}
       </button>
-      {chatOpen && (() => {
-        const faqs = [
-          { q: "Como exportar o vídeo?", a: "No editor Pro, selecione o formato (WEBM + Áudio ou HD 1080p) e clique em Salvar. O arquivo será baixado automaticamente." },
-          { q: "Como sincronizar a letra?", a: "Cole a letra no campo de texto (uma frase por linha), dê Play e clique em ⚡ MARCAR AGORA no ritmo de cada frase." },
-          { q: "Como adicionar vídeos?", a: "No editor Pro há a opção 🎬 Vídeos no topo. Adicione vídeos, ajuste posição, tamanho, rotação e áudio na timeline." },
-          { q: "Diferença Free vs Pro?", a: "Free: imagens estáticas (PNG/JPG). Pro: vídeo com áudio, HD 1080p, sincronização de letras, vídeos e sem marca d'água." },
-          { q: "Problemas com pagamento", a: "Pagamentos são processados pelo Stripe. Para problemas, entre em contato pelo e-mail abaixo." },
-        ];
-        return (
-          <div style={{ position: "fixed", bottom: 88, right: 24, zIndex: 9998, width: 340, borderRadius: 18, background: "#111", border: "1px solid rgba(0,191,255,0.2)", boxShadow: "0 16px 48px rgba(0,0,0,0.6)", overflow: "hidden" }}>
-            <div style={{ padding: "14px 18px", background: "linear-gradient(135deg,rgba(0,191,255,0.15),rgba(0,112,255,0.1))", borderBottom: "1px solid rgba(255,255,255,0.06)", display: "flex", alignItems: "center", gap: 10 }}>
-              <div style={{ width: 32, height: 32, borderRadius: "50%", background: "linear-gradient(135deg,#00BFFF,#0070ff)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                <Bot size={17} color="#fff" />
-              </div>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 13, fontWeight: 700, color: "#f0f0f0" }}>Suporte CanvasSync</div>
-                <div style={{ fontSize: 11, color: "#00BFFF" }}>Como podemos ajudar?</div>
-              </div>
-              {chatTopic !== null && (
-                <button onClick={() => setChatTopic(null)} style={{ background: "none", border: "none", color: "#666", cursor: "pointer", fontSize: 20, lineHeight: 1, padding: "0 4px" }}>←</button>
-              )}
-            </div>
-            <div style={{ padding: 14, maxHeight: 360, overflowY: "auto" }}>
-              {chatTopic === null ? (
-                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                  <p style={{ fontSize: 12, color: "#555", marginBottom: 4 }}>Selecione um tópico:</p>
-                  {faqs.map((item, i) => (
-                    <button key={i} onClick={() => setChatTopic(i)}
-                      style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 12, padding: "10px 14px", color: "#ccc", fontSize: 13, cursor: "pointer", textAlign: "left", transition: "all 0.15s", fontFamily: "inherit" }}
-                      onMouseEnter={e => { e.currentTarget.style.borderColor = "rgba(0,191,255,0.3)"; e.currentTarget.style.color = "#fff"; }}
-                      onMouseLeave={e => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.08)"; e.currentTarget.style.color = "#ccc"; }}>
-                      {item.q}
-                    </button>
-                  ))}
-                  <a href="mailto:canvassynclyrics@gmail.com" style={{ marginTop: 4, background: "rgba(0,191,255,0.08)", border: "1px solid rgba(0,191,255,0.2)", borderRadius: 12, padding: "10px 14px", color: "#00BFFF", fontSize: 13, textAlign: "center", textDecoration: "none", display: "block" }}>
-                    ✉️ Enviar e-mail para o suporte
-                  </a>
-                </div>
-              ) : (
-                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                  <div style={{ background: "rgba(0,191,255,0.08)", border: "1px solid rgba(0,191,255,0.15)", borderRadius: 12, padding: "12px 14px" }}>
-                    <p style={{ fontSize: 12, color: "#00BFFF", fontWeight: 700, marginBottom: 8 }}>{faqs[chatTopic].q}</p>
-                    <p style={{ fontSize: 13, color: "#ccc", lineHeight: 1.6 }}>{faqs[chatTopic].a}</p>
-                  </div>
-                  <a href="mailto:canvassynclyrics@gmail.com" style={{ background: "rgba(0,191,255,0.08)", border: "1px solid rgba(0,191,255,0.2)", borderRadius: 12, padding: "10px 14px", color: "#00BFFF", fontSize: 13, textAlign: "center", textDecoration: "none", display: "block" }}>
-                    ✉️ canvassynclyrics@gmail.com
-                  </a>
-                </div>
-              )}
-            </div>
-          </div>
-        );
-      })()}
+      {chatOpen && <SupportChat chatTopic={chatTopic} setChatTopic={setChatTopic} setChatOpen={setChatOpen} />}
+
 
       {/* Global keyframes */}
       <style>{`
