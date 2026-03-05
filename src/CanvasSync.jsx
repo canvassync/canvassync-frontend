@@ -6,6 +6,7 @@ import {
   MessageSquare, Bot
 } from "lucide-react";
 
+
 function SupportChat({ chatTopic, setChatTopic, setChatOpen }) {
   const faqs = [
     { q: "Como exportar o vídeo?", a: "No editor Pro, selecione o formato (WEBM + Áudio ou HD 1080p) e clique em Salvar. O arquivo será baixado automaticamente." },
@@ -938,8 +939,7 @@ export default function CanvasSyncLanding() {
         </div>
       </footer>
 
-
-      {/* ═══ CHAT SUPORTE ════════════════════════════════════════════════════ */}
+      {/* Botão flutuante suporte */}
       <button
         onClick={() => { setChatOpen(o => !o); setChatTopic(null); }}
         style={{ position: "fixed", bottom: 24, right: 24, zIndex: 9999, width: 54, height: 54, borderRadius: "50%", background: "linear-gradient(135deg,#00BFFF,#0070ff)", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 4px 20px rgba(0,191,255,0.4)", transition: "transform 0.2s" }}
@@ -949,7 +949,6 @@ export default function CanvasSyncLanding() {
         {chatOpen ? <X size={22} color="#fff" /> : <MessageSquare size={22} color="#fff" />}
       </button>
       {chatOpen && <SupportChat chatTopic={chatTopic} setChatTopic={setChatTopic} setChatOpen={setChatOpen} />}
-
 
       {/* Global keyframes */}
       <style>{`
