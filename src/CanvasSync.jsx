@@ -487,63 +487,21 @@ export default function CanvasSyncLanding() {
                 </div>
               </div>
 
-              {/* Video placeholder */}
-              <div style={{
-                aspectRatio: "16/9",
-                background: "linear-gradient(135deg, #0e0e0e 0%, #141420 50%, #0e0e12 100%)",
-                display: "flex", flexDirection: "column",
-                alignItems: "center", justifyContent: "center",
-                gap: 20, position: "relative", overflow: "hidden",
-              }}>
-                {/* Grid lines decoration */}
-                <div style={{
-                  position: "absolute", inset: 0,
-                  backgroundImage: "linear-gradient(rgba(0,191,255,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(0,191,255,0.03) 1px, transparent 1px)",
-                  backgroundSize: "60px 60px",
-                }} />
-
-                {/* Play button */}
-                <div
+              {/* YouTube embed */}
+              <div style={{ position: "relative", paddingBottom: "56.25%", height: 0, overflow: "hidden" }}>
+                <iframe
+                  src="https://www.youtube.com/embed/W2oW7kLTSAE?rel=0&modestbranding=1&color=white"
+                  title="CanvasSync Demo"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
                   style={{
-                    width: 80, height: 80, borderRadius: "50%",
-                    background: "rgba(0,191,255,0.12)",
-                    border: "2px solid rgba(0,191,255,0.4)",
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    cursor: "pointer",
-                    transition: "all 0.3s",
-                    boxShadow: "0 0 40px rgba(0,191,255,0.2)",
-                    position: "relative", zIndex: 1,
+                    position: "absolute", top: 0, left: 0,
+                    width: "100%", height: "100%",
+                    border: "none",
                   }}
-                  onMouseEnter={e => {
-                    e.currentTarget.style.background = "rgba(0,191,255,0.22)";
-                    e.currentTarget.style.transform = "scale(1.08)";
-                    e.currentTarget.style.boxShadow = "0 0 60px rgba(0,191,255,0.4)";
-                  }}
-                  onMouseLeave={e => {
-                    e.currentTarget.style.background = "rgba(0,191,255,0.12)";
-                    e.currentTarget.style.transform = "scale(1)";
-                    e.currentTarget.style.boxShadow = "0 0 40px rgba(0,191,255,0.2)";
-                  }}
-                >
-                  <Play size={28} color="#00BFFF" fill="#00BFFF" style={{ marginLeft: 4 }} />
-                </div>
-
-                <div style={{ position: "relative", zIndex: 1, textAlign: "center" }}>
-                  <p style={{ color: "#555", fontSize: 14, fontWeight: 500 }}>Vídeo demonstrativo</p>
-                  <p style={{ color: "#333", fontSize: 12, marginTop: 4 }}>em breve disponível</p>
-                </div>
-
-                {/* Decorative corner accent */}
-                <div style={{
-                  position: "absolute", bottom: 24, right: 24,
-                  background: "rgba(0,191,255,0.06)", border: "1px solid rgba(0,191,255,0.15)",
-                  borderRadius: 10, padding: "8px 14px",
-                  display: "flex", alignItems: "center", gap: 8,
-                  fontSize: 12, color: "#00BFFF",
-                }}>
-                  <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#00BFFF", boxShadow: "0 0 6px #00BFFF" }} />
-                  CanvasSync Demo
-                </div>
+                />
+              </div>
+              <div style={{ display: "none" }}>CanvasSync Demo
               </div>
             </div>
 
