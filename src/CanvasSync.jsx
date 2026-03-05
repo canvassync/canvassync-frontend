@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
+import { LangToggle } from "./hooks/useLanguage.jsx";
 import {
   Play, Zap, Download, Layers, Star, Check, ChevronRight,
   Music, Image, Sparkles, ArrowRight, Menu, X,
@@ -363,6 +364,7 @@ export default function CanvasSyncLanding() {
           <a href="#pricing" style={{ color: "#999", fontSize: 14, textDecoration: "none", padding: "8px 14px", transition: "color 0.2s" }}
             onMouseEnter={e => e.target.style.color = "#fff"}
             onMouseLeave={e => e.target.style.color = "#999"}>Planos</a>
+          <LangToggle />
           <button className="btn-ghost" style={{ marginLeft: 8 }} onClick={() => navigate("/entrar")}>Entrar</button>
           <button className="btn-primary" onClick={() => navigate("/cadastro")}>Começar Agora</button>
         </nav>
