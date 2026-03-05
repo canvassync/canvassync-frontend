@@ -1125,7 +1125,7 @@ function App() {
 
     // Desenha TODOS os vídeos ativos (abaixo das imagens)
     getVideosForTime(time).forEach(v => {
-      if (!v.videoEl || v.videoEl.readyState < 2) return;
+      if (!v.videoEl || v.videoEl.readyState < 1) return; // readyState>=1: mantém frame durante seek
       const vRot = (v.rotation || 0) * Math.PI / 180;
       drawRotatedElement(ctx, () => drawRoundedImage(ctx, v.videoEl, v.x, v.y, v.width, v.height, v.radius ?? 12), v.x, v.y, v.width, v.height, v.rotation);
       if (activeVideoId === v.id) {
@@ -1393,22 +1393,28 @@ function App() {
       ctx.fillStyle = '#000';
       ctx.fillRect(0, 0, logicalW, logicalH);
     }
-    // Renderiza TODOS os vídeos ativos no instante t (seek assíncrono correto)
+    // Renderiza TODOS os vídeos ativos no instante t (seek assíncrono robusto)
     const activeVids = getVideosForTime(t);
     await Promise.all(activeVids.map(v => new Promise(resolve => {
       if (!v.videoEl) return resolve();
       const relTime = Math.max(0, Math.min(t - v.start, v.videoEl.duration || 0));
-      // Se já está no tempo certo, desenha direto
-      if (Math.abs(v.videoEl.currentTime - relTime) < 0.04) return resolve();
-      // Aguarda o evento 'seeked' antes de desenhar
-      const onSeeked = () => { v.videoEl.removeEventListener('seeked', onSeeked); resolve(); };
-      const timeout  = setTimeout(() => { v.videoEl.removeEventListener('seeked', onSeeked); resolve(); }, 300);
-      v.videoEl.addEventListener('seeked', () => { clearTimeout(timeout); onSeeked(); });
       v.videoEl.pause();
+      // Se já está próximo o suficiente E tem dados, desenha direto
+      if (Math.abs(v.videoEl.currentTime - relTime) < 0.1 && v.videoEl.readyState >= 2) return resolve();
+      // Aguarda seeked + readyState >= 2
+      const done = () => { v.videoEl.removeEventListener('seeked', onSeeked); clearTimeout(timeout); resolve(); };
+      const onSeeked = () => {
+        if (v.videoEl.readyState >= 2) { done(); return; }
+        // readyState ainda baixo: aguarda mais um pouco
+        const wait = setTimeout(() => done(), 200);
+        v.videoEl.addEventListener('canplay', () => { clearTimeout(wait); done(); }, { once: true });
+      };
+      const timeout = setTimeout(() => done(), 600);
+      v.videoEl.addEventListener('seeked', onSeeked, { once: true });
       v.videoEl.currentTime = relTime;
     })));
     activeVids.forEach(v => {
-      if (!v.videoEl || v.videoEl.readyState < 2) return;
+      if (!v.videoEl || v.videoEl.readyState < 1) return;
       drawRotatedElement(ctx, () => drawRoundedImage(ctx, v.videoEl, v.x, v.y, v.width, v.height, v.radius ?? 12), v.x, v.y, v.width, v.height, v.rotation);
     });
     // Renderiza TODAS as imagens ativas no instante t
@@ -1666,6 +1672,16 @@ function App() {
     }
   };
 
+  // Converte blob URL para base64 (para salvar vídeo no projeto)
+  const blobToBase64 = (blobUrl) => new Promise((resolve) => {
+    fetch(blobUrl).then(r => r.blob()).then(blob => {
+      const reader = new FileReader();
+      reader.onload = () => resolve({ data: reader.result, mime: blob.type });
+      reader.onerror = () => resolve(null);
+      reader.readAsDataURL(blob);
+    }).catch(() => resolve(null));
+  });
+
   const buildProjectPayload = () => ({
     bulkText,
     lyrics,
@@ -1691,8 +1707,22 @@ function App() {
     audioMimeType: audioMimeType || null,
   });
 
-  const exportProject = () => {
+  const exportProject = async () => {
     const payload = buildProjectPayload();
+    // Serializa vídeos como base64
+    payload.videos = await Promise.all(
+      videos.map(async (v) => {
+        const b64result = await blobToBase64(v.src);
+        return {
+          id: v.id, start: v.start, end: v.end,
+          x: v.x, y: v.y, width: v.width, height: v.height,
+          radius: v.radius ?? 12, rotation: v.rotation ?? 0,
+          muted: v.muted || false,
+          videoBase64: b64result?.data || null,
+          videoMime: b64result?.mime || 'video/mp4',
+        };
+      })
+    );
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -1707,7 +1737,7 @@ function App() {
   const importProjectFromFile = (file) => {
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = (ev) => {
+    reader.onload = async (ev) => {
       try {
         const p = JSON.parse(ev.target.result);
         if (p.bulkText !== undefined) setBulkText(p.bulkText);
@@ -1749,6 +1779,42 @@ function App() {
           img.onload = () => setImage(img);
           img.src = p.imageSrc;
         }
+        // Restaura vídeos do projeto
+        if (Array.isArray(p.videos) && p.videos.length > 0) {
+          const loadedVideos = [];
+          for (const vData of p.videos) {
+            if (!vData.videoBase64) continue;
+            try {
+              // Converte base64 → blob → object URL → HTMLVideoElement
+              const res = await fetch(vData.videoBase64);
+              const blob = await res.blob();
+              const src = URL.createObjectURL(blob);
+              const videoEl = document.createElement('video');
+              videoEl.src = src;
+              videoEl.muted = vData.muted || false;
+              videoEl.playsInline = true;
+              videoEl.preload = 'auto';
+              videoEl.style.cssText = 'position:fixed;width:1px;height:1px;opacity:0;pointer-events:none;top:-9999px';
+              document.body.appendChild(videoEl);
+              await new Promise(res2 => {
+                videoEl.onloadedmetadata = res2;
+                videoEl.onerror = res2;
+                setTimeout(res2, 3000);
+              });
+              loadedVideos.push({
+                id: vData.id || Date.now() + Math.random(),
+                src, videoEl,
+                start: vData.start ?? 0, end: vData.end ?? 3,
+                x: vData.x ?? 0, y: vData.y ?? 0,
+                width: vData.width ?? 200, height: vData.height ?? 200,
+                radius: vData.radius ?? 12, rotation: vData.rotation ?? 0,
+                muted: vData.muted || false,
+              });
+            } catch { void 0; }
+          }
+          if (loadedVideos.length > 0) setVideos(loadedVideos);
+        }
+
         // Restaura áudio do projeto
         if (p.audioBase64) {
           setAudioBase64(p.audioBase64);
