@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { LangToggle } from "./hooks/useLanguage.jsx";
+import { useLanguage, LangToggle } from "./hooks/useLanguage.jsx";
 import {
   Play, Zap, Download, Layers, Star, Check, ChevronRight,
   Music, Image, Sparkles, ArrowRight, Menu, X,
@@ -122,6 +122,7 @@ export default function CanvasSyncLanding() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [billingAnnual, setBillingAnnual] = useState(false);
   const navigate = useNavigate();
+  const { t } = useLanguage();
   const [scrolled, setScrolled] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
   const [chatTopic, setChatTopic] = useState(null);
@@ -360,13 +361,13 @@ export default function CanvasSyncLanding() {
         <nav className="hide-mobile" style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <a href="#features" style={{ color: "#999", fontSize: 14, textDecoration: "none", padding: "8px 14px", transition: "color 0.2s" }}
             onMouseEnter={e => e.target.style.color = "#fff"}
-            onMouseLeave={e => e.target.style.color = "#999"}>Recursos</a>
+            onMouseLeave={e => e.target.style.color = "#999"}>{t("nav_features")}</a>
           <a href="#pricing" style={{ color: "#999", fontSize: 14, textDecoration: "none", padding: "8px 14px", transition: "color 0.2s" }}
             onMouseEnter={e => e.target.style.color = "#fff"}
-            onMouseLeave={e => e.target.style.color = "#999"}>Planos</a>
+            onMouseLeave={e => e.target.style.color = "#999"}>{t("nav_plans")}</a>
           <LangToggle />
-          <button className="btn-ghost" style={{ marginLeft: 8 }} onClick={() => navigate("/entrar")}>Entrar</button>
-          <button className="btn-primary" onClick={() => navigate("/cadastro")}>Começar Agora</button>
+          <button className="btn-ghost" style={{ marginLeft: 8 }} onClick={() => navigate("/entrar")}>{t("nav_signin")}</button>
+          <button className="btn-primary" onClick={() => navigate("/cadastro")}>{t("nav_start")}</button>
         </nav>
 
         {/* Mobile menu toggle */}
@@ -386,10 +387,10 @@ export default function CanvasSyncLanding() {
           background: "#0e0e0e", borderBottom: "1px solid var(--border)",
           padding: "20px 24px", display: "flex", flexDirection: "column", gap: 12,
         }}>
-          <a href="#features" style={{ color: "#ccc", textDecoration: "none", fontSize: 15, padding: "8px 0" }} onClick={() => setMenuOpen(false)}>Recursos</a>
-          <a href="#pricing" style={{ color: "#ccc", textDecoration: "none", fontSize: 15, padding: "8px 0" }} onClick={() => setMenuOpen(false)}>Planos</a>
-          <button className="btn-ghost" style={{ width: "100%", marginTop: 4 }} onClick={() => navigate("/entrar")}>Entrar</button>
-          <button className="btn-primary" style={{ width: "100%", padding: "14px 24px" }} onClick={() => navigate("/cadastro")}>Começar Agora</button>
+          <a href="#features" style={{ color: "#ccc", textDecoration: "none", fontSize: 15, padding: "8px 0" }} onClick={() => setMenuOpen(false)}>{t("nav_features")}</a>
+          <a href="#pricing" style={{ color: "#ccc", textDecoration: "none", fontSize: 15, padding: "8px 0" }} onClick={() => setMenuOpen(false)}>{t("nav_plans")}</a>
+          <button className="btn-ghost" style={{ width: "100%", marginTop: 4 }} onClick={() => navigate("/entrar")}>{t("nav_signin")}</button>
+          <button className="btn-primary" style={{ width: "100%", padding: "14px 24px" }} onClick={() => navigate("/cadastro")}>{t("nav_start")}</button>
         </div>
       )}
 
@@ -431,7 +432,7 @@ export default function CanvasSyncLanding() {
             animation: "fadeInDown 0.6s ease both",
           }}>
             <span className="glow-dot" style={{ margin: 0 }} />
-            Novo · Lyric Video Creator
+            {t("hero_badge")}
           </div>
 
           {/* Main headline */}
@@ -446,11 +447,11 @@ export default function CanvasSyncLanding() {
               animation: "fadeInUp 0.7s ease 0.1s both",
             }}
           >
-            <span className="gradient-text">Seus vídeos</span>
+            <span className="gradient-text">{t("hero_title1")}</span>
             <br />
-            <span style={{ color: "#fff" }}>sincronizados</span>
+            <span style={{ color: "#fff" }}>{t("hero_title2")}</span>
             <br />
-            <span style={{ color: "#00BFFF" }}>em um clique.</span>
+            <span style={{ color: "#00BFFF" }}>{t("hero_title3")}</span>
           </h1>
 
           {/* Subheadline */}
@@ -463,8 +464,8 @@ export default function CanvasSyncLanding() {
             fontWeight: 300,
             animation: "fadeInUp 0.7s ease 0.2s both",
           }}>
-            A maneira mais rápida de transformar áudio, imagem e vídeo em conteúdos{" "}
-            <strong style={{ color: "#bbb", fontWeight: 500 }}>virais para Reels e TikTok</strong>.
+            {t("hero_sub").split(t("hero_sub_bold"))[0]}
+            <strong style={{ color: "#bbb", fontWeight: 500 }}>{t("hero_sub_bold")}</strong>.
           </p>
 
           {/* CTAs */}
@@ -473,16 +474,16 @@ export default function CanvasSyncLanding() {
             animation: "fadeInUp 0.7s ease 0.3s both",
           }}>
             <button className="btn-primary" style={{ fontSize: 15, padding: "14px 32px", display: "flex", alignItems: "center", gap: 8 }} onClick={() => navigate("/cadastro")}>
-              Começar Grátis <ArrowRight size={16} />
+              {t("hero_cta_primary")} <ArrowRight size={16} />
             </button>
             <button className="btn-ghost" style={{ fontSize: 15, padding: "14px 28px", display: "flex", alignItems: "center", gap: 8 }}>
-              <Play size={14} fill="currentColor" /> Ver demonstração
+              <Play size={14} fill="currentColor" /> {t("hero_cta_demo")}
             </button>
           </div>
 
           {/* Trust micro-copy */}
           <p style={{ marginTop: 18, fontSize: 12, color: "#555" }}>
-            Sem cartão de crédito · Grátis para sempre no plano Free
+            {t("hero_trust")}
           </p>
         </div>
       </section>
@@ -636,11 +637,11 @@ export default function CanvasSyncLanding() {
           <Reveal>
             <div style={{ textAlign: "center", marginBottom: 60 }}>
               <p style={{ color: "#00BFFF", fontSize: 12, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", marginBottom: 14 }}>
-                RECURSOS
+                {t("features_label")}
               </p>
               <h2 className="syne" style={{ fontSize: "clamp(28px, 5vw, 48px)", fontWeight: 800, letterSpacing: "-1px" }}>
-                Tudo que você precisa,{" "}
-                <span className="gradient-text">sem complicação</span>
+                {t("features_title1")}{" "}
+                <span className="gradient-text">{t("features_title2")}</span>
               </h2>
               <p style={{ color: "#666", marginTop: 16, fontSize: 16, maxWidth: 480, margin: "16px auto 0" }}>
                 Construído para criadores que precisam de resultado rápido e visual profissional.
@@ -681,7 +682,7 @@ export default function CanvasSyncLanding() {
         <div style={{ maxWidth: 1000, margin: "0 auto" }}>
           <Reveal>
             <p style={{ textAlign: "center", color: "#00BFFF", fontSize: 12, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", marginBottom: 14 }}>
-              DEPOIMENTOS
+              {t("testimonials_label")}
             </p>
             <h2 className="syne" style={{ textAlign: "center", fontSize: "clamp(26px, 4vw, 42px)", fontWeight: 800, letterSpacing: "-1px", marginBottom: 48 }}>
               Criadores já estão <span className="gradient-text">amando</span>
@@ -730,16 +731,16 @@ export default function CanvasSyncLanding() {
           <Reveal>
             <div style={{ textAlign: "center", marginBottom: 48 }}>
               <p style={{ color: "#00BFFF", fontSize: 12, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", marginBottom: 14 }}>
-                PLANOS
+                {t("pricing_label")}
               </p>
               <h2 className="syne" style={{ fontSize: "clamp(28px, 5vw, 48px)", fontWeight: 800, letterSpacing: "-1px", marginBottom: 24 }}>
-                Simples e <span className="gradient-text">transparente</span>
+                {t("pricing_title1")} <span className="gradient-text">{t("pricing_title2")}</span>
               </h2>
 
               {/* Billing toggle */}
               <div style={{ display: "flex", justifyContent: "center" }}>
                 <div className="pricing-toggle">
-                  <span style={{ fontSize: 13, color: billingAnnual ? "#555" : "#ddd", fontWeight: 500 }}>Mensal</span>
+                  <span style={{ fontSize: 13, color: billingAnnual ? "#555" : "#ddd", fontWeight: 500 }}>{t("billing_monthly")}</span>
                   <div
                     className={`toggle-pill ${billingAnnual ? "on" : ""}`}
                     onClick={() => setBillingAnnual(!billingAnnual)}
@@ -747,7 +748,7 @@ export default function CanvasSyncLanding() {
                   >
                     <div className={`toggle-thumb ${billingAnnual ? "on" : ""}`} />
                   </div>
-                  <span style={{ fontSize: 13, color: billingAnnual ? "#ddd" : "#555", fontWeight: 500 }}>Anual</span>
+                  <span style={{ fontSize: 13, color: billingAnnual ? "#ddd" : "#555", fontWeight: 500 }}>{t("billing_annual")}</span>
                   {billingAnnual && (
                     <div style={{
                       background: "rgba(0,191,255,0.12)", border: "1px solid rgba(0,191,255,0.25)",
@@ -774,7 +775,7 @@ export default function CanvasSyncLanding() {
                   <div className="syne" style={{ fontSize: 42, fontWeight: 800, color: "#fff", lineHeight: 1 }}>
                     R$ 0
                   </div>
-                  <p style={{ color: "#555", fontSize: 13, marginTop: 6 }}>Para sempre</p>
+                  <p style={{ color: "#555", fontSize: 13, marginTop: 6 }}>{t("free_forever")}</p>
                 </div>
 
                 <ul style={{ listStyle: "none", marginBottom: 32, display: "flex", flexDirection: "column", gap: 12 }}>
@@ -787,7 +788,7 @@ export default function CanvasSyncLanding() {
                 </ul>
 
                 <button className="btn-ghost" style={{ width: "100%", padding: "13px 0", borderRadius: 12, fontSize: 14 }} onClick={() => navigate("/cadastro")}>
-                  Criar conta grátis
+                  {t("free_cta")}
                 </button>
               </div>
             </Reveal>
@@ -859,7 +860,7 @@ export default function CanvasSyncLanding() {
                   style={{ width: "100%", padding: "14px 0", borderRadius: 12, fontSize: 15, position: "relative", zIndex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}
                   onClick={() => navigate("/planos")}
                 >
-                  Assinar Pro <ChevronRight size={16} />
+                  {t("pro_cta")} <ChevronRight size={16} />
                 </button>
 
                 <p style={{ textAlign: "center", fontSize: 11, color: "#444", marginTop: 14, position: "relative", zIndex: 1 }}>
@@ -884,15 +885,15 @@ export default function CanvasSyncLanding() {
             PRONTO PARA COMEÇAR?
           </p>
           <h2 className="syne" style={{ fontSize: "clamp(30px, 5vw, 54px)", fontWeight: 800, letterSpacing: "-1.5px", marginBottom: 20 }}>
-            Crie seu primeiro vídeo
+            {t("cta_title1")}
             <br />
-            <span className="gradient-text">em menos de 5 minutos.</span>
+            <span className="gradient-text">{t("cta_title2")}</span>
           </h2>
           <p style={{ color: "#555", fontSize: 16, marginBottom: 40, maxWidth: 400, margin: "0 auto 40px" }}>
-            Sem cartão de crédito. Sem tutorial. Só você, sua música e o resultado.
+            {t("cta_sub")}
           </p>
           <button className="btn-primary" style={{ fontSize: 16, padding: "16px 40px", display: "inline-flex", alignItems: "center", gap: 10 }} onClick={() => navigate("/cadastro")}>
-            Começar Agora — É Grátis <ArrowRight size={18} />
+            {t("cta_btn")} <ArrowRight size={18} />
           </button>
         </Reveal>
       </section>
@@ -919,10 +920,10 @@ export default function CanvasSyncLanding() {
           {/* Links */}
           <div style={{ display: "flex", gap: 24, flexWrap: "wrap", alignItems: "center" }}>
             {[
-              { label: "Termos de Uso", action: () => navigate("/termos") },
-              { label: "Privacidade",   action: () => navigate("/privacidade") },
-              { label: "Suporte",       action: () => { setChatOpen(true); setChatTopic(null); } },
-              { label: "Contato",       action: () => { window.location.href = "mailto:canvassynclyrics@gmail.com"; } },
+              { label: t("footer_terms"),   action: () => navigate("/termos") },
+              { label: t("footer_privacy"), action: () => navigate("/privacidade") },
+              { label: t("footer_support"), action: () => { setChatOpen(true); setChatTopic(null); } },
+              { label: t("footer_contact"), action: () => { window.location.href = "mailto:canvassynclyrics@gmail.com"; } },
             ].map(({ label, action }) => (
               <button key={label} onClick={action}
                 style={{ background: "none", border: "none", color: "#444", fontSize: 13, cursor: "pointer", padding: 0, transition: "color 0.2s", fontFamily: "inherit" }}
@@ -936,7 +937,7 @@ export default function CanvasSyncLanding() {
 
         <div style={{ maxWidth: 1100, margin: "24px auto 0", paddingTop: 24, borderTop: "1px solid rgba(255,255,255,0.04)", textAlign: "center" }}>
           <p style={{ color: "#333", fontSize: 12 }}>
-            © {new Date().getFullYear()} CanvasSync. Todos os direitos reservados.
+            © {new Date().getFullYear()} CanvasSync. {t("footer_rights")}
           </p>
         </div>
       </footer>
