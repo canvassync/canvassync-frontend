@@ -200,22 +200,13 @@ function App() {
       const audioDuration = audioRef.current?.duration || duration;
       const allCount = prev.length + results.length;
 
-      // Se há áudio com duração conhecida, distribui todas as imagens igualmente
-      if (audioDuration > 0) {
+      // Auto-distribui APENAS na primeira inserção (sem imagens anteriores)
+      if (audioDuration > 0 && prev.length === 0) {
         const slotSize = audioDuration / allCount;
 
-        // Redistribui as existentes
-        const redistributed = prev.map((item, i) => ({
-          ...item,
-          start: i * slotSize,
-          end: (i + 1) * slotSize,
-        }));
-
-        // Cria as novas já no slot correto
         const newItems = results.map((src, index) => {
-          const slotIndex = prev.length + index;
-          const start = slotIndex * slotSize;
-          const end = (slotIndex + 1) * slotSize;
+          const start = index * slotSize;
+          const end = (index + 1) * slotSize;
           const img = new Image();
           const id = Date.now() + index;
           img.onload = () => {
@@ -226,7 +217,7 @@ function App() {
           return { id, src, img, start, end, x: 40, y: 60, width: 180, height: 180, radius: 18, rotation: 0 };
         });
 
-        return [...redistributed, ...newItems].sort((a, b) => a.start - b.start);
+        return newItems;
       }
 
       // Sem áudio: comportamento anterior (3s cada)
@@ -243,7 +234,7 @@ function App() {
         img.src = src;
         return { id, src, img, start, end, x: 40, y: 60, width: 180, height: 180, radius: 18, rotation: 0 };
       });
-      return [...prev, ...newItems].sort((a, b) => a.start - b.start);
+      return [...prev, ...newItems];
     });
     e.target.value = '';
   };
@@ -1030,7 +1021,9 @@ function App() {
       if (e.key !== 'Delete' && e.key !== 'Backspace') return;
       const activeEl = document.activeElement;
       if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA' || activeEl.tagName === 'SELECT' || activeEl.isContentEditable)) return;
-      if (activeVideoId) {
+      // Prioridade estrita: só deleta o item explicitamente selecionado
+      // Jamais deleta vídeo se o que está selecionado é uma lyric/imagem/texto
+      if (activeVideoId && !activeImageId && !activeLyricId && !activeExtraTextId) {
         setVideos(prev => { const v = prev.find(vv => vv.id === activeVideoId); if (v?.videoEl) { v.videoEl.pause(); if (v.videoEl.parentNode) v.videoEl.parentNode.removeChild(v.videoEl); URL.revokeObjectURL(v.src); } return prev.filter(vv => vv.id !== activeVideoId); });
         setActiveVideoId(null);
         return;
@@ -1043,11 +1036,16 @@ function App() {
       if (activeLyricId) {
         setLyrics(prev => prev.filter(l => l.id !== activeLyricId));
         setActiveLyricId(null);
+        return;
+      }
+      if (activeExtraTextId) {
+        setExtraTexts(prev => prev.filter(t => t.id !== activeExtraTextId));
+        setActiveExtraTextId(null);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [activeImageId, activeLyricId]);
+  }, [activeImageId, activeLyricId, activeVideoId]);
 
   // Playhead + canvas: loop unificado abaixo
 

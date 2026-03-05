@@ -134,61 +134,27 @@ export default function CanvasSyncLanding() {
   }, []);
 
   const features = [
-    {
-      icon: <Music size={22} />,
-      title: "Sincronia Manual Intuitiva",
-      desc: "Marque cada frase da letra no ritmo da música em tempo real. Precisão total, sem complicação.",
-    },
-    {
-      icon: <Download size={22} />,
-      title: "Exportação em Alta Qualidade",
-      desc: "Vídeo WEBM com áudio embutido e exportação HD 1080p, pronto para upload direto no Reels e TikTok.",
-    },
-    {
-      icon: <Layers size={22} />,
-      title: "Elementos Arrastáveis",
-      desc: "Textos, imagens e sobreposições que você move, redimensiona e gira diretamente na tela.",
-    },
-    {
-      icon: <Zap size={22} />,
-      title: "Timeline Profissional",
-      desc: "Controle total sobre cada elemento: duração, posição e encaixes via drag na timeline.",
-    },
-    {
-      icon: <Image size={22} />,
-      title: "Múltiplos Fundos & Fotos",
-      desc: "Adicione quantas imagens quiser e distribua-as automaticamente ao longo da música.",
-    },
-    {
-      icon: <Sparkles size={22} />,
-      title: "Vídeos, Textos e Rotação",
-      desc: "Adicione vídeos à composição, textos extras com múltiplas linhas, fontes premium e rotação livre para imagens e vídeos.",
-    },
+    { icon: <Music size={22} />,    title: t("feat1_title"), desc: t("feat1_desc") },
+    { icon: <Download size={22} />, title: t("feat2_title"), desc: t("feat2_desc") },
+    { icon: <Layers size={22} />,   title: t("feat3_title"), desc: t("feat3_desc") },
+    { icon: <Zap size={22} />,      title: t("feat4_title"), desc: t("feat4_desc") },
+    { icon: <Image size={22} />,    title: t("feat5_title"), desc: t("feat5_desc") },
+    { icon: <Sparkles size={22} />, title: t("feat6_title"), desc: t("feat6_desc") },
   ];
 
   const freePlan = [
-    "Geração de imagens estáticas",
-    "1 texto extra na composição",
-    "Exportação PNG / JPG",
-    "Marca d'água CanvasSync",
-    "Acesso à timeline básica",
+    t("free_feat1"), t("free_feat2"), t("free_feat3"), t("free_feat4"), t("free_feat5"),
   ];
 
   const proPlan = [
-    "Exportação de vídeo completo (WEBM)",
-    "Sincronia de letras em tempo real",
-    "Textos e imagens ilimitados",
-    "Sem marca d'água",
-    "Suporte prioritário",
-    "Histórico de projetos",
-    "Fontes premium exclusivas",
-    "Exportação com áudio embutido",
+    t("pro_feat1"), t("pro_feat2"), t("pro_feat3"), t("pro_feat4"),
+    t("pro_feat5"), t("pro_feat6"), t("pro_feat7"), t("pro_feat8"),
   ];
 
   const testimonials = [
-    { name: "Luana M.", role: "Produtora Musical", text: "Em 5 minutos meu lyric video estava pronto. Economizo horas toda semana.", stars: 5 },
-    { name: "Caio R.", role: "Criador de Conteúdo", text: "A sincronização da letra no ritmo é absurdamente precisa. Melhor que qualquer outra ferramenta.", stars: 5 },
-    { name: "Fernanda S.", role: "DJ & Artista", text: "Meus Reels explodiram depois que comecei a usar. Visual profissional em minutos.", stars: 5 },
+    { name: t("test1_name"), role: t("test1_role"), text: t("test1_text"), stars: 5 },
+    { name: t("test2_name"), role: t("test2_role"), text: t("test2_text"), stars: 5 },
+    { name: t("test3_name"), role: t("test3_role"), text: t("test3_text"), stars: 5 },
   ];
 
   return (
@@ -644,7 +610,7 @@ export default function CanvasSyncLanding() {
                 <span className="gradient-text">{t("features_title2")}</span>
               </h2>
               <p style={{ color: "#666", marginTop: 16, fontSize: 16, maxWidth: 480, margin: "16px auto 0" }}>
-                Construído para criadores que precisam de resultado rápido e visual profissional.
+                {t("features_sub")}
               </p>
             </div>
           </Reveal>
@@ -685,7 +651,7 @@ export default function CanvasSyncLanding() {
               {t("testimonials_label")}
             </p>
             <h2 className="syne" style={{ textAlign: "center", fontSize: "clamp(26px, 4vw, 42px)", fontWeight: 800, letterSpacing: "-1px", marginBottom: 48 }}>
-              Criadores já estão <span className="gradient-text">amando</span>
+              {t("testimonials_title1")} <span className="gradient-text">{t("testimonials_title2")}</span>
             </h2>
           </Reveal>
 
@@ -829,17 +795,17 @@ export default function CanvasSyncLanding() {
                       {billingAnnual ? "R$ 399" : "R$ 39,90"}
                     </div>
                     <span style={{ color: "#555", fontSize: 14, marginBottom: 6 }}>
-                      /{billingAnnual ? "ano" : "mês"}
+                      /{billingAnnual ? t("pro_per_year").replace("/","") : t("pro_per_month").replace("/","")}
                     </span>
                   </div>
                   {billingAnnual && (
                     <p style={{ color: "#00BFFF", fontSize: 12, marginTop: 6 }}>
-                      ≈ R$ 33,25/mês — economize R$ 79,80
+                      {t("pro_annual_note")}
                     </p>
                   )}
                   {!billingAnnual && (
                     <p style={{ color: "#555", fontSize: 12, marginTop: 6 }}>
-                      ou R$ 399/ano
+                      {t("pro_monthly_note")}
                     </p>
                   )}
                 </div>
@@ -864,7 +830,7 @@ export default function CanvasSyncLanding() {
                 </button>
 
                 <p style={{ textAlign: "center", fontSize: 11, color: "#444", marginTop: 14, position: "relative", zIndex: 1 }}>
-                  Cancele quando quiser
+                  {t("pro_cancel")}
                 </p>
               </div>
             </Reveal>
@@ -882,7 +848,7 @@ export default function CanvasSyncLanding() {
         }} />
         <Reveal>
           <p style={{ color: "#00BFFF", fontSize: 12, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", marginBottom: 20 }}>
-            PRONTO PARA COMEÇAR?
+            {t("cta_label")}
           </p>
           <h2 className="syne" style={{ fontSize: "clamp(30px, 5vw, 54px)", fontWeight: 800, letterSpacing: "-1.5px", marginBottom: 20 }}>
             {t("cta_title1")}
