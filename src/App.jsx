@@ -27,7 +27,11 @@ function App() {
   const [extraTextColor, setExtraTextColor] = useState('#ffffff');
   const [extraTextFontFamily, setExtraTextFontFamily] = useState('Poppins');
   const [extraTextFontSize, setExtraTextFontSize] = useState(18);
-  const importInputRef = useRef(null);
+  const importInputRef   = useRef(null);
+  const bgInputRef       = useRef(null);
+  const imagesInputRef   = useRef(null);
+  const audioInputRef    = useRef(null);
+  const videoInputRef    = useRef(null);
   const [isExporting, setIsExporting] = useState(false);
   const [exportProgress, setExportProgress] = useState(0);
   const [audioFile, setAudioFile] = useState(null);
@@ -85,6 +89,7 @@ function App() {
       };
       reader.readAsDataURL(file);
     }
+    e.target.value = ''; // permite reselecionar mesmo arquivo
   };
 
   const readFileAsDataUrl = (file) => new Promise((resolve, reject) => {
@@ -528,6 +533,11 @@ function App() {
     setExtraTextFontSize(18);
     setZoom(50);
     setExportFormat('webm_offline_audio');
+    // Reseta todos os inputs de arquivo para permitir reselecionar o mesmo arquivo
+    if (bgInputRef.current)     bgInputRef.current.value     = '';
+    if (imagesInputRef.current) imagesInputRef.current.value = '';
+    if (audioInputRef.current)  audioInputRef.current.value  = '';
+    if (videoInputRef.current)  videoInputRef.current.value  = '';
     try {
       localStorage.removeItem('gc_project');
     } catch { void 0; }
@@ -727,6 +737,33 @@ function App() {
 
     setActiveLyricId(null);
     const hs = 10;
+
+    // ── Se há vídeo selecionado, verifica resize/move ANTES das imagens ──────
+    if (activeVideoId) {
+      const activeVid = videos.find(v => v.id === activeVideoId);
+      if (activeVid) {
+        const s = 14;
+        const inBounds = mouseX >= activeVid.x - s && mouseX <= activeVid.x + activeVid.width + s &&
+                         mouseY >= activeVid.y - s && mouseY <= activeVid.y + activeVid.height + s;
+        if (inBounds) {
+          const nL = Math.abs(mouseX - activeVid.x) <= s;
+          const nR = Math.abs(mouseX - (activeVid.x + activeVid.width)) <= s;
+          const nT = Math.abs(mouseY - activeVid.y) <= s;
+          const nB = Math.abs(mouseY - (activeVid.y + activeVid.height)) <= s;
+          const corner = `${nT?'n':''}${nB?'s':''}${nL?'w':''}${nR?'e':''}`;
+          if (corner.length >= 2) {
+            setDragging({ itemKind: 'canvas-video', type: 'resize', id: activeVid.id, corner,
+              startX: mouseX, startY: mouseY,
+              startWidth: activeVid.width, startHeight: activeVid.height,
+              startXPos: activeVid.x, startYPos: activeVid.y });
+          } else {
+            setDragging({ itemKind: 'canvas-video', type: 'move', id: activeVid.id,
+              offsetX: mouseX - activeVid.x, offsetY: mouseY - activeVid.y });
+          }
+          return;
+        }
+      }
+    }
 
     // ── Imagens têm prioridade (desenhadas por cima dos vídeos) ─────────────
     const clickedItem = images.slice().reverse().find((item) => {
@@ -2042,19 +2079,19 @@ function App() {
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '14px', padding: '14px 18px', background: 'rgba(8,8,8,0.97)', borderBottom: '1px solid rgba(0,191,255,0.12)', fontSize: '12px', alignItems: 'center', width: '100%', boxSizing: 'border-box', backdropFilter: 'blur(12px)', boxShadow: '0 1px 0 rgba(0,191,255,0.08)' }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
           <label style={{ fontSize: '11px', color: '#00BFFF', fontWeight: 600, letterSpacing: '0.5px' }}>{t('ed_background')}</label>
-          <input type="file" onChange={handleImageChange} accept="image/*" style={{ color: '#f8fafc', fontSize: '11px' }} />
+          <input ref={bgInputRef} type="file" onChange={handleImageChange} accept="image/*" style={{ color: '#f8fafc', fontSize: '11px' }} />
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
           <label style={{ fontSize: '11px', color: '#00BFFF', fontWeight: 600, letterSpacing: '0.5px' }}>{t('ed_images')}</label>
-          <input type="file" onChange={handleImagesChange} accept="image/*" multiple style={{ color: '#aaa', fontSize: '11px' }} />
+          <input ref={imagesInputRef} type="file" onChange={handleImagesChange} accept="image/*" multiple style={{ color: '#aaa', fontSize: '11px' }} />
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
           <label style={{ fontSize: '11px', color: '#00BFFF', fontWeight: 600, letterSpacing: '0.5px' }}>{t('ed_audio')}</label>
-          <input type="file" onChange={handleAudioChange} accept="audio/*" style={{ color: '#f8fafc', fontSize: '11px' }} />
+          <input ref={audioInputRef} type="file" onChange={handleAudioChange} accept="audio/*" style={{ color: '#f8fafc', fontSize: '11px' }} />
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
           <label style={{ fontSize: '11px', color: '#a78bfa', fontWeight: 600, letterSpacing: '0.5px' }}>🎬 Vídeos</label>
-          <input type="file" onChange={handleVideoUpload} accept="video/*" multiple style={{ color: '#aaa', fontSize: '11px' }} />
+          <input ref={videoInputRef} type="file" onChange={handleVideoUpload} accept="video/*" multiple style={{ color: '#aaa', fontSize: '11px' }} />
         </div>
         <input type="color" value={textColor} onChange={(e) => setTextColor(e.target.value)} style={{ width: '38px', height: '32px', borderRadius: '12px', border: '1px solid rgba(0,191,255,0.25)', backgroundColor: '#111' }} />
         <select value={fontFamily} onChange={(e) => setFontFamily(e.target.value)} style={{ backgroundColor: '#111', color: '#f0f0f0', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '14px', padding: '7px 10px', fontSize: '12px' }}>
