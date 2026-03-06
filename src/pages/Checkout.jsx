@@ -1,5 +1,5 @@
 // src/pages/Checkout.jsx
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { paymentsApi } from '../services/api';
 import { useAuth } from '../hooks/useAuth.jsx';
 import { useLanguage, LangToggle } from '../hooks/useLanguage.jsx';
@@ -8,16 +8,10 @@ export default function CheckoutPage() {
   const { user, isLoggedIn, isPro, login, register } = useAuth();
   const { t } = useLanguage();
 
-  const params = new URLSearchParams(window.location.search);
-  if (isLoggedIn && isPro && params.get('auth') === 'ok') {
-    window.location.href = '/editor';
-    return null;
-  }
-  const [step, setStep] = useState(
-    isLoggedIn && params.get('auth') === 'ok' ? 'payment' : 'plan'
-  );
+  const [step, setStep] = useState('plan');
   const [selectedPlan, setSelectedPlan] = useState('pro_monthly');
   const [paymentMethod, setPaymentMethod] = useState('card');
+  const paymentMethodRef = useRef('card');
   const [loading, setLoading]           = useState(false);
   const [error, setError]               = useState('');
 
@@ -27,9 +21,25 @@ export default function CheckoutPage() {
   const [password, setPassword] = useState('');
   const [showPass, setShowPass] = useState(false);
 
+  // Google OAuth: move para pagamento quando sessão for confirmada após redirect
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('auth') === 'ok' && isLoggedIn && !isPro) {
+      setStep('payment');
+    }
+    if (params.get('auth') === 'ok' && isLoggedIn && isPro) {
+      window.location.href = '/editor';
+    }
+  }, [isLoggedIn, isPro]);
+
+  const changePaymentMethod = (method) => {
+    setPaymentMethod(method);
+    paymentMethodRef.current = method;
+  };
+
   const handleSelectPlan = (plan) => {
     setSelectedPlan(plan);
-    if (plan === 'pro_monthly') setPaymentMethod('card');
+    if (plan === 'pro_monthly') changePaymentMethod('card');
   };
 
   const handleContinue = () => {
@@ -58,7 +68,7 @@ export default function CheckoutPage() {
 
   const handleCheckout = async () => {
     setLoading(true); setError('');
-    try { await paymentsApi.checkout(selectedPlan, paymentMethod); }
+    try { await paymentsApi.checkout(selectedPlan, paymentMethodRef.current); }
     catch (err) { setError(err.message || 'Erro ao iniciar pagamento.'); setLoading(false); }
   };
 
@@ -200,11 +210,11 @@ export default function CheckoutPage() {
 
         <span style={lbl}>{t('method_label')}</span>
         <div style={{ display:'flex', gap:10, marginBottom:20 }}>
-          <div style={payCard(paymentMethod==='card', false)} onClick={() => setPaymentMethod('card')}>
+          <div style={payCard(paymentMethod==='card', false)} onClick={() => changePaymentMethod('card')}>
             <span style={{ fontSize:22 }}>💳</span>
             <div><div style={{ fontWeight:700, fontSize:13 }}>{t('card_label')}</div><div style={{ color:'#444', fontSize:11 }}>{t('card_sub')}</div></div>
           </div>
-          <div style={payCard(paymentMethod==='boleto', false)} onClick={() => setPaymentMethod('boleto')}>
+          <div style={payCard(paymentMethod==='boleto', false)} onClick={() => changePaymentMethod('boleto')}>
             <span style={{ fontSize:22 }}>🧾</span>
             <div><div style={{ fontWeight:700, fontSize:13 }}>{t('boleto_label')}</div><div style={{ color:'#444', fontSize:11 }}>{t('boleto_sub')}</div></div>
           </div>
