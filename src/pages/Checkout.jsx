@@ -27,8 +27,6 @@ export default function CheckoutPage() {
   const [password, setPassword] = useState('');
   const [showPass, setShowPass] = useState(false);
 
-  const pixAvailable = selectedPlan === 'pro_annual';
-
   const handleSelectPlan = (plan) => {
     setSelectedPlan(plan);
     if (plan === 'pro_monthly') setPaymentMethod('card');
@@ -206,15 +204,15 @@ export default function CheckoutPage() {
             <span style={{ fontSize:22 }}>💳</span>
             <div><div style={{ fontWeight:700, fontSize:13 }}>{t('card_label')}</div><div style={{ color:'#444', fontSize:11 }}>{t('card_sub')}</div></div>
           </div>
-          <div style={payCard(paymentMethod==='pix', !pixAvailable)} onClick={() => pixAvailable && setPaymentMethod('pix')}>
-            <span style={{ fontSize:22 }}>🏦</span>
-            <div><div style={{ fontWeight:700, fontSize:13 }}>{t('pix_label')}</div><div style={{ color:'#444', fontSize:11 }}>{pixAvailable ? t('pix_available') : t('pix_annual_only')}</div></div>
+          <div style={payCard(paymentMethod==='boleto', false)} onClick={() => setPaymentMethod('boleto')}>
+            <span style={{ fontSize:22 }}>🧾</span>
+            <div><div style={{ fontWeight:700, fontSize:13 }}>{t('boleto_label')}</div><div style={{ color:'#444', fontSize:11 }}>{t('boleto_sub')}</div></div>
           </div>
         </div>
 
-        {paymentMethod === 'pix' && (
+        {paymentMethod === 'boleto' && (
           <div style={{ background:'rgba(0,191,255,0.05)', border:'1px solid rgba(0,191,255,0.15)', borderRadius:10, padding:'10px 14px', fontSize:12, color:'#555', marginBottom:16 }}>
-            {t('pix_info')}
+            {t('boleto_info')}
           </div>
         )}
 
@@ -228,7 +226,7 @@ export default function CheckoutPage() {
         {error && <div style={err}>⚠️ {error}</div>}
 
         <button onClick={handleCheckout} disabled={loading} style={{ ...btn, opacity: loading ? 0.6 : 1, cursor: loading ? 'not-allowed' : 'pointer' }}>
-          {loading ? t('redirecting') : paymentMethod === 'pix' ? t('pay_pix_btn') : t('pay_card_btn')}
+          {loading ? t('redirecting') : paymentMethod === 'boleto' ? t('pay_boleto_btn') : t('pay_card_btn')}
         </button>
         <p style={{ textAlign:'center', fontSize:12, color:'#1e1e1e', marginTop:14 }}>{t('secure_note2')}</p>
       </div>
