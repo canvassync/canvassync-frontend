@@ -442,7 +442,8 @@ export default function CanvasSyncLanding() {
             <button className="btn-primary" style={{ fontSize: 15, padding: "14px 32px", display: "flex", alignItems: "center", gap: 8 }} onClick={() => navigate("/cadastro")}>
               {t("hero_cta_primary")} <ArrowRight size={16} />
             </button>
-            <button className="btn-ghost" style={{ fontSize: 15, padding: "14px 28px", display: "flex", alignItems: "center", gap: 8 }}>
+            <button className="btn-ghost" style={{ fontSize: 15, padding: "14px 28px", display: "flex", alignItems: "center", gap: 8 }}
+              onClick={() => document.getElementById("demo-video")?.scrollIntoView({ behavior: "smooth", block: "center" })}>
               <Play size={14} fill="currentColor" /> {t("hero_cta_demo")}
             </button>
           </div>
@@ -455,7 +456,7 @@ export default function CanvasSyncLanding() {
       </section>
 
       {/* ═══ VIDEO CONTAINER ════════════════════════════════════════════════ */}
-      <section style={{ padding: "0 24px 100px", position: "relative" }}>
+      <section id="demo-video" style={{ padding: "0 24px 100px", position: "relative" }}>
         <Reveal>
           <div style={{ maxWidth: 900, margin: "0 auto", position: "relative" }}>
             {/* Browser chrome mockup */}
