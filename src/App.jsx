@@ -97,8 +97,8 @@ function App() {
   useEffect(() => { fontSizeRef.current = fontSize; }, [fontSize]);
   useEffect(() => { fontFamilyRef.current = fontFamily; }, [fontFamily]);
   // ── Animação de entrada ────────────────────────────────────────────────────
-  const [animType,  setAnimType]  = useState('none'); // 'none'|'fade'|'slide'|'typewriter'
-  const [twSpeed,   setTwSpeed]   = useState(30);     // chars/seg para typewriter
+  const [animType, setAnimType] = useState('none'); // 'none'|'fade'|'slide'|'typewriter'
+  const [twSpeed,  setTwSpeed]  = useState(30);     // chars/seg para typewriter
   const animTypeRef = useRef('none');
   const twSpeedRef  = useRef(30);
   useEffect(() => { animTypeRef.current = animType; }, [animType]);
@@ -1297,15 +1297,13 @@ function App() {
       const lineH = lFontSize * 1.3;
       const totalH = lines.length * lineH;
 
-      // ── Animação de entrada ────────────────────────────────────────────────
+      // ── Animação de entrada (preview usa `time`) ─────────────────────────
       const _anim    = activeLine.animType || 'none';
       const _twSpd   = activeLine.twSpeed  || 30;
       const _elapsed = Math.max(0, time - activeLine.start);
-      const _animDur = 0.45; // segundos de entrada para fade/slide
-      const _prog    = Math.min(1, _elapsed / _animDur); // 0→1
-      // easeOut quadrático
+      const _animDur = 0.45;
+      const _prog    = Math.min(1, _elapsed / _animDur);
       const _ease    = 1 - (1 - _prog) * (1 - _prog);
-      // Para typewriter: quantos chars mostrar
       const _twChars = _anim === 'typewriter' ? Math.floor(_elapsed * _twSpd) : Infinity;
       ctx.save();
       if (_anim === 'fade')  ctx.globalAlpha = _ease;
@@ -1330,15 +1328,14 @@ function App() {
         ctx.shadowOffsetX = _shOX;
         ctx.shadowOffsetY = _shOY;
       }
-      let _twCharCount = 0; // contador de chars já consumidos (typewriter)
+      let _twCharCount = 0;
       lines.forEach((line, li) => {
         const lineY = -totalH / 2 + li * lineH + lineH / 2;
         const upperLine = line.toUpperCase();
-        // Typewriter: calcular substring visível desta linha
         let visibleLine = upperLine;
         if (_anim === 'typewriter') {
           const remaining = _twChars - _twCharCount;
-          if (remaining <= 0) return; // linha ainda não apareceu
+          if (remaining <= 0) { _twCharCount += upperLine.length; return; }
           visibleLine = upperLine.slice(0, remaining);
           _twCharCount += upperLine.length;
         }
@@ -1584,15 +1581,13 @@ function App() {
       const lines = wrapLyricText(activeLine.text, ctx, logicalW - 40);
       const lineH = lFontSize * 1.3;
       const totalH = lines.length * lineH;
-      // ── Animação de entrada ────────────────────────────────────────────────
+      // ── Animação de entrada (export usa `t`) ─────────────────────────────
       const _anim    = activeLine.animType || 'none';
       const _twSpd   = activeLine.twSpeed  || 30;
-      const _elapsed = Math.max(0, time - activeLine.start);
-      const _animDur = 0.45; // segundos de entrada para fade/slide
-      const _prog    = Math.min(1, _elapsed / _animDur); // 0→1
-      // easeOut quadrático
+      const _elapsed = Math.max(0, t - activeLine.start);
+      const _animDur = 0.45;
+      const _prog    = Math.min(1, _elapsed / _animDur);
       const _ease    = 1 - (1 - _prog) * (1 - _prog);
-      // Para typewriter: quantos chars mostrar
       const _twChars = _anim === 'typewriter' ? Math.floor(_elapsed * _twSpd) : Infinity;
       ctx.save();
       if (_anim === 'fade')  ctx.globalAlpha = _ease;
@@ -1617,15 +1612,14 @@ function App() {
         ctx.shadowOffsetX = _shOX;
         ctx.shadowOffsetY = _shOY;
       }
-      let _twCharCount = 0; // contador de chars já consumidos (typewriter)
+      let _twCharCount = 0;
       lines.forEach((line, li) => {
         const lineY = -totalH / 2 + li * lineH + lineH / 2;
         const upperLine = line.toUpperCase();
-        // Typewriter: calcular substring visível desta linha
         let visibleLine = upperLine;
         if (_anim === 'typewriter') {
           const remaining = _twChars - _twCharCount;
-          if (remaining <= 0) return; // linha ainda não apareceu
+          if (remaining <= 0) { _twCharCount += upperLine.length; return; }
           visibleLine = upperLine.slice(0, remaining);
           _twCharCount += upperLine.length;
         }
@@ -1660,29 +1654,42 @@ function App() {
     setIsExporting(true);
     setExportProgress(0);
     try {
-      const { default: WebMWriter } = await import('webm-writer');
-      const offCanvas = document.createElement('canvas');
-      offCanvas.width = baseCanvas.width;
-      offCanvas.height = baseCanvas.height;
+      // Renderiza todos os frames em ImageData primeiro
+      const W = baseCanvas.width, H = baseCanvas.height;
       const fps = 30;
       const totalFrames = Math.ceil(effectiveDuration * fps);
-      const writer = new WebMWriter({ frameRate: fps, quality: 0.95 });
+      const offCanvas = document.createElement('canvas');
+      offCanvas.width = W; offCanvas.height = H;
+      const frames = [];
       for (let i = 0; i < totalFrames; i++) {
-        const t = i / fps;
-        await renderAtTimeToCanvas(offCanvas, t);
-        writer.addFrame(offCanvas);
-        setExportProgress(((i + 1) / totalFrames));
+        await renderAtTimeToCanvas(offCanvas, i / fps);
+        const blob = await new Promise(res => offCanvas.toBlob(res, 'image/webp', 0.92));
+        frames.push(blob);
+        setExportProgress((i + 1) / totalFrames * 0.8);
         await new Promise(r => setTimeout(r, 0));
       }
-      const blob = await writer.complete();
+      // Usa webm-muxer VP8 sem áudio (leve, sem dependência extra)
+      const { Muxer, ArrayBufferTarget } = await import('webm-muxer');
+      const target = new ArrayBufferTarget();
+      const muxer = new Muxer({ target, video: { codec: 'V_VP8', width: W, height: H, frameRate: fps } });
+      const venc = new VideoEncoder({ output: (c,m) => muxer.addVideoChunk(c,m), error: console.error });
+      venc.configure({ codec: 'vp8', width: W, height: H, bitrate: 2_000_000 });
+      for (let i = 0; i < frames.length; i++) {
+        const bmp = await createImageBitmap(frames[i]);
+        const vf = new VideoFrame(bmp, { timestamp: Math.round(i / fps * 1_000_000), duration: Math.round(1_000_000 / fps) });
+        venc.encode(vf, { keyFrame: i % 60 === 0 }); vf.close(); bmp.close();
+        setExportProgress(0.8 + (i + 1) / frames.length * 0.2);
+      }
+      await venc.flush();
+      muxer.finalize();
+      const blob = new Blob([target.buffer], { type: 'video/webm' });
       const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'canvas.webm';
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+      const a = document.createElement('a'); a.href = url; a.download = 'canvas.webm';
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
+    } catch(err) {
+      console.error('[WEBM Export]', err);
+      alert('Erro ao exportar WEBM: ' + err.message);
     } finally {
       setIsExporting(false);
       setExportProgress(0);
@@ -2618,45 +2625,6 @@ function App() {
                     </>}
                   </div>
                   <button onClick={() => fontInputRef.current?.click()} style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.25)', borderRadius: '8px', padding: '3px 9px', fontSize: '10px', color: '#f59e0b', cursor: 'pointer' }}>+ Fonte TTF/OTF</button>
-                </div>
-              );
-            })()}
-
-            {/* Animação de entrada */}
-            {(() => {
-              const selL = activeLyricId ? lyrics.find(l => l.id === activeLyricId) : null;
-              const curAnim  = selL ? (selL.animType || animType) : animType;
-              const curSpeed = selL ? (selL.twSpeed  || twSpeed)  : twSpeed;
-              const setAnim = (val) => {
-                if (selL) setLyrics(prev => prev.map(l => l.id === activeLyricId ? {...l, animType: val} : l));
-                else setAnimType(val);
-              };
-              const setSpd = (val) => {
-                if (selL) setLyrics(prev => prev.map(l => l.id === activeLyricId ? {...l, twSpeed: val} : l));
-                else setTwSpeed(val);
-              };
-              return (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', background: 'rgba(139,92,246,0.04)', border: '1px solid rgba(139,92,246,0.15)', borderRadius: 10, padding: '8px 10px' }}>
-                  <span style={{ fontSize: '10px', color: '#a78bfa', fontWeight: 700 }}>ANIMAÇÃO</span>
-                  {['none','fade','slide','typewriter'].map(opt => (
-                    <button key={opt} onClick={() => setAnim(opt)} style={{
-                      padding: '3px 10px', fontSize: '10px', borderRadius: '8px', cursor: 'pointer', fontWeight: 600,
-                      background: curAnim === opt ? 'rgba(139,92,246,0.25)' : 'rgba(255,255,255,0.04)',
-                      border: `1px solid ${curAnim === opt ? 'rgba(139,92,246,0.6)' : 'rgba(255,255,255,0.1)'}`,
-                      color: curAnim === opt ? '#c4b5fd' : '#666',
-                    }}>
-                      {opt === 'none' ? 'Nenhuma' : opt === 'fade' ? 'Fade' : opt === 'slide' ? 'Slide' : 'Typewriter'}
-                    </button>
-                  ))}
-                  {curAnim === 'typewriter' && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginLeft: 4 }}>
-                      <span style={{ fontSize: '10px', color: '#64748b' }}>Vel.</span>
-                      <input type="range" min="5" max="80" step="5" value={curSpeed}
-                        onChange={e => setSpd(+e.target.value)}
-                        style={{ width: '70px', accentColor: '#a78bfa' }} />
-                      <span style={{ fontSize: '10px', color: '#a78bfa', minWidth: 30 }}>{curSpeed}/s</span>
-                    </div>
-                  )}
                 </div>
               );
             })()}
