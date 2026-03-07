@@ -50,6 +50,36 @@ function App() {
   const [draggingExtraIndex, setDraggingExtraIndex] = useState(null);
   const [activeExtraTextId, setActiveExtraTextId] = useState(null);
 
+  // ── FONTES CUSTOMIZADAS ───────────────────────────────────────────────────
+  const [customFonts, setCustomFonts] = useState([]); // [{name, fileName}]
+  const fontInputRef = useRef(null);
+
+  const handleFontUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const name = file.name.replace(/\.[^.]+$/, '').replace(/[-_]/g, ' ');
+    const buffer = await file.arrayBuffer();
+    try {
+      const face = new FontFace(name, buffer);
+      await face.load();
+      document.fonts.add(face);
+      setCustomFonts(prev => [...prev, { name, fileName: file.name }]);
+    } catch (err) {
+      console.error('Erro ao carregar fonte:', err);
+    }
+    e.target.value = '';
+  };
+
+  // ── SOMBRA E GRADIENTE DO TEXTO PRINCIPAL ─────────────────────────────────
+  const [shadowEnabled,  setShadowEnabled]  = useState(true);
+  const [shadowBlur,     setShadowBlur]     = useState(12);
+  const [shadowColor,    setShadowColor]    = useState('rgba(0,0,0,0.9)');
+  const [shadowOffsetX,  setShadowOffsetX]  = useState(0);
+  const [shadowOffsetY,  setShadowOffsetY]  = useState(2);
+  const [gradientEnabled, setGradientEnabled] = useState(false);
+  const [gradientColor1,  setGradientColor1]  = useState('#ffffff');
+  const [gradientColor2,  setGradientColor2]  = useState('#00BFFF');
+
   const canvasRef = useRef(null);
   const canvasContainerRef = useRef(null);
   const audioRef = useRef(null);
@@ -69,6 +99,55 @@ function App() {
   const [dragging, setDragging] = useState(null);
   const [isScrubbing, setIsScrubbing] = useState(false);
   const [editingLyricId, setEditingLyricId] = useState(null);
+
+  // ── UNDO / REDO ────────────────────────────────────────────────────────────
+  const undoStack = useRef([]);
+  const redoStack = useRef([]);
+  const isUndoingRef = useRef(false);
+
+  const snapshotState = useCallback(() => {
+    if (isUndoingRef.current) return;
+    undoStack.current.push({
+      lyrics:     JSON.parse(JSON.stringify(lyrics.map(l => ({ ...l, img: undefined })))),
+      images:     JSON.parse(JSON.stringify(images.map(i => ({ ...i, img: undefined })))),
+      extraTexts: JSON.parse(JSON.stringify(extraTexts)),
+    });
+    if (undoStack.current.length > 40) undoStack.current.shift();
+    redoStack.current = [];
+  }, [lyrics, images, extraTexts]);
+
+  const applySnapshot = useCallback((snap) => {
+    isUndoingRef.current = true;
+    setLyrics(snap.lyrics);
+    setImages(prev => snap.images.map(si => {
+      const existing = prev.find(p => p.id === si.id);
+      return existing ? { ...si, img: existing.img } : si;
+    }));
+    setExtraTexts(snap.extraTexts);
+    setTimeout(() => { isUndoingRef.current = false; }, 50);
+  }, []);
+
+  const handleUndo = useCallback(() => {
+    if (undoStack.current.length === 0) return;
+    redoStack.current.push({
+      lyrics:     JSON.parse(JSON.stringify(lyrics.map(l => ({ ...l, img: undefined })))),
+      images:     JSON.parse(JSON.stringify(images.map(i => ({ ...i, img: undefined })))),
+      extraTexts: JSON.parse(JSON.stringify(extraTexts)),
+    });
+    const snap = undoStack.current.pop();
+    applySnapshot(snap);
+  }, [lyrics, images, extraTexts, applySnapshot]);
+
+  const handleRedo = useCallback(() => {
+    if (redoStack.current.length === 0) return;
+    undoStack.current.push({
+      lyrics:     JSON.parse(JSON.stringify(lyrics.map(l => ({ ...l, img: undefined })))),
+      images:     JSON.parse(JSON.stringify(images.map(i => ({ ...i, img: undefined })))),
+      extraTexts: JSON.parse(JSON.stringify(extraTexts)),
+    });
+    const snap = redoStack.current.pop();
+    applySnapshot(snap);
+  }, [lyrics, images, extraTexts, applySnapshot]);
 
   useEffect(() => {
     const link = document.createElement('link');
@@ -462,6 +541,7 @@ function App() {
         fontSize: fontSizeRef.current,
         fontFamily: fontFamilyRef.current,
       };
+      snapshotState();
       setLyrics(prevLyrics => [...prevLyrics, newLine].sort((a, b) => a.start - b.start));
       return prev + 1;
     });
@@ -505,6 +585,8 @@ function App() {
   };
 
   const handleClearProject = () => {
+    undoStack.current = [];
+    redoStack.current = [];
     handleStopPlayback();
     setBulkText('');
     setLyrics([]);
@@ -1014,6 +1096,7 @@ function App() {
 
 
   const handleGlobalMouseUp = useCallback(() => {
+    if (dragging) snapshotState();
     setDragging(null);
     setDraggingExtraIndex(null);
     setIsScrubbing(false);
@@ -1028,6 +1111,21 @@ function App() {
 
   useEffect(() => {
     const handleKeyDown = (e) => {
+      // Ctrl+Z = Undo, Ctrl+Y ou Ctrl+Shift+Z = Redo
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+        const activeEl = document.activeElement;
+        if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA')) return;
+        e.preventDefault();
+        handleUndo();
+        return;
+      }
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) {
+        const activeEl = document.activeElement;
+        if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA')) return;
+        e.preventDefault();
+        handleRedo();
+        return;
+      }
       if (e.key !== 'Delete' && e.key !== 'Backspace') return;
       const activeEl = document.activeElement;
       if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA' || activeEl.tagName === 'SELECT' || activeEl.isContentEditable)) return;
@@ -1039,11 +1137,13 @@ function App() {
         return;
       }
       if (activeImageId) {
+        snapshotState();
         setImages(prev => prev.filter(img => img.id !== activeImageId));
         setActiveImageId(null);
         return;
       }
       if (activeLyricId) {
+        snapshotState();
         setLyrics(prev => prev.filter(l => l.id !== activeLyricId));
         setActiveLyricId(null);
         return;
@@ -1055,7 +1155,7 @@ function App() {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [activeImageId, activeLyricId, activeVideoId]);
+  }, [activeImageId, activeLyricId, activeVideoId, handleUndo, handleRedo]);
 
   // Playhead + canvas: loop unificado abaixo
 
@@ -1242,16 +1342,29 @@ function App() {
       ctx.save();
       ctx.translate(lx, ly);
       ctx.rotate(lRot);
-      ctx.fillStyle = textColor;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.shadowBlur = 12;
-      ctx.shadowColor = 'rgba(0,0,0,0.9)';
+      if (shadowEnabled) {
+        ctx.shadowBlur    = shadowBlur;
+        ctx.shadowColor   = shadowColor;
+        ctx.shadowOffsetX = shadowOffsetX;
+        ctx.shadowOffsetY = shadowOffsetY;
+      }
       lines.forEach((line, li) => {
         const lineY = -totalH / 2 + li * lineH + lineH / 2;
-        ctx.fillText(line.toUpperCase(), 0, lineY);
+        const upperLine = line.toUpperCase();
+        if (gradientEnabled) {
+          const w = ctx.measureText(upperLine).width;
+          const grad = ctx.createLinearGradient(-w / 2, lineY - lFontSize / 2, w / 2, lineY + lFontSize / 2);
+          grad.addColorStop(0, gradientColor1);
+          grad.addColorStop(1, gradientColor2);
+          ctx.fillStyle = grad;
+        } else {
+          ctx.fillStyle = textColor;
+        }
+        ctx.fillText(upperLine, 0, lineY);
       });
-      ctx.shadowBlur = 0;
+      ctx.shadowBlur = 0; ctx.shadowOffsetX = 0; ctx.shadowOffsetY = 0;
       ctx.restore();
 
       // Indicador de seleção / arrasto + handle de rotação
@@ -1471,13 +1584,27 @@ function App() {
       ctx.rotate(lRot);
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.shadowBlur = 12;
-      ctx.shadowColor = 'rgba(0,0,0,0.9)';
+      if (shadowEnabled) {
+        ctx.shadowBlur    = shadowBlur;
+        ctx.shadowColor   = shadowColor;
+        ctx.shadowOffsetX = shadowOffsetX;
+        ctx.shadowOffsetY = shadowOffsetY;
+      }
       lines.forEach((line, li) => {
         const lineY = -totalH / 2 + li * lineH + lineH / 2;
-        ctx.fillText(line.toUpperCase(), 0, lineY);
+        const upperLine = line.toUpperCase();
+        if (gradientEnabled) {
+          const w = ctx.measureText(upperLine).width;
+          const grad = ctx.createLinearGradient(-w / 2, lineY - lFontSize / 2, w / 2, lineY + lFontSize / 2);
+          grad.addColorStop(0, gradientColor1);
+          grad.addColorStop(1, gradientColor2);
+          ctx.fillStyle = grad;
+        } else {
+          ctx.fillStyle = textColor;
+        }
+        ctx.fillText(upperLine, 0, lineY);
       });
-      ctx.shadowBlur = 0;
+      ctx.shadowBlur = 0; ctx.shadowOffsetX = 0; ctx.shadowOffsetY = 0;
       ctx.restore();
     }
   };
@@ -1844,6 +1971,151 @@ function App() {
   };
 
 
+  // ── Exportação MP4 SD (usando mp4-muxer + WebCodecs H.264) ─────────────────
+  const handleSaveMp4 = async () => {
+    if (!window.VideoEncoder) {
+      alert('Exportação MP4 disponível apenas em Chrome/Edge.');
+      return;
+    }
+    const baseCanvas = canvasRef.current;
+    if (!baseCanvas) return;
+    const effectiveDuration = (() => {
+      if (duration && duration > 0) return duration;
+      if (lyrics.length) return Math.max(...lyrics.map(l => l.end || 0));
+      if (images.length) return Math.max(...images.map(i => i.end || 0));
+      if (videos.length) return Math.max(...videos.map(v => v.end || 0));
+      return 3;
+    })();
+    if (!effectiveDuration || effectiveDuration <= 0) return;
+    setIsExporting(true); setExportProgress(0);
+    try {
+      const { Muxer, ArrayBufferTarget } = await import('mp4-muxer');
+      const W = baseCanvas.width, H = baseCanvas.height;
+      const FPS = 30, TOTAL = Math.ceil(effectiveDuration * FPS);
+      const target = new ArrayBufferTarget();
+      const muxer = new Muxer({ target, video: { codec: 'avc', width: W, height: H },
+        audio: audioBase64 ? { codec: 'aac', sampleRate: 44100, numberOfChannels: 2 } : undefined,
+        fastStart: 'in-memory' });
+      const venc = new VideoEncoder({ output: (chunk, meta) => muxer.addVideoChunk(chunk, meta), error: console.error });
+      venc.configure({ codec: 'avc1.42001f', width: W, height: H, bitrate: 4_000_000, framerate: FPS });
+      const offCanvas = new OffscreenCanvas(W, H);
+      for (let fi = 0; fi < TOTAL; fi++) {
+        const t = fi / FPS;
+        await renderAtTimeToCanvas(offCanvas, t);
+        const frame = new VideoFrame(offCanvas, { timestamp: Math.round(fi * 1_000_000 / FPS), duration: Math.round(1_000_000 / FPS) });
+        venc.encode(frame, { keyFrame: fi % 60 === 0 });
+        frame.close();
+        setExportProgress(fi / TOTAL * (audioBase64 ? 0.85 : 1));
+      }
+      await venc.flush();
+      if (audioBase64 && window.AudioEncoder) {
+        try {
+          const binary = atob(audioBase64.split(',')[1]);
+          const bytes = new Uint8Array(binary.length);
+          for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+          const audioCtx = new OfflineAudioContext(2, Math.ceil(effectiveDuration * 44100), 44100);
+          const buf = await audioCtx.decodeAudioData(bytes.buffer);
+          const aenc = new AudioEncoder({ output: (chunk, meta) => muxer.addAudioChunk(chunk, meta), error: console.error });
+          aenc.configure({ codec: 'mp4a.40.2', sampleRate: 44100, numberOfChannels: buf.numberOfChannels, bitrate: 128000 });
+          const CHUNK = 1024;
+          for (let i = 0; i < buf.length; i += CHUNK) {
+            const len = Math.min(CHUNK, buf.length - i);
+            const channels = [];
+            for (let c = 0; c < buf.numberOfChannels; c++) {
+              channels.push(buf.getChannelData(c).slice(i, i + len));
+            }
+            const aframe = new AudioData({ format: 'f32-planar', sampleRate: 44100, numberOfFrames: len,
+              numberOfChannels: buf.numberOfChannels, timestamp: Math.round(i / 44100 * 1_000_000), data: channels[0] });
+            aenc.encode(aframe); aframe.close();
+          }
+          await aenc.flush();
+        } catch(e) { console.warn('Audio MP4 encode failed:', e); }
+      }
+      muxer.finalize();
+      setExportProgress(1);
+      const blob = new Blob([target.buffer], { type: 'video/mp4' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a'); a.href = url; a.download = 'canvas.mp4';
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
+    } catch(err) {
+      console.error('[MP4 Export]', err);
+      alert('Erro ao exportar MP4: ' + err.message);
+    } finally { setIsExporting(false); setExportProgress(0); }
+  };
+
+  // ── Exportação MP4 HD 1080×1920 ─────────────────────────────────────────────
+  const handleSaveMp4HD = async () => {
+    if (!window.VideoEncoder) {
+      alert('Exportação MP4 HD disponível apenas em Chrome/Edge.');
+      return;
+    }
+    const baseCanvas = canvasRef.current;
+    if (!baseCanvas) return;
+    const effectiveDuration = (() => {
+      if (duration && duration > 0) return duration;
+      if (lyrics.length) return Math.max(...lyrics.map(l => l.end || 0));
+      if (images.length) return Math.max(...images.map(i => i.end || 0));
+      if (videos.length) return Math.max(...videos.map(v => v.end || 0));
+      return 3;
+    })();
+    if (!effectiveDuration || effectiveDuration <= 0) return;
+    setIsExporting(true); setExportProgress(0);
+    try {
+      const { Muxer, ArrayBufferTarget } = await import('mp4-muxer');
+      const SCALE = 1080 / baseCanvas.width;
+      const W = 1080, H = Math.round(baseCanvas.height * SCALE);
+      const FPS = 30, TOTAL = Math.ceil(effectiveDuration * FPS);
+      const target = new ArrayBufferTarget();
+      const muxer = new Muxer({ target, video: { codec: 'avc', width: W, height: H },
+        audio: audioBase64 ? { codec: 'aac', sampleRate: 44100, numberOfChannels: 2 } : undefined,
+        fastStart: 'in-memory' });
+      const venc = new VideoEncoder({ output: (chunk, meta) => muxer.addVideoChunk(chunk, meta), error: console.error });
+      venc.configure({ codec: 'avc1.42001f', width: W, height: H, bitrate: 8_000_000, framerate: FPS });
+      const offCanvas = new OffscreenCanvas(W, H);
+      for (let fi = 0; fi < TOTAL; fi++) {
+        const t = fi / FPS;
+        await renderAtTimeToCanvas(offCanvas, t, SCALE);
+        const frame = new VideoFrame(offCanvas, { timestamp: Math.round(fi * 1_000_000 / FPS), duration: Math.round(1_000_000 / FPS) });
+        venc.encode(frame, { keyFrame: fi % 60 === 0 });
+        frame.close();
+        setExportProgress(fi / TOTAL * (audioBase64 ? 0.85 : 1));
+      }
+      await venc.flush();
+      if (audioBase64 && window.AudioEncoder) {
+        try {
+          const binary = atob(audioBase64.split(',')[1]);
+          const bytes = new Uint8Array(binary.length);
+          for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+          const audioCtx = new OfflineAudioContext(2, Math.ceil(effectiveDuration * 44100), 44100);
+          const buf = await audioCtx.decodeAudioData(bytes.buffer);
+          const aenc = new AudioEncoder({ output: (chunk, meta) => muxer.addAudioChunk(chunk, meta), error: console.error });
+          aenc.configure({ codec: 'mp4a.40.2', sampleRate: 44100, numberOfChannels: buf.numberOfChannels, bitrate: 128000 });
+          const CHUNK = 1024;
+          for (let i = 0; i < buf.length; i += CHUNK) {
+            const len = Math.min(CHUNK, buf.length - i);
+            const aframe = new AudioData({ format: 'f32-planar', sampleRate: 44100, numberOfFrames: len,
+              numberOfChannels: buf.numberOfChannels, timestamp: Math.round(i / 44100 * 1_000_000),
+              data: buf.getChannelData(0).slice(i, i + len) });
+            aenc.encode(aframe); aframe.close();
+          }
+          await aenc.flush();
+        } catch(e) { console.warn('Audio HD MP4 encode failed:', e); }
+      }
+      muxer.finalize();
+      setExportProgress(1);
+      const blob = new Blob([target.buffer], { type: 'video/mp4' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a'); a.href = url; a.download = 'canvas_hd_1080.mp4';
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
+    } catch(err) {
+      console.error('[MP4 HD Export]', err);
+      alert('Erro ao exportar MP4 HD: ' + err.message);
+    } finally { setIsExporting(false); setExportProgress(0); }
+  };
+
+
   // ── Exportação HD 1080×1920 — WebCodecs, VP8, 8 Mbps ──────────────────────
   const handleSaveHD = async () => {
     if (!window.VideoEncoder || !window.AudioEncoder) {
@@ -1979,8 +2251,16 @@ function App() {
       handleSaveWebmOfflineWithAudio();
       return;
     }
+    if (exportFormat === 'mp4') {
+      handleSaveMp4();
+      return;
+    }
     if (exportFormat === 'webm_hd') {
       handleSaveHD();
+      return;
+    }
+    if (exportFormat === 'mp4_hd') {
+      handleSaveMp4HD();
       return;
     }
     const isPng = exportFormat === 'png';
@@ -2066,6 +2346,19 @@ function App() {
           <label style={{ fontSize: '11px', color: '#a78bfa', fontWeight: 600, letterSpacing: '0.5px' }}>🎬 Vídeos</label>
           <input ref={videoInputRef} type="file" onChange={handleVideoUpload} accept="video/*" multiple style={{ color: '#aaa', fontSize: '11px' }} />
         </div>
+        {/* Upload fonte customizada */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+          <label style={{ fontSize: '11px', color: '#f59e0b', fontWeight: 600, letterSpacing: '0.5px' }}>🔤 Fonte</label>
+          <input ref={fontInputRef} type="file" accept=".ttf,.otf,.woff,.woff2" style={{ display: 'none' }} onChange={handleFontUpload} />
+          <button onClick={() => fontInputRef.current?.click()} style={{ background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: '10px', padding: '5px 10px', fontSize: '11px', color: '#f59e0b', cursor: 'pointer' }}>
+            + Upload TTF/OTF
+          </button>
+        </div>
+        {/* Undo / Redo */}
+        <div style={{ display: 'flex', gap: '4px' }}>
+          <button onClick={handleUndo} title="Desfazer (Ctrl+Z)" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '10px', padding: '7px 12px', fontSize: '13px', color: '#888', cursor: 'pointer' }}>↩</button>
+          <button onClick={handleRedo} title="Refazer (Ctrl+Y)" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '10px', padding: '7px 12px', fontSize: '13px', color: '#888', cursor: 'pointer' }}>↪</button>
+        </div>
         <input type="color" value={textColor} onChange={(e) => setTextColor(e.target.value)} style={{ width: '38px', height: '32px', borderRadius: '12px', border: '1px solid rgba(0,191,255,0.25)', backgroundColor: '#111' }} />
         <select value={fontFamily} onChange={(e) => setFontFamily(e.target.value)} style={{ backgroundColor: '#111', color: '#f0f0f0', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '14px', padding: '7px 10px', fontSize: '12px' }}>
           <option value="Poppins">Poppins</option>
@@ -2076,11 +2369,32 @@ function App() {
           <option value="Raleway">Raleway</option>
           <option value="Playfair Display">Playfair</option>
           <option value="Lora">Lora</option>
+          {customFonts.map(f => <option key={f.name} value={f.name}>{f.name}</option>)}
         </select>
         <input type="range" min="15" max="70" value={fontSize} onChange={(e) => setFontSize(e.target.value)} style={{ accentColor: '#00BFFF' }} />
+        {/* Sombra do texto */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <label style={{ fontSize: '11px', color: '#94a3b8', fontWeight: 600 }}>Sombra</label>
+          <input type="checkbox" checked={shadowEnabled} onChange={e => setShadowEnabled(e.target.checked)} style={{ accentColor: '#00BFFF' }} />
+          {shadowEnabled && <>
+            <input type="color" value={shadowColor.startsWith('rgba') ? '#000000' : shadowColor} onChange={e => setShadowColor(e.target.value)} style={{ width: '26px', height: '26px', padding: 0, border: 'none', background: 'none', cursor: 'pointer' }} title="Cor da sombra" />
+            <input type="range" min="0" max="30" value={shadowBlur} onChange={e => setShadowBlur(+e.target.value)} style={{ width: '60px', accentColor: '#00BFFF' }} title="Intensidade" />
+          </>}
+        </div>
+        {/* Gradiente do texto */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <label style={{ fontSize: '11px', color: '#94a3b8', fontWeight: 600 }}>Gradiente</label>
+          <input type="checkbox" checked={gradientEnabled} onChange={e => setGradientEnabled(e.target.checked)} style={{ accentColor: '#00BFFF' }} />
+          {gradientEnabled && <>
+            <input type="color" value={gradientColor1} onChange={e => setGradientColor1(e.target.value)} style={{ width: '26px', height: '26px', padding: 0, border: 'none', background: 'none', cursor: 'pointer' }} title="Cor 1" />
+            <input type="color" value={gradientColor2} onChange={e => setGradientColor2(e.target.value)} style={{ width: '26px', height: '26px', padding: 0, border: 'none', background: 'none', cursor: 'pointer' }} title="Cor 2" />
+          </>}
+        </div>
         <select value={exportFormat} onChange={(e) => setExportFormat(e.target.value)} style={{ backgroundColor: '#111', color: '#f0f0f0', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '14px', padding: '7px 10px', fontSize: '12px' }}>
-          <option value="webm_offline_audio">🎬 Vídeo WEBM + Áudio</option>
-          <option value="webm_hd">✨ Vídeo HD 1080p + Áudio</option>
+          <option value="webm_offline_audio">🎬 WEBM + Áudio</option>
+          <option value="mp4">🎬 MP4 + Áudio</option>
+          <option value="webm_hd">✨ HD 1080p WEBM</option>
+          <option value="mp4_hd">✨ HD 1080p MP4</option>
           <option value="png">🖼️ PNG</option>
           <option value="jpg">🖼️ JPG</option>
         </select>
@@ -2170,6 +2484,7 @@ function App() {
                   <option value="Raleway">Raleway</option>
                   <option value="Playfair Display">Playfair</option>
                   <option value="Lora">Lora</option>
+                  {customFonts.map(f => <option key={f.name} value={f.name}>{f.name}</option>)}
                 </select>
                 <span style={{ fontSize: '10px', color: '#94a3b8' }}>
                   {activeExtraTextId ? (extraTexts.find(t=>t.id===activeExtraTextId)?.fontSize || extraTextFontSize) : (extraTexts.length ? extraTexts[extraTexts.length-1]?.fontSize || extraTextFontSize : extraTextFontSize)}px
