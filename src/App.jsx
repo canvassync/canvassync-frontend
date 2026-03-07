@@ -100,6 +100,54 @@ function App() {
   const [isScrubbing, setIsScrubbing] = useState(false);
   const [editingLyricId, setEditingLyricId] = useState(null);
 
+  // ── UNDO / REDO ────────────────────────────────────────────────────────────
+  const undoStack = useRef([]);
+  const redoStack = useRef([]);
+  const isUndoingRef = useRef(false);
+
+  const snapshotState = useCallback(() => {
+    if (isUndoingRef.current) return;
+    undoStack.current.push({
+      lyrics:     JSON.parse(JSON.stringify(lyrics.map(l => ({ ...l, img: undefined })))),
+      images:     JSON.parse(JSON.stringify(images.map(i => ({ ...i, img: undefined })))),
+      extraTexts: JSON.parse(JSON.stringify(extraTexts)),
+    });
+    if (undoStack.current.length > 40) undoStack.current.shift();
+    redoStack.current = [];
+  }, [lyrics, images, extraTexts]);
+
+  const applySnapshot = useCallback((snap) => {
+    isUndoingRef.current = true;
+    setLyrics(snap.lyrics);
+    setImages(prev => snap.images.map(si => {
+      const existing = prev.find(p => p.id === si.id);
+      return existing ? { ...si, img: existing.img } : si;
+    }));
+    setExtraTexts(snap.extraTexts);
+    setTimeout(() => { isUndoingRef.current = false; }, 50);
+  }, []);
+
+  const handleUndo = useCallback(() => {
+    if (undoStack.current.length === 0) return;
+    redoStack.current.push({
+      lyrics:     JSON.parse(JSON.stringify(lyrics.map(l => ({ ...l, img: undefined })))),
+      images:     JSON.parse(JSON.stringify(images.map(i => ({ ...i, img: undefined })))),
+      extraTexts: JSON.parse(JSON.stringify(extraTexts)),
+    });
+    const snap = undoStack.current.pop();
+    applySnapshot(snap);
+  }, [lyrics, images, extraTexts, applySnapshot]);
+
+  const handleRedo = useCallback(() => {
+    if (redoStack.current.length === 0) return;
+    undoStack.current.push({
+      lyrics:     JSON.parse(JSON.stringify(lyrics.map(l => ({ ...l, img: undefined })))),
+      images:     JSON.parse(JSON.stringify(images.map(i => ({ ...i, img: undefined })))),
+      extraTexts: JSON.parse(JSON.stringify(extraTexts)),
+    });
+    const snap = redoStack.current.pop();
+    applySnapshot(snap);
+  }, [lyrics, images, extraTexts, applySnapshot]);
 
   useEffect(() => {
     const link = document.createElement('link');
@@ -493,6 +541,7 @@ function App() {
         fontSize: fontSizeRef.current,
         fontFamily: fontFamilyRef.current,
       };
+      snapshotState();
       setLyrics(prevLyrics => [...prevLyrics, newLine].sort((a, b) => a.start - b.start));
       return prev + 1;
     });
@@ -536,6 +585,8 @@ function App() {
   };
 
   const handleClearProject = () => {
+    undoStack.current = [];
+    redoStack.current = [];
     handleStopPlayback();
     setBulkText('');
     setLyrics([]);
@@ -1045,6 +1096,7 @@ function App() {
 
 
   const handleGlobalMouseUp = useCallback(() => {
+    if (dragging) snapshotState();
     setDragging(null);
     setDraggingExtraIndex(null);
     setIsScrubbing(false);
@@ -1059,6 +1111,21 @@ function App() {
 
   useEffect(() => {
     const handleKeyDown = (e) => {
+      // Ctrl+Z = Undo, Ctrl+Y ou Ctrl+Shift+Z = Redo
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+        const activeEl = document.activeElement;
+        if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA')) return;
+        e.preventDefault();
+        handleUndo();
+        return;
+      }
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) {
+        const activeEl = document.activeElement;
+        if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA')) return;
+        e.preventDefault();
+        handleRedo();
+        return;
+      }
       if (e.key !== 'Delete' && e.key !== 'Backspace') return;
       const activeEl = document.activeElement;
       if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA' || activeEl.tagName === 'SELECT' || activeEl.isContentEditable)) return;
@@ -1070,11 +1137,13 @@ function App() {
         return;
       }
       if (activeImageId) {
+        snapshotState();
         setImages(prev => prev.filter(img => img.id !== activeImageId));
         setActiveImageId(null);
         return;
       }
       if (activeLyricId) {
+        snapshotState();
         setLyrics(prev => prev.filter(l => l.id !== activeLyricId));
         setActiveLyricId(null);
         return;
@@ -1086,7 +1155,7 @@ function App() {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [activeImageId, activeLyricId, activeVideoId, activeExtraTextId]);
+  }, [activeImageId, activeLyricId, activeVideoId, handleUndo, handleRedo]);
 
   // Playhead + canvas: loop unificado abaixo
 
@@ -1331,7 +1400,7 @@ function App() {
       }
     }
     // Não agenda mais RAF aqui — o loop unificado abaixo cuida disso
-  }, [activeImageId, activeVideoId, activeExtraTextId, activeLyricId, editingLyricId, drawRotatedElement, drawRoundedImage, drawRoundedRect, drawResizeHandles, extraTextColor, extraTextFontFamily, extraTextFontSize, extraTexts, fontFamily, fontSize, getImagesForTime, getVideosForTime, image, lyrics, textColor, wrapLyricText, videos, shadowEnabled, shadowBlur, shadowColor, shadowOffsetX, shadowOffsetY, gradientEnabled, gradientColor1, gradientColor2]);
+  }, [activeImageId, activeVideoId, activeExtraTextId, activeLyricId, editingLyricId, drawRotatedElement, drawRoundedImage, drawRoundedRect, drawResizeHandles, extraTextColor, extraTextFontFamily, extraTextFontSize, extraTexts, fontFamily, fontSize, getImagesForTime, getVideosForTime, image, lyrics, textColor, wrapLyricText, videos]);
 
 
   // ── Sync de vídeos via função chamada pelo loop RAF ──────────────────────
@@ -2262,12 +2331,7 @@ function App() {
       {/* HEADER CONTROLS */}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '14px', padding: '14px 18px', background: 'rgba(8,8,8,0.97)', borderBottom: '1px solid rgba(0,191,255,0.12)', fontSize: '12px', alignItems: 'center', width: '100%', boxSizing: 'border-box', backdropFilter: 'blur(12px)', boxShadow: '0 1px 0 rgba(0,191,255,0.08)' }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <label style={{ fontSize: '11px', color: '#00BFFF', fontWeight: 600, letterSpacing: '0.5px' }}>{t('ed_background')}</label>
-            {imageSrc && (
-              <button onClick={() => { setImageSrc(null); setImage(null); if (bgInputRef.current) bgInputRef.current.value = ''; }} title="Remover fundo" style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '6px', padding: '1px 7px', fontSize: '11px', color: '#f87171', cursor: 'pointer', lineHeight: 1.6 }}>✕</button>
-            )}
-          </div>
+          <label style={{ fontSize: '11px', color: '#00BFFF', fontWeight: 600, letterSpacing: '0.5px' }}>{t('ed_background')}</label>
           <input ref={bgInputRef} type="file" onChange={handleImageChange} accept="image/*" style={{ color: '#f8fafc', fontSize: '11px' }} />
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
@@ -2290,7 +2354,11 @@ function App() {
             + Upload TTF/OTF
           </button>
         </div>
-
+        {/* Undo / Redo */}
+        <div style={{ display: 'flex', gap: '4px' }}>
+          <button onClick={handleUndo} title="Desfazer (Ctrl+Z)" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '10px', padding: '7px 12px', fontSize: '13px', color: '#888', cursor: 'pointer' }}>↩</button>
+          <button onClick={handleRedo} title="Refazer (Ctrl+Y)" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '10px', padding: '7px 12px', fontSize: '13px', color: '#888', cursor: 'pointer' }}>↪</button>
+        </div>
         <input type="color" value={textColor} onChange={(e) => setTextColor(e.target.value)} style={{ width: '38px', height: '32px', borderRadius: '12px', border: '1px solid rgba(0,191,255,0.25)', backgroundColor: '#111' }} />
         <select value={fontFamily} onChange={(e) => setFontFamily(e.target.value)} style={{ backgroundColor: '#111', color: '#f0f0f0', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '14px', padding: '7px 10px', fontSize: '12px' }}>
           <option value="Poppins">Poppins</option>
