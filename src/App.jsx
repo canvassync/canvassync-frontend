@@ -96,24 +96,6 @@ function App() {
   const fontFamilyRef = useRef(fontFamily);
   useEffect(() => { fontSizeRef.current = fontSize; }, [fontSize]);
   useEffect(() => { fontFamilyRef.current = fontFamily; }, [fontFamily]);
-  const textColorRef = useRef(textColor);
-  const shadowEnabledRef = useRef(shadowEnabled);
-  const shadowBlurRef = useRef(shadowBlur);
-  const shadowColorRef = useRef(shadowColor);
-  const shadowOffsetXRef = useRef(shadowOffsetX);
-  const shadowOffsetYRef = useRef(shadowOffsetY);
-  const gradientEnabledRef = useRef(gradientEnabled);
-  const gradientColor1Ref = useRef(gradientColor1);
-  const gradientColor2Ref = useRef(gradientColor2);
-  useEffect(() => { textColorRef.current = textColor; }, [textColor]);
-  useEffect(() => { shadowEnabledRef.current = shadowEnabled; }, [shadowEnabled]);
-  useEffect(() => { shadowBlurRef.current = shadowBlur; }, [shadowBlur]);
-  useEffect(() => { shadowColorRef.current = shadowColor; }, [shadowColor]);
-  useEffect(() => { shadowOffsetXRef.current = shadowOffsetX; }, [shadowOffsetX]);
-  useEffect(() => { shadowOffsetYRef.current = shadowOffsetY; }, [shadowOffsetY]);
-  useEffect(() => { gradientEnabledRef.current = gradientEnabled; }, [gradientEnabled]);
-  useEffect(() => { gradientColor1Ref.current = gradientColor1; }, [gradientColor1]);
-  useEffect(() => { gradientColor2Ref.current = gradientColor2; }, [gradientColor2]);
   const [dragging, setDragging] = useState(null);
   const [isScrubbing, setIsScrubbing] = useState(false);
   const [editingLyricId, setEditingLyricId] = useState(null);
@@ -510,16 +492,8 @@ function App() {
         rotation: 0,
         fontSize: fontSizeRef.current,
         fontFamily: fontFamilyRef.current,
-        color: textColorRef.current,
-        shadowEnabled: shadowEnabledRef.current,
-        shadowBlur: shadowBlurRef.current,
-        shadowColor: shadowColorRef.current,
-        shadowOffsetX: shadowOffsetXRef.current,
-        shadowOffsetY: shadowOffsetYRef.current,
-        gradientEnabled: gradientEnabledRef.current,
-        gradientColor1: gradientColor1Ref.current,
-        gradientColor2: gradientColor2Ref.current,
       };
+      snapshotState();
       setLyrics(prevLyrics => [...prevLyrics, newLine].sort((a, b) => a.start - b.start));
       return prev + 1;
     });
@@ -563,6 +537,8 @@ function App() {
   };
 
   const handleClearProject = () => {
+    undoStack.current = [];
+    redoStack.current = [];
     handleStopPlayback();
     setBulkText('');
     setLyrics([]);
@@ -1072,6 +1048,7 @@ function App() {
 
 
   const handleGlobalMouseUp = useCallback(() => {
+    if (dragging) snapshotState();
     setDragging(null);
     setDraggingExtraIndex(null);
     setIsScrubbing(false);
@@ -1317,33 +1294,23 @@ function App() {
       ctx.rotate(lRot);
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      // Usa prop por-lyric com fallback para global
-      const lShadowOn  = activeLine.shadowEnabled  ?? shadowEnabled;
-      const lShadowBlur = activeLine.shadowBlur    ?? shadowBlur;
-      const lShadowColor = activeLine.shadowColor  || shadowColor;
-      const lShadowOX  = activeLine.shadowOffsetX  ?? shadowOffsetX;
-      const lShadowOY  = activeLine.shadowOffsetY  ?? shadowOffsetY;
-      const lGradOn    = activeLine.gradientEnabled ?? gradientEnabled;
-      const lGrad1     = activeLine.gradientColor1 || gradientColor1;
-      const lGrad2     = activeLine.gradientColor2 || gradientColor2;
-      const lColor     = activeLine.color          || textColor;
-      if (lShadowOn) {
-        ctx.shadowBlur    = lShadowBlur;
-        ctx.shadowColor   = lShadowColor;
-        ctx.shadowOffsetX = lShadowOX;
-        ctx.shadowOffsetY = lShadowOY;
+      if (shadowEnabled) {
+        ctx.shadowBlur    = shadowBlur;
+        ctx.shadowColor   = shadowColor;
+        ctx.shadowOffsetX = shadowOffsetX;
+        ctx.shadowOffsetY = shadowOffsetY;
       }
       lines.forEach((line, li) => {
         const lineY = -totalH / 2 + li * lineH + lineH / 2;
         const upperLine = line.toUpperCase();
-        if (lGradOn) {
+        if (gradientEnabled) {
           const w = ctx.measureText(upperLine).width;
           const grad = ctx.createLinearGradient(-w / 2, lineY - lFontSize / 2, w / 2, lineY + lFontSize / 2);
-          grad.addColorStop(0, lGrad1);
-          grad.addColorStop(1, lGrad2);
+          grad.addColorStop(0, gradientColor1);
+          grad.addColorStop(1, gradientColor2);
           ctx.fillStyle = grad;
         } else {
-          ctx.fillStyle = lColor;
+          ctx.fillStyle = textColor;
         }
         ctx.fillText(upperLine, 0, lineY);
       });
@@ -1582,32 +1549,23 @@ function App() {
       ctx.rotate(lRot);
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      const lShadowOn  = activeLine.shadowEnabled  ?? shadowEnabled;
-      const lShadowBlur = activeLine.shadowBlur    ?? shadowBlur;
-      const lShadowColor = activeLine.shadowColor  || shadowColor;
-      const lShadowOX  = activeLine.shadowOffsetX  ?? shadowOffsetX;
-      const lShadowOY  = activeLine.shadowOffsetY  ?? shadowOffsetY;
-      const lGradOn    = activeLine.gradientEnabled ?? gradientEnabled;
-      const lGrad1     = activeLine.gradientColor1 || gradientColor1;
-      const lGrad2     = activeLine.gradientColor2 || gradientColor2;
-      const lColor     = activeLine.color          || textColor;
-      if (lShadowOn) {
-        ctx.shadowBlur    = lShadowBlur;
-        ctx.shadowColor   = lShadowColor;
-        ctx.shadowOffsetX = lShadowOX;
-        ctx.shadowOffsetY = lShadowOY;
+      if (shadowEnabled) {
+        ctx.shadowBlur    = shadowBlur;
+        ctx.shadowColor   = shadowColor;
+        ctx.shadowOffsetX = shadowOffsetX;
+        ctx.shadowOffsetY = shadowOffsetY;
       }
       lines.forEach((line, li) => {
         const lineY = -totalH / 2 + li * lineH + lineH / 2;
         const upperLine = line.toUpperCase();
-        if (lGradOn) {
+        if (gradientEnabled) {
           const w = ctx.measureText(upperLine).width;
           const grad = ctx.createLinearGradient(-w / 2, lineY - lFontSize / 2, w / 2, lineY + lFontSize / 2);
-          grad.addColorStop(0, lGrad1);
-          grad.addColorStop(1, lGrad2);
+          grad.addColorStop(0, gradientColor1);
+          grad.addColorStop(1, gradientColor2);
           ctx.fillStyle = grad;
         } else {
-          ctx.fillStyle = lColor;
+          ctx.fillStyle = textColor;
         }
         ctx.fillText(upperLine, 0, lineY);
       });
@@ -2073,9 +2031,21 @@ function App() {
       const SCALE = 1080 / baseCanvas.width;
       const W = 1080, H = Math.round(baseCanvas.height * SCALE);
       const FPS = 30, TOTAL = Math.ceil(effectiveDuration * FPS);
+      // Decodifica áudio antes de criar o muxer para saber número de canais
+      let audioBuf = null;
+      if (audioBase64) {
+        try {
+          const bin = atob(audioBase64.split(',')[1]);
+          const bytes = new Uint8Array(bin.length);
+          for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+          const actx = new OfflineAudioContext(2, Math.ceil(effectiveDuration * 44100), 44100);
+          audioBuf = await actx.decodeAudioData(bytes.buffer);
+        } catch(e) { console.warn('Audio decode failed:', e); }
+      }
+      const nCh = audioBuf ? Math.min(audioBuf.numberOfChannels, 2) : 2;
       const target = new ArrayBufferTarget();
       const muxer = new Muxer({ target, video: { codec: 'avc', width: W, height: H },
-        audio: audioBase64 ? { codec: 'aac', sampleRate: 44100, numberOfChannels: 2 } : undefined,
+        audio: audioBuf ? { codec: 'aac', sampleRate: 44100, numberOfChannels: nCh } : undefined,
         fastStart: 'in-memory' });
       const venc = new VideoEncoder({ output: (chunk, meta) => muxer.addVideoChunk(chunk, meta), error: console.error });
       venc.configure({ codec: 'avc1.640034', width: W, height: H, bitrate: 8_000_000, framerate: FPS });
@@ -2086,24 +2056,23 @@ function App() {
         const frame = new VideoFrame(offCanvas, { timestamp: Math.round(fi * 1_000_000 / FPS), duration: Math.round(1_000_000 / FPS) });
         venc.encode(frame, { keyFrame: fi % 60 === 0 });
         frame.close();
-        setExportProgress(fi / TOTAL * (audioBase64 ? 0.85 : 1));
+        setExportProgress(fi / TOTAL * (audioBuf ? 0.85 : 1));
       }
       await venc.flush();
-      if (audioBase64 && window.AudioEncoder) {
+      if (audioBuf && window.AudioEncoder) {
         try {
-          const binary = atob(audioBase64.split(',')[1]);
-          const bytes = new Uint8Array(binary.length);
-          for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-          const audioCtx = new OfflineAudioContext(2, Math.ceil(effectiveDuration * 44100), 44100);
-          const buf = await audioCtx.decodeAudioData(bytes.buffer);
+          const buf = audioBuf;
+          const CHUNK = 4096;
           const aenc = new AudioEncoder({ output: (chunk, meta) => muxer.addAudioChunk(chunk, meta), error: console.error });
-          aenc.configure({ codec: 'mp4a.40.2', sampleRate: 44100, numberOfChannels: buf.numberOfChannels, bitrate: 128000 });
-          const CHUNK = 1024;
+          aenc.configure({ codec: 'mp4a.40.2', sampleRate: 44100, numberOfChannels: nCh, bitrate: 128000 });
           for (let i = 0; i < buf.length; i += CHUNK) {
             const len = Math.min(CHUNK, buf.length - i);
+            const planar = new Float32Array(len * nCh);
+            for (let c = 0; c < nCh; c++) {
+              planar.set(buf.getChannelData(c).slice(i, i + len), c * len);
+            }
             const aframe = new AudioData({ format: 'f32-planar', sampleRate: 44100, numberOfFrames: len,
-              numberOfChannels: buf.numberOfChannels, timestamp: Math.round(i / 44100 * 1_000_000),
-              data: buf.getChannelData(0).slice(i, i + len) });
+              numberOfChannels: nCh, timestamp: Math.round(i / 44100 * 1_000_000), data: planar });
             aenc.encode(aframe); aframe.close();
           }
           await aenc.flush();
@@ -2515,10 +2484,7 @@ function App() {
                 LETRA DA MÚSICA
                 {activeLyricId && <span style={{ marginLeft: 6, color: 'rgba(0,191,255,0.6)', fontWeight: 400, fontSize: 10 }}>(selecionada)</span>}
               </label>
-              <input type="color"
-                value={activeLyricId ? (lyrics.find(l => l.id === activeLyricId)?.color || textColor) : textColor}
-                onChange={(e) => { setTextColor(e.target.value); if (activeLyricId) setLyrics(prev => prev.map(l => l.id === activeLyricId ? {...l, color: e.target.value} : l)); }}
-                title="Cor da letra" style={{ width: '26px', height: '26px', padding: 0, border: '1px solid rgba(0,191,255,0.2)', background: '#111', borderRadius: '7px', cursor: 'pointer' }} />
+              <input type="color" value={textColor} onChange={(e) => setTextColor(e.target.value)} title="Cor da letra" style={{ width: '26px', height: '26px', padding: 0, border: '1px solid rgba(0,191,255,0.2)', background: '#111', borderRadius: '7px', cursor: 'pointer' }} />
               <select
                 value={activeLyricId ? (lyrics.find(l => l.id === activeLyricId)?.fontFamily || fontFamily) : fontFamily}
                 onChange={(e) => {
@@ -2549,24 +2515,24 @@ function App() {
                 style={{ flex: 1, minWidth: '60px', accentColor: '#00BFFF' }} />
             </div>
 
-            {/* Sombra + Gradiente + Upload fonte — per-lyric quando selecionada */}
+            {/* Sombra + Gradiente + Upload fonte — por marcação quando selecionada */}
             {(() => {
               const sel = activeLyricId ? lyrics.find(l => l.id === activeLyricId) : null;
-              const curShadowOn  = sel ? (sel.shadowEnabled  ?? shadowEnabled)  : shadowEnabled;
-              const curShadowBlur = sel ? (sel.shadowBlur    ?? shadowBlur)      : shadowBlur;
-              const curShadowCol = sel ? (sel.shadowColor    || shadowColor)     : shadowColor;
-              const curGradOn    = sel ? (sel.gradientEnabled ?? gradientEnabled): gradientEnabled;
-              const curGrad1     = sel ? (sel.gradientColor1 || gradientColor1)  : gradientColor1;
-              const curGrad2     = sel ? (sel.gradientColor2 || gradientColor2)  : gradientColor2;
+              // Lê da marcação selecionada; se nenhuma, usa global
+              const curShadowOn  = sel ? (sel.shadowEnabled   ?? shadowEnabled)   : shadowEnabled;
+              const curShadowBlur = sel ? (sel.shadowBlur     ?? shadowBlur)       : shadowBlur;
+              const curShadowCol = sel ? (sel.shadowColor     || shadowColor)      : shadowColor;
+              const curGradOn    = sel ? (sel.gradientEnabled ?? gradientEnabled)  : gradientEnabled;
+              const curGrad1     = sel ? (sel.gradientColor1  || gradientColor1)   : gradientColor1;
+              const curGrad2     = sel ? (sel.gradientColor2  || gradientColor2)   : gradientColor2;
+              // Atualiza global E a marcação selecionada (se houver)
               const setLP = (prop, val) => {
-                // Atualiza global
-                if (prop === 'shadowEnabled')   setShadowEnabled(val);
-                if (prop === 'shadowBlur')       setShadowBlur(val);
-                if (prop === 'shadowColor')      setShadowColor(val);
-                if (prop === 'gradientEnabled')  setGradientEnabled(val);
-                if (prop === 'gradientColor1')   setGradientColor1(val);
-                if (prop === 'gradientColor2')   setGradientColor2(val);
-                // Se lyric selecionada, atualiza ela também
+                if (prop === 'shadowEnabled')  setShadowEnabled(val);
+                if (prop === 'shadowBlur')     setShadowBlur(val);
+                if (prop === 'shadowColor')    setShadowColor(val);
+                if (prop === 'gradientEnabled') setGradientEnabled(val);
+                if (prop === 'gradientColor1') setGradientColor1(val);
+                if (prop === 'gradientColor2') setGradientColor2(val);
                 if (activeLyricId) setLyrics(prev => prev.map(l => l.id === activeLyricId ? {...l, [prop]: val} : l));
               };
               return (
