@@ -1296,12 +1296,12 @@ function App() {
       const lineH = lFontSize * 1.3;
       const totalH = lines.length * lineH;
 
-      // ── Animação de entrada (preview — variável `time`) ─────────────────
-      const _anim    = activeLine.animType || 'none';
-      const _twSpd   = activeLine.twSpeed  || 30;
-      const _elapsed = Math.max(0, time - activeLine.start);
-      const _ease    = 1 - Math.pow(1 - Math.min(1, _elapsed / 0.45), 2);
-      const _twChars = _anim === 'typewriter' ? Math.floor(_elapsed * _twSpd) : Infinity;
+      // ── Animação de entrada (preview — usa `time`) ──────────────────────
+      const _anim  = activeLine.animType || 'none';
+      const _twSpd = activeLine.twSpeed  || 30;
+      const _elaps = Math.max(0, time - activeLine.start);
+      const _ease  = 1 - Math.pow(1 - Math.min(1, _elaps / 0.45), 2);
+      const _twCh  = _anim === 'typewriter' ? Math.floor(_elaps * _twSpd) : Infinity;
       ctx.save();
       if (_anim === 'fade')  ctx.globalAlpha = _ease;
       if (_anim === 'slide') ctx.translate(0, (1 - _ease) * 48);
@@ -1331,7 +1331,7 @@ function App() {
         const upperLine = line.toUpperCase();
         let vis = upperLine;
         if (_anim === 'typewriter') {
-          const rem = _twChars - _twN; _twN += upperLine.length;
+          const rem = _twCh - _twN; _twN += upperLine.length;
           if (rem <= 0) return;
           vis = upperLine.slice(0, rem);
         }
@@ -1577,12 +1577,27 @@ function App() {
       const lines = wrapLyricText(activeLine.text, ctx, logicalW - 40);
       const lineH = lFontSize * 1.3;
       const totalH = lines.length * lineH;
-      // ── Animação de entrada (export — variável `t`) ──────────────────────
-      const _anim    = activeLine.animType || 'none';
-      const _twSpd   = activeLine.twSpeed  || 30;
-      const _elapsed = Math.max(0, t - activeLine.start);
-      const _ease    = 1 - Math.pow(1 - Math.min(1, _elapsed / 0.45), 2);
-      const _twChars = _anim === 'typewriter' ? Math.floor(_elapsed * _twSpd) : Infinity;
+      ctx.save();
+      ctx.translate(lx, ly);
+      ctx.rotate(lRot);
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      // Lê da marcação; fallback para global
+      const _shOn  = activeLine.shadowEnabled   !== undefined ? activeLine.shadowEnabled   : shadowEnabled;
+      const _shBlur= activeLine.shadowBlur      !== undefined ? activeLine.shadowBlur      : shadowBlur;
+      const _shCol = activeLine.shadowColor     || shadowColor;
+      const _shOX  = activeLine.shadowOffsetX   !== undefined ? activeLine.shadowOffsetX   : shadowOffsetX;
+      const _shOY  = activeLine.shadowOffsetY   !== undefined ? activeLine.shadowOffsetY   : shadowOffsetY;
+      const _grOn  = activeLine.gradientEnabled !== undefined ? activeLine.gradientEnabled : gradientEnabled;
+      const _gr1   = activeLine.gradientColor1  || gradientColor1;
+      const _gr2   = activeLine.gradientColor2  || gradientColor2;
+      const _col   = activeLine.color           || textColor;
+      // ── Animação de entrada (export — usa `t`) ──────────────────────────
+      const _anim  = activeLine.animType || 'none';
+      const _twSpd = activeLine.twSpeed  || 30;
+      const _elaps = Math.max(0, t - activeLine.start);
+      const _ease  = 1 - Math.pow(1 - Math.min(1, _elaps / 0.45), 2);
+      const _twCh  = _anim === 'typewriter' ? Math.floor(_elaps * _twSpd) : Infinity;
       ctx.save();
       if (_anim === 'fade')  ctx.globalAlpha = _ease;
       if (_anim === 'slide') ctx.translate(0, (1 - _ease) * 48);
@@ -1612,7 +1627,7 @@ function App() {
         const upperLine = line.toUpperCase();
         let vis = upperLine;
         if (_anim === 'typewriter') {
-          const rem = _twChars - _twN; _twN += upperLine.length;
+          const rem = _twCh - _twN; _twN += upperLine.length;
           if (rem <= 0) return;
           vis = upperLine.slice(0, rem);
         }
@@ -1632,8 +1647,6 @@ function App() {
       ctx.restore();
     }
   };
-
-  const handleSaveWebmOffline = async () => {
     const baseCanvas = canvasRef.current;
     if (!baseCanvas) return;
     const effectiveDuration = (() => {
@@ -2016,9 +2029,21 @@ function App() {
       const { Muxer, ArrayBufferTarget } = await import('mp4-muxer');
       const W = baseCanvas.width, H = baseCanvas.height;
       const FPS = 30, TOTAL = Math.ceil(effectiveDuration * FPS);
+      // Pré-decodifica áudio para saber número de canais antes de criar o muxer
+      let _abSD = null;
+      if (audioBase64 && window.AudioEncoder) {
+        try {
+          const _b = atob(audioBase64.split(',')[1]);
+          const _by = new Uint8Array(_b.length);
+          for (let _i = 0; _i < _b.length; _i++) _by[_i] = _b.charCodeAt(_i);
+          const _ac = new OfflineAudioContext(2, Math.ceil(effectiveDuration * 44100), 44100);
+          _abSD = await _ac.decodeAudioData(_by.buffer);
+        } catch(_e) { console.warn('Audio decode SD:', _e); }
+      }
+      const _nChSD = _abSD ? Math.min(_abSD.numberOfChannels, 2) : 2;
       const target = new ArrayBufferTarget();
       const muxer = new Muxer({ target, video: { codec: 'avc', width: W, height: H },
-        audio: audioBase64 ? { codec: 'aac', sampleRate: 44100, numberOfChannels: 2 } : undefined,
+        audio: _abSD ? { codec: 'aac', sampleRate: 44100, numberOfChannels: _nChSD } : undefined,
         fastStart: 'in-memory' });
       const venc = new VideoEncoder({ output: (chunk, meta) => muxer.addVideoChunk(chunk, meta), error: console.error });
       venc.configure({ codec: 'avc1.42001f', width: W, height: H, bitrate: 4_000_000, framerate: FPS });
@@ -2029,27 +2054,20 @@ function App() {
         const frame = new VideoFrame(offCanvas, { timestamp: Math.round(fi * 1_000_000 / FPS), duration: Math.round(1_000_000 / FPS) });
         venc.encode(frame, { keyFrame: fi % 60 === 0 });
         frame.close();
-        setExportProgress(fi / TOTAL * (audioBase64 ? 0.85 : 1));
+        setExportProgress(fi / TOTAL * (_abSD ? 0.85 : 1));
       }
       await venc.flush();
-      if (audioBase64 && window.AudioEncoder) {
+      if (_abSD) {
         try {
-          const binary = atob(audioBase64.split(',')[1]);
-          const bytes = new Uint8Array(binary.length);
-          for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-          const audioCtx = new OfflineAudioContext(2, Math.ceil(effectiveDuration * 44100), 44100);
-          const buf = await audioCtx.decodeAudioData(bytes.buffer);
           const aenc = new AudioEncoder({ output: (chunk, meta) => muxer.addAudioChunk(chunk, meta), error: console.error });
-          aenc.configure({ codec: 'mp4a.40.2', sampleRate: 44100, numberOfChannels: buf.numberOfChannels, bitrate: 128000 });
-          const CHUNK = 1024;
-          for (let i = 0; i < buf.length; i += CHUNK) {
-            const len = Math.min(CHUNK, buf.length - i);
-            const channels = [];
-            for (let c = 0; c < buf.numberOfChannels; c++) {
-              channels.push(buf.getChannelData(c).slice(i, i + len));
-            }
+          aenc.configure({ codec: 'mp4a.40.2', sampleRate: 44100, numberOfChannels: _nChSD, bitrate: 128000 });
+          const CHUNK = 4096;
+          for (let i = 0; i < _abSD.length; i += CHUNK) {
+            const len = Math.min(CHUNK, _abSD.length - i);
+            const planar = new Float32Array(len * _nChSD);
+            for (let c = 0; c < _nChSD; c++) planar.set(_abSD.getChannelData(c).slice(i, i + len), c * len);
             const aframe = new AudioData({ format: 'f32-planar', sampleRate: 44100, numberOfFrames: len,
-              numberOfChannels: buf.numberOfChannels, timestamp: Math.round(i / 44100 * 1_000_000), data: channels[0] });
+              numberOfChannels: _nChSD, timestamp: Math.round(i / 44100 * 1_000_000), data: planar });
             aenc.encode(aframe); aframe.close();
           }
           await aenc.flush();
@@ -2090,12 +2108,25 @@ function App() {
       const SCALE = 1080 / baseCanvas.width;
       const W = 1080, H = Math.round(baseCanvas.height * SCALE);
       const FPS = 30, TOTAL = Math.ceil(effectiveDuration * FPS);
+      // Pré-decodifica áudio para saber número de canais antes de criar o muxer
+      let _abHD = null;
+      if (audioBase64 && window.AudioEncoder) {
+        try {
+          const _b = atob(audioBase64.split(',')[1]);
+          const _by = new Uint8Array(_b.length);
+          for (let _i = 0; _i < _b.length; _i++) _by[_i] = _b.charCodeAt(_i);
+          const _ac = new OfflineAudioContext(2, Math.ceil(effectiveDuration * 44100), 44100);
+          _abHD = await _ac.decodeAudioData(_by.buffer);
+        } catch(_e) { console.warn('Audio decode HD:', _e); }
+      }
+      const _nChHD = _abHD ? Math.min(_abHD.numberOfChannels, 2) : 2;
       const target = new ArrayBufferTarget();
       const muxer = new Muxer({ target, video: { codec: 'avc', width: W, height: H },
-        audio: audioBase64 ? { codec: 'aac', sampleRate: 44100, numberOfChannels: 2 } : undefined,
+        audio: _abHD ? { codec: 'aac', sampleRate: 44100, numberOfChannels: _nChHD } : undefined,
         fastStart: 'in-memory' });
       const venc = new VideoEncoder({ output: (chunk, meta) => muxer.addVideoChunk(chunk, meta), error: console.error });
-      venc.configure({ codec: 'avc1.42001f', width: W, height: H, bitrate: 8_000_000, framerate: FPS });
+      // avc1.640034 = H.264 High Profile Level 5.2 — suporta até 4K (resolve erro Level 3.1)
+      venc.configure({ codec: 'avc1.640034', width: W, height: H, bitrate: 8_000_000, framerate: FPS });
       const offCanvas = new OffscreenCanvas(W, H);
       for (let fi = 0; fi < TOTAL; fi++) {
         const t = fi / FPS;
@@ -2103,24 +2134,20 @@ function App() {
         const frame = new VideoFrame(offCanvas, { timestamp: Math.round(fi * 1_000_000 / FPS), duration: Math.round(1_000_000 / FPS) });
         venc.encode(frame, { keyFrame: fi % 60 === 0 });
         frame.close();
-        setExportProgress(fi / TOTAL * (audioBase64 ? 0.85 : 1));
+        setExportProgress(fi / TOTAL * (_abHD ? 0.85 : 1));
       }
       await venc.flush();
-      if (audioBase64 && window.AudioEncoder) {
+      if (_abHD) {
         try {
-          const binary = atob(audioBase64.split(',')[1]);
-          const bytes = new Uint8Array(binary.length);
-          for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-          const audioCtx = new OfflineAudioContext(2, Math.ceil(effectiveDuration * 44100), 44100);
-          const buf = await audioCtx.decodeAudioData(bytes.buffer);
           const aenc = new AudioEncoder({ output: (chunk, meta) => muxer.addAudioChunk(chunk, meta), error: console.error });
-          aenc.configure({ codec: 'mp4a.40.2', sampleRate: 44100, numberOfChannels: buf.numberOfChannels, bitrate: 128000 });
-          const CHUNK = 1024;
-          for (let i = 0; i < buf.length; i += CHUNK) {
-            const len = Math.min(CHUNK, buf.length - i);
+          aenc.configure({ codec: 'mp4a.40.2', sampleRate: 44100, numberOfChannels: _nChHD, bitrate: 128000 });
+          const CHUNK = 4096;
+          for (let i = 0; i < _abHD.length; i += CHUNK) {
+            const len = Math.min(CHUNK, _abHD.length - i);
+            const planar = new Float32Array(len * _nChHD);
+            for (let c = 0; c < _nChHD; c++) planar.set(_abHD.getChannelData(c).slice(i, i + len), c * len);
             const aframe = new AudioData({ format: 'f32-planar', sampleRate: 44100, numberOfFrames: len,
-              numberOfChannels: buf.numberOfChannels, timestamp: Math.round(i / 44100 * 1_000_000),
-              data: buf.getChannelData(0).slice(i, i + len) });
+              numberOfChannels: _nChHD, timestamp: Math.round(i / 44100 * 1_000_000), data: planar });
             aenc.encode(aframe); aframe.close();
           }
           await aenc.flush();
