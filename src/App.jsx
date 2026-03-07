@@ -544,6 +544,8 @@ function App() {
   };
 
   const handleClearProject = () => {
+    undoStack.current = [];
+    redoStack.current = [];
     handleStopPlayback();
     setBulkText('');
     setLyrics([]);
@@ -1053,6 +1055,7 @@ function App() {
 
 
   const handleGlobalMouseUp = useCallback(() => {
+    if (dragging) snapshotState();
     setDragging(null);
     setDraggingExtraIndex(null);
     setIsScrubbing(false);
@@ -1574,6 +1577,21 @@ function App() {
       const lines = wrapLyricText(activeLine.text, ctx, logicalW - 40);
       const lineH = lFontSize * 1.3;
       const totalH = lines.length * lineH;
+      ctx.save();
+      ctx.translate(lx, ly);
+      ctx.rotate(lRot);
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      // Lê da marcação; fallback para global
+      const _shOn  = activeLine.shadowEnabled   !== undefined ? activeLine.shadowEnabled   : shadowEnabled;
+      const _shBlur= activeLine.shadowBlur      !== undefined ? activeLine.shadowBlur      : shadowBlur;
+      const _shCol = activeLine.shadowColor     || shadowColor;
+      const _shOX  = activeLine.shadowOffsetX   !== undefined ? activeLine.shadowOffsetX   : shadowOffsetX;
+      const _shOY  = activeLine.shadowOffsetY   !== undefined ? activeLine.shadowOffsetY   : shadowOffsetY;
+      const _grOn  = activeLine.gradientEnabled !== undefined ? activeLine.gradientEnabled : gradientEnabled;
+      const _gr1   = activeLine.gradientColor1  || gradientColor1;
+      const _gr2   = activeLine.gradientColor2  || gradientColor2;
+      const _col   = activeLine.color           || textColor;
       // ── Animação de entrada (export — usa `t`) ──────────────────────────
       const _anim  = activeLine.animType || 'none';
       const _twSpd = activeLine.twSpeed  || 30;
@@ -1629,8 +1647,6 @@ function App() {
       ctx.restore();
     }
   };
-
-  const handleSaveWebmOffline = async () => {
     const baseCanvas = canvasRef.current;
     if (!baseCanvas) return;
     const effectiveDuration = (() => {
@@ -2364,52 +2380,58 @@ function App() {
       `}</style>
       
       {/* HEADER CONTROLS */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '14px', padding: '14px 18px', background: 'rgba(8,8,8,0.97)', borderBottom: '1px solid rgba(0,191,255,0.12)', fontSize: '12px', alignItems: 'center', width: '100%', boxSizing: 'border-box', backdropFilter: 'blur(12px)', boxShadow: '0 1px 0 rgba(0,191,255,0.08)' }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <label style={{ fontSize: '11px', color: '#00BFFF', fontWeight: 600, letterSpacing: '0.5px' }}>{t('ed_background')}</label>
-            {imageSrc && (
-              <button onClick={() => { setImageSrc(null); setImage(null); if (bgInputRef.current) bgInputRef.current.value = ''; }} title="Remover fundo" style={{ background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '6px', padding: '1px 7px', fontSize: '11px', color: '#f87171', cursor: 'pointer', lineHeight: 1.6 }}>✕</button>
-            )}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: '12px 18px', background: 'rgba(8,8,8,0.97)', borderBottom: '1px solid rgba(0,191,255,0.12)', fontSize: '12px', width: '100%', boxSizing: 'border-box', backdropFilter: 'blur(12px)', boxShadow: '0 1px 0 rgba(0,191,255,0.08)' }}>
+        {/* Linha 1: imports de mídia + formato + exportar */}
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '14px', alignItems: 'center' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <label style={{ fontSize: '11px', color: '#00BFFF', fontWeight: 600, letterSpacing: '0.5px' }}>{t('ed_background')}</label>
+              {imageSrc && (
+                <button onClick={() => { setImageSrc(null); setImage(null); if (bgInputRef.current) bgInputRef.current.value = ''; }} title="Remover fundo" style={{ background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '6px', padding: '1px 7px', fontSize: '11px', color: '#f87171', cursor: 'pointer', lineHeight: 1.6 }}>✕</button>
+              )}
+            </div>
+            <input ref={bgInputRef} type="file" onChange={handleImageChange} accept="image/*" style={{ color: '#f8fafc', fontSize: '11px' }} />
           </div>
-          <input ref={bgInputRef} type="file" onChange={handleImageChange} accept="image/*" style={{ color: '#f8fafc', fontSize: '11px' }} />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <label style={{ fontSize: '11px', color: '#00BFFF', fontWeight: 600, letterSpacing: '0.5px' }}>{t('ed_images')}</label>
+            <input ref={imagesInputRef} type="file" onChange={handleImagesChange} accept="image/*" multiple style={{ color: '#aaa', fontSize: '11px' }} />
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <label style={{ fontSize: '11px', color: '#00BFFF', fontWeight: 600, letterSpacing: '0.5px' }}>{t('ed_audio')}</label>
+            <input ref={audioInputRef} type="file" onChange={handleAudioChange} accept="audio/*" style={{ color: '#f8fafc', fontSize: '11px' }} />
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <label style={{ fontSize: '11px', color: '#a78bfa', fontWeight: 600, letterSpacing: '0.5px' }}>🎬 Vídeos</label>
+            <input ref={videoInputRef} type="file" onChange={handleVideoUpload} accept="video/*" multiple style={{ color: '#aaa', fontSize: '11px' }} />
+          </div>
+          {/* input fonte oculto — acionado pelos painéis */}
+          <input ref={fontInputRef} type="file" accept=".ttf,.otf,.woff,.woff2" style={{ display: 'none' }} onChange={handleFontUpload} />
+          <select value={exportFormat} onChange={(e) => setExportFormat(e.target.value)} style={{ backgroundColor: '#111', color: '#f0f0f0', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '14px', padding: '7px 10px', fontSize: '12px' }}>
+            <option value="webm_offline_audio">🎬 WEBM + Áudio</option>
+            <option value="mp4">🎬 MP4 + Áudio</option>
+            <option value="webm_hd">✨ HD 1080p WEBM</option>
+            <option value="mp4_hd">✨ HD 1080p MP4</option>
+            <option value="png">🖼️ PNG</option>
+            <option value="jpg">🖼️ JPG</option>
+          </select>
+          <button onClick={handleSave} disabled={isExporting} style={{ background: isExporting ? '#0a1a1a' : '#00BFFF', border: 'none', padding: '10px 18px', borderRadius: '18px', cursor: isExporting ? 'not-allowed' : 'pointer', fontWeight: 'bold', fontSize: '12px', color: isExporting ? '#555' : '#000', boxShadow: isExporting ? 'none' : '0 6px 20px rgba(0,191,255,0.3)', opacity: 1 }}>
+            {isExporting ? `${t('ed_exporting')} ${Math.round(exportProgress * 100)}%` : t('ed_save')}
+          </button>
+          <LangToggle style={{ marginLeft: 'auto' }} />
         </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-          <label style={{ fontSize: '11px', color: '#00BFFF', fontWeight: 600, letterSpacing: '0.5px' }}>{t('ed_images')}</label>
-          <input ref={imagesInputRef} type="file" onChange={handleImagesChange} accept="image/*" multiple style={{ color: '#aaa', fontSize: '11px' }} />
+        {/* Linha 2: exportar projeto · importar projeto · limpar projeto */}
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', alignItems: 'center' }}>
+          <button onClick={exportProject} style={{ background: 'rgba(0,191,255,0.08)', border: '1px solid rgba(0,191,255,0.2)', padding: '7px 14px', borderRadius: '14px', cursor: 'pointer', fontWeight: 'bold', fontSize: '11px', color: '#00BFFF' }}>
+            {t('ed_export_project')}
+          </button>
+          <input ref={importInputRef} type="file" accept="application/json" style={{ display: 'none' }} onChange={(e) => importProjectFromFile(e.target.files[0])} />
+          <button onClick={() => importInputRef.current && importInputRef.current.click()} style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', padding: '7px 14px', borderRadius: '14px', cursor: 'pointer', fontWeight: 'bold', fontSize: '11px', color: '#888' }}>
+            {t('ed_import_project')}
+          </button>
+          <button onClick={handleClearProject} style={{ background: 'rgba(239,68,68,0.07)', border: '1px solid rgba(239,68,68,0.25)', padding: '7px 14px', borderRadius: '14px', cursor: 'pointer', fontWeight: 'bold', fontSize: '11px', color: '#f87171' }}>
+            {t('ed_clear_project')}
+          </button>
         </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-          <label style={{ fontSize: '11px', color: '#00BFFF', fontWeight: 600, letterSpacing: '0.5px' }}>{t('ed_audio')}</label>
-          <input ref={audioInputRef} type="file" onChange={handleAudioChange} accept="audio/*" style={{ color: '#f8fafc', fontSize: '11px' }} />
-        </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-          <label style={{ fontSize: '11px', color: '#a78bfa', fontWeight: 600, letterSpacing: '0.5px' }}>🎬 Vídeos</label>
-          <input ref={videoInputRef} type="file" onChange={handleVideoUpload} accept="video/*" multiple style={{ color: '#aaa', fontSize: '11px' }} />
-        </div>
-        {/* input fonte oculto — acionado pelos painéis */}
-        <input ref={fontInputRef} type="file" accept=".ttf,.otf,.woff,.woff2" style={{ display: 'none' }} onChange={handleFontUpload} />
-        <select value={exportFormat} onChange={(e) => setExportFormat(e.target.value)} style={{ backgroundColor: '#111', color: '#f0f0f0', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '14px', padding: '7px 10px', fontSize: '12px' }}>
-          <option value="webm_offline_audio">🎬 WEBM + Áudio</option>
-          <option value="mp4">🎬 MP4 + Áudio</option>
-          <option value="webm_hd">✨ HD 1080p WEBM</option>
-          <option value="mp4_hd">✨ HD 1080p MP4</option>
-          <option value="png">🖼️ PNG</option>
-          <option value="jpg">🖼️ JPG</option>
-        </select>
-        <button onClick={handleSave} disabled={isExporting} style={{ background: isExporting ? '#0a1a1a' : '#00BFFF', border: 'none', padding: '10px 18px', borderRadius: '18px', cursor: isExporting ? 'not-allowed' : 'pointer', fontWeight: 'bold', fontSize: '12px', color: isExporting ? '#555' : '#000', boxShadow: isExporting ? 'none' : '0 6px 20px rgba(0,191,255,0.3)', opacity: 1 }}>
-          {isExporting ? `${t('ed_exporting')} ${Math.round(exportProgress * 100)}%` : t('ed_save')}
-        </button>
-        <button onClick={exportProject} style={{ background: 'rgba(0,191,255,0.08)', border: '1px solid rgba(0,191,255,0.2)', padding: '10px 18px', borderRadius: '18px', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px', color: '#00BFFF', boxShadow: 'none' }}>
-          {t('ed_export_project')}
-        </button>
-        <input ref={importInputRef} type="file" accept="application/json" style={{ display: 'none' }} onChange={(e) => importProjectFromFile(e.target.files[0])} />
-        <button onClick={() => importInputRef.current && importInputRef.current.click()} style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', padding: '10px 18px', borderRadius: '18px', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px', color: '#888', boxShadow: 'none' }}>
-          {t('ed_import_project')}
-        </button>
-        <button onClick={handleClearProject} style={{ background: 'rgba(239,68,68,0.07)', border: '1px solid rgba(239,68,68,0.18)', padding: '10px 18px', borderRadius: '18px', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px', color: '#f87171', boxShadow: 'none' }}>
-          {t('ed_clear_project')}
-        </button>
-        <LangToggle style={{ marginLeft: 'auto' }} />
       </div>
 
       <div style={{ display: 'flex', flex: 1, width: '100%', overflow: 'hidden' }}>
