@@ -96,6 +96,13 @@ function App() {
   const fontFamilyRef = useRef(fontFamily);
   useEffect(() => { fontSizeRef.current = fontSize; }, [fontSize]);
   useEffect(() => { fontFamilyRef.current = fontFamily; }, [fontFamily]);
+  // ── Animação de entrada ────────────────────────────────────────────────────
+  const [animType,  setAnimType]  = useState('none'); // 'none'|'fade'|'slide'|'typewriter'
+  const [twSpeed,   setTwSpeed]   = useState(30);     // chars/seg para typewriter
+  const animTypeRef = useRef('none');
+  const twSpeedRef  = useRef(30);
+  useEffect(() => { animTypeRef.current = animType; }, [animType]);
+  useEffect(() => { twSpeedRef.current  = twSpeed;  }, [twSpeed]);
   const [dragging, setDragging] = useState(null);
   const [isScrubbing, setIsScrubbing] = useState(false);
   const [editingLyricId, setEditingLyricId] = useState(null);
@@ -492,8 +499,9 @@ function App() {
         rotation: 0,
         fontSize: fontSizeRef.current,
         fontFamily: fontFamilyRef.current,
+        animType: animTypeRef.current,
+        twSpeed:  twSpeedRef.current,
       };
-      snapshotState();
       setLyrics(prevLyrics => [...prevLyrics, newLine].sort((a, b) => a.start - b.start));
       return prev + 1;
     });
@@ -1289,7 +1297,19 @@ function App() {
       const lineH = lFontSize * 1.3;
       const totalH = lines.length * lineH;
 
+      // ── Animação de entrada ────────────────────────────────────────────────
+      const _anim    = activeLine.animType || 'none';
+      const _twSpd   = activeLine.twSpeed  || 30;
+      const _elapsed = Math.max(0, time - activeLine.start);
+      const _animDur = 0.45; // segundos de entrada para fade/slide
+      const _prog    = Math.min(1, _elapsed / _animDur); // 0→1
+      // easeOut quadrático
+      const _ease    = 1 - (1 - _prog) * (1 - _prog);
+      // Para typewriter: quantos chars mostrar
+      const _twChars = _anim === 'typewriter' ? Math.floor(_elapsed * _twSpd) : Infinity;
       ctx.save();
+      if (_anim === 'fade')  ctx.globalAlpha = _ease;
+      if (_anim === 'slide') ctx.translate(0, (1 - _ease) * 48);
       ctx.translate(lx, ly);
       ctx.rotate(lRot);
       ctx.textAlign = 'center';
@@ -1310,11 +1330,20 @@ function App() {
         ctx.shadowOffsetX = _shOX;
         ctx.shadowOffsetY = _shOY;
       }
+      let _twCharCount = 0; // contador de chars já consumidos (typewriter)
       lines.forEach((line, li) => {
         const lineY = -totalH / 2 + li * lineH + lineH / 2;
         const upperLine = line.toUpperCase();
+        // Typewriter: calcular substring visível desta linha
+        let visibleLine = upperLine;
+        if (_anim === 'typewriter') {
+          const remaining = _twChars - _twCharCount;
+          if (remaining <= 0) return; // linha ainda não apareceu
+          visibleLine = upperLine.slice(0, remaining);
+          _twCharCount += upperLine.length;
+        }
         if (_grOn) {
-          const w = ctx.measureText(upperLine).width;
+          const w = ctx.measureText(visibleLine).width;
           const grad = ctx.createLinearGradient(-w / 2, lineY - lFontSize / 2, w / 2, lineY + lFontSize / 2);
           grad.addColorStop(0, _gr1);
           grad.addColorStop(1, _gr2);
@@ -1322,9 +1351,10 @@ function App() {
         } else {
           ctx.fillStyle = _col;
         }
-        ctx.fillText(upperLine, 0, lineY);
+        ctx.fillText(visibleLine, 0, lineY);
       });
       ctx.shadowBlur = 0; ctx.shadowOffsetX = 0; ctx.shadowOffsetY = 0;
+      ctx.globalAlpha = 1;
       ctx.restore();
 
       // Indicador de seleção / arrasto + handle de rotação
@@ -1554,7 +1584,19 @@ function App() {
       const lines = wrapLyricText(activeLine.text, ctx, logicalW - 40);
       const lineH = lFontSize * 1.3;
       const totalH = lines.length * lineH;
+      // ── Animação de entrada ────────────────────────────────────────────────
+      const _anim    = activeLine.animType || 'none';
+      const _twSpd   = activeLine.twSpeed  || 30;
+      const _elapsed = Math.max(0, time - activeLine.start);
+      const _animDur = 0.45; // segundos de entrada para fade/slide
+      const _prog    = Math.min(1, _elapsed / _animDur); // 0→1
+      // easeOut quadrático
+      const _ease    = 1 - (1 - _prog) * (1 - _prog);
+      // Para typewriter: quantos chars mostrar
+      const _twChars = _anim === 'typewriter' ? Math.floor(_elapsed * _twSpd) : Infinity;
       ctx.save();
+      if (_anim === 'fade')  ctx.globalAlpha = _ease;
+      if (_anim === 'slide') ctx.translate(0, (1 - _ease) * 48);
       ctx.translate(lx, ly);
       ctx.rotate(lRot);
       ctx.textAlign = 'center';
@@ -1575,11 +1617,20 @@ function App() {
         ctx.shadowOffsetX = _shOX;
         ctx.shadowOffsetY = _shOY;
       }
+      let _twCharCount = 0; // contador de chars já consumidos (typewriter)
       lines.forEach((line, li) => {
         const lineY = -totalH / 2 + li * lineH + lineH / 2;
         const upperLine = line.toUpperCase();
+        // Typewriter: calcular substring visível desta linha
+        let visibleLine = upperLine;
+        if (_anim === 'typewriter') {
+          const remaining = _twChars - _twCharCount;
+          if (remaining <= 0) return; // linha ainda não apareceu
+          visibleLine = upperLine.slice(0, remaining);
+          _twCharCount += upperLine.length;
+        }
         if (_grOn) {
-          const w = ctx.measureText(upperLine).width;
+          const w = ctx.measureText(visibleLine).width;
           const grad = ctx.createLinearGradient(-w / 2, lineY - lFontSize / 2, w / 2, lineY + lFontSize / 2);
           grad.addColorStop(0, _gr1);
           grad.addColorStop(1, _gr2);
@@ -1587,9 +1638,10 @@ function App() {
         } else {
           ctx.fillStyle = _col;
         }
-        ctx.fillText(upperLine, 0, lineY);
+        ctx.fillText(visibleLine, 0, lineY);
       });
       ctx.shadowBlur = 0; ctx.shadowOffsetX = 0; ctx.shadowOffsetY = 0;
+      ctx.globalAlpha = 1;
       ctx.restore();
     }
   };
@@ -1977,21 +2029,9 @@ function App() {
       const { Muxer, ArrayBufferTarget } = await import('mp4-muxer');
       const W = baseCanvas.width, H = baseCanvas.height;
       const FPS = 30, TOTAL = Math.ceil(effectiveDuration * FPS);
-      // Decodifica áudio primeiro para saber número de canais
-      let audioBuf = null;
-      if (audioBase64 && window.AudioEncoder) {
-        try {
-          const bin = atob(audioBase64.split(',')[1]);
-          const bytes = new Uint8Array(bin.length);
-          for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-          const actx = new OfflineAudioContext(2, Math.ceil(effectiveDuration * 44100), 44100);
-          audioBuf = await actx.decodeAudioData(bytes.buffer);
-        } catch(e) { console.warn('Audio decode failed:', e); }
-      }
-      const nCh = audioBuf ? Math.min(audioBuf.numberOfChannels, 2) : 2;
       const target = new ArrayBufferTarget();
       const muxer = new Muxer({ target, video: { codec: 'avc', width: W, height: H },
-        audio: audioBuf ? { codec: 'aac', sampleRate: 44100, numberOfChannels: nCh } : undefined,
+        audio: audioBase64 ? { codec: 'aac', sampleRate: 44100, numberOfChannels: 2 } : undefined,
         fastStart: 'in-memory' });
       const venc = new VideoEncoder({ output: (chunk, meta) => muxer.addVideoChunk(chunk, meta), error: console.error });
       venc.configure({ codec: 'avc1.42001f', width: W, height: H, bitrate: 4_000_000, framerate: FPS });
@@ -2002,23 +2042,27 @@ function App() {
         const frame = new VideoFrame(offCanvas, { timestamp: Math.round(fi * 1_000_000 / FPS), duration: Math.round(1_000_000 / FPS) });
         venc.encode(frame, { keyFrame: fi % 60 === 0 });
         frame.close();
-        setExportProgress(fi / TOTAL * (audioBuf ? 0.85 : 1));
+        setExportProgress(fi / TOTAL * (audioBase64 ? 0.85 : 1));
       }
       await venc.flush();
-      if (audioBuf) {
+      if (audioBase64 && window.AudioEncoder) {
         try {
+          const binary = atob(audioBase64.split(',')[1]);
+          const bytes = new Uint8Array(binary.length);
+          for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+          const audioCtx = new OfflineAudioContext(2, Math.ceil(effectiveDuration * 44100), 44100);
+          const buf = await audioCtx.decodeAudioData(bytes.buffer);
           const aenc = new AudioEncoder({ output: (chunk, meta) => muxer.addAudioChunk(chunk, meta), error: console.error });
-          aenc.configure({ codec: 'mp4a.40.2', sampleRate: 44100, numberOfChannels: nCh, bitrate: 128000 });
-          const CHUNK = 4096;
-          for (let i = 0; i < audioBuf.length; i += CHUNK) {
-            const len = Math.min(CHUNK, audioBuf.length - i);
-            // f32-planar: todos os canais concatenados num único buffer
-            const planar = new Float32Array(len * nCh);
-            for (let c = 0; c < nCh; c++) {
-              planar.set(audioBuf.getChannelData(c).slice(i, i + len), c * len);
+          aenc.configure({ codec: 'mp4a.40.2', sampleRate: 44100, numberOfChannels: buf.numberOfChannels, bitrate: 128000 });
+          const CHUNK = 1024;
+          for (let i = 0; i < buf.length; i += CHUNK) {
+            const len = Math.min(CHUNK, buf.length - i);
+            const channels = [];
+            for (let c = 0; c < buf.numberOfChannels; c++) {
+              channels.push(buf.getChannelData(c).slice(i, i + len));
             }
             const aframe = new AudioData({ format: 'f32-planar', sampleRate: 44100, numberOfFrames: len,
-              numberOfChannels: nCh, timestamp: Math.round(i / 44100 * 1_000_000), data: planar });
+              numberOfChannels: buf.numberOfChannels, timestamp: Math.round(i / 44100 * 1_000_000), data: channels[0] });
             aenc.encode(aframe); aframe.close();
           }
           await aenc.flush();
@@ -2059,25 +2103,12 @@ function App() {
       const SCALE = 1080 / baseCanvas.width;
       const W = 1080, H = Math.round(baseCanvas.height * SCALE);
       const FPS = 30, TOTAL = Math.ceil(effectiveDuration * FPS);
-      // Decodifica áudio primeiro para saber número de canais
-      let audioBuf = null;
-      if (audioBase64 && window.AudioEncoder) {
-        try {
-          const bin = atob(audioBase64.split(',')[1]);
-          const bytes = new Uint8Array(bin.length);
-          for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-          const actx = new OfflineAudioContext(2, Math.ceil(effectiveDuration * 44100), 44100);
-          audioBuf = await actx.decodeAudioData(bytes.buffer);
-        } catch(e) { console.warn('Audio decode failed:', e); }
-      }
-      const nCh = audioBuf ? Math.min(audioBuf.numberOfChannels, 2) : 2;
       const target = new ArrayBufferTarget();
       const muxer = new Muxer({ target, video: { codec: 'avc', width: W, height: H },
-        audio: audioBuf ? { codec: 'aac', sampleRate: 44100, numberOfChannels: nCh } : undefined,
+        audio: audioBase64 ? { codec: 'aac', sampleRate: 44100, numberOfChannels: 2 } : undefined,
         fastStart: 'in-memory' });
       const venc = new VideoEncoder({ output: (chunk, meta) => muxer.addVideoChunk(chunk, meta), error: console.error });
-      // avc1.640034 = H.264 High Profile Level 5.2 — suporta até 4K
-      venc.configure({ codec: 'avc1.640034', width: W, height: H, bitrate: 8_000_000, framerate: FPS });
+      venc.configure({ codec: 'avc1.42001f', width: W, height: H, bitrate: 8_000_000, framerate: FPS });
       const offCanvas = new OffscreenCanvas(W, H);
       for (let fi = 0; fi < TOTAL; fi++) {
         const t = fi / FPS;
@@ -2085,23 +2116,24 @@ function App() {
         const frame = new VideoFrame(offCanvas, { timestamp: Math.round(fi * 1_000_000 / FPS), duration: Math.round(1_000_000 / FPS) });
         venc.encode(frame, { keyFrame: fi % 60 === 0 });
         frame.close();
-        setExportProgress(fi / TOTAL * (audioBuf ? 0.85 : 1));
+        setExportProgress(fi / TOTAL * (audioBase64 ? 0.85 : 1));
       }
       await venc.flush();
-      if (audioBuf) {
+      if (audioBase64 && window.AudioEncoder) {
         try {
+          const binary = atob(audioBase64.split(',')[1]);
+          const bytes = new Uint8Array(binary.length);
+          for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+          const audioCtx = new OfflineAudioContext(2, Math.ceil(effectiveDuration * 44100), 44100);
+          const buf = await audioCtx.decodeAudioData(bytes.buffer);
           const aenc = new AudioEncoder({ output: (chunk, meta) => muxer.addAudioChunk(chunk, meta), error: console.error });
-          aenc.configure({ codec: 'mp4a.40.2', sampleRate: 44100, numberOfChannels: nCh, bitrate: 128000 });
-          const CHUNK = 4096;
-          for (let i = 0; i < audioBuf.length; i += CHUNK) {
-            const len = Math.min(CHUNK, audioBuf.length - i);
-            // f32-planar: todos os canais concatenados num único buffer
-            const planar = new Float32Array(len * nCh);
-            for (let c = 0; c < nCh; c++) {
-              planar.set(audioBuf.getChannelData(c).slice(i, i + len), c * len);
-            }
+          aenc.configure({ codec: 'mp4a.40.2', sampleRate: 44100, numberOfChannels: buf.numberOfChannels, bitrate: 128000 });
+          const CHUNK = 1024;
+          for (let i = 0; i < buf.length; i += CHUNK) {
+            const len = Math.min(CHUNK, buf.length - i);
             const aframe = new AudioData({ format: 'f32-planar', sampleRate: 44100, numberOfFrames: len,
-              numberOfChannels: nCh, timestamp: Math.round(i / 44100 * 1_000_000), data: planar });
+              numberOfChannels: buf.numberOfChannels, timestamp: Math.round(i / 44100 * 1_000_000),
+              data: buf.getChannelData(0).slice(i, i + len) });
             aenc.encode(aframe); aframe.close();
           }
           await aenc.flush();
@@ -2586,6 +2618,45 @@ function App() {
                     </>}
                   </div>
                   <button onClick={() => fontInputRef.current?.click()} style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.25)', borderRadius: '8px', padding: '3px 9px', fontSize: '10px', color: '#f59e0b', cursor: 'pointer' }}>+ Fonte TTF/OTF</button>
+                </div>
+              );
+            })()}
+
+            {/* Animação de entrada */}
+            {(() => {
+              const selL = activeLyricId ? lyrics.find(l => l.id === activeLyricId) : null;
+              const curAnim  = selL ? (selL.animType || animType) : animType;
+              const curSpeed = selL ? (selL.twSpeed  || twSpeed)  : twSpeed;
+              const setAnim = (val) => {
+                if (selL) setLyrics(prev => prev.map(l => l.id === activeLyricId ? {...l, animType: val} : l));
+                else setAnimType(val);
+              };
+              const setSpd = (val) => {
+                if (selL) setLyrics(prev => prev.map(l => l.id === activeLyricId ? {...l, twSpeed: val} : l));
+                else setTwSpeed(val);
+              };
+              return (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', background: 'rgba(139,92,246,0.04)', border: '1px solid rgba(139,92,246,0.15)', borderRadius: 10, padding: '8px 10px' }}>
+                  <span style={{ fontSize: '10px', color: '#a78bfa', fontWeight: 700 }}>ANIMAÇÃO</span>
+                  {['none','fade','slide','typewriter'].map(opt => (
+                    <button key={opt} onClick={() => setAnim(opt)} style={{
+                      padding: '3px 10px', fontSize: '10px', borderRadius: '8px', cursor: 'pointer', fontWeight: 600,
+                      background: curAnim === opt ? 'rgba(139,92,246,0.25)' : 'rgba(255,255,255,0.04)',
+                      border: `1px solid ${curAnim === opt ? 'rgba(139,92,246,0.6)' : 'rgba(255,255,255,0.1)'}`,
+                      color: curAnim === opt ? '#c4b5fd' : '#666',
+                    }}>
+                      {opt === 'none' ? 'Nenhuma' : opt === 'fade' ? 'Fade' : opt === 'slide' ? 'Slide' : 'Typewriter'}
+                    </button>
+                  ))}
+                  {curAnim === 'typewriter' && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginLeft: 4 }}>
+                      <span style={{ fontSize: '10px', color: '#64748b' }}>Vel.</span>
+                      <input type="range" min="5" max="80" step="5" value={curSpeed}
+                        onChange={e => setSpd(+e.target.value)}
+                        style={{ width: '70px', accentColor: '#a78bfa' }} />
+                      <span style={{ fontSize: '10px', color: '#a78bfa', minWidth: 30 }}>{curSpeed}/s</span>
+                    </div>
+                  )}
                 </div>
               );
             })()}
