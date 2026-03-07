@@ -11,7 +11,6 @@ export default function CheckoutPage() {
   const [step, setStep] = useState('plan');
   const [selectedPlan, setSelectedPlan] = useState('pro_monthly');
   const [paymentMethod, setPaymentMethod] = useState('card');
-  const paymentMethodRef = useRef('card');
   const [loading, setLoading]           = useState(false);
   const [error, setError]               = useState('');
 
@@ -32,14 +31,8 @@ export default function CheckoutPage() {
     }
   }, [isLoggedIn, isPro]);
 
-  const changePaymentMethod = (method) => {
-    setPaymentMethod(method);
-    paymentMethodRef.current = method;
-  };
-
   const handleSelectPlan = (plan) => {
     setSelectedPlan(plan);
-    if (plan === 'pro_monthly') changePaymentMethod('card');
   };
 
   const handleContinue = () => {
@@ -68,7 +61,7 @@ export default function CheckoutPage() {
 
   const handleCheckout = async () => {
     setLoading(true); setError('');
-    try { await paymentsApi.checkout(selectedPlan, paymentMethodRef.current); }
+    try { await paymentsApi.checkout(selectedPlan, 'card'); }
     catch (err) { setError(err.message || 'Erro ao iniciar pagamento.'); setLoading(false); }
   };
 
@@ -208,23 +201,10 @@ export default function CheckoutPage() {
         <h2 style={{ fontSize:22, fontWeight:800, marginBottom:6 }}>{t('payment_title')}</h2>
         {user?.email && <p style={{ fontSize:13, color:'#444', marginBottom:24 }}>{t('logged_as')} <strong style={{ color:'#666' }}>{user.email}</strong></p>}
 
-        <span style={lbl}>{t('method_label')}</span>
-        <div style={{ display:'flex', gap:10, marginBottom:20 }}>
-          <div style={payCard(paymentMethod==='card', false)} onClick={() => changePaymentMethod('card')}>
-            <span style={{ fontSize:22 }}>💳</span>
-            <div><div style={{ fontWeight:700, fontSize:13 }}>{t('card_label')}</div><div style={{ color:'#444', fontSize:11 }}>{t('card_sub')}</div></div>
-          </div>
-          <div style={payCard(paymentMethod==='boleto', false)} onClick={() => changePaymentMethod('boleto')}>
-            <span style={{ fontSize:22 }}>🧾</span>
-            <div><div style={{ fontWeight:700, fontSize:13 }}>{t('boleto_label')}</div><div style={{ color:'#444', fontSize:11 }}>{t('boleto_sub')}</div></div>
-          </div>
+        <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:20, background:'rgba(0,191,255,0.05)', border:'1px solid rgba(0,191,255,0.15)', borderRadius:12, padding:'14px 16px' }}>
+          <span style={{ fontSize:22 }}>💳</span>
+          <div><div style={{ fontWeight:700, fontSize:13 }}>{t('card_label')}</div><div style={{ color:'#444', fontSize:11 }}>{t('card_sub')}</div></div>
         </div>
-
-        {paymentMethod === 'boleto' && (
-          <div style={{ background:'rgba(0,191,255,0.05)', border:'1px solid rgba(0,191,255,0.15)', borderRadius:10, padding:'10px 14px', fontSize:12, color:'#555', marginBottom:16 }}>
-            {t('boleto_info')}
-          </div>
-        )}
 
         <div style={{ background:'#111', border:'1px solid rgba(255,255,255,0.06)', borderRadius:14, padding:'14px 18px', marginBottom:20 }}>
           <div style={{ display:'flex', justifyContent:'space-between', marginBottom:6 }}>
@@ -236,7 +216,7 @@ export default function CheckoutPage() {
         {error && <div style={err}>⚠️ {error}</div>}
 
         <button onClick={handleCheckout} disabled={loading} style={{ ...btn, opacity: loading ? 0.6 : 1, cursor: loading ? 'not-allowed' : 'pointer' }}>
-          {loading ? t('redirecting') : paymentMethod === 'boleto' ? t('pay_boleto_btn') : t('pay_card_btn')}
+          {loading ? t('redirecting') : t('pay_card_btn')}
         </button>
         <p style={{ textAlign:'center', fontSize:12, color:'#1e1e1e', marginTop:14 }}>{t('secure_note2')}</p>
       </div>
