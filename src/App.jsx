@@ -1977,9 +1977,21 @@ function App() {
       const { Muxer, ArrayBufferTarget } = await import('mp4-muxer');
       const W = baseCanvas.width, H = baseCanvas.height;
       const FPS = 30, TOTAL = Math.ceil(effectiveDuration * FPS);
+      // Decodifica áudio primeiro para saber número de canais
+      let audioBuf = null;
+      if (audioBase64 && window.AudioEncoder) {
+        try {
+          const bin = atob(audioBase64.split(',')[1]);
+          const bytes = new Uint8Array(bin.length);
+          for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+          const actx = new OfflineAudioContext(2, Math.ceil(effectiveDuration * 44100), 44100);
+          audioBuf = await actx.decodeAudioData(bytes.buffer);
+        } catch(e) { console.warn('Audio decode failed:', e); }
+      }
+      const nCh = audioBuf ? Math.min(audioBuf.numberOfChannels, 2) : 2;
       const target = new ArrayBufferTarget();
       const muxer = new Muxer({ target, video: { codec: 'avc', width: W, height: H },
-        audio: audioBase64 ? { codec: 'aac', sampleRate: 44100, numberOfChannels: 2 } : undefined,
+        audio: audioBuf ? { codec: 'aac', sampleRate: 44100, numberOfChannels: nCh } : undefined,
         fastStart: 'in-memory' });
       const venc = new VideoEncoder({ output: (chunk, meta) => muxer.addVideoChunk(chunk, meta), error: console.error });
       venc.configure({ codec: 'avc1.42001f', width: W, height: H, bitrate: 4_000_000, framerate: FPS });
@@ -1990,27 +2002,23 @@ function App() {
         const frame = new VideoFrame(offCanvas, { timestamp: Math.round(fi * 1_000_000 / FPS), duration: Math.round(1_000_000 / FPS) });
         venc.encode(frame, { keyFrame: fi % 60 === 0 });
         frame.close();
-        setExportProgress(fi / TOTAL * (audioBase64 ? 0.85 : 1));
+        setExportProgress(fi / TOTAL * (audioBuf ? 0.85 : 1));
       }
       await venc.flush();
-      if (audioBase64 && window.AudioEncoder) {
+      if (audioBuf) {
         try {
-          const binary = atob(audioBase64.split(',')[1]);
-          const bytes = new Uint8Array(binary.length);
-          for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-          const audioCtx = new OfflineAudioContext(2, Math.ceil(effectiveDuration * 44100), 44100);
-          const buf = await audioCtx.decodeAudioData(bytes.buffer);
           const aenc = new AudioEncoder({ output: (chunk, meta) => muxer.addAudioChunk(chunk, meta), error: console.error });
-          aenc.configure({ codec: 'mp4a.40.2', sampleRate: 44100, numberOfChannels: buf.numberOfChannels, bitrate: 128000 });
-          const CHUNK = 1024;
-          for (let i = 0; i < buf.length; i += CHUNK) {
-            const len = Math.min(CHUNK, buf.length - i);
-            const channels = [];
-            for (let c = 0; c < buf.numberOfChannels; c++) {
-              channels.push(buf.getChannelData(c).slice(i, i + len));
+          aenc.configure({ codec: 'mp4a.40.2', sampleRate: 44100, numberOfChannels: nCh, bitrate: 128000 });
+          const CHUNK = 4096;
+          for (let i = 0; i < audioBuf.length; i += CHUNK) {
+            const len = Math.min(CHUNK, audioBuf.length - i);
+            // f32-planar: todos os canais concatenados num único buffer
+            const planar = new Float32Array(len * nCh);
+            for (let c = 0; c < nCh; c++) {
+              planar.set(audioBuf.getChannelData(c).slice(i, i + len), c * len);
             }
             const aframe = new AudioData({ format: 'f32-planar', sampleRate: 44100, numberOfFrames: len,
-              numberOfChannels: buf.numberOfChannels, timestamp: Math.round(i / 44100 * 1_000_000), data: channels[0] });
+              numberOfChannels: nCh, timestamp: Math.round(i / 44100 * 1_000_000), data: planar });
             aenc.encode(aframe); aframe.close();
           }
           await aenc.flush();
@@ -2051,12 +2059,25 @@ function App() {
       const SCALE = 1080 / baseCanvas.width;
       const W = 1080, H = Math.round(baseCanvas.height * SCALE);
       const FPS = 30, TOTAL = Math.ceil(effectiveDuration * FPS);
+      // Decodifica áudio primeiro para saber número de canais
+      let audioBuf = null;
+      if (audioBase64 && window.AudioEncoder) {
+        try {
+          const bin = atob(audioBase64.split(',')[1]);
+          const bytes = new Uint8Array(bin.length);
+          for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+          const actx = new OfflineAudioContext(2, Math.ceil(effectiveDuration * 44100), 44100);
+          audioBuf = await actx.decodeAudioData(bytes.buffer);
+        } catch(e) { console.warn('Audio decode failed:', e); }
+      }
+      const nCh = audioBuf ? Math.min(audioBuf.numberOfChannels, 2) : 2;
       const target = new ArrayBufferTarget();
       const muxer = new Muxer({ target, video: { codec: 'avc', width: W, height: H },
-        audio: audioBase64 ? { codec: 'aac', sampleRate: 44100, numberOfChannels: 2 } : undefined,
+        audio: audioBuf ? { codec: 'aac', sampleRate: 44100, numberOfChannels: nCh } : undefined,
         fastStart: 'in-memory' });
       const venc = new VideoEncoder({ output: (chunk, meta) => muxer.addVideoChunk(chunk, meta), error: console.error });
-      venc.configure({ codec: 'avc1.42001f', width: W, height: H, bitrate: 8_000_000, framerate: FPS });
+      // avc1.640034 = H.264 High Profile Level 5.2 — suporta até 4K
+      venc.configure({ codec: 'avc1.640034', width: W, height: H, bitrate: 8_000_000, framerate: FPS });
       const offCanvas = new OffscreenCanvas(W, H);
       for (let fi = 0; fi < TOTAL; fi++) {
         const t = fi / FPS;
@@ -2064,24 +2085,23 @@ function App() {
         const frame = new VideoFrame(offCanvas, { timestamp: Math.round(fi * 1_000_000 / FPS), duration: Math.round(1_000_000 / FPS) });
         venc.encode(frame, { keyFrame: fi % 60 === 0 });
         frame.close();
-        setExportProgress(fi / TOTAL * (audioBase64 ? 0.85 : 1));
+        setExportProgress(fi / TOTAL * (audioBuf ? 0.85 : 1));
       }
       await venc.flush();
-      if (audioBase64 && window.AudioEncoder) {
+      if (audioBuf) {
         try {
-          const binary = atob(audioBase64.split(',')[1]);
-          const bytes = new Uint8Array(binary.length);
-          for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-          const audioCtx = new OfflineAudioContext(2, Math.ceil(effectiveDuration * 44100), 44100);
-          const buf = await audioCtx.decodeAudioData(bytes.buffer);
           const aenc = new AudioEncoder({ output: (chunk, meta) => muxer.addAudioChunk(chunk, meta), error: console.error });
-          aenc.configure({ codec: 'mp4a.40.2', sampleRate: 44100, numberOfChannels: buf.numberOfChannels, bitrate: 128000 });
-          const CHUNK = 1024;
-          for (let i = 0; i < buf.length; i += CHUNK) {
-            const len = Math.min(CHUNK, buf.length - i);
+          aenc.configure({ codec: 'mp4a.40.2', sampleRate: 44100, numberOfChannels: nCh, bitrate: 128000 });
+          const CHUNK = 4096;
+          for (let i = 0; i < audioBuf.length; i += CHUNK) {
+            const len = Math.min(CHUNK, audioBuf.length - i);
+            // f32-planar: todos os canais concatenados num único buffer
+            const planar = new Float32Array(len * nCh);
+            for (let c = 0; c < nCh; c++) {
+              planar.set(audioBuf.getChannelData(c).slice(i, i + len), c * len);
+            }
             const aframe = new AudioData({ format: 'f32-planar', sampleRate: 44100, numberOfFrames: len,
-              numberOfChannels: buf.numberOfChannels, timestamp: Math.round(i / 44100 * 1_000_000),
-              data: buf.getChannelData(0).slice(i, i + len) });
+              numberOfChannels: nCh, timestamp: Math.round(i / 44100 * 1_000_000), data: planar });
             aenc.encode(aframe); aframe.close();
           }
           await aenc.flush();
