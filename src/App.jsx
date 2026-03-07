@@ -1296,7 +1296,7 @@ function App() {
       const lineH = lFontSize * 1.3;
       const totalH = lines.length * lineH;
 
-      // Animação de entrada (preview usa `time`)
+      // ── Animação de entrada (preview — variável `time`) ─────────────────
       const _anim    = activeLine.animType || 'none';
       const _twSpd   = activeLine.twSpeed  || 30;
       const _elapsed = Math.max(0, time - activeLine.start);
@@ -1331,10 +1331,9 @@ function App() {
         const upperLine = line.toUpperCase();
         let vis = upperLine;
         if (_anim === 'typewriter') {
-          const rem = _twChars - _twN;
-          if (rem <= 0) { _twN += upperLine.length; return; }
+          const rem = _twChars - _twN; _twN += upperLine.length;
+          if (rem <= 0) return;
           vis = upperLine.slice(0, rem);
-          _twN += upperLine.length;
         }
         if (_grOn) {
           const w = ctx.measureText(vis).width;
@@ -1578,7 +1577,7 @@ function App() {
       const lines = wrapLyricText(activeLine.text, ctx, logicalW - 40);
       const lineH = lFontSize * 1.3;
       const totalH = lines.length * lineH;
-      // Animação de entrada (export usa `t`)
+      // ── Animação de entrada (export — variável `t`) ──────────────────────
       const _anim    = activeLine.animType || 'none';
       const _twSpd   = activeLine.twSpeed  || 30;
       const _elapsed = Math.max(0, t - activeLine.start);
@@ -1613,10 +1612,9 @@ function App() {
         const upperLine = line.toUpperCase();
         let vis = upperLine;
         if (_anim === 'typewriter') {
-          const rem = _twChars - _twN;
-          if (rem <= 0) { _twN += upperLine.length; return; }
+          const rem = _twChars - _twN; _twN += upperLine.length;
+          if (rem <= 0) return;
           vis = upperLine.slice(0, rem);
-          _twN += upperLine.length;
         }
         if (_grOn) {
           const w = ctx.measureText(vis).width;
@@ -2607,6 +2605,43 @@ function App() {
                     </>}
                   </div>
                   <button onClick={() => fontInputRef.current?.click()} style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.25)', borderRadius: '8px', padding: '3px 9px', fontSize: '10px', color: '#f59e0b', cursor: 'pointer' }}>+ Fonte TTF/OTF</button>
+                </div>
+              );
+            })()}
+
+            {/* Animação de entrada */}
+            {(() => {
+              const selL = activeLyricId ? lyrics.find(l => l.id === activeLyricId) : null;
+              const curAnim  = selL ? (selL.animType || animType) : animType;
+              const curSpeed = selL ? (selL.twSpeed  || twSpeed)  : twSpeed;
+              const setAnim = val => {
+                if (selL) setLyrics(prev => prev.map(l => l.id === activeLyricId ? {...l, animType: val} : l));
+                else setAnimType(val);
+              };
+              const setSpd = val => {
+                if (selL) setLyrics(prev => prev.map(l => l.id === activeLyricId ? {...l, twSpeed: val} : l));
+                else setTwSpeed(val);
+              };
+              return (
+                <div style={{ display:'flex', alignItems:'center', gap:'8px', flexWrap:'wrap', background:'rgba(139,92,246,0.06)', border:'1px solid rgba(139,92,246,0.2)', borderRadius:10, padding:'8px 10px' }}>
+                  <span style={{ fontSize:'10px', color:'#a78bfa', fontWeight:700, marginRight:2 }}>ANIMAÇÃO</span>
+                  {[['none','Nenhuma'],['fade','Fade'],['slide','Slide'],['typewriter','Typewriter']].map(([v, label]) => (
+                    <button key={v} onClick={() => setAnim(v)} style={{
+                      padding:'3px 10px', fontSize:'10px', borderRadius:'8px', cursor:'pointer', fontWeight:600,
+                      background: curAnim === v ? 'rgba(139,92,246,0.3)' : 'rgba(255,255,255,0.04)',
+                      border: `1px solid ${curAnim === v ? 'rgba(139,92,246,0.7)' : 'rgba(255,255,255,0.1)'}`,
+                      color: curAnim === v ? '#c4b5fd' : '#666',
+                    }}>{label}</button>
+                  ))}
+                  {curAnim === 'typewriter' && (
+                    <div style={{ display:'flex', alignItems:'center', gap:'5px', marginLeft:4 }}>
+                      <span style={{ fontSize:'10px', color:'#64748b' }}>Vel.</span>
+                      <input type="range" min="5" max="80" step="5" value={curSpeed}
+                        onChange={e => setSpd(+e.target.value)}
+                        style={{ width:'70px', accentColor:'#a78bfa' }} />
+                      <span style={{ fontSize:'10px', color:'#a78bfa', minWidth:30 }}>{curSpeed}/s</span>
+                    </div>
+                  )}
                 </div>
               );
             })()}
