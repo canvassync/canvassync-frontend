@@ -1294,23 +1294,33 @@ function App() {
       ctx.rotate(lRot);
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      if (shadowEnabled) {
-        ctx.shadowBlur    = shadowBlur;
-        ctx.shadowColor   = shadowColor;
-        ctx.shadowOffsetX = shadowOffsetX;
-        ctx.shadowOffsetY = shadowOffsetY;
+      // Lê da marcação; fallback para global
+      const _shOn  = activeLine.shadowEnabled   !== undefined ? activeLine.shadowEnabled   : shadowEnabled;
+      const _shBlur= activeLine.shadowBlur      !== undefined ? activeLine.shadowBlur      : shadowBlur;
+      const _shCol = activeLine.shadowColor     || shadowColor;
+      const _shOX  = activeLine.shadowOffsetX   !== undefined ? activeLine.shadowOffsetX   : shadowOffsetX;
+      const _shOY  = activeLine.shadowOffsetY   !== undefined ? activeLine.shadowOffsetY   : shadowOffsetY;
+      const _grOn  = activeLine.gradientEnabled !== undefined ? activeLine.gradientEnabled : gradientEnabled;
+      const _gr1   = activeLine.gradientColor1  || gradientColor1;
+      const _gr2   = activeLine.gradientColor2  || gradientColor2;
+      const _col   = activeLine.color           || textColor;
+      if (_shOn) {
+        ctx.shadowBlur    = _shBlur;
+        ctx.shadowColor   = _shCol;
+        ctx.shadowOffsetX = _shOX;
+        ctx.shadowOffsetY = _shOY;
       }
       lines.forEach((line, li) => {
         const lineY = -totalH / 2 + li * lineH + lineH / 2;
         const upperLine = line.toUpperCase();
-        if (gradientEnabled) {
+        if (_grOn) {
           const w = ctx.measureText(upperLine).width;
           const grad = ctx.createLinearGradient(-w / 2, lineY - lFontSize / 2, w / 2, lineY + lFontSize / 2);
-          grad.addColorStop(0, gradientColor1);
-          grad.addColorStop(1, gradientColor2);
+          grad.addColorStop(0, _gr1);
+          grad.addColorStop(1, _gr2);
           ctx.fillStyle = grad;
         } else {
-          ctx.fillStyle = textColor;
+          ctx.fillStyle = _col;
         }
         ctx.fillText(upperLine, 0, lineY);
       });
@@ -1549,23 +1559,33 @@ function App() {
       ctx.rotate(lRot);
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      if (shadowEnabled) {
-        ctx.shadowBlur    = shadowBlur;
-        ctx.shadowColor   = shadowColor;
-        ctx.shadowOffsetX = shadowOffsetX;
-        ctx.shadowOffsetY = shadowOffsetY;
+      // Lê da marcação; fallback para global
+      const _shOn  = activeLine.shadowEnabled   !== undefined ? activeLine.shadowEnabled   : shadowEnabled;
+      const _shBlur= activeLine.shadowBlur      !== undefined ? activeLine.shadowBlur      : shadowBlur;
+      const _shCol = activeLine.shadowColor     || shadowColor;
+      const _shOX  = activeLine.shadowOffsetX   !== undefined ? activeLine.shadowOffsetX   : shadowOffsetX;
+      const _shOY  = activeLine.shadowOffsetY   !== undefined ? activeLine.shadowOffsetY   : shadowOffsetY;
+      const _grOn  = activeLine.gradientEnabled !== undefined ? activeLine.gradientEnabled : gradientEnabled;
+      const _gr1   = activeLine.gradientColor1  || gradientColor1;
+      const _gr2   = activeLine.gradientColor2  || gradientColor2;
+      const _col   = activeLine.color           || textColor;
+      if (_shOn) {
+        ctx.shadowBlur    = _shBlur;
+        ctx.shadowColor   = _shCol;
+        ctx.shadowOffsetX = _shOX;
+        ctx.shadowOffsetY = _shOY;
       }
       lines.forEach((line, li) => {
         const lineY = -totalH / 2 + li * lineH + lineH / 2;
         const upperLine = line.toUpperCase();
-        if (gradientEnabled) {
+        if (_grOn) {
           const w = ctx.measureText(upperLine).width;
           const grad = ctx.createLinearGradient(-w / 2, lineY - lFontSize / 2, w / 2, lineY + lFontSize / 2);
-          grad.addColorStop(0, gradientColor1);
-          grad.addColorStop(1, gradientColor2);
+          grad.addColorStop(0, _gr1);
+          grad.addColorStop(1, _gr2);
           ctx.fillStyle = grad;
         } else {
-          ctx.fillStyle = textColor;
+          ctx.fillStyle = _col;
         }
         ctx.fillText(upperLine, 0, lineY);
       });
@@ -2031,24 +2051,12 @@ function App() {
       const SCALE = 1080 / baseCanvas.width;
       const W = 1080, H = Math.round(baseCanvas.height * SCALE);
       const FPS = 30, TOTAL = Math.ceil(effectiveDuration * FPS);
-      // Decodifica áudio antes de criar o muxer para saber número de canais
-      let audioBuf = null;
-      if (audioBase64) {
-        try {
-          const bin = atob(audioBase64.split(',')[1]);
-          const bytes = new Uint8Array(bin.length);
-          for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-          const actx = new OfflineAudioContext(2, Math.ceil(effectiveDuration * 44100), 44100);
-          audioBuf = await actx.decodeAudioData(bytes.buffer);
-        } catch(e) { console.warn('Audio decode failed:', e); }
-      }
-      const nCh = audioBuf ? Math.min(audioBuf.numberOfChannels, 2) : 2;
       const target = new ArrayBufferTarget();
       const muxer = new Muxer({ target, video: { codec: 'avc', width: W, height: H },
-        audio: audioBuf ? { codec: 'aac', sampleRate: 44100, numberOfChannels: nCh } : undefined,
+        audio: audioBase64 ? { codec: 'aac', sampleRate: 44100, numberOfChannels: 2 } : undefined,
         fastStart: 'in-memory' });
       const venc = new VideoEncoder({ output: (chunk, meta) => muxer.addVideoChunk(chunk, meta), error: console.error });
-      venc.configure({ codec: 'avc1.640034', width: W, height: H, bitrate: 8_000_000, framerate: FPS });
+      venc.configure({ codec: 'avc1.42001f', width: W, height: H, bitrate: 8_000_000, framerate: FPS });
       const offCanvas = new OffscreenCanvas(W, H);
       for (let fi = 0; fi < TOTAL; fi++) {
         const t = fi / FPS;
@@ -2056,23 +2064,24 @@ function App() {
         const frame = new VideoFrame(offCanvas, { timestamp: Math.round(fi * 1_000_000 / FPS), duration: Math.round(1_000_000 / FPS) });
         venc.encode(frame, { keyFrame: fi % 60 === 0 });
         frame.close();
-        setExportProgress(fi / TOTAL * (audioBuf ? 0.85 : 1));
+        setExportProgress(fi / TOTAL * (audioBase64 ? 0.85 : 1));
       }
       await venc.flush();
-      if (audioBuf && window.AudioEncoder) {
+      if (audioBase64 && window.AudioEncoder) {
         try {
-          const buf = audioBuf;
-          const CHUNK = 4096;
+          const binary = atob(audioBase64.split(',')[1]);
+          const bytes = new Uint8Array(binary.length);
+          for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+          const audioCtx = new OfflineAudioContext(2, Math.ceil(effectiveDuration * 44100), 44100);
+          const buf = await audioCtx.decodeAudioData(bytes.buffer);
           const aenc = new AudioEncoder({ output: (chunk, meta) => muxer.addAudioChunk(chunk, meta), error: console.error });
-          aenc.configure({ codec: 'mp4a.40.2', sampleRate: 44100, numberOfChannels: nCh, bitrate: 128000 });
+          aenc.configure({ codec: 'mp4a.40.2', sampleRate: 44100, numberOfChannels: buf.numberOfChannels, bitrate: 128000 });
+          const CHUNK = 1024;
           for (let i = 0; i < buf.length; i += CHUNK) {
             const len = Math.min(CHUNK, buf.length - i);
-            const planar = new Float32Array(len * nCh);
-            for (let c = 0; c < nCh; c++) {
-              planar.set(buf.getChannelData(c).slice(i, i + len), c * len);
-            }
             const aframe = new AudioData({ format: 'f32-planar', sampleRate: 44100, numberOfFrames: len,
-              numberOfChannels: nCh, timestamp: Math.round(i / 44100 * 1_000_000), data: planar });
+              numberOfChannels: buf.numberOfChannels, timestamp: Math.round(i / 44100 * 1_000_000),
+              data: buf.getChannelData(0).slice(i, i + len) });
             aenc.encode(aframe); aframe.close();
           }
           await aenc.flush();
@@ -2517,40 +2526,43 @@ function App() {
 
             {/* Sombra + Gradiente + Upload fonte — por marcação quando selecionada */}
             {(() => {
-              const sel = activeLyricId ? lyrics.find(l => l.id === activeLyricId) : null;
-              // Lê da marcação selecionada; se nenhuma, usa global
-              const curShadowOn  = sel ? (sel.shadowEnabled   ?? shadowEnabled)   : shadowEnabled;
-              const curShadowBlur = sel ? (sel.shadowBlur     ?? shadowBlur)       : shadowBlur;
-              const curShadowCol = sel ? (sel.shadowColor     || shadowColor)      : shadowColor;
-              const curGradOn    = sel ? (sel.gradientEnabled ?? gradientEnabled)  : gradientEnabled;
-              const curGrad1     = sel ? (sel.gradientColor1  || gradientColor1)   : gradientColor1;
-              const curGrad2     = sel ? (sel.gradientColor2  || gradientColor2)   : gradientColor2;
-              // Atualiza global E a marcação selecionada (se houver)
-              const setLP = (prop, val) => {
-                if (prop === 'shadowEnabled')  setShadowEnabled(val);
-                if (prop === 'shadowBlur')     setShadowBlur(val);
-                if (prop === 'shadowColor')    setShadowColor(val);
-                if (prop === 'gradientEnabled') setGradientEnabled(val);
-                if (prop === 'gradientColor1') setGradientColor1(val);
-                if (prop === 'gradientColor2') setGradientColor2(val);
-                if (activeLyricId) setLyrics(prev => prev.map(l => l.id === activeLyricId ? {...l, [prop]: val} : l));
+              const selL = activeLyricId ? lyrics.find(l => l.id === activeLyricId) : null;
+              const uiShOn  = selL ? (selL.shadowEnabled   !== undefined ? selL.shadowEnabled   : shadowEnabled)   : shadowEnabled;
+              const uiShBlur= selL ? (selL.shadowBlur      !== undefined ? selL.shadowBlur      : shadowBlur)      : shadowBlur;
+              const uiShCol = selL ? (selL.shadowColor     || shadowColor)   : shadowColor;
+              const uiGrOn  = selL ? (selL.gradientEnabled !== undefined ? selL.gradientEnabled : gradientEnabled) : gradientEnabled;
+              const uiGr1   = selL ? (selL.gradientColor1  || gradientColor1) : gradientColor1;
+              const uiGr2   = selL ? (selL.gradientColor2  || gradientColor2) : gradientColor2;
+              const applyLP = (prop, val) => {
+                if (selL) {
+                  // Tem marcação selecionada → atualiza SÓ ela
+                  setLyrics(prev => prev.map(l => l.id === activeLyricId ? {...l, [prop]: val} : l));
+                } else {
+                  // Nenhuma marcação → atualiza global (padrão para novas)
+                  if (prop === 'shadowEnabled')  setShadowEnabled(val);
+                  if (prop === 'shadowBlur')      setShadowBlur(val);
+                  if (prop === 'shadowColor')     setShadowColor(val);
+                  if (prop === 'gradientEnabled') setGradientEnabled(val);
+                  if (prop === 'gradientColor1')  setGradientColor1(val);
+                  if (prop === 'gradientColor2')  setGradientColor2(val);
+                }
               };
               return (
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', background: 'rgba(0,191,255,0.03)', border: '1px solid rgba(0,191,255,0.08)', borderRadius: 10, padding: '8px 10px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
                     <span style={{ fontSize: '10px', color: '#64748b', fontWeight: 700 }}>SOMBRA</span>
-                    <input type="checkbox" checked={curShadowOn} onChange={e => setLP('shadowEnabled', e.target.checked)} style={{ accentColor: '#00BFFF' }} />
-                    {curShadowOn && <>
-                      <input type="color" value={curShadowCol.startsWith('rgba') ? '#000000' : curShadowCol} onChange={e => setLP('shadowColor', e.target.value)} style={{ width: '22px', height: '22px', padding: 0, border: 'none', background: 'none', cursor: 'pointer' }} title="Cor da sombra" />
-                      <input type="range" min="0" max="30" value={curShadowBlur} onChange={e => setLP('shadowBlur', +e.target.value)} style={{ width: '60px', accentColor: '#00BFFF' }} title="Intensidade" />
+                    <input type="checkbox" checked={uiShOn} onChange={e => applyLP('shadowEnabled', e.target.checked)} style={{ accentColor: '#00BFFF' }} />
+                    {uiShOn && <>
+                      <input type="color" value={uiShCol.startsWith('rgba') ? '#000000' : uiShCol} onChange={e => applyLP('shadowColor', e.target.value)} style={{ width: '22px', height: '22px', padding: 0, border: 'none', background: 'none', cursor: 'pointer' }} title="Cor da sombra" />
+                      <input type="range" min="0" max="30" value={uiShBlur} onChange={e => applyLP('shadowBlur', +e.target.value)} style={{ width: '60px', accentColor: '#00BFFF' }} title="Intensidade" />
                     </>}
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
                     <span style={{ fontSize: '10px', color: '#64748b', fontWeight: 700 }}>GRADIENTE</span>
-                    <input type="checkbox" checked={curGradOn} onChange={e => setLP('gradientEnabled', e.target.checked)} style={{ accentColor: '#00BFFF' }} />
-                    {curGradOn && <>
-                      <input type="color" value={curGrad1} onChange={e => setLP('gradientColor1', e.target.value)} style={{ width: '22px', height: '22px', padding: 0, border: 'none', background: 'none', cursor: 'pointer' }} title="Cor 1" />
-                      <input type="color" value={curGrad2} onChange={e => setLP('gradientColor2', e.target.value)} style={{ width: '22px', height: '22px', padding: 0, border: 'none', background: 'none', cursor: 'pointer' }} title="Cor 2" />
+                    <input type="checkbox" checked={uiGrOn} onChange={e => applyLP('gradientEnabled', e.target.checked)} style={{ accentColor: '#00BFFF' }} />
+                    {uiGrOn && <>
+                      <input type="color" value={uiGr1} onChange={e => applyLP('gradientColor1', e.target.value)} style={{ width: '22px', height: '22px', padding: 0, border: 'none', background: 'none', cursor: 'pointer' }} title="Cor 1" />
+                      <input type="color" value={uiGr2} onChange={e => applyLP('gradientColor2', e.target.value)} style={{ width: '22px', height: '22px', padding: 0, border: 'none', background: 'none', cursor: 'pointer' }} title="Cor 2" />
                     </>}
                   </div>
                   <button onClick={() => fontInputRef.current?.click()} style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.25)', borderRadius: '8px', padding: '3px 9px', fontSize: '10px', color: '#f59e0b', cursor: 'pointer' }}>+ Fonte TTF/OTF</button>
