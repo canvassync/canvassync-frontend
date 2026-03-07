@@ -1055,7 +1055,6 @@ function App() {
 
 
   const handleGlobalMouseUp = useCallback(() => {
-    if (dragging) snapshotState();
     setDragging(null);
     setDraggingExtraIndex(null);
     setIsScrubbing(false);
