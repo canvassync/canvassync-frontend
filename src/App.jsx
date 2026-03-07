@@ -101,54 +101,6 @@ function App() {
   const [editingLyricId, setEditingLyricId] = useState(null);
 
   // ── UNDO / REDO ────────────────────────────────────────────────────────────
-  const undoStack = useRef([]);
-  const redoStack = useRef([]);
-  const isUndoingRef = useRef(false);
-
-  const snapshotState = useCallback(() => {
-    if (isUndoingRef.current) return;
-    undoStack.current.push({
-      lyrics:     JSON.parse(JSON.stringify(lyrics.map(l => ({ ...l, img: undefined })))),
-      images:     JSON.parse(JSON.stringify(images.map(i => ({ ...i, img: undefined })))),
-      extraTexts: JSON.parse(JSON.stringify(extraTexts)),
-    });
-    if (undoStack.current.length > 40) undoStack.current.shift();
-    redoStack.current = [];
-  }, [lyrics, images, extraTexts]);
-
-  const applySnapshot = useCallback((snap) => {
-    isUndoingRef.current = true;
-    setLyrics(snap.lyrics);
-    setImages(prev => snap.images.map(si => {
-      const existing = prev.find(p => p.id === si.id);
-      return existing ? { ...si, img: existing.img } : si;
-    }));
-    setExtraTexts(snap.extraTexts);
-    setTimeout(() => { isUndoingRef.current = false; }, 50);
-  }, []);
-
-  const handleUndo = useCallback(() => {
-    if (undoStack.current.length === 0) return;
-    redoStack.current.push({
-      lyrics:     JSON.parse(JSON.stringify(lyrics.map(l => ({ ...l, img: undefined })))),
-      images:     JSON.parse(JSON.stringify(images.map(i => ({ ...i, img: undefined })))),
-      extraTexts: JSON.parse(JSON.stringify(extraTexts)),
-    });
-    const snap = undoStack.current.pop();
-    applySnapshot(snap);
-  }, [lyrics, images, extraTexts, applySnapshot]);
-
-  const handleRedo = useCallback(() => {
-    if (redoStack.current.length === 0) return;
-    undoStack.current.push({
-      lyrics:     JSON.parse(JSON.stringify(lyrics.map(l => ({ ...l, img: undefined })))),
-      images:     JSON.parse(JSON.stringify(images.map(i => ({ ...i, img: undefined })))),
-      extraTexts: JSON.parse(JSON.stringify(extraTexts)),
-    });
-    const snap = redoStack.current.pop();
-    applySnapshot(snap);
-  }, [lyrics, images, extraTexts, applySnapshot]);
-
   useEffect(() => {
     const link = document.createElement('link');
     link.href = 'https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Bebas+Neue&family=Montserrat:wght@700&family=Poppins:wght@700&family=Oswald:wght@700&family=Roboto+Condensed:wght@700&family=Raleway:wght@700&family=Playfair+Display:wght@700&family=Lora:wght@700&display=swap';
@@ -1111,21 +1063,6 @@ function App() {
 
   useEffect(() => {
     const handleKeyDown = (e) => {
-      // Ctrl+Z = Undo, Ctrl+Y ou Ctrl+Shift+Z = Redo
-      if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
-        const activeEl = document.activeElement;
-        if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA')) return;
-        e.preventDefault();
-        handleUndo();
-        return;
-      }
-      if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) {
-        const activeEl = document.activeElement;
-        if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA')) return;
-        e.preventDefault();
-        handleRedo();
-        return;
-      }
       if (e.key !== 'Delete' && e.key !== 'Backspace') return;
       const activeEl = document.activeElement;
       if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA' || activeEl.tagName === 'SELECT' || activeEl.isContentEditable)) return;
@@ -1137,13 +1074,11 @@ function App() {
         return;
       }
       if (activeImageId) {
-        snapshotState();
         setImages(prev => prev.filter(img => img.id !== activeImageId));
         setActiveImageId(null);
         return;
       }
       if (activeLyricId) {
-        snapshotState();
         setLyrics(prev => prev.filter(l => l.id !== activeLyricId));
         setActiveLyricId(null);
         return;
@@ -1155,7 +1090,7 @@ function App() {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [activeImageId, activeLyricId, activeVideoId, handleUndo, handleRedo]);
+  }, [activeImageId, activeLyricId, activeVideoId, activeExtraTextId]);
 
   // Playhead + canvas: loop unificado abaixo
 
@@ -1284,15 +1219,30 @@ function App() {
       ctx.save();
       ctx.translate(txt.x, txt.y);
       ctx.rotate(rot);
-      ctx.fillStyle = tColor;
       ctx.font = `bold ${tSize}px ${tFont}`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
+      if (txt.shadowEnabled ?? true) {
+        ctx.shadowBlur    = txt.shadowBlur ?? 10;
+        ctx.shadowColor   = txt.shadowColor || 'rgba(0,0,0,0.8)';
+        ctx.shadowOffsetX = 0;
+        ctx.shadowOffsetY = 2;
+      }
       const totalH = lines.length * lineH;
       lines.forEach((line, li) => {
         const lineY = -totalH / 2 + li * lineH + lineH / 2;
+        if (txt.gradientEnabled) {
+          const w = ctx.measureText(line).width;
+          const grad = ctx.createLinearGradient(-w/2, lineY - tSize/2, w/2, lineY + tSize/2);
+          grad.addColorStop(0, txt.gradientColor1 || '#ffffff');
+          grad.addColorStop(1, txt.gradientColor2 || '#00BFFF');
+          ctx.fillStyle = grad;
+        } else {
+          ctx.fillStyle = tColor;
+        }
         ctx.fillText(line, 0, lineY);
       });
+      ctx.shadowBlur = 0; ctx.shadowOffsetX = 0; ctx.shadowOffsetY = 0;
 
       // Indicador de seleção
       if (activeExtraTextId === txt.id) {
@@ -1400,7 +1350,7 @@ function App() {
       }
     }
     // Não agenda mais RAF aqui — o loop unificado abaixo cuida disso
-  }, [activeImageId, activeVideoId, activeExtraTextId, activeLyricId, editingLyricId, drawRotatedElement, drawRoundedImage, drawRoundedRect, drawResizeHandles, extraTextColor, extraTextFontFamily, extraTextFontSize, extraTexts, fontFamily, fontSize, getImagesForTime, getVideosForTime, image, lyrics, textColor, wrapLyricText, videos]);
+  }, [activeImageId, activeVideoId, activeExtraTextId, activeLyricId, editingLyricId, drawRotatedElement, drawRoundedImage, drawRoundedRect, drawResizeHandles, extraTextColor, extraTextFontFamily, extraTextFontSize, extraTexts, fontFamily, fontSize, getImagesForTime, getVideosForTime, image, lyrics, textColor, wrapLyricText, videos, shadowEnabled, shadowBlur, shadowColor, shadowOffsetX, shadowOffsetY, gradientEnabled, gradientColor1, gradientColor2]);
 
 
   // ── Sync de vídeos via função chamada pelo loop RAF ──────────────────────
@@ -1557,15 +1507,30 @@ function App() {
       ctx.save();
       ctx.translate(txt.x, txt.y);
       ctx.rotate(rot);
-      ctx.fillStyle = tColor;
       ctx.font = `bold ${tSize}px ${tFont}`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
+      if (txt.shadowEnabled ?? true) {
+        ctx.shadowBlur    = txt.shadowBlur ?? 10;
+        ctx.shadowColor   = txt.shadowColor || 'rgba(0,0,0,0.8)';
+        ctx.shadowOffsetX = 0;
+        ctx.shadowOffsetY = 2;
+      }
       const totalH = lines.length * lineH;
       lines.forEach((line, li) => {
         const lineY = -totalH / 2 + li * lineH + lineH / 2;
+        if (txt.gradientEnabled) {
+          const w = ctx.measureText(line).width;
+          const grad = ctx.createLinearGradient(-w/2, lineY - tSize/2, w/2, lineY + tSize/2);
+          grad.addColorStop(0, txt.gradientColor1 || '#ffffff');
+          grad.addColorStop(1, txt.gradientColor2 || '#00BFFF');
+          ctx.fillStyle = grad;
+        } else {
+          ctx.fillStyle = tColor;
+        }
         ctx.fillText(line, 0, lineY);
       });
+      ctx.shadowBlur = 0; ctx.shadowOffsetX = 0; ctx.shadowOffsetY = 0;
       ctx.restore();
     });
     const activeLine = lyrics.find(l => t >= l.start && t <= l.end);
@@ -2331,7 +2296,12 @@ function App() {
       {/* HEADER CONTROLS */}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '14px', padding: '14px 18px', background: 'rgba(8,8,8,0.97)', borderBottom: '1px solid rgba(0,191,255,0.12)', fontSize: '12px', alignItems: 'center', width: '100%', boxSizing: 'border-box', backdropFilter: 'blur(12px)', boxShadow: '0 1px 0 rgba(0,191,255,0.08)' }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-          <label style={{ fontSize: '11px', color: '#00BFFF', fontWeight: 600, letterSpacing: '0.5px' }}>{t('ed_background')}</label>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <label style={{ fontSize: '11px', color: '#00BFFF', fontWeight: 600, letterSpacing: '0.5px' }}>{t('ed_background')}</label>
+            {imageSrc && (
+              <button onClick={() => { setImageSrc(null); setImage(null); if (bgInputRef.current) bgInputRef.current.value = ''; }} title="Remover fundo" style={{ background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '6px', padding: '1px 7px', fontSize: '11px', color: '#f87171', cursor: 'pointer', lineHeight: 1.6 }}>✕</button>
+            )}
+          </div>
           <input ref={bgInputRef} type="file" onChange={handleImageChange} accept="image/*" style={{ color: '#f8fafc', fontSize: '11px' }} />
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
@@ -2346,50 +2316,8 @@ function App() {
           <label style={{ fontSize: '11px', color: '#a78bfa', fontWeight: 600, letterSpacing: '0.5px' }}>🎬 Vídeos</label>
           <input ref={videoInputRef} type="file" onChange={handleVideoUpload} accept="video/*" multiple style={{ color: '#aaa', fontSize: '11px' }} />
         </div>
-        {/* Upload fonte customizada */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-          <label style={{ fontSize: '11px', color: '#f59e0b', fontWeight: 600, letterSpacing: '0.5px' }}>🔤 Fonte</label>
-          <input ref={fontInputRef} type="file" accept=".ttf,.otf,.woff,.woff2" style={{ display: 'none' }} onChange={handleFontUpload} />
-          <button onClick={() => fontInputRef.current?.click()} style={{ background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: '10px', padding: '5px 10px', fontSize: '11px', color: '#f59e0b', cursor: 'pointer' }}>
-            + Upload TTF/OTF
-          </button>
-        </div>
-        {/* Undo / Redo */}
-        <div style={{ display: 'flex', gap: '4px' }}>
-          <button onClick={handleUndo} title="Desfazer (Ctrl+Z)" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '10px', padding: '7px 12px', fontSize: '13px', color: '#888', cursor: 'pointer' }}>↩</button>
-          <button onClick={handleRedo} title="Refazer (Ctrl+Y)" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '10px', padding: '7px 12px', fontSize: '13px', color: '#888', cursor: 'pointer' }}>↪</button>
-        </div>
-        <input type="color" value={textColor} onChange={(e) => setTextColor(e.target.value)} style={{ width: '38px', height: '32px', borderRadius: '12px', border: '1px solid rgba(0,191,255,0.25)', backgroundColor: '#111' }} />
-        <select value={fontFamily} onChange={(e) => setFontFamily(e.target.value)} style={{ backgroundColor: '#111', color: '#f0f0f0', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '14px', padding: '7px 10px', fontSize: '12px' }}>
-          <option value="Poppins">Poppins</option>
-          <option value="Bebas Neue">Bebas Neue</option>
-          <option value="Montserrat">Montserrat</option>
-          <option value="Oswald">Oswald</option>
-          <option value="Roboto Condensed">Roboto Condensed</option>
-          <option value="Raleway">Raleway</option>
-          <option value="Playfair Display">Playfair</option>
-          <option value="Lora">Lora</option>
-          {customFonts.map(f => <option key={f.name} value={f.name}>{f.name}</option>)}
-        </select>
-        <input type="range" min="15" max="70" value={fontSize} onChange={(e) => setFontSize(e.target.value)} style={{ accentColor: '#00BFFF' }} />
-        {/* Sombra do texto */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <label style={{ fontSize: '11px', color: '#94a3b8', fontWeight: 600 }}>Sombra</label>
-          <input type="checkbox" checked={shadowEnabled} onChange={e => setShadowEnabled(e.target.checked)} style={{ accentColor: '#00BFFF' }} />
-          {shadowEnabled && <>
-            <input type="color" value={shadowColor.startsWith('rgba') ? '#000000' : shadowColor} onChange={e => setShadowColor(e.target.value)} style={{ width: '26px', height: '26px', padding: 0, border: 'none', background: 'none', cursor: 'pointer' }} title="Cor da sombra" />
-            <input type="range" min="0" max="30" value={shadowBlur} onChange={e => setShadowBlur(+e.target.value)} style={{ width: '60px', accentColor: '#00BFFF' }} title="Intensidade" />
-          </>}
-        </div>
-        {/* Gradiente do texto */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <label style={{ fontSize: '11px', color: '#94a3b8', fontWeight: 600 }}>Gradiente</label>
-          <input type="checkbox" checked={gradientEnabled} onChange={e => setGradientEnabled(e.target.checked)} style={{ accentColor: '#00BFFF' }} />
-          {gradientEnabled && <>
-            <input type="color" value={gradientColor1} onChange={e => setGradientColor1(e.target.value)} style={{ width: '26px', height: '26px', padding: 0, border: 'none', background: 'none', cursor: 'pointer' }} title="Cor 1" />
-            <input type="color" value={gradientColor2} onChange={e => setGradientColor2(e.target.value)} style={{ width: '26px', height: '26px', padding: 0, border: 'none', background: 'none', cursor: 'pointer' }} title="Cor 2" />
-          </>}
-        </div>
+        {/* input fonte oculto — acionado pelos painéis */}
+        <input ref={fontInputRef} type="file" accept=".ttf,.otf,.woff,.woff2" style={{ display: 'none' }} onChange={handleFontUpload} />
         <select value={exportFormat} onChange={(e) => setExportFormat(e.target.value)} style={{ backgroundColor: '#111', color: '#f0f0f0', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '14px', padding: '7px 10px', fontSize: '12px' }}>
           <option value="webm_offline_audio">🎬 WEBM + Áudio</option>
           <option value="mp4">🎬 MP4 + Áudio</option>
@@ -2493,8 +2421,36 @@ function App() {
                   value={activeExtraTextId ? (extraTexts.find(t=>t.id===activeExtraTextId)?.fontSize || extraTextFontSize) : (extraTexts.length ? extraTexts[extraTexts.length-1]?.fontSize || extraTextFontSize : extraTextFontSize)}
                   onChange={e => { const v=parseInt(e.target.value); setExtraTextFontSize(v); const tid = activeExtraTextId || (extraTexts.length ? extraTexts[extraTexts.length-1].id : null); if(tid) setExtraTexts(prev=>prev.map(t=>t.id===tid?{...t,fontSize:v}:t)); }}
                   style={{ width: '90px', accentColor: '#00BFFF' }} />
+                <button onClick={() => fontInputRef.current?.click()} style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.25)', borderRadius: '8px', padding: '3px 9px', fontSize: '10px', color: '#f59e0b', cursor: 'pointer' }}>+ Fonte</button>
               </div>
             </div>
+            {/* Sombra + Gradiente por item */}
+            {(() => {
+              const tid = activeExtraTextId || (extraTexts.length ? extraTexts[extraTexts.length-1]?.id : null);
+              const sel = extraTexts.find(t => t.id === tid);
+              if (!sel) return null;
+              const setP = (prop, val) => setExtraTexts(prev => prev.map(t => t.id === tid ? {...t, [prop]: val} : t));
+              return (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', background: 'rgba(0,191,255,0.03)', border: '1px solid rgba(0,191,255,0.08)', borderRadius: 10, padding: '8px 10px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                    <span style={{ fontSize: '10px', color: '#64748b', fontWeight: 700 }}>SOMBRA</span>
+                    <input type="checkbox" checked={sel.shadowEnabled ?? true} onChange={e => setP('shadowEnabled', e.target.checked)} style={{ accentColor: '#00BFFF' }} />
+                    {(sel.shadowEnabled ?? true) && <>
+                      <input type="color" value={(sel.shadowColor || '#000000').replace(/rgba?\([^)]+\)/, '#000000')} onChange={e => setP('shadowColor', e.target.value)} style={{ width: '22px', height: '22px', padding: 0, border: 'none', background: 'none', cursor: 'pointer' }} />
+                      <input type="range" min="0" max="30" value={sel.shadowBlur ?? 10} onChange={e => setP('shadowBlur', +e.target.value)} style={{ width: '60px', accentColor: '#00BFFF' }} />
+                    </>}
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                    <span style={{ fontSize: '10px', color: '#64748b', fontWeight: 700 }}>GRADIENTE</span>
+                    <input type="checkbox" checked={sel.gradientEnabled ?? false} onChange={e => setP('gradientEnabled', e.target.checked)} style={{ accentColor: '#00BFFF' }} />
+                    {(sel.gradientEnabled ?? false) && <>
+                      <input type="color" value={sel.gradientColor1 || '#ffffff'} onChange={e => setP('gradientColor1', e.target.value)} style={{ width: '22px', height: '22px', padding: 0, border: 'none', background: 'none', cursor: 'pointer' }} />
+                      <input type="color" value={sel.gradientColor2 || '#00BFFF'} onChange={e => setP('gradientColor2', e.target.value)} style={{ width: '22px', height: '22px', padding: 0, border: 'none', background: 'none', cursor: 'pointer' }} />
+                    </>}
+                  </div>
+                </div>
+              );
+            })()}
             <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-end' }}>
               <textarea
                 placeholder={"Ex: Nome da Banda\nUse Enter para nova linha"}
@@ -2533,6 +2489,7 @@ function App() {
                 <option value="Raleway">Raleway</option>
                 <option value="Playfair Display">Playfair</option>
                 <option value="Lora">Lora</option>
+                {customFonts.map(f => <option key={f.name} value={f.name}>{f.name}</option>)}
               </select>
               <span style={{ fontSize: '10px', color: '#94a3b8' }}>
                 {activeLyricId ? (lyrics.find(l => l.id === activeLyricId)?.fontSize || fontSize) : fontSize}px
@@ -2545,6 +2502,27 @@ function App() {
                   if (activeLyricId) setLyrics(prev => prev.map(l => l.id === activeLyricId ? {...l, fontSize: v} : l));
                 }}
                 style={{ flex: 1, minWidth: '60px', accentColor: '#00BFFF' }} />
+            </div>
+
+            {/* Sombra + Gradiente + Upload fonte */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', background: 'rgba(0,191,255,0.03)', border: '1px solid rgba(0,191,255,0.08)', borderRadius: 10, padding: '8px 10px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                <span style={{ fontSize: '10px', color: '#64748b', fontWeight: 700 }}>SOMBRA</span>
+                <input type="checkbox" checked={shadowEnabled} onChange={e => setShadowEnabled(e.target.checked)} style={{ accentColor: '#00BFFF' }} />
+                {shadowEnabled && <>
+                  <input type="color" value={shadowColor.startsWith('rgba') ? '#000000' : shadowColor} onChange={e => setShadowColor(e.target.value)} style={{ width: '22px', height: '22px', padding: 0, border: 'none', background: 'none', cursor: 'pointer' }} title="Cor da sombra" />
+                  <input type="range" min="0" max="30" value={shadowBlur} onChange={e => setShadowBlur(+e.target.value)} style={{ width: '60px', accentColor: '#00BFFF' }} title="Intensidade" />
+                </>}
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                <span style={{ fontSize: '10px', color: '#64748b', fontWeight: 700 }}>GRADIENTE</span>
+                <input type="checkbox" checked={gradientEnabled} onChange={e => setGradientEnabled(e.target.checked)} style={{ accentColor: '#00BFFF' }} />
+                {gradientEnabled && <>
+                  <input type="color" value={gradientColor1} onChange={e => setGradientColor1(e.target.value)} style={{ width: '22px', height: '22px', padding: 0, border: 'none', background: 'none', cursor: 'pointer' }} title="Cor 1" />
+                  <input type="color" value={gradientColor2} onChange={e => setGradientColor2(e.target.value)} style={{ width: '22px', height: '22px', padding: 0, border: 'none', background: 'none', cursor: 'pointer' }} title="Cor 2" />
+                </>}
+              </div>
+              <button onClick={() => fontInputRef.current?.click()} style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.25)', borderRadius: '8px', padding: '3px 9px', fontSize: '10px', color: '#f59e0b', cursor: 'pointer' }}>+ Fonte TTF/OTF</button>
             </div>
 
             {/* Textarea letra — flex:1 para preencher espaço disponível */}
