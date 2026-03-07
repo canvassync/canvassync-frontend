@@ -96,13 +96,6 @@ function App() {
   const fontFamilyRef = useRef(fontFamily);
   useEffect(() => { fontSizeRef.current = fontSize; }, [fontSize]);
   useEffect(() => { fontFamilyRef.current = fontFamily; }, [fontFamily]);
-  // ── Animação de entrada ────────────────────────────────────────────────────
-  const [animType, setAnimType] = useState('none'); // 'none'|'fade'|'slide'|'typewriter'
-  const [twSpeed,  setTwSpeed]  = useState(30);     // chars/seg para typewriter
-  const animTypeRef = useRef('none');
-  const twSpeedRef  = useRef(30);
-  useEffect(() => { animTypeRef.current = animType; }, [animType]);
-  useEffect(() => { twSpeedRef.current  = twSpeed;  }, [twSpeed]);
   const [dragging, setDragging] = useState(null);
   const [isScrubbing, setIsScrubbing] = useState(false);
   const [editingLyricId, setEditingLyricId] = useState(null);
@@ -499,9 +492,8 @@ function App() {
         rotation: 0,
         fontSize: fontSizeRef.current,
         fontFamily: fontFamilyRef.current,
-        animType: animTypeRef.current,
-        twSpeed:  twSpeedRef.current,
       };
+      snapshotState();
       setLyrics(prevLyrics => [...prevLyrics, newLine].sort((a, b) => a.start - b.start));
       return prev + 1;
     });
@@ -1297,17 +1289,7 @@ function App() {
       const lineH = lFontSize * 1.3;
       const totalH = lines.length * lineH;
 
-      // ── Animação de entrada (preview usa `time`) ─────────────────────────
-      const _anim    = activeLine.animType || 'none';
-      const _twSpd   = activeLine.twSpeed  || 30;
-      const _elapsed = Math.max(0, time - activeLine.start);
-      const _animDur = 0.45;
-      const _prog    = Math.min(1, _elapsed / _animDur);
-      const _ease    = 1 - (1 - _prog) * (1 - _prog);
-      const _twChars = _anim === 'typewriter' ? Math.floor(_elapsed * _twSpd) : Infinity;
       ctx.save();
-      if (_anim === 'fade')  ctx.globalAlpha = _ease;
-      if (_anim === 'slide') ctx.translate(0, (1 - _ease) * 48);
       ctx.translate(lx, ly);
       ctx.rotate(lRot);
       ctx.textAlign = 'center';
@@ -1328,19 +1310,11 @@ function App() {
         ctx.shadowOffsetX = _shOX;
         ctx.shadowOffsetY = _shOY;
       }
-      let _twCharCount = 0;
       lines.forEach((line, li) => {
         const lineY = -totalH / 2 + li * lineH + lineH / 2;
         const upperLine = line.toUpperCase();
-        let visibleLine = upperLine;
-        if (_anim === 'typewriter') {
-          const remaining = _twChars - _twCharCount;
-          if (remaining <= 0) { _twCharCount += upperLine.length; return; }
-          visibleLine = upperLine.slice(0, remaining);
-          _twCharCount += upperLine.length;
-        }
         if (_grOn) {
-          const w = ctx.measureText(visibleLine).width;
+          const w = ctx.measureText(upperLine).width;
           const grad = ctx.createLinearGradient(-w / 2, lineY - lFontSize / 2, w / 2, lineY + lFontSize / 2);
           grad.addColorStop(0, _gr1);
           grad.addColorStop(1, _gr2);
@@ -1348,10 +1322,9 @@ function App() {
         } else {
           ctx.fillStyle = _col;
         }
-        ctx.fillText(visibleLine, 0, lineY);
+        ctx.fillText(upperLine, 0, lineY);
       });
       ctx.shadowBlur = 0; ctx.shadowOffsetX = 0; ctx.shadowOffsetY = 0;
-      ctx.globalAlpha = 1;
       ctx.restore();
 
       // Indicador de seleção / arrasto + handle de rotação
@@ -1581,17 +1554,7 @@ function App() {
       const lines = wrapLyricText(activeLine.text, ctx, logicalW - 40);
       const lineH = lFontSize * 1.3;
       const totalH = lines.length * lineH;
-      // ── Animação de entrada (export usa `t`) ─────────────────────────────
-      const _anim    = activeLine.animType || 'none';
-      const _twSpd   = activeLine.twSpeed  || 30;
-      const _elapsed = Math.max(0, t - activeLine.start);
-      const _animDur = 0.45;
-      const _prog    = Math.min(1, _elapsed / _animDur);
-      const _ease    = 1 - (1 - _prog) * (1 - _prog);
-      const _twChars = _anim === 'typewriter' ? Math.floor(_elapsed * _twSpd) : Infinity;
       ctx.save();
-      if (_anim === 'fade')  ctx.globalAlpha = _ease;
-      if (_anim === 'slide') ctx.translate(0, (1 - _ease) * 48);
       ctx.translate(lx, ly);
       ctx.rotate(lRot);
       ctx.textAlign = 'center';
@@ -1612,19 +1575,11 @@ function App() {
         ctx.shadowOffsetX = _shOX;
         ctx.shadowOffsetY = _shOY;
       }
-      let _twCharCount = 0;
       lines.forEach((line, li) => {
         const lineY = -totalH / 2 + li * lineH + lineH / 2;
         const upperLine = line.toUpperCase();
-        let visibleLine = upperLine;
-        if (_anim === 'typewriter') {
-          const remaining = _twChars - _twCharCount;
-          if (remaining <= 0) { _twCharCount += upperLine.length; return; }
-          visibleLine = upperLine.slice(0, remaining);
-          _twCharCount += upperLine.length;
-        }
         if (_grOn) {
-          const w = ctx.measureText(visibleLine).width;
+          const w = ctx.measureText(upperLine).width;
           const grad = ctx.createLinearGradient(-w / 2, lineY - lFontSize / 2, w / 2, lineY + lFontSize / 2);
           grad.addColorStop(0, _gr1);
           grad.addColorStop(1, _gr2);
@@ -1632,10 +1587,9 @@ function App() {
         } else {
           ctx.fillStyle = _col;
         }
-        ctx.fillText(visibleLine, 0, lineY);
+        ctx.fillText(upperLine, 0, lineY);
       });
       ctx.shadowBlur = 0; ctx.shadowOffsetX = 0; ctx.shadowOffsetY = 0;
-      ctx.globalAlpha = 1;
       ctx.restore();
     }
   };
@@ -1654,42 +1608,29 @@ function App() {
     setIsExporting(true);
     setExportProgress(0);
     try {
-      // Renderiza todos os frames em ImageData primeiro
-      const W = baseCanvas.width, H = baseCanvas.height;
+      const { default: WebMWriter } = await import('webm-writer');
+      const offCanvas = document.createElement('canvas');
+      offCanvas.width = baseCanvas.width;
+      offCanvas.height = baseCanvas.height;
       const fps = 30;
       const totalFrames = Math.ceil(effectiveDuration * fps);
-      const offCanvas = document.createElement('canvas');
-      offCanvas.width = W; offCanvas.height = H;
-      const frames = [];
+      const writer = new WebMWriter({ frameRate: fps, quality: 0.95 });
       for (let i = 0; i < totalFrames; i++) {
-        await renderAtTimeToCanvas(offCanvas, i / fps);
-        const blob = await new Promise(res => offCanvas.toBlob(res, 'image/webp', 0.92));
-        frames.push(blob);
-        setExportProgress((i + 1) / totalFrames * 0.8);
+        const t = i / fps;
+        await renderAtTimeToCanvas(offCanvas, t);
+        writer.addFrame(offCanvas);
+        setExportProgress(((i + 1) / totalFrames));
         await new Promise(r => setTimeout(r, 0));
       }
-      // Usa webm-muxer VP8 sem áudio (leve, sem dependência extra)
-      const { Muxer, ArrayBufferTarget } = await import('webm-muxer');
-      const target = new ArrayBufferTarget();
-      const muxer = new Muxer({ target, video: { codec: 'V_VP8', width: W, height: H, frameRate: fps } });
-      const venc = new VideoEncoder({ output: (c,m) => muxer.addVideoChunk(c,m), error: console.error });
-      venc.configure({ codec: 'vp8', width: W, height: H, bitrate: 2_000_000 });
-      for (let i = 0; i < frames.length; i++) {
-        const bmp = await createImageBitmap(frames[i]);
-        const vf = new VideoFrame(bmp, { timestamp: Math.round(i / fps * 1_000_000), duration: Math.round(1_000_000 / fps) });
-        venc.encode(vf, { keyFrame: i % 60 === 0 }); vf.close(); bmp.close();
-        setExportProgress(0.8 + (i + 1) / frames.length * 0.2);
-      }
-      await venc.flush();
-      muxer.finalize();
-      const blob = new Blob([target.buffer], { type: 'video/webm' });
+      const blob = await writer.complete();
       const url = URL.createObjectURL(blob);
-      const a = document.createElement('a'); a.href = url; a.download = 'canvas.webm';
-      document.body.appendChild(a); a.click(); document.body.removeChild(a);
-      setTimeout(() => URL.revokeObjectURL(url), 5000);
-    } catch(err) {
-      console.error('[WEBM Export]', err);
-      alert('Erro ao exportar WEBM: ' + err.message);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'canvas.webm';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
     } finally {
       setIsExporting(false);
       setExportProgress(0);
@@ -2036,9 +1977,21 @@ function App() {
       const { Muxer, ArrayBufferTarget } = await import('mp4-muxer');
       const W = baseCanvas.width, H = baseCanvas.height;
       const FPS = 30, TOTAL = Math.ceil(effectiveDuration * FPS);
+      // Pré-decodifica áudio antes do muxer para saber número de canais
+      let audioBufSD = null;
+      if (audioBase64 && window.AudioEncoder) {
+        try {
+          const _b = atob(audioBase64.split(',')[1]);
+          const _by = new Uint8Array(_b.length);
+          for (let _i = 0; _i < _b.length; _i++) _by[_i] = _b.charCodeAt(_i);
+          const _ac = new OfflineAudioContext(2, Math.ceil(effectiveDuration * 44100), 44100);
+          audioBufSD = await _ac.decodeAudioData(_by.buffer);
+        } catch(_e) { console.warn('Audio decode SD:', _e); }
+      }
+      const nChSD = audioBufSD ? Math.min(audioBufSD.numberOfChannels, 2) : 2;
       const target = new ArrayBufferTarget();
       const muxer = new Muxer({ target, video: { codec: 'avc', width: W, height: H },
-        audio: audioBase64 ? { codec: 'aac', sampleRate: 44100, numberOfChannels: 2 } : undefined,
+        audio: audioBufSD ? { codec: 'aac', sampleRate: 44100, numberOfChannels: nChSD } : undefined,
         fastStart: 'in-memory' });
       const venc = new VideoEncoder({ output: (chunk, meta) => muxer.addVideoChunk(chunk, meta), error: console.error });
       venc.configure({ codec: 'avc1.42001f', width: W, height: H, bitrate: 4_000_000, framerate: FPS });
@@ -2049,27 +2002,20 @@ function App() {
         const frame = new VideoFrame(offCanvas, { timestamp: Math.round(fi * 1_000_000 / FPS), duration: Math.round(1_000_000 / FPS) });
         venc.encode(frame, { keyFrame: fi % 60 === 0 });
         frame.close();
-        setExportProgress(fi / TOTAL * (audioBase64 ? 0.85 : 1));
+        setExportProgress(fi / TOTAL * (audioBufSD ? 0.85 : 1));
       }
       await venc.flush();
-      if (audioBase64 && window.AudioEncoder) {
+      if (audioBufSD) {
         try {
-          const binary = atob(audioBase64.split(',')[1]);
-          const bytes = new Uint8Array(binary.length);
-          for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-          const audioCtx = new OfflineAudioContext(2, Math.ceil(effectiveDuration * 44100), 44100);
-          const buf = await audioCtx.decodeAudioData(bytes.buffer);
           const aenc = new AudioEncoder({ output: (chunk, meta) => muxer.addAudioChunk(chunk, meta), error: console.error });
-          aenc.configure({ codec: 'mp4a.40.2', sampleRate: 44100, numberOfChannels: buf.numberOfChannels, bitrate: 128000 });
-          const CHUNK = 1024;
-          for (let i = 0; i < buf.length; i += CHUNK) {
-            const len = Math.min(CHUNK, buf.length - i);
-            const channels = [];
-            for (let c = 0; c < buf.numberOfChannels; c++) {
-              channels.push(buf.getChannelData(c).slice(i, i + len));
-            }
+          aenc.configure({ codec: 'mp4a.40.2', sampleRate: 44100, numberOfChannels: nChSD, bitrate: 128000 });
+          const CHUNK = 4096;
+          for (let i = 0; i < audioBufSD.length; i += CHUNK) {
+            const len = Math.min(CHUNK, audioBufSD.length - i);
+            const planar = new Float32Array(len * nChSD);
+            for (let c = 0; c < nChSD; c++) planar.set(audioBufSD.getChannelData(c).slice(i, i + len), c * len);
             const aframe = new AudioData({ format: 'f32-planar', sampleRate: 44100, numberOfFrames: len,
-              numberOfChannels: buf.numberOfChannels, timestamp: Math.round(i / 44100 * 1_000_000), data: channels[0] });
+              numberOfChannels: nChSD, timestamp: Math.round(i / 44100 * 1_000_000), data: planar });
             aenc.encode(aframe); aframe.close();
           }
           await aenc.flush();
@@ -2110,12 +2056,25 @@ function App() {
       const SCALE = 1080 / baseCanvas.width;
       const W = 1080, H = Math.round(baseCanvas.height * SCALE);
       const FPS = 30, TOTAL = Math.ceil(effectiveDuration * FPS);
+      // Pré-decodifica áudio antes do muxer para saber número de canais
+      let audioBufHD = null;
+      if (audioBase64 && window.AudioEncoder) {
+        try {
+          const _b = atob(audioBase64.split(',')[1]);
+          const _by = new Uint8Array(_b.length);
+          for (let _i = 0; _i < _b.length; _i++) _by[_i] = _b.charCodeAt(_i);
+          const _ac = new OfflineAudioContext(2, Math.ceil(effectiveDuration * 44100), 44100);
+          audioBufHD = await _ac.decodeAudioData(_by.buffer);
+        } catch(_e) { console.warn('Audio decode HD:', _e); }
+      }
+      const nChHD = audioBufHD ? Math.min(audioBufHD.numberOfChannels, 2) : 2;
       const target = new ArrayBufferTarget();
       const muxer = new Muxer({ target, video: { codec: 'avc', width: W, height: H },
-        audio: audioBase64 ? { codec: 'aac', sampleRate: 44100, numberOfChannels: 2 } : undefined,
+        audio: audioBufHD ? { codec: 'aac', sampleRate: 44100, numberOfChannels: nChHD } : undefined,
         fastStart: 'in-memory' });
       const venc = new VideoEncoder({ output: (chunk, meta) => muxer.addVideoChunk(chunk, meta), error: console.error });
-      venc.configure({ codec: 'avc1.42001f', width: W, height: H, bitrate: 8_000_000, framerate: FPS });
+      // avc1.640034 = H.264 High Profile Level 5.2 — suporta resolução 1080p+
+      venc.configure({ codec: 'avc1.640034', width: W, height: H, bitrate: 8_000_000, framerate: FPS });
       const offCanvas = new OffscreenCanvas(W, H);
       for (let fi = 0; fi < TOTAL; fi++) {
         const t = fi / FPS;
@@ -2123,24 +2082,20 @@ function App() {
         const frame = new VideoFrame(offCanvas, { timestamp: Math.round(fi * 1_000_000 / FPS), duration: Math.round(1_000_000 / FPS) });
         venc.encode(frame, { keyFrame: fi % 60 === 0 });
         frame.close();
-        setExportProgress(fi / TOTAL * (audioBase64 ? 0.85 : 1));
+        setExportProgress(fi / TOTAL * (audioBufHD ? 0.85 : 1));
       }
       await venc.flush();
-      if (audioBase64 && window.AudioEncoder) {
+      if (audioBufHD) {
         try {
-          const binary = atob(audioBase64.split(',')[1]);
-          const bytes = new Uint8Array(binary.length);
-          for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-          const audioCtx = new OfflineAudioContext(2, Math.ceil(effectiveDuration * 44100), 44100);
-          const buf = await audioCtx.decodeAudioData(bytes.buffer);
           const aenc = new AudioEncoder({ output: (chunk, meta) => muxer.addAudioChunk(chunk, meta), error: console.error });
-          aenc.configure({ codec: 'mp4a.40.2', sampleRate: 44100, numberOfChannels: buf.numberOfChannels, bitrate: 128000 });
-          const CHUNK = 1024;
-          for (let i = 0; i < buf.length; i += CHUNK) {
-            const len = Math.min(CHUNK, buf.length - i);
+          aenc.configure({ codec: 'mp4a.40.2', sampleRate: 44100, numberOfChannels: nChHD, bitrate: 128000 });
+          const CHUNK = 4096;
+          for (let i = 0; i < audioBufHD.length; i += CHUNK) {
+            const len = Math.min(CHUNK, audioBufHD.length - i);
+            const planar = new Float32Array(len * nChHD);
+            for (let c = 0; c < nChHD; c++) planar.set(audioBufHD.getChannelData(c).slice(i, i + len), c * len);
             const aframe = new AudioData({ format: 'f32-planar', sampleRate: 44100, numberOfFrames: len,
-              numberOfChannels: buf.numberOfChannels, timestamp: Math.round(i / 44100 * 1_000_000),
-              data: buf.getChannelData(0).slice(i, i + len) });
+              numberOfChannels: nChHD, timestamp: Math.round(i / 44100 * 1_000_000), data: planar });
             aenc.encode(aframe); aframe.close();
           }
           await aenc.flush();
