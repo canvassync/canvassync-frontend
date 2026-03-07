@@ -544,8 +544,6 @@ function App() {
   };
 
   const handleClearProject = () => {
-    undoStack.current = [];
-    redoStack.current = [];
     handleStopPlayback();
     setBulkText('');
     setLyrics([]);
@@ -1055,7 +1053,6 @@ function App() {
 
 
   const handleGlobalMouseUp = useCallback(() => {
-    if (dragging) snapshotState();
     setDragging(null);
     setDraggingExtraIndex(null);
     setIsScrubbing(false);
@@ -1577,21 +1574,6 @@ function App() {
       const lines = wrapLyricText(activeLine.text, ctx, logicalW - 40);
       const lineH = lFontSize * 1.3;
       const totalH = lines.length * lineH;
-      ctx.save();
-      ctx.translate(lx, ly);
-      ctx.rotate(lRot);
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      // Lê da marcação; fallback para global
-      const _shOn  = activeLine.shadowEnabled   !== undefined ? activeLine.shadowEnabled   : shadowEnabled;
-      const _shBlur= activeLine.shadowBlur      !== undefined ? activeLine.shadowBlur      : shadowBlur;
-      const _shCol = activeLine.shadowColor     || shadowColor;
-      const _shOX  = activeLine.shadowOffsetX   !== undefined ? activeLine.shadowOffsetX   : shadowOffsetX;
-      const _shOY  = activeLine.shadowOffsetY   !== undefined ? activeLine.shadowOffsetY   : shadowOffsetY;
-      const _grOn  = activeLine.gradientEnabled !== undefined ? activeLine.gradientEnabled : gradientEnabled;
-      const _gr1   = activeLine.gradientColor1  || gradientColor1;
-      const _gr2   = activeLine.gradientColor2  || gradientColor2;
-      const _col   = activeLine.color           || textColor;
       // ── Animação de entrada (export — usa `t`) ──────────────────────────
       const _anim  = activeLine.animType || 'none';
       const _twSpd = activeLine.twSpeed  || 30;
@@ -1647,6 +1629,8 @@ function App() {
       ctx.restore();
     }
   };
+
+  const handleSaveWebmOffline = async () => {
     const baseCanvas = canvasRef.current;
     if (!baseCanvas) return;
     const effectiveDuration = (() => {
@@ -2029,15 +2013,21 @@ function App() {
       const { Muxer, ArrayBufferTarget } = await import('mp4-muxer');
       const W = baseCanvas.width, H = baseCanvas.height;
       const FPS = 30, TOTAL = Math.ceil(effectiveDuration * FPS);
-      // Pré-decodifica áudio para saber número de canais antes de criar o muxer
+      // Pré-decodifica áudio (suporta audioFile e audioBase64)
       let _abSD = null;
-      if (audioBase64 && window.AudioEncoder) {
+      if ((audioFile || audioBase64) && window.AudioEncoder) {
         try {
-          const _b = atob(audioBase64.split(',')[1]);
-          const _by = new Uint8Array(_b.length);
-          for (let _i = 0; _i < _b.length; _i++) _by[_i] = _b.charCodeAt(_i);
+          let _buf;
+          if (audioFile) {
+            _buf = await audioFile.arrayBuffer();
+          } else {
+            const _b = atob(audioBase64.split(',')[1]);
+            const _by = new Uint8Array(_b.length);
+            for (let _i = 0; _i < _b.length; _i++) _by[_i] = _b.charCodeAt(_i);
+            _buf = _by.buffer;
+          }
           const _ac = new OfflineAudioContext(2, Math.ceil(effectiveDuration * 44100), 44100);
-          _abSD = await _ac.decodeAudioData(_by.buffer);
+          _abSD = await _ac.decodeAudioData(_buf);
         } catch(_e) { console.warn('Audio decode SD:', _e); }
       }
       const _nChSD = _abSD ? Math.min(_abSD.numberOfChannels, 2) : 2;
@@ -2108,15 +2098,21 @@ function App() {
       const SCALE = 1080 / baseCanvas.width;
       const W = 1080, H = Math.round(baseCanvas.height * SCALE);
       const FPS = 30, TOTAL = Math.ceil(effectiveDuration * FPS);
-      // Pré-decodifica áudio para saber número de canais antes de criar o muxer
+      // Pré-decodifica áudio (suporta audioFile e audioBase64)
       let _abHD = null;
-      if (audioBase64 && window.AudioEncoder) {
+      if ((audioFile || audioBase64) && window.AudioEncoder) {
         try {
-          const _b = atob(audioBase64.split(',')[1]);
-          const _by = new Uint8Array(_b.length);
-          for (let _i = 0; _i < _b.length; _i++) _by[_i] = _b.charCodeAt(_i);
+          let _buf;
+          if (audioFile) {
+            _buf = await audioFile.arrayBuffer();
+          } else {
+            const _b = atob(audioBase64.split(',')[1]);
+            const _by = new Uint8Array(_b.length);
+            for (let _i = 0; _i < _b.length; _i++) _by[_i] = _b.charCodeAt(_i);
+            _buf = _by.buffer;
+          }
           const _ac = new OfflineAudioContext(2, Math.ceil(effectiveDuration * 44100), 44100);
-          _abHD = await _ac.decodeAudioData(_by.buffer);
+          _abHD = await _ac.decodeAudioData(_buf);
         } catch(_e) { console.warn('Audio decode HD:', _e); }
       }
       const _nChHD = _abHD ? Math.min(_abHD.numberOfChannels, 2) : 2;
@@ -2404,7 +2400,6 @@ function App() {
             <label style={{ fontSize: '11px', color: '#a78bfa', fontWeight: 600, letterSpacing: '0.5px' }}>🎬 Vídeos</label>
             <input ref={videoInputRef} type="file" onChange={handleVideoUpload} accept="video/*" multiple style={{ color: '#aaa', fontSize: '11px' }} />
           </div>
-          {/* input fonte oculto — acionado pelos painéis */}
           <input ref={fontInputRef} type="file" accept=".ttf,.otf,.woff,.woff2" style={{ display: 'none' }} onChange={handleFontUpload} />
           <select value={exportFormat} onChange={(e) => setExportFormat(e.target.value)} style={{ backgroundColor: '#111', color: '#f0f0f0', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '14px', padding: '7px 10px', fontSize: '12px' }}>
             <option value="webm_offline_audio">🎬 WEBM + Áudio</option>
