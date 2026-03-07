@@ -550,6 +550,7 @@ function App() {
   // Função para adicionar novo texto fixo na tela
   const addExtraText = () => {
     if (!newExtraInput.trim()) return;
+    snapshotState();
     const newItem = {
       id: Date.now(),
       text: newExtraInput,
@@ -559,6 +560,12 @@ function App() {
       color: extraTextColor,
       fontFamily: extraTextFontFamily,
       fontSize: extraTextFontSize,
+      shadowEnabled: shadowEnabled,
+      shadowBlur: shadowBlur,
+      shadowColor: shadowColor,
+      gradientEnabled: gradientEnabled,
+      gradientColor1: gradientColor1,
+      gradientColor2: gradientColor2,
     };
     const newId = newItem.id;
     setExtraTexts(prev => [...prev, newItem]);
@@ -812,6 +819,7 @@ function App() {
           setEditingLyricId(visibleLyric.id);
           return;
         }
+        snapshotState();
         setDragging({ type: 'lyric-canvas', id: visibleLyric.id, offsetX: mouseX - lx, offsetY: mouseY - ly });
         return;
       }
@@ -865,11 +873,13 @@ function App() {
       const nearBottom = Math.abs(mouseY - (clickedItem.y + clickedItem.height)) <= handleSize;
       const corner = `${nearTop?'n':''}${nearBottom?'s':''}${nearLeft?'w':''}${nearRight?'e':''}`;
       if (corner.length >= 2) {
+        snapshotState();
         setDragging({ itemKind: 'canvas-image', type: 'resize', id: clickedItem.id, corner,
           startX: mouseX, startY: mouseY,
           startWidth: clickedItem.width, startHeight: clickedItem.height,
           startXPos: clickedItem.x, startYPos: clickedItem.y });
       } else {
+        snapshotState();
         setDragging({ itemKind: 'canvas-image', type: 'move', id: clickedItem.id,
           offsetX: mouseX - clickedItem.x, offsetY: mouseY - clickedItem.y });
       }
@@ -1096,7 +1106,6 @@ function App() {
 
 
   const handleGlobalMouseUp = useCallback(() => {
-    if (dragging) snapshotState();
     setDragging(null);
     setDraggingExtraIndex(null);
     setIsScrubbing(false);
@@ -1284,15 +1293,31 @@ function App() {
       ctx.save();
       ctx.translate(txt.x, txt.y);
       ctx.rotate(rot);
-      ctx.fillStyle = tColor;
       ctx.font = `bold ${tSize}px ${tFont}`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
+      const eShadowOn = txt.shadowEnabled ?? true;
+      if (eShadowOn) {
+        ctx.shadowBlur    = txt.shadowBlur ?? 10;
+        ctx.shadowColor   = txt.shadowColor || 'rgba(0,0,0,0.8)';
+        ctx.shadowOffsetX = 0;
+        ctx.shadowOffsetY = 2;
+      }
       const totalH = lines.length * lineH;
       lines.forEach((line, li) => {
         const lineY = -totalH / 2 + li * lineH + lineH / 2;
+        if (txt.gradientEnabled) {
+          const w = ctx.measureText(line).width;
+          const grad = ctx.createLinearGradient(-w/2, lineY - tSize/2, w/2, lineY + tSize/2);
+          grad.addColorStop(0, txt.gradientColor1 || '#ffffff');
+          grad.addColorStop(1, txt.gradientColor2 || '#00BFFF');
+          ctx.fillStyle = grad;
+        } else {
+          ctx.fillStyle = tColor;
+        }
         ctx.fillText(line, 0, lineY);
       });
+      ctx.shadowBlur = 0; ctx.shadowOffsetX = 0; ctx.shadowOffsetY = 0;
 
       // Indicador de seleção
       if (activeExtraTextId === txt.id) {
@@ -1557,15 +1582,31 @@ function App() {
       ctx.save();
       ctx.translate(txt.x, txt.y);
       ctx.rotate(rot);
-      ctx.fillStyle = tColor;
       ctx.font = `bold ${tSize}px ${tFont}`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
+      const eShadowOn = txt.shadowEnabled ?? true;
+      if (eShadowOn) {
+        ctx.shadowBlur    = txt.shadowBlur ?? 10;
+        ctx.shadowColor   = txt.shadowColor || 'rgba(0,0,0,0.8)';
+        ctx.shadowOffsetX = 0;
+        ctx.shadowOffsetY = 2;
+      }
       const totalH = lines.length * lineH;
       lines.forEach((line, li) => {
         const lineY = -totalH / 2 + li * lineH + lineH / 2;
+        if (txt.gradientEnabled) {
+          const w = ctx.measureText(line).width;
+          const grad = ctx.createLinearGradient(-w/2, lineY - tSize/2, w/2, lineY + tSize/2);
+          grad.addColorStop(0, txt.gradientColor1 || '#ffffff');
+          grad.addColorStop(1, txt.gradientColor2 || '#00BFFF');
+          ctx.fillStyle = grad;
+        } else {
+          ctx.fillStyle = tColor;
+        }
         ctx.fillText(line, 0, lineY);
       });
+      ctx.shadowBlur = 0; ctx.shadowOffsetX = 0; ctx.shadowOffsetY = 0;
       ctx.restore();
     });
     const activeLine = lyrics.find(l => t >= l.start && t <= l.end);
@@ -2346,49 +2387,12 @@ function App() {
           <label style={{ fontSize: '11px', color: '#a78bfa', fontWeight: 600, letterSpacing: '0.5px' }}>🎬 Vídeos</label>
           <input ref={videoInputRef} type="file" onChange={handleVideoUpload} accept="video/*" multiple style={{ color: '#aaa', fontSize: '11px' }} />
         </div>
-        {/* Upload fonte customizada */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-          <label style={{ fontSize: '11px', color: '#f59e0b', fontWeight: 600, letterSpacing: '0.5px' }}>🔤 Fonte</label>
-          <input ref={fontInputRef} type="file" accept=".ttf,.otf,.woff,.woff2" style={{ display: 'none' }} onChange={handleFontUpload} />
-          <button onClick={() => fontInputRef.current?.click()} style={{ background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: '10px', padding: '5px 10px', fontSize: '11px', color: '#f59e0b', cursor: 'pointer' }}>
-            + Upload TTF/OTF
-          </button>
-        </div>
+        {/* input fonte oculto — acessível pelos painéis */}
+        <input ref={fontInputRef} type="file" accept=".ttf,.otf,.woff,.woff2" style={{ display: 'none' }} onChange={handleFontUpload} />
         {/* Undo / Redo */}
         <div style={{ display: 'flex', gap: '4px' }}>
           <button onClick={handleUndo} title="Desfazer (Ctrl+Z)" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '10px', padding: '7px 12px', fontSize: '13px', color: '#888', cursor: 'pointer' }}>↩</button>
           <button onClick={handleRedo} title="Refazer (Ctrl+Y)" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '10px', padding: '7px 12px', fontSize: '13px', color: '#888', cursor: 'pointer' }}>↪</button>
-        </div>
-        <input type="color" value={textColor} onChange={(e) => setTextColor(e.target.value)} style={{ width: '38px', height: '32px', borderRadius: '12px', border: '1px solid rgba(0,191,255,0.25)', backgroundColor: '#111' }} />
-        <select value={fontFamily} onChange={(e) => setFontFamily(e.target.value)} style={{ backgroundColor: '#111', color: '#f0f0f0', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '14px', padding: '7px 10px', fontSize: '12px' }}>
-          <option value="Poppins">Poppins</option>
-          <option value="Bebas Neue">Bebas Neue</option>
-          <option value="Montserrat">Montserrat</option>
-          <option value="Oswald">Oswald</option>
-          <option value="Roboto Condensed">Roboto Condensed</option>
-          <option value="Raleway">Raleway</option>
-          <option value="Playfair Display">Playfair</option>
-          <option value="Lora">Lora</option>
-          {customFonts.map(f => <option key={f.name} value={f.name}>{f.name}</option>)}
-        </select>
-        <input type="range" min="15" max="70" value={fontSize} onChange={(e) => setFontSize(e.target.value)} style={{ accentColor: '#00BFFF' }} />
-        {/* Sombra do texto */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <label style={{ fontSize: '11px', color: '#94a3b8', fontWeight: 600 }}>Sombra</label>
-          <input type="checkbox" checked={shadowEnabled} onChange={e => setShadowEnabled(e.target.checked)} style={{ accentColor: '#00BFFF' }} />
-          {shadowEnabled && <>
-            <input type="color" value={shadowColor.startsWith('rgba') ? '#000000' : shadowColor} onChange={e => setShadowColor(e.target.value)} style={{ width: '26px', height: '26px', padding: 0, border: 'none', background: 'none', cursor: 'pointer' }} title="Cor da sombra" />
-            <input type="range" min="0" max="30" value={shadowBlur} onChange={e => setShadowBlur(+e.target.value)} style={{ width: '60px', accentColor: '#00BFFF' }} title="Intensidade" />
-          </>}
-        </div>
-        {/* Gradiente do texto */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <label style={{ fontSize: '11px', color: '#94a3b8', fontWeight: 600 }}>Gradiente</label>
-          <input type="checkbox" checked={gradientEnabled} onChange={e => setGradientEnabled(e.target.checked)} style={{ accentColor: '#00BFFF' }} />
-          {gradientEnabled && <>
-            <input type="color" value={gradientColor1} onChange={e => setGradientColor1(e.target.value)} style={{ width: '26px', height: '26px', padding: 0, border: 'none', background: 'none', cursor: 'pointer' }} title="Cor 1" />
-            <input type="color" value={gradientColor2} onChange={e => setGradientColor2(e.target.value)} style={{ width: '26px', height: '26px', padding: 0, border: 'none', background: 'none', cursor: 'pointer' }} title="Cor 2" />
-          </>}
         </div>
         <select value={exportFormat} onChange={(e) => setExportFormat(e.target.value)} style={{ backgroundColor: '#111', color: '#f0f0f0', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '14px', padding: '7px 10px', fontSize: '12px' }}>
           <option value="webm_offline_audio">🎬 WEBM + Áudio</option>
@@ -2493,8 +2497,38 @@ function App() {
                   value={activeExtraTextId ? (extraTexts.find(t=>t.id===activeExtraTextId)?.fontSize || extraTextFontSize) : (extraTexts.length ? extraTexts[extraTexts.length-1]?.fontSize || extraTextFontSize : extraTextFontSize)}
                   onChange={e => { const v=parseInt(e.target.value); setExtraTextFontSize(v); const tid = activeExtraTextId || (extraTexts.length ? extraTexts[extraTexts.length-1].id : null); if(tid) setExtraTexts(prev=>prev.map(t=>t.id===tid?{...t,fontSize:v}:t)); }}
                   style={{ width: '90px', accentColor: '#00BFFF' }} />
+                <button onClick={() => fontInputRef.current?.click()} style={{ background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.25)', borderRadius: '8px', padding: '3px 8px', fontSize: '10px', color: '#f59e0b', cursor: 'pointer' }}>
+                  + Fonte
+                </button>
               </div>
             </div>
+            {/* Sombra + Gradiente — texto extra selecionado */}
+            {(() => {
+              const tid = activeExtraTextId || (extraTexts.length ? extraTexts[extraTexts.length-1]?.id : null);
+              const sel = extraTexts.find(t => t.id === tid);
+              if (!sel) return null;
+              const setExtraProp = (prop, val) => setExtraTexts(prev => prev.map(t => t.id === tid ? {...t, [prop]: val} : t));
+              return (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', background: 'rgba(0,191,255,0.03)', border: '1px solid rgba(0,191,255,0.08)', borderRadius: 10, padding: '8px 10px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                    <span style={{ fontSize: '10px', color: '#555', fontWeight: 700 }}>SOMBRA</span>
+                    <input type="checkbox" checked={sel.shadowEnabled ?? true} onChange={e => setExtraProp('shadowEnabled', e.target.checked)} style={{ accentColor: '#00BFFF' }} />
+                    {(sel.shadowEnabled ?? true) && <>
+                      <input type="color" value={(sel.shadowColor || '#000000').startsWith('rgba') ? '#000000' : (sel.shadowColor || '#000000')} onChange={e => setExtraProp('shadowColor', e.target.value)} style={{ width: '22px', height: '22px', padding: 0, border: 'none', background: 'none', cursor: 'pointer' }} />
+                      <input type="range" min="0" max="30" value={sel.shadowBlur ?? 10} onChange={e => setExtraProp('shadowBlur', +e.target.value)} style={{ width: '55px', accentColor: '#00BFFF' }} />
+                    </>}
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                    <span style={{ fontSize: '10px', color: '#555', fontWeight: 700 }}>GRADIENTE</span>
+                    <input type="checkbox" checked={sel.gradientEnabled ?? false} onChange={e => setExtraProp('gradientEnabled', e.target.checked)} style={{ accentColor: '#00BFFF' }} />
+                    {(sel.gradientEnabled ?? false) && <>
+                      <input type="color" value={sel.gradientColor1 || '#ffffff'} onChange={e => setExtraProp('gradientColor1', e.target.value)} style={{ width: '22px', height: '22px', padding: 0, border: 'none', background: 'none', cursor: 'pointer' }} />
+                      <input type="color" value={sel.gradientColor2 || '#00BFFF'} onChange={e => setExtraProp('gradientColor2', e.target.value)} style={{ width: '22px', height: '22px', padding: 0, border: 'none', background: 'none', cursor: 'pointer' }} />
+                    </>}
+                  </div>
+                </div>
+              );
+            })()}
             <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-end' }}>
               <textarea
                 placeholder={"Ex: Nome da Banda\nUse Enter para nova linha"}
@@ -2533,6 +2567,7 @@ function App() {
                 <option value="Raleway">Raleway</option>
                 <option value="Playfair Display">Playfair</option>
                 <option value="Lora">Lora</option>
+                {customFonts.map(f => <option key={f.name} value={f.name}>{f.name}</option>)}
               </select>
               <span style={{ fontSize: '10px', color: '#94a3b8' }}>
                 {activeLyricId ? (lyrics.find(l => l.id === activeLyricId)?.fontSize || fontSize) : fontSize}px
@@ -2545,6 +2580,28 @@ function App() {
                   if (activeLyricId) setLyrics(prev => prev.map(l => l.id === activeLyricId ? {...l, fontSize: v} : l));
                 }}
                 style={{ flex: 1, minWidth: '60px', accentColor: '#00BFFF' }} />
+            </div>
+            {/* Sombra + Gradiente + Upload fonte — painel letra */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', background: 'rgba(0,191,255,0.03)', border: '1px solid rgba(0,191,255,0.08)', borderRadius: 10, padding: '8px 10px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                <span style={{ fontSize: '10px', color: '#555', fontWeight: 700 }}>SOMBRA</span>
+                <input type="checkbox" checked={shadowEnabled} onChange={e => setShadowEnabled(e.target.checked)} style={{ accentColor: '#00BFFF' }} />
+                {shadowEnabled && <>
+                  <input type="color" value={shadowColor.startsWith('rgba') ? '#000000' : shadowColor} onChange={e => setShadowColor(e.target.value)} style={{ width: '22px', height: '22px', padding: 0, border: 'none', background: 'none', cursor: 'pointer' }} title="Cor da sombra" />
+                  <input type="range" min="0" max="30" value={shadowBlur} onChange={e => setShadowBlur(+e.target.value)} style={{ width: '55px', accentColor: '#00BFFF' }} title="Intensidade" />
+                </>}
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                <span style={{ fontSize: '10px', color: '#555', fontWeight: 700 }}>GRADIENTE</span>
+                <input type="checkbox" checked={gradientEnabled} onChange={e => setGradientEnabled(e.target.checked)} style={{ accentColor: '#00BFFF' }} />
+                {gradientEnabled && <>
+                  <input type="color" value={gradientColor1} onChange={e => setGradientColor1(e.target.value)} style={{ width: '22px', height: '22px', padding: 0, border: 'none', background: 'none', cursor: 'pointer' }} title="Cor 1" />
+                  <input type="color" value={gradientColor2} onChange={e => setGradientColor2(e.target.value)} style={{ width: '22px', height: '22px', padding: 0, border: 'none', background: 'none', cursor: 'pointer' }} title="Cor 2" />
+                </>}
+              </div>
+              <button onClick={() => fontInputRef.current?.click()} style={{ background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.25)', borderRadius: '8px', padding: '3px 8px', fontSize: '10px', color: '#f59e0b', cursor: 'pointer' }}>
+                + Fonte TTF/OTF
+              </button>
             </div>
 
             {/* Textarea letra — flex:1 para preencher espaço disponível */}
