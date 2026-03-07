@@ -1647,6 +1647,8 @@ function App() {
       ctx.restore();
     }
   };
+
+  const handleSaveWebmOffline = async () => {
     const baseCanvas = canvasRef.current;
     if (!baseCanvas) return;
     const effectiveDuration = (() => {
