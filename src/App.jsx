@@ -544,8 +544,6 @@ function App() {
   };
 
   const handleClearProject = () => {
-    undoStack.current = [];
-    redoStack.current = [];
     handleStopPlayback();
     setBulkText('');
     setLyrics([]);
@@ -1646,8 +1644,6 @@ function App() {
       ctx.restore();
     }
   };
-
-  const handleSaveWebmOffline = async () => {
     const baseCanvas = canvasRef.current;
     if (!baseCanvas) return;
     const effectiveDuration = (() => {
@@ -2030,15 +2026,21 @@ function App() {
       const { Muxer, ArrayBufferTarget } = await import('mp4-muxer');
       const W = baseCanvas.width, H = baseCanvas.height;
       const FPS = 30, TOTAL = Math.ceil(effectiveDuration * FPS);
-      // Pré-decodifica áudio para saber número de canais antes de criar o muxer
+      // Pré-decodifica áudio (suporta audioFile e audioBase64)
       let _abSD = null;
-      if (audioBase64 && window.AudioEncoder) {
+      if ((audioFile || audioBase64) && window.AudioEncoder) {
         try {
-          const _b = atob(audioBase64.split(',')[1]);
-          const _by = new Uint8Array(_b.length);
-          for (let _i = 0; _i < _b.length; _i++) _by[_i] = _b.charCodeAt(_i);
+          let _buf;
+          if (audioFile) {
+            _buf = await audioFile.arrayBuffer();
+          } else {
+            const _b = atob(audioBase64.split(',')[1]);
+            const _by = new Uint8Array(_b.length);
+            for (let _i = 0; _i < _b.length; _i++) _by[_i] = _b.charCodeAt(_i);
+            _buf = _by.buffer;
+          }
           const _ac = new OfflineAudioContext(2, Math.ceil(effectiveDuration * 44100), 44100);
-          _abSD = await _ac.decodeAudioData(_by.buffer);
+          _abSD = await _ac.decodeAudioData(_buf);
         } catch(_e) { console.warn('Audio decode SD:', _e); }
       }
       const _nChSD = _abSD ? Math.min(_abSD.numberOfChannels, 2) : 2;
@@ -2109,15 +2111,21 @@ function App() {
       const SCALE = 1080 / baseCanvas.width;
       const W = 1080, H = Math.round(baseCanvas.height * SCALE);
       const FPS = 30, TOTAL = Math.ceil(effectiveDuration * FPS);
-      // Pré-decodifica áudio para saber número de canais antes de criar o muxer
+      // Pré-decodifica áudio (suporta audioFile e audioBase64)
       let _abHD = null;
-      if (audioBase64 && window.AudioEncoder) {
+      if ((audioFile || audioBase64) && window.AudioEncoder) {
         try {
-          const _b = atob(audioBase64.split(',')[1]);
-          const _by = new Uint8Array(_b.length);
-          for (let _i = 0; _i < _b.length; _i++) _by[_i] = _b.charCodeAt(_i);
+          let _buf;
+          if (audioFile) {
+            _buf = await audioFile.arrayBuffer();
+          } else {
+            const _b = atob(audioBase64.split(',')[1]);
+            const _by = new Uint8Array(_b.length);
+            for (let _i = 0; _i < _b.length; _i++) _by[_i] = _b.charCodeAt(_i);
+            _buf = _by.buffer;
+          }
           const _ac = new OfflineAudioContext(2, Math.ceil(effectiveDuration * 44100), 44100);
-          _abHD = await _ac.decodeAudioData(_by.buffer);
+          _abHD = await _ac.decodeAudioData(_buf);
         } catch(_e) { console.warn('Audio decode HD:', _e); }
       }
       const _nChHD = _abHD ? Math.min(_abHD.numberOfChannels, 2) : 2;
@@ -2381,52 +2389,58 @@ function App() {
       `}</style>
       
       {/* HEADER CONTROLS */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '14px', padding: '14px 18px', background: 'rgba(8,8,8,0.97)', borderBottom: '1px solid rgba(0,191,255,0.12)', fontSize: '12px', alignItems: 'center', width: '100%', boxSizing: 'border-box', backdropFilter: 'blur(12px)', boxShadow: '0 1px 0 rgba(0,191,255,0.08)' }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <label style={{ fontSize: '11px', color: '#00BFFF', fontWeight: 600, letterSpacing: '0.5px' }}>{t('ed_background')}</label>
-            {imageSrc && (
-              <button onClick={() => { setImageSrc(null); setImage(null); if (bgInputRef.current) bgInputRef.current.value = ''; }} title="Remover fundo" style={{ background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '6px', padding: '1px 7px', fontSize: '11px', color: '#f87171', cursor: 'pointer', lineHeight: 1.6 }}>✕</button>
-            )}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', padding: '12px 18px', background: 'rgba(8,8,8,0.97)', borderBottom: '1px solid rgba(0,191,255,0.12)', fontSize: '12px', width: '100%', boxSizing: 'border-box', backdropFilter: 'blur(12px)', boxShadow: '0 1px 0 rgba(0,191,255,0.08)' }}>
+        {/* Linha 1: importações de mídia + seletor de formato + exportar */}
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '14px', alignItems: 'center' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <label style={{ fontSize: '11px', color: '#00BFFF', fontWeight: 600, letterSpacing: '0.5px' }}>{t('ed_background')}</label>
+              {imageSrc && (
+                <button onClick={() => { setImageSrc(null); setImage(null); if (bgInputRef.current) bgInputRef.current.value = ''; }} title="Remover fundo" style={{ background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '6px', padding: '1px 7px', fontSize: '11px', color: '#f87171', cursor: 'pointer', lineHeight: 1.6 }}>✕</button>
+              )}
+            </div>
+            <input ref={bgInputRef} type="file" onChange={handleImageChange} accept="image/*" style={{ color: '#f8fafc', fontSize: '11px' }} />
           </div>
-          <input ref={bgInputRef} type="file" onChange={handleImageChange} accept="image/*" style={{ color: '#f8fafc', fontSize: '11px' }} />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <label style={{ fontSize: '11px', color: '#00BFFF', fontWeight: 600, letterSpacing: '0.5px' }}>{t('ed_images')}</label>
+            <input ref={imagesInputRef} type="file" onChange={handleImagesChange} accept="image/*" multiple style={{ color: '#aaa', fontSize: '11px' }} />
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <label style={{ fontSize: '11px', color: '#00BFFF', fontWeight: 600, letterSpacing: '0.5px' }}>{t('ed_audio')}</label>
+            <input ref={audioInputRef} type="file" onChange={handleAudioChange} accept="audio/*" style={{ color: '#f8fafc', fontSize: '11px' }} />
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <label style={{ fontSize: '11px', color: '#a78bfa', fontWeight: 600, letterSpacing: '0.5px' }}>🎬 Vídeos</label>
+            <input ref={videoInputRef} type="file" onChange={handleVideoUpload} accept="video/*" multiple style={{ color: '#aaa', fontSize: '11px' }} />
+          </div>
+          {/* input fonte oculto — acionado pelos painéis */}
+          <input ref={fontInputRef} type="file" accept=".ttf,.otf,.woff,.woff2" style={{ display: 'none' }} onChange={handleFontUpload} />
+          <select value={exportFormat} onChange={(e) => setExportFormat(e.target.value)} style={{ backgroundColor: '#111', color: '#f0f0f0', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '14px', padding: '7px 10px', fontSize: '12px' }}>
+            <option value="webm_offline_audio">🎬 WEBM + Áudio</option>
+            <option value="mp4">🎬 MP4 + Áudio</option>
+            <option value="webm_hd">✨ HD 1080p WEBM</option>
+            <option value="mp4_hd">✨ HD 1080p MP4</option>
+            <option value="png">🖼️ PNG</option>
+            <option value="jpg">🖼️ JPG</option>
+          </select>
+          <button onClick={handleSave} disabled={isExporting} style={{ background: isExporting ? '#0a1a1a' : '#00BFFF', border: 'none', padding: '10px 18px', borderRadius: '18px', cursor: isExporting ? 'not-allowed' : 'pointer', fontWeight: 'bold', fontSize: '12px', color: isExporting ? '#555' : '#000', boxShadow: isExporting ? 'none' : '0 6px 20px rgba(0,191,255,0.3)', opacity: 1 }}>
+            {isExporting ? `${t('ed_exporting')} ${Math.round(exportProgress * 100)}%` : t('ed_save')}
+          </button>
+          <LangToggle style={{ marginLeft: 'auto' }} />
         </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-          <label style={{ fontSize: '11px', color: '#00BFFF', fontWeight: 600, letterSpacing: '0.5px' }}>{t('ed_images')}</label>
-          <input ref={imagesInputRef} type="file" onChange={handleImagesChange} accept="image/*" multiple style={{ color: '#aaa', fontSize: '11px' }} />
+        {/* Linha 2: exportar projeto, importar projeto, limpar projeto */}
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', alignItems: 'center' }}>
+          <button onClick={exportProject} style={{ background: 'rgba(0,191,255,0.08)', border: '1px solid rgba(0,191,255,0.2)', padding: '7px 14px', borderRadius: '14px', cursor: 'pointer', fontWeight: 'bold', fontSize: '11px', color: '#00BFFF' }}>
+            {t('ed_export_project')}
+          </button>
+          <input ref={importInputRef} type="file" accept="application/json" style={{ display: 'none' }} onChange={(e) => importProjectFromFile(e.target.files[0])} />
+          <button onClick={() => importInputRef.current && importInputRef.current.click()} style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', padding: '7px 14px', borderRadius: '14px', cursor: 'pointer', fontWeight: 'bold', fontSize: '11px', color: '#888' }}>
+            {t('ed_import_project')}
+          </button>
+          <button onClick={handleClearProject} style={{ background: 'rgba(239,68,68,0.07)', border: '1px solid rgba(239,68,68,0.25)', padding: '7px 14px', borderRadius: '14px', cursor: 'pointer', fontWeight: 'bold', fontSize: '11px', color: '#f87171' }}>
+            {t('ed_clear_project')}
+          </button>
         </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-          <label style={{ fontSize: '11px', color: '#00BFFF', fontWeight: 600, letterSpacing: '0.5px' }}>{t('ed_audio')}</label>
-          <input ref={audioInputRef} type="file" onChange={handleAudioChange} accept="audio/*" style={{ color: '#f8fafc', fontSize: '11px' }} />
-        </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-          <label style={{ fontSize: '11px', color: '#a78bfa', fontWeight: 600, letterSpacing: '0.5px' }}>🎬 Vídeos</label>
-          <input ref={videoInputRef} type="file" onChange={handleVideoUpload} accept="video/*" multiple style={{ color: '#aaa', fontSize: '11px' }} />
-        </div>
-        {/* input fonte oculto — acionado pelos painéis */}
-        <input ref={fontInputRef} type="file" accept=".ttf,.otf,.woff,.woff2" style={{ display: 'none' }} onChange={handleFontUpload} />
-        <select value={exportFormat} onChange={(e) => setExportFormat(e.target.value)} style={{ backgroundColor: '#111', color: '#f0f0f0', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '14px', padding: '7px 10px', fontSize: '12px' }}>
-          <option value="webm_offline_audio">🎬 WEBM + Áudio</option>
-          <option value="mp4">🎬 MP4 + Áudio</option>
-          <option value="webm_hd">✨ HD 1080p WEBM</option>
-          <option value="mp4_hd">✨ HD 1080p MP4</option>
-          <option value="png">🖼️ PNG</option>
-          <option value="jpg">🖼️ JPG</option>
-        </select>
-        <button onClick={handleSave} disabled={isExporting} style={{ background: isExporting ? '#0a1a1a' : '#00BFFF', border: 'none', padding: '10px 18px', borderRadius: '18px', cursor: isExporting ? 'not-allowed' : 'pointer', fontWeight: 'bold', fontSize: '12px', color: isExporting ? '#555' : '#000', boxShadow: isExporting ? 'none' : '0 6px 20px rgba(0,191,255,0.3)', opacity: 1 }}>
-          {isExporting ? `${t('ed_exporting')} ${Math.round(exportProgress * 100)}%` : t('ed_save')}
-        </button>
-        <button onClick={exportProject} style={{ background: 'rgba(0,191,255,0.08)', border: '1px solid rgba(0,191,255,0.2)', padding: '10px 18px', borderRadius: '18px', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px', color: '#00BFFF', boxShadow: 'none' }}>
-          {t('ed_export_project')}
-        </button>
-        <input ref={importInputRef} type="file" accept="application/json" style={{ display: 'none' }} onChange={(e) => importProjectFromFile(e.target.files[0])} />
-        <button onClick={() => importInputRef.current && importInputRef.current.click()} style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', padding: '10px 18px', borderRadius: '18px', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px', color: '#888', boxShadow: 'none' }}>
-          {t('ed_import_project')}
-        </button>
-        <button onClick={handleClearProject} style={{ background: 'rgba(239,68,68,0.07)', border: '1px solid rgba(239,68,68,0.18)', padding: '10px 18px', borderRadius: '18px', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px', color: '#f87171', boxShadow: 'none' }}>
-          {t('ed_clear_project')}
-        </button>
-        <LangToggle style={{ marginLeft: 'auto' }} />
       </div>
 
       <div style={{ display: 'flex', flex: 1, width: '100%', overflow: 'hidden' }}>
