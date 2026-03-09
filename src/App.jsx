@@ -22,6 +22,21 @@ function App() {
   const [imageSrc, setImageSrc] = useState(null);
   const [images, setImages] = useState([]);
   const [activeImageId, setActiveImageId] = useState(null);
+  // Filtros de imagem — armazenados por imagem em images[i].filters
+  const buildFilterString = (f) => {
+    if (!f) return 'none';
+    const parts = [];
+    if (f.brightness !== undefined && f.brightness !== 100) parts.push(`brightness(${f.brightness}%)`);
+    if (f.contrast   !== undefined && f.contrast   !== 100) parts.push(`contrast(${f.contrast}%)`);
+    if (f.saturate   !== undefined && f.saturate   !== 100) parts.push(`saturate(${f.saturate}%)`);
+    if (f.hueRotate  !== undefined && f.hueRotate  !== 0)   parts.push(`hue-rotate(${f.hueRotate}deg)`);
+    if (f.blur       !== undefined && f.blur       !== 0)   parts.push(`blur(${f.blur}px)`);
+    if (f.sepia      !== undefined && f.sepia      !== 0)   parts.push(`sepia(${f.sepia}%)`);
+    if (f.grayscale  !== undefined && f.grayscale  !== 0)   parts.push(`grayscale(${f.grayscale}%)`);
+    if (f.invert     !== undefined && f.invert     !== 0)   parts.push(`invert(${f.invert}%)`);
+    if (f.opacity    !== undefined && f.opacity    !== 100) parts.push(`opacity(${f.opacity}%)`);
+    return parts.length ? parts.join(' ') : 'none';
+  };
   const [videos, setVideos] = useState([]);      // { id, src, videoEl, start, end, x, y, width, height, radius, muted }
   const [activeVideoId, setActiveVideoId] = useState(null);
   const [extraTextColor, setExtraTextColor] = useState('#ffffff');
@@ -1192,7 +1207,10 @@ function App() {
     const overlayImages = getImagesForTime(time);
     overlayImages.forEach(overlayImage => {
       const iRot = (overlayImage.rotation || 0) * Math.PI / 180;
+      const _imgFilter = buildFilterString(overlayImage.filters);
+      if (_imgFilter !== 'none') ctx.filter = _imgFilter;
       drawRotatedElement(ctx, () => drawRoundedImage(ctx, overlayImage.img, overlayImage.x, overlayImage.y, overlayImage.width, overlayImage.height, overlayImage.radius ?? 18), overlayImage.x, overlayImage.y, overlayImage.width, overlayImage.height, overlayImage.rotation);
+      ctx.filter = 'none';
       if (activeImageId === overlayImage.id) {
         const cx = overlayImage.x + overlayImage.width / 2, cy = overlayImage.y + overlayImage.height / 2;
         ctx.save();
@@ -1520,7 +1538,10 @@ function App() {
     });
     // Renderiza TODAS as imagens ativas no instante t
     getImagesForTime(t).forEach(overlayImage => {
+      const _expFilter = buildFilterString(overlayImage.filters);
+      if (_expFilter !== 'none') ctx.filter = _expFilter;
       drawRotatedElement(ctx, () => drawRoundedImage(ctx, overlayImage.img, overlayImage.x, overlayImage.y, overlayImage.width, overlayImage.height, overlayImage.radius ?? 18), overlayImage.x, overlayImage.y, overlayImage.width, overlayImage.height, overlayImage.rotation);
+      ctx.filter = 'none';
     });
     ctx.fillStyle = textColor;
     ctx.textAlign = 'center';
@@ -2474,6 +2495,86 @@ function App() {
                     </button>
                   ))}
                 </div>
+
+                {/* ── FILTROS DE IMAGEM — só para imagens, não vídeos ── */}
+                {!isVid && (() => {
+                  const flt = selImg?.filters || {};
+                  const setF = (prop, val) => setImages(prev => prev.map(i =>
+                    i.id === sel.id ? { ...i, filters: { ...(i.filters || {}), [prop]: val } } : i
+                  ));
+                  const resetF = () => setImages(prev => prev.map(i => i.id === sel.id ? { ...i, filters: {} } : i));
+
+                  const PRESETS = [
+                    { label: 'Original', f: {} },
+                    { label: 'P&B',      f: { grayscale: 100 } },
+                    { label: 'Sépia',    f: { sepia: 80 } },
+                    { label: 'Cinema',   f: { contrast: 115, saturate: 80, brightness: 95 } },
+                    { label: 'Neon',     f: { saturate: 200, brightness: 110, contrast: 120 } },
+                    { label: 'Vintage',  f: { sepia: 40, contrast: 90, brightness: 105, saturate: 80 } },
+                    { label: 'Frio',     f: { hueRotate: 190, saturate: 120 } },
+                    { label: 'Quente',   f: { hueRotate: 340, saturate: 130, brightness: 105 } },
+                    { label: 'Fade',     f: { brightness: 130, saturate: 60, contrast: 85 } },
+                    { label: 'Dramático',f: { contrast: 150, saturate: 50, brightness: 90 } },
+                  ];
+                  const isPreset = (pf) => JSON.stringify(flt) === JSON.stringify(pf);
+
+                  const SLIDERS = [
+                    { key: 'brightness', label: 'Brilho',     min: 0,   max: 200, def: 100, unit: '%' },
+                    { key: 'contrast',   label: 'Contraste',  min: 0,   max: 200, def: 100, unit: '%' },
+                    { key: 'saturate',   label: 'Saturação',  min: 0,   max: 300, def: 100, unit: '%' },
+                    { key: 'hueRotate',  label: 'Matiz',      min: 0,   max: 360, def: 0,   unit: '°' },
+                    { key: 'blur',       label: 'Desfoque',   min: 0,   max: 20,  def: 0,   unit: 'px' },
+                    { key: 'sepia',      label: 'Sépia',      min: 0,   max: 100, def: 0,   unit: '%' },
+                    { key: 'grayscale',  label: 'P&B',        min: 0,   max: 100, def: 0,   unit: '%' },
+                    { key: 'opacity',    label: 'Opacidade',  min: 0,   max: 100, def: 100, unit: '%' },
+                  ];
+
+                  return (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, background: 'rgba(251,191,36,0.04)', border: '1px solid rgba(251,191,36,0.15)', borderRadius: 12, padding: '10px 12px', marginTop: 2 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <span style={{ fontSize: 11, color: '#fbbf24', fontWeight: 700, letterSpacing: '0.5px' }}>🎨 FILTROS</span>
+                        <button onClick={resetF} style={{ background: 'none', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, padding: '2px 8px', fontSize: 10, color: '#666', cursor: 'pointer' }}>Resetar</button>
+                      </div>
+
+                      {/* Presets */}
+                      <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
+                        {PRESETS.map(({ label, f }) => (
+                          <button key={label}
+                            onClick={() => setImages(prev => prev.map(i => i.id === sel.id ? { ...i, filters: f } : i))}
+                            style={{
+                              padding: '3px 9px', fontSize: 10, borderRadius: 8, cursor: 'pointer', fontWeight: 600,
+                              background: isPreset(f) ? 'rgba(251,191,36,0.25)' : 'rgba(255,255,255,0.04)',
+                              border: `1px solid ${isPreset(f) ? 'rgba(251,191,36,0.6)' : 'rgba(255,255,255,0.08)'}`,
+                              color: isPreset(f) ? '#fbbf24' : '#666',
+                            }}>
+                            {label}
+                          </button>
+                        ))}
+                      </div>
+
+                      {/* Sliders */}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                        {SLIDERS.map(({ key, label, min, max, def, unit }) => {
+                          const val = flt[key] !== undefined ? flt[key] : def;
+                          const changed = val !== def;
+                          return (
+                            <div key={key} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                              <span style={{ fontSize: 10, color: changed ? '#fbbf24' : '#555', minWidth: 60, fontWeight: changed ? 700 : 400 }}>{label}</span>
+                              <input type="range" min={min} max={max} value={val}
+                                onChange={e => setF(key, +e.target.value)}
+                                style={{ flex: 1, accentColor: '#fbbf24', height: 3 }} />
+                              <span style={{ fontSize: 10, color: changed ? '#fbbf24' : '#555', minWidth: 36, textAlign: 'right' }}>{val}{unit}</span>
+                              {changed && (
+                                <button onClick={() => setF(key, def)}
+                                  style={{ background: 'none', border: 'none', color: '#555', cursor: 'pointer', fontSize: 12, padding: '0 2px', lineHeight: 1 }}>↺</button>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
             );
           })()}
