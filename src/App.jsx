@@ -7,6 +7,8 @@ function App() {
   const { t } = useLanguage();
   const [image, setImage] = useState(null);
   const [audioSrc, setAudioSrc] = useState(null);
+  const [projectVolume, setProjectVolume] = useState(1);    // 0–1
+  const [projectSpeed,  setProjectSpeed]  = useState(1);    // 0.25–4
   const [lyrics, setLyrics] = useState([]);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
@@ -530,6 +532,8 @@ function App() {
           img.onload = () => setImage(img);
           img.src = p.imageSrc;
         }
+        if (p.projectVolume !== undefined) setProjectVolume(p.projectVolume);
+        if (p.projectSpeed  !== undefined) setProjectSpeed(p.projectSpeed);
         if (p.audioBase64) {
           setAudioBase64(p.audioBase64);
           setAudioMimeType(p.audioMimeType || 'audio/mpeg');
@@ -1517,9 +1521,7 @@ function App() {
           v.videoEl.currentTime = relTime;
         }
         if (playing && v.videoEl.paused) {
-          v.videoEl.muted        = v.muted || false;
-          v.videoEl.volume       = v.volume       !== undefined ? Math.max(0, Math.min(1, v.volume))       : 1;
-          v.videoEl.playbackRate = v.playbackRate !== undefined ? Math.max(0.1, Math.min(4, v.playbackRate)) : 1;
+          v.videoEl.muted = v.muted || false;
           v.videoEl.play().catch(() => {});
         } else if (!playing && !v.videoEl.paused) {
           v.videoEl.pause();
@@ -1595,6 +1597,17 @@ function App() {
     audio.addEventListener('timeupdate', onTime);
     return () => audio.removeEventListener('timeupdate', onTime);
   }, [audioSrc]);
+
+  // Sincroniza volume e velocidade com o elemento <audio> imediatamente
+  useEffect(() => {
+    if (!audioRef.current) return;
+    audioRef.current.volume       = Math.max(0, Math.min(1, projectVolume));
+  }, [projectVolume]);
+
+  useEffect(() => {
+    if (!audioRef.current) return;
+    audioRef.current.playbackRate = Math.max(0.25, Math.min(4, projectSpeed));
+  }, [projectSpeed]);
 
   const renderAtTimeToCanvas = async (targetCanvas, t, scale = 1) => {
     const ctx = targetCanvas.getContext('2d');
@@ -1993,6 +2006,8 @@ function App() {
     imageSrc,
     audioBase64: audioBase64 || null,
     audioMimeType: audioMimeType || null,
+    projectVolume: projectVolume ?? 1,
+    projectSpeed:  projectSpeed  ?? 1,
   });
 
   const exportProject = async () => {
@@ -2006,8 +2021,6 @@ function App() {
           x: v.x, y: v.y, width: v.width, height: v.height,
           radius: v.radius ?? 12, rotation: v.rotation ?? 0,
           muted: v.muted || false,
-          volume: v.volume ?? 1,
-          playbackRate: v.playbackRate ?? 1,
           videoMime: b64result?.mime || 'video/mp4',
           filters: v.filters || {},
           transitionIn:     v.transitionIn     || 'none',
@@ -2108,8 +2121,6 @@ function App() {
                 width: vData.width ?? 200, height: vData.height ?? 200,
                 radius: vData.radius ?? 12, rotation: vData.rotation ?? 0,
                 muted: vData.muted || false,
-                volume: vData.volume ?? 1,
-                playbackRate: vData.playbackRate ?? 1,
                 transitionIn:     vData.transitionIn     || 'none',
                 transitionOut:    vData.transitionOut    || 'none',
                 transitionInDur:  vData.transitionInDur  ?? 0.35,
@@ -2121,6 +2132,8 @@ function App() {
         }
 
         // Restaura áudio do projeto
+        if (p.projectVolume !== undefined) setProjectVolume(p.projectVolume);
+        if (p.projectSpeed  !== undefined) setProjectSpeed(p.projectSpeed);
         if (p.audioBase64) {
           setAudioBase64(p.audioBase64);
           setAudioMimeType(p.audioMimeType || 'audio/mpeg');
@@ -2545,6 +2558,54 @@ function App() {
             <label style={{ fontSize: '11px', color: '#00BFFF', fontWeight: 600, letterSpacing: '0.5px' }}>{t('ed_audio')}</label>
             <input ref={audioInputRef} type="file" onChange={handleAudioChange} accept="audio/*" style={{ color: '#f8fafc', fontSize: '11px' }} />
           </div>
+
+          {/* Volume do áudio do projeto */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', minWidth: 110 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <label style={{ fontSize: '11px', color: '#00BFFF', fontWeight: 600, letterSpacing: '0.5px' }}>
+                {projectVolume === 0 ? '🔇' : projectVolume < 0.5 ? '🔉' : '🔊'} Volume
+              </label>
+              <span style={{ fontSize: 10, color: projectVolume !== 1 ? '#00BFFF' : '#555', fontWeight: 700 }}>{Math.round(projectVolume * 100)}%</span>
+            </div>
+            <input type="range" min={0} max={1} step={0.01} value={projectVolume}
+              onChange={e => setProjectVolume(+e.target.value)}
+              onMouseDown={e => e.stopPropagation()}
+              onPointerDown={e => e.stopPropagation()}
+              style={{ width: '100%', accentColor: '#00BFFF' }} />
+            <div style={{ display: 'flex', gap: 3 }}>
+              {[0, 0.5, 1].map(v => (
+                <button key={v} onClick={() => setProjectVolume(v)} style={{
+                  flex: 1, padding: '2px 0', fontSize: 10, borderRadius: 6, cursor: 'pointer', fontWeight: 600,
+                  background: projectVolume === v ? 'rgba(0,191,255,0.2)' : 'rgba(255,255,255,0.04)',
+                  border: `1px solid ${projectVolume === v ? 'rgba(0,191,255,0.5)' : 'rgba(255,255,255,0.07)'}`,
+                  color: projectVolume === v ? '#00BFFF' : '#555',
+                }}>{v === 0 ? '🔇' : `${v*100|0}%`}</button>
+              ))}
+            </div>
+          </div>
+
+          {/* Velocidade de reprodução do projeto */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', minWidth: 110 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <label style={{ fontSize: '11px', color: '#00BFFF', fontWeight: 600, letterSpacing: '0.5px' }}>⚡ Velocidade</label>
+              <span style={{ fontSize: 10, color: projectSpeed !== 1 ? '#00BFFF' : '#555', fontWeight: 700 }}>{projectSpeed}×</span>
+            </div>
+            <input type="range" min={0.25} max={4} step={0.05} value={projectSpeed}
+              onChange={e => setProjectSpeed(+e.target.value)}
+              onMouseDown={e => e.stopPropagation()}
+              onPointerDown={e => e.stopPropagation()}
+              style={{ width: '100%', accentColor: '#00BFFF' }} />
+            <div style={{ display: 'flex', gap: 3 }}>
+              {[0.5, 1, 1.5, 2].map(s => (
+                <button key={s} onClick={() => setProjectSpeed(s)} style={{
+                  flex: 1, padding: '2px 0', fontSize: 10, borderRadius: 6, cursor: 'pointer', fontWeight: 600,
+                  background: projectSpeed === s ? 'rgba(0,191,255,0.2)' : 'rgba(255,255,255,0.04)',
+                  border: `1px solid ${projectSpeed === s ? 'rgba(0,191,255,0.5)' : 'rgba(255,255,255,0.07)'}`,
+                  color: projectSpeed === s ? '#00BFFF' : '#555',
+                }}>{s}×</button>
+              ))}
+            </div>
+          </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
             <label style={{ fontSize: '11px', color: '#a78bfa', fontWeight: 600, letterSpacing: '0.5px' }}>🎬 Vídeos</label>
             <input ref={videoInputRef} type="file" onChange={handleVideoUpload} accept="video/*" multiple style={{ color: '#aaa', fontSize: '11px' }} />
@@ -2624,68 +2685,6 @@ function App() {
                   ))}
                 </div>
 
-                {/* ── VELOCIDADE + VOLUME — só para vídeos ── */}
-                {isVid && (() => {
-                  const speed  = selVid.playbackRate ?? 1;
-                  const vol    = selVid.volume       ?? 1;
-                  const setSpeed = (v) => setVideos(prev => prev.map(vv => vv.id === sel.id ? { ...vv, playbackRate: v, videoEl: vv.videoEl ? Object.assign(vv.videoEl, { playbackRate: v }) && vv.videoEl : vv.videoEl } : vv));
-                  const setVol   = (v) => setVideos(prev => prev.map(vv => vv.id === sel.id ? { ...vv, volume: v,       videoEl: vv.videoEl ? Object.assign(vv.videoEl, { volume: v, muted: v === 0 }) && vv.videoEl : vv.videoEl } : vv));
-                  const SPEED_PRESETS = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 2, 4];
-                  return (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, background: 'rgba(167,139,250,0.04)', border: '1px solid rgba(167,139,250,0.18)', borderRadius: 12, padding: '10px 12px' }}>
-                      {/* Velocidade */}
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                          <span style={{ fontSize: 11, color: '#a78bfa', fontWeight: 700, letterSpacing: '0.5px' }}>⚡ VELOCIDADE</span>
-                          <span style={{ fontSize: 11, color: speed !== 1 ? '#a78bfa' : '#555', fontWeight: 700 }}>{speed}×</span>
-                        </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-                          <input type="range" min={0.1} max={4} step={0.05} value={speed}
-                            onChange={e => setSpeed(+e.target.value)}
-                            onMouseDown={e => e.stopPropagation()}
-                            onPointerDown={e => e.stopPropagation()}
-                            style={{ flex: 1, accentColor: '#a78bfa' }} />
-                        </div>
-                        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                          {SPEED_PRESETS.map(s => (
-                            <button key={s} onClick={() => setSpeed(s)} style={{
-                              padding: '3px 8px', fontSize: 10, borderRadius: 7, cursor: 'pointer', fontWeight: 600,
-                              background: speed === s ? 'rgba(167,139,250,0.25)' : 'rgba(255,255,255,0.04)',
-                              border: `1px solid ${speed === s ? 'rgba(167,139,250,0.65)' : 'rgba(255,255,255,0.07)'}`,
-                              color: speed === s ? '#a78bfa' : '#555',
-                            }}>{s}×</button>
-                          ))}
-                        </div>
-                      </div>
-                      {/* Volume */}
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                          <span style={{ fontSize: 11, color: '#a78bfa', fontWeight: 700, letterSpacing: '0.5px' }}>
-                            {vol === 0 ? '🔇' : vol < 0.5 ? '🔉' : '🔊'} VOLUME
-                          </span>
-                          <span style={{ fontSize: 11, color: vol !== 1 ? '#a78bfa' : '#555', fontWeight: 700 }}>{Math.round(vol * 100)}%</span>
-                        </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-                          <input type="range" min={0} max={1} step={0.01} value={vol}
-                            onChange={e => setVol(+e.target.value)}
-                            onMouseDown={e => e.stopPropagation()}
-                            onPointerDown={e => e.stopPropagation()}
-                            style={{ flex: 1, accentColor: '#a78bfa' }} />
-                        </div>
-                        <div style={{ display: 'flex', gap: 4 }}>
-                          {[0, 0.25, 0.5, 0.75, 1].map(v => (
-                            <button key={v} onClick={() => setVol(v)} style={{
-                              padding: '3px 9px', fontSize: 10, borderRadius: 7, cursor: 'pointer', fontWeight: 600, flex: 1,
-                              background: vol === v ? 'rgba(167,139,250,0.25)' : 'rgba(255,255,255,0.04)',
-                              border: `1px solid ${vol === v ? 'rgba(167,139,250,0.65)' : 'rgba(255,255,255,0.07)'}`,
-                              color: vol === v ? '#a78bfa' : '#555',
-                            }}>{v === 0 ? '🔇' : `${v*100|0}%`}</button>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })()}
                 {(() => {
                   const accent = isVid ? '#a78bfa' : '#fbbf24';
                   const accentBg = isVid ? 'rgba(167,139,250,' : 'rgba(251,191,36,';
@@ -3443,13 +3442,14 @@ function App() {
       </div>
 
       {audioSrc && (
-        <audio 
-          ref={audioRef} 
-          src={audioSrc} 
+        <audio
+          ref={audioRef}
+          src={audioSrc}
           onLoadedMetadata={(e) => setDuration(e.target.duration)}
-          onEnded={() => setIsPlaying(false)} 
+          onEnded={() => setIsPlaying(false)}
         />
       )}
+
     </div>
   );
 }
