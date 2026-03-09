@@ -1828,6 +1828,9 @@ function App() {
       return 3;
     })();
     if (!effectiveDuration || effectiveDuration <= 0) return;
+    const _spd1 = Math.max(0.25, Math.min(4, projectSpeed));
+    const _vol1 = Math.max(0, Math.min(1, projectVolume));
+    const outputDuration1 = effectiveDuration / _spd1;
     // Pausa todos os vídeos antes de exportar
     videosRef.current.forEach(v => { if (v.videoEl && !v.videoEl.paused) v.videoEl.pause(); });
     setIsExporting(true);
@@ -1838,7 +1841,7 @@ function App() {
       offCanvas.width = baseCanvas.width;
       offCanvas.height = baseCanvas.height;
       const fps = 30;
-      const totalFrames = Math.ceil(effectiveDuration * fps);
+      const totalFrames = Math.ceil(outputDuration1 * fps);
       const target = new ArrayBufferTarget();
       const muxer = new Muxer({
         target,
@@ -1871,21 +1874,23 @@ function App() {
           }
           const ac = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 48000 });
           const buffer = await ac.decodeAudioData(audioBufferData);
-          const totalSamples = Math.floor(buffer.sampleRate * effectiveDuration);
+          const outputSamples1 = Math.floor(48000 * outputDuration1);
           const block = 1200; // 25ms @48k
-          for (let pos = 0; pos < totalSamples; pos += block) {
-            const frameL = buffer.getChannelData(0).slice(pos, pos + block);
-            const frameR = buffer.numberOfChannels > 1 ? buffer.getChannelData(1).slice(pos, pos + block) : frameL;
-            const interleaved = new Float32Array(block * 2);
-            for (let i = 0; i < block; i++) {
-              interleaved[i * 2] = frameL[i] || 0;
-              interleaved[i * 2 + 1] = frameR[i] || 0;
+          for (let pos = 0; pos < outputSamples1; pos += block) {
+            const srcPos = Math.round(pos * _spd1);
+            const len = Math.min(block, outputSamples1 - pos);
+            const ch0 = buffer.getChannelData(0);
+            const ch1 = buffer.numberOfChannels > 1 ? buffer.getChannelData(1) : ch0;
+            const interleaved = new Float32Array(len * 2);
+            for (let i = 0; i < len; i++) {
+              interleaved[i * 2]     = (ch0[srcPos + i] || 0) * _vol1;
+              interleaved[i * 2 + 1] = (ch1[srcPos + i] || 0) * _vol1;
             }
             const audioDataObj = new AudioData({
               format: 'f32',
               sampleRate: 48000,
               numberOfChannels: 2,
-              numberOfFrames: block,
+              numberOfFrames: len,
               timestamp: Math.round((pos / 48000) * 1_000_000),
               data: interleaved.buffer
             });
@@ -1899,7 +1904,7 @@ function App() {
         }
       }
       for (let i = 0; i < totalFrames; i++) {
-        const t = i / fps;
+        const t = i / fps * _spd1;
         await renderAtTimeToCanvas(offCanvas, t);
         const bitmap = await createImageBitmap(offCanvas);
         const videoFrame = new VideoFrame(bitmap, { timestamp: Math.round((t) * 1_000_000) });
@@ -2170,11 +2175,14 @@ function App() {
       return 3;
     })();
     if (!effectiveDuration || effectiveDuration <= 0) return;
+    const _spd2 = Math.max(0.25, Math.min(4, projectSpeed));
+    const _vol2 = Math.max(0, Math.min(1, projectVolume));
+    const outputDuration2 = effectiveDuration / _spd2;
     setIsExporting(true); setExportProgress(0);
     try {
       const { Muxer, ArrayBufferTarget } = await import('mp4-muxer');
       const W = baseCanvas.width, H = baseCanvas.height;
-      const FPS = 30, TOTAL = Math.ceil(effectiveDuration * FPS);
+      const FPS = 30, TOTAL = Math.ceil(outputDuration2 * FPS);
       // Pré-decodifica áudio (suporta audioFile e audioBase64)
       let _abSD = null;
       if ((audioFile || audioBase64) && window.AudioEncoder) {
@@ -2193,6 +2201,7 @@ function App() {
         } catch(_e) { console.warn('Audio decode SD:', _e); }
       }
       const _nChSD = _abSD ? Math.min(_abSD.numberOfChannels, 2) : 2;
+      const _outSampSD = Math.floor(44100 * outputDuration2);
       const target = new ArrayBufferTarget();
       const muxer = new Muxer({ target, video: { codec: 'avc', width: W, height: H },
         audio: _abSD ? { codec: 'aac', sampleRate: 44100, numberOfChannels: _nChSD } : undefined,
@@ -2201,7 +2210,7 @@ function App() {
       venc.configure({ codec: 'avc1.42001f', width: W, height: H, bitrate: 4_000_000, framerate: FPS });
       const offCanvas = new OffscreenCanvas(W, H);
       for (let fi = 0; fi < TOTAL; fi++) {
-        const t = fi / FPS;
+        const t = fi / FPS * _spd2;
         await renderAtTimeToCanvas(offCanvas, t);
         const frame = new VideoFrame(offCanvas, { timestamp: Math.round(fi * 1_000_000 / FPS), duration: Math.round(1_000_000 / FPS) });
         venc.encode(frame, { keyFrame: fi % 60 === 0 });
@@ -2214,10 +2223,14 @@ function App() {
           const aenc = new AudioEncoder({ output: (chunk, meta) => muxer.addAudioChunk(chunk, meta), error: console.error });
           aenc.configure({ codec: 'mp4a.40.2', sampleRate: 44100, numberOfChannels: _nChSD, bitrate: 128000 });
           const CHUNK = 4096;
-          for (let i = 0; i < _abSD.length; i += CHUNK) {
-            const len = Math.min(CHUNK, _abSD.length - i);
+          for (let i = 0; i < _outSampSD; i += CHUNK) {
+            const len = Math.min(CHUNK, _outSampSD - i);
+            const srcI = Math.round(i * _spd2);
             const planar = new Float32Array(len * _nChSD);
-            for (let c = 0; c < _nChSD; c++) planar.set(_abSD.getChannelData(c).slice(i, i + len), c * len);
+            for (let c = 0; c < _nChSD; c++) {
+              const ch = _abSD.getChannelData(c);
+              for (let s = 0; s < len; s++) planar[c * len + s] = (ch[srcI + s] || 0) * _vol2;
+            }
             const aframe = new AudioData({ format: 'f32-planar', sampleRate: 44100, numberOfFrames: len,
               numberOfChannels: _nChSD, timestamp: Math.round(i / 44100 * 1_000_000), data: planar });
             aenc.encode(aframe); aframe.close();
@@ -2254,12 +2267,15 @@ function App() {
       return 3;
     })();
     if (!effectiveDuration || effectiveDuration <= 0) return;
+    const _spd3 = Math.max(0.25, Math.min(4, projectSpeed));
+    const _vol3 = Math.max(0, Math.min(1, projectVolume));
+    const outputDuration3 = effectiveDuration / _spd3;
     setIsExporting(true); setExportProgress(0);
     try {
       const { Muxer, ArrayBufferTarget } = await import('mp4-muxer');
       const SCALE = 1080 / baseCanvas.width;
       const W = 1080, H = Math.round(baseCanvas.height * SCALE);
-      const FPS = 30, TOTAL = Math.ceil(effectiveDuration * FPS);
+      const FPS = 30, TOTAL = Math.ceil(outputDuration3 * FPS);
       // Pré-decodifica áudio (suporta audioFile e audioBase64)
       let _abHD = null;
       if ((audioFile || audioBase64) && window.AudioEncoder) {
@@ -2278,6 +2294,7 @@ function App() {
         } catch(_e) { console.warn('Audio decode HD:', _e); }
       }
       const _nChHD = _abHD ? Math.min(_abHD.numberOfChannels, 2) : 2;
+      const _outSampHD = Math.floor(44100 * outputDuration3);
       const target = new ArrayBufferTarget();
       const muxer = new Muxer({ target, video: { codec: 'avc', width: W, height: H },
         audio: _abHD ? { codec: 'aac', sampleRate: 44100, numberOfChannels: _nChHD } : undefined,
@@ -2287,7 +2304,7 @@ function App() {
       venc.configure({ codec: 'avc1.640034', width: W, height: H, bitrate: 8_000_000, framerate: FPS });
       const offCanvas = new OffscreenCanvas(W, H);
       for (let fi = 0; fi < TOTAL; fi++) {
-        const t = fi / FPS;
+        const t = fi / FPS * _spd3;
         await renderAtTimeToCanvas(offCanvas, t, SCALE);
         const frame = new VideoFrame(offCanvas, { timestamp: Math.round(fi * 1_000_000 / FPS), duration: Math.round(1_000_000 / FPS) });
         venc.encode(frame, { keyFrame: fi % 60 === 0 });
@@ -2300,10 +2317,14 @@ function App() {
           const aenc = new AudioEncoder({ output: (chunk, meta) => muxer.addAudioChunk(chunk, meta), error: console.error });
           aenc.configure({ codec: 'mp4a.40.2', sampleRate: 44100, numberOfChannels: _nChHD, bitrate: 128000 });
           const CHUNK = 4096;
-          for (let i = 0; i < _abHD.length; i += CHUNK) {
-            const len = Math.min(CHUNK, _abHD.length - i);
+          for (let i = 0; i < _outSampHD; i += CHUNK) {
+            const len = Math.min(CHUNK, _outSampHD - i);
+            const srcI = Math.round(i * _spd3);
             const planar = new Float32Array(len * _nChHD);
-            for (let c = 0; c < _nChHD; c++) planar.set(_abHD.getChannelData(c).slice(i, i + len), c * len);
+            for (let c = 0; c < _nChHD; c++) {
+              const ch = _abHD.getChannelData(c);
+              for (let s = 0; s < len; s++) planar[c * len + s] = (ch[srcI + s] || 0) * _vol3;
+            }
             const aframe = new AudioData({ format: 'f32-planar', sampleRate: 44100, numberOfFrames: len,
               numberOfChannels: _nChHD, timestamp: Math.round(i / 44100 * 1_000_000), data: planar });
             aenc.encode(aframe); aframe.close();
@@ -2341,6 +2362,9 @@ function App() {
       return 3;
     })();
     if (!effectiveDuration || effectiveDuration <= 0) return;
+    const _spd4 = Math.max(0.25, Math.min(4, projectSpeed));
+    const _vol4 = Math.max(0, Math.min(1, projectVolume));
+    const outputDuration4 = effectiveDuration / _spd4;
 
     const SCALE = 4; // 270×480 → 1080×1920
     const hdW   = baseCanvas.width  * SCALE;
@@ -2356,7 +2380,7 @@ function App() {
       offCanvas.width    = hdW;
       offCanvas.height   = hdH;
       const fps          = 30;
-      const totalFrames  = Math.ceil(effectiveDuration * fps);
+      const totalFrames  = Math.ceil(outputDuration4 * fps);
       const target       = new ArrayBufferTarget();
 
       const muxer = new Muxer({
@@ -2396,21 +2420,22 @@ function App() {
 
           const ac     = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 48000 });
           const buffer = await ac.decodeAudioData(audioBufferData);
-          const totalSamples = Math.floor(buffer.sampleRate * effectiveDuration);
+          const outputSamples4 = Math.floor(48000 * outputDuration4);
           const block = 1200;
+          const ch0_4 = buffer.getChannelData(0);
+          const ch1_4 = buffer.numberOfChannels > 1 ? buffer.getChannelData(1) : ch0_4;
 
-          for (let pos = 0; pos < totalSamples; pos += block) {
-            const frameL      = buffer.getChannelData(0).slice(pos, pos + block);
-            const frameR      = buffer.numberOfChannels > 1
-              ? buffer.getChannelData(1).slice(pos, pos + block) : frameL;
-            const interleaved = new Float32Array(block * 2);
-            for (let i = 0; i < block; i++) {
-              interleaved[i * 2]     = frameL[i] || 0;
-              interleaved[i * 2 + 1] = frameR[i] || 0;
+          for (let pos = 0; pos < outputSamples4; pos += block) {
+            const srcPos = Math.round(pos * _spd4);
+            const len = Math.min(block, outputSamples4 - pos);
+            const interleaved = new Float32Array(len * 2);
+            for (let i = 0; i < len; i++) {
+              interleaved[i * 2]     = (ch0_4[srcPos + i] || 0) * _vol4;
+              interleaved[i * 2 + 1] = (ch1_4[srcPos + i] || 0) * _vol4;
             }
             const audioDataObj = new AudioData({
               format: 'f32', sampleRate: 48000, numberOfChannels: 2,
-              numberOfFrames: block,
+              numberOfFrames: len,
               timestamp: Math.round((pos / 48000) * 1_000_000),
               data: interleaved.buffer,
             });
@@ -2424,7 +2449,7 @@ function App() {
 
       // Frames HD
       for (let i = 0; i < totalFrames; i++) {
-        const t = i / fps;
+        const t = i / fps * _spd4;
         await renderAtTimeToCanvas(offCanvas, t, SCALE);
         const bitmap     = await createImageBitmap(offCanvas);
         const videoFrame = new VideoFrame(bitmap, { timestamp: Math.round(t * 1_000_000) });
