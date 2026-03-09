@@ -1609,7 +1609,11 @@ function App() {
   }, [projectVolume]);
 
   useEffect(() => {
-    if (audioRef.current) audioRef.current.playbackRate = Math.max(0.25, Math.min(4, projectSpeed));
+    const audio = audioRef.current;
+    // Só aplica enquanto pausado — mudar playbackRate em tempo real causa ruído/click
+    if (audio && audio.paused) {
+      audio.playbackRate = Math.max(0.25, Math.min(4, projectSpeed));
+    }
   }, [projectSpeed]);
 
   const renderAtTimeToCanvas = async (targetCanvas, t, scale = 1) => {
@@ -1771,6 +1775,29 @@ function App() {
       ctx.globalAlpha = 1;
       ctx.restore();
     }
+  };
+
+  // ── Renderização de áudio com velocidade + volume via OfflineAudioContext ─────
+  // Usa o mesmo engine de time-stretch nativo do browser (preservesPitch=true),
+  // idêntico ao <audio>.playbackRate no preview → zero artefatos DSP manuais.
+  // Retorna [Float32ArrayL, Float32ArrayR] prontos para o AudioEncoder.
+  const _renderAudioStretched = async (audioBuffer, speed, volume, sampleRate) => {
+    const nCh = Math.min(audioBuffer.numberOfChannels, 2);
+    const outputFrames = Math.ceil((audioBuffer.duration / speed) * sampleRate);
+    const offCtx = new OfflineAudioContext(nCh, outputFrames, sampleRate);
+    const src = offCtx.createBufferSource();
+    src.buffer = audioBuffer;
+    src.playbackRate.value = speed;
+    if ('preservesPitch' in src) src.preservesPitch = true; // pitch-preservation se suportado
+    const gain = offCtx.createGain();
+    gain.gain.value = Math.max(0, Math.min(1, volume));
+    src.connect(gain);
+    gain.connect(offCtx.destination);
+    src.start(0);
+    const rendered = await offCtx.startRendering();
+    const chL = new Float32Array(rendered.getChannelData(0));
+    const chR = new Float32Array(nCh > 1 ? rendered.getChannelData(1) : rendered.getChannelData(0));
+    return [chL, chR];
   };
 
   // ── SOLA Time-Stretch: preserva tom sem ruído + aplica volume ────────────────
@@ -1953,11 +1980,11 @@ function App() {
           const _tmpAc1 = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 48000 });
           const _rawBuf1 = await _tmpAc1.decodeAudioData(audioBufferData);
           _tmpAc1.close();
-          // OLA time-stretch (preserva tom, como no preview) + volume
-          const [_out01, _out11] = _olaStretch(_rawBuf1.getChannelData(0), _rawBuf1.numberOfChannels>1?_rawBuf1.getChannelData(1):_rawBuf1.getChannelData(0), _spd1, _vol1, Math.floor(48000*outputDuration1));
+          // Renderiza áudio com speed+volume via OfflineAudioContext (sem artefatos DSP)
+          const [_out01, _out11] = await _renderAudioStretched(_rawBuf1, _spd1, _vol1, 48000);
           const _blk1 = 4096;
-          for (let _op1 = 0; _op1 < Math.floor(48000*outputDuration1); _op1 += _blk1) {
-            const _bl1 = Math.min(_blk1, Math.floor(48000*outputDuration1) - _op1);
+          for (let _op1 = 0; _op1 < _out01.length; _op1 += _blk1) {
+            const _bl1 = Math.min(_blk1, _out01.length - _op1);
             const _pl1 = new Float32Array(_bl1 * 2);
             for (let _i = 0; _i < _bl1; _i++) {
               _pl1[_i]              = _out01[_op1+_i] || 0;
@@ -2295,11 +2322,11 @@ function App() {
           const aenc = new AudioEncoder({ output: (chunk, meta) => muxer.addAudioChunk(chunk, meta), error: console.error });
           aenc.configure({ codec: 'mp4a.40.2', sampleRate: _sdRate, numberOfChannels: _nChSD, bitrate: 192000 });
           const CHUNK = 4096;
-          // OLA time-stretch (preserva tom, como no preview) + volume
-          const [_out02, _out12] = _olaStretch(_abSD.getChannelData(0), _abSD.numberOfChannels>1?_abSD.getChannelData(1):_abSD.getChannelData(0), _spd2, _vol2, Math.floor(_sdRate*outputDuration2));
+          // Renderiza áudio com speed+volume via OfflineAudioContext (sem artefatos DSP)
+          const [_out02, _out12] = await _renderAudioStretched(_abSD, _spd2, _vol2, _sdRate);
           const _blk2 = 4096;
-          for (let _op2 = 0; _op2 < Math.floor(_sdRate*outputDuration2); _op2 += _blk2) {
-            const _bl2 = Math.min(_blk2, Math.floor(_sdRate*outputDuration2) - _op2);
+          for (let _op2 = 0; _op2 < _out02.length; _op2 += _blk2) {
+            const _bl2 = Math.min(_blk2, _out02.length - _op2);
             const _pl2 = new Float32Array(_bl2 * 2);
             for (let _i = 0; _i < _bl2; _i++) {
               _pl2[_i]              = _out02[_op2+_i] || 0;
@@ -2393,11 +2420,11 @@ function App() {
           const aenc = new AudioEncoder({ output: (chunk, meta) => muxer.addAudioChunk(chunk, meta), error: console.error });
           aenc.configure({ codec: 'mp4a.40.2', sampleRate: _hdRate, numberOfChannels: _nChHD, bitrate: 192000 });
           const CHUNK = 4096;
-          // OLA time-stretch (preserva tom, como no preview) + volume
-          const [_out03, _out13] = _olaStretch(_abHD.getChannelData(0), _abHD.numberOfChannels>1?_abHD.getChannelData(1):_abHD.getChannelData(0), _spd3, _vol3, Math.floor(_hdRate*outputDuration3));
+          // Renderiza áudio com speed+volume via OfflineAudioContext (sem artefatos DSP)
+          const [_out03, _out13] = await _renderAudioStretched(_abHD, _spd3, _vol3, _hdRate);
           const _blk3 = 4096;
-          for (let _op3 = 0; _op3 < Math.floor(_hdRate*outputDuration3); _op3 += _blk3) {
-            const _bl3 = Math.min(_blk3, Math.floor(_hdRate*outputDuration3) - _op3);
+          for (let _op3 = 0; _op3 < _out03.length; _op3 += _blk3) {
+            const _bl3 = Math.min(_blk3, _out03.length - _op3);
             const _pl3 = new Float32Array(_bl3 * 2);
             for (let _i = 0; _i < _bl3; _i++) {
               _pl3[_i]              = _out03[_op3+_i] || 0;
@@ -2499,11 +2526,11 @@ function App() {
           const ac     = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 48000 });
           const buffer = await ac.decodeAudioData(audioBufferData);
           ac.close();
-          // OLA time-stretch (preserva tom, como no preview) + volume
-          const [_out04, _out14] = _olaStretch(buffer.getChannelData(0), buffer.numberOfChannels>1?buffer.getChannelData(1):buffer.getChannelData(0), _spd4, _vol4, Math.floor(48000*outputDuration4));
+          // Renderiza áudio com speed+volume via OfflineAudioContext (sem artefatos DSP)
+          const [_out04, _out14] = await _renderAudioStretched(buffer, _spd4, _vol4, 48000);
           const _blk4 = 4096;
-          for (let _op4 = 0; _op4 < Math.floor(48000*outputDuration4); _op4 += _blk4) {
-            const _bl4 = Math.min(_blk4, Math.floor(48000*outputDuration4) - _op4);
+          for (let _op4 = 0; _op4 < _out04.length; _op4 += _blk4) {
+            const _bl4 = Math.min(_blk4, _out04.length - _op4);
             const _pl4 = new Float32Array(_bl4 * 2);
             for (let _i = 0; _i < _bl4; _i++) {
               _pl4[_i]              = _out04[_op4+_i] || 0;
