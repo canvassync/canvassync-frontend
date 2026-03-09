@@ -38,27 +38,87 @@ function App() {
     return p.length ? p.join(' ') : 'none';
   };
   // Retorna { alpha, tx, ty, scale } para aplicar antes de drawRotatedElement
+  // ── _applyTr: aplica resultado de getTransitionTransform no ctx ─────────────
+  const _applyTr = (ctx, tr, itemFilt, item) => {
+    ctx.globalAlpha = Math.max(0, Math.min(1, tr.alpha));
+    const fParts = [];
+    if (tr.filterOverride) fParts.push(tr.filterOverride);
+    if (itemFilt && itemFilt !== 'none') fParts.push(itemFilt);
+    if (fParts.length) ctx.filter = fParts.join(' ');
+    const cx = item.x + item.width / 2, cy = item.y + item.height / 2;
+    ctx.translate(cx + (tr.tx||0), cy + (tr.ty||0));
+    const sx = (tr.scale??1) * (tr.scaleX??1);
+    const sy = (tr.scale??1) * (tr.scaleY??1);
+    if (sx !== 1 || sy !== 1) ctx.scale(sx, sy);
+    if (tr.addRotate) ctx.rotate(tr.addRotate);
+    ctx.translate(-cx, -cy);
+  };
+
   const getTransitionTransform = (item, t) => {
-    const tr   = item.transition   || 'none';
-    const dur  = item.transitionDur !== undefined ? item.transitionDur : 0.35;
-    if (tr === 'none' || dur === 0) return null;
-    const eIn  = Math.min(1, Math.max(0, (t - item.start) / dur));
-    const eOut = Math.min(1, Math.max(0, (item.end   - t)  / dur));
-    const ease = x => 1 - Math.pow(1 - x, 3); // cubic ease-out
-    const pi   = ease(eIn);
-    const po   = ease(eOut);
-    const prog = Math.min(pi, po); // 0→1→0 over lifetime
-    if (tr === 'fade')       return { alpha: prog, tx: 0,  ty: 0,  scale: 1 };
-    if (tr === 'slide-up')   return { alpha: prog, tx: 0,  ty: (1 - prog) * 60 * (eIn < 1 ? 1 : -1), scale: 1 };
-    if (tr === 'slide-down') return { alpha: prog, tx: 0,  ty: -(1 - prog) * 60 * (eIn < 1 ? 1 : -1), scale: 1 };
-    if (tr === 'slide-left') return { alpha: prog, tx: (1 - prog) * 60 * (eIn < 1 ? 1 : -1),  ty: 0,  scale: 1 };
-    if (tr === 'zoom')       return { alpha: prog, tx: 0,  ty: 0,  scale: 0.5 + 0.5 * prog };
-    if (tr === 'zoom-out')   return { alpha: prog, tx: 0,  ty: 0,  scale: 1 + 0.5 * (1 - prog) };
-    if (tr === 'blur-in') {
-      const blurVal = (1 - prog) * 12;
-      return { alpha: 1, tx: 0, ty: 0, scale: 1, filterOverride: `blur(${blurVal.toFixed(1)}px)` };
-    }
-    return null;
+    // Suporta formato antigo (transition) e novo (transitionIn/Out)
+    const trIn   = item.transitionIn  || item.transition || 'none';
+    const trOut  = item.transitionOut || item.transition || 'none';
+    const durIn  = item.transitionInDur  ?? item.transitionDur ?? 0.35;
+    const durOut = item.transitionOutDur ?? item.transitionDur ?? 0.35;
+    if (trIn === 'none' && trOut === 'none') return null;
+
+    const tIn  = durIn  > 0 ? Math.min(1, Math.max(0, (t - item.start) / durIn))  : 1;
+    const tOut = durOut > 0 ? Math.min(1, Math.max(0, (item.end - t)    / durOut)) : 1;
+
+    const eOut3   = x => 1 - Math.pow(1 - x, 3);
+    const eBounce = x => {
+      if (x < 1/2.75)    return 7.5625*x*x;
+      if (x < 2/2.75)    { x -= 1.5/2.75;  return 7.5625*x*x + 0.75; }
+      if (x < 2.5/2.75)  { x -= 2.25/2.75; return 7.5625*x*x + 0.9375; }
+      x -= 2.625/2.75;   return 7.5625*x*x + 0.984375;
+    };
+    const eElastic = x => x<=0||x>=1 ? x : Math.pow(2,-10*x)*Math.sin((x*10-0.75)*(2*Math.PI/3))+1;
+
+    const calc = (tr, prog, isEntry) => {
+      const p = eOut3(prog), inv = 1-p, d = isEntry ? 1 : -1;
+      const base = { alpha:1, tx:0, ty:0, scale:1, scaleX:1, scaleY:1, addRotate:0, filterOverride:null, isPulse:false };
+      switch(tr) {
+        case 'fade':        return {...base, alpha: p};
+        case 'slide-up':    return {...base, alpha: p, ty:  inv*80*d};
+        case 'slide-down':  return {...base, alpha: p, ty: -inv*80*d};
+        case 'slide-left':  return {...base, alpha: p, tx:  inv*80*d};
+        case 'slide-right': return {...base, alpha: p, tx: -inv*80*d};
+        case 'zoom':        return {...base, alpha: p, scale: 0.5+0.5*p};
+        case 'zoom-out':    return {...base, alpha: p, scale: 1+0.5*inv};
+        case 'blur-in':     return {...base, filterOverride:`blur(${(inv*14).toFixed(1)}px)`};
+        case 'rotate':      return {...base, alpha: p, addRotate: inv*Math.PI*(isEntry?-1:1)};
+        case 'flip-h':      return {...base, alpha: p, scaleX: prog<0.5?(isEntry?-1:1):(isEntry?1:-1)};
+        case 'flip-v':      return {...base, alpha: p, scaleY: prog<0.5?(isEntry?-1:1):(isEntry?1:-1)};
+        case 'bounce':      return {...base, alpha:Math.min(1,prog*3), ty:isEntry?(1-eBounce(prog))*70:-(1-eBounce(prog))*70};
+        case 'elastic':     return {...base, alpha:Math.min(1,prog*3), scale:eElastic(prog)};
+        case 'swing':       return {...base, alpha:p, addRotate:isEntry?(1-p)*0.45*d:-(1-p)*0.45*d};
+        case 'drop':        return {...base, alpha:Math.min(1,prog*3), ty:isEntry?-(1-eOut3(prog))*130:(1-eOut3(prog))*130};
+        case 'roll':        return {...base, alpha:p, tx:isEntry?-inv*120:inv*120, addRotate:isEntry?-inv*Math.PI*2:inv*Math.PI*2};
+        case 'scale-pulse': return {...base, isPulse:true, scalePulse: 1 + Math.sin(prog*Math.PI)*0.35};
+        default:            return base;
+      }
+    };
+
+    const rIn  = trIn  !== 'none' ? calc(trIn,  tIn,  true)  : {alpha:1,tx:0,ty:0,scale:1,scaleX:1,scaleY:1,addRotate:0,filterOverride:null,isPulse:false};
+    const rOut = trOut !== 'none' ? calc(trOut, tOut, false) : {alpha:1,tx:0,ty:0,scale:1,scaleX:1,scaleY:1,addRotate:0,filterOverride:null,isPulse:false};
+
+    // scale-pulse: usa scalePulse separado para não ser clipado por min()
+    const scaleIn  = rIn.isPulse  ? rIn.scalePulse  : rIn.scale;
+    const scaleOut = rOut.isPulse ? rOut.scalePulse : rOut.scale;
+    const combined = {
+      alpha:         Math.min(rIn.alpha, rOut.alpha),
+      tx:            rIn.tx + rOut.tx,
+      ty:            rIn.ty + rOut.ty,
+      scale:         scaleIn * scaleOut,
+      scaleX:        rIn.scaleX * rOut.scaleX,
+      scaleY:        rIn.scaleY * rOut.scaleY,
+      addRotate:     rIn.addRotate + rOut.addRotate,
+      filterOverride: rIn.filterOverride || rOut.filterOverride || null,
+    };
+    const isIdentity = combined.alpha>=1 && combined.tx===0 && combined.ty===0
+      && combined.scale===1 && combined.scaleX===1 && combined.scaleY===1
+      && combined.addRotate===0 && !combined.filterOverride;
+    return isIdentity ? null : combined;
   };
   const [videos, setVideos] = useState([]);      // { id, src, videoEl, start, end, x, y, width, height, radius, muted }
   const [activeVideoId, setActiveVideoId] = useState(null);
@@ -1220,12 +1280,8 @@ function App() {
       const _vf  = buildFilterString(v.filters);
       const _vtr = getTransitionTransform(v, time);
       ctx.save();
-      if (_vtr) {
-        ctx.globalAlpha = _vtr.alpha;
-        if (_vtr.filterOverride) ctx.filter = _vtr.filterOverride;
-        else if (_vf !== 'none') ctx.filter = _vf;
-        if (_vtr.scale !== 1) { const cx=v.x+v.width/2,cy=v.y+v.height/2; ctx.translate(cx+_vtr.tx,cy+_vtr.ty); ctx.scale(_vtr.scale,_vtr.scale); ctx.translate(-cx,-cy); } else { ctx.translate(_vtr.tx,_vtr.ty); }
-      } else if (_vf !== 'none') { ctx.filter = _vf; }
+      if (_vtr) { _applyTr(ctx, _vtr, _vf, v); }
+      else if (_vf !== 'none') { ctx.filter = _vf; }
       drawRotatedElement(ctx, () => drawRoundedImage(ctx, v.videoEl, v.x, v.y, v.width, v.height, v.radius ?? 12), v.x, v.y, v.width, v.height, v.rotation);
       ctx.filter = 'none'; ctx.restore();
       if (activeVideoId === v.id) {
@@ -1248,12 +1304,8 @@ function App() {
       const _if  = buildFilterString(overlayImage.filters);
       const _itr = getTransitionTransform(overlayImage, time);
       ctx.save();
-      if (_itr) {
-        ctx.globalAlpha = _itr.alpha;
-        if (_itr.filterOverride) ctx.filter = _itr.filterOverride;
-        else if (_if !== 'none') ctx.filter = _if;
-        if (_itr.scale !== 1) { const cx=overlayImage.x+overlayImage.width/2,cy=overlayImage.y+overlayImage.height/2; ctx.translate(cx+_itr.tx,cy+_itr.ty); ctx.scale(_itr.scale,_itr.scale); ctx.translate(-cx,-cy); } else { ctx.translate(_itr.tx,_itr.ty); }
-      } else if (_if !== 'none') { ctx.filter = _if; }
+      if (_itr) { _applyTr(ctx, _itr, _if, overlayImage); }
+      else if (_if !== 'none') { ctx.filter = _if; }
       drawRotatedElement(ctx, () => drawRoundedImage(ctx, overlayImage.img, overlayImage.x, overlayImage.y, overlayImage.width, overlayImage.height, overlayImage.radius ?? 18), overlayImage.x, overlayImage.y, overlayImage.width, overlayImage.height, overlayImage.rotation);
       ctx.filter = 'none'; ctx.restore();
       if (activeImageId === overlayImage.id) {
@@ -1582,7 +1634,7 @@ function App() {
       const _evf = buildFilterString(v.filters);
       const _etr = getTransitionTransform(v, t);
       ctx.save();
-      if (_etr) { ctx.globalAlpha=_etr.alpha; if(_etr.filterOverride) ctx.filter=_etr.filterOverride; else if(_evf!=='none') ctx.filter=_evf; if(_etr.scale!==1){const cx=v.x+v.width/2,cy=v.y+v.height/2;ctx.translate(cx+_etr.tx,cy+_etr.ty);ctx.scale(_etr.scale,_etr.scale);ctx.translate(-cx,-cy);}else{ctx.translate(_etr.tx,_etr.ty);} } else if(_evf!=='none'){ctx.filter=_evf;}
+      if (_etr) { _applyTr(ctx, _etr, _evf, v); } else if(_evf!=='none'){ctx.filter=_evf;}
       drawRotatedElement(ctx, () => drawRoundedImage(ctx, v.videoEl, v.x, v.y, v.width, v.height, v.radius ?? 12), v.x, v.y, v.width, v.height, v.rotation);
       ctx.filter='none'; ctx.restore();
     });
@@ -1591,7 +1643,7 @@ function App() {
       const _eif = buildFilterString(overlayImage.filters);
       const _eit = getTransitionTransform(overlayImage, t);
       ctx.save();
-      if (_eit) { ctx.globalAlpha=_eit.alpha; if(_eit.filterOverride) ctx.filter=_eit.filterOverride; else if(_eif!=='none') ctx.filter=_eif; if(_eit.scale!==1){const cx=overlayImage.x+overlayImage.width/2,cy=overlayImage.y+overlayImage.height/2;ctx.translate(cx+_eit.tx,cy+_eit.ty);ctx.scale(_eit.scale,_eit.scale);ctx.translate(-cx,-cy);}else{ctx.translate(_eit.tx,_eit.ty);} } else if(_eif!=='none'){ctx.filter=_eif;}
+      if (_eit) { _applyTr(ctx, _eit, _eif, overlayImage); } else if(_eif!=='none'){ctx.filter=_eif;}
       drawRotatedElement(ctx, () => drawRoundedImage(ctx, overlayImage.img, overlayImage.x, overlayImage.y, overlayImage.width, overlayImage.height, overlayImage.radius ?? 18), overlayImage.x, overlayImage.y, overlayImage.width, overlayImage.height, overlayImage.rotation);
       ctx.filter='none'; ctx.restore();
     });
@@ -2644,50 +2696,87 @@ function App() {
 
                 {/* ── TRANSIÇÕES ── */}
                 {(() => {
-                  const accent = isVid ? '#a78bfa' : '#fbbf24';
+                  const accent   = isVid ? '#a78bfa' : '#fbbf24';
                   const accentBg = isVid ? 'rgba(167,139,250,' : 'rgba(251,191,36,';
-                  const curTr  = sel.transition    || 'none';
-                  const curDur = sel.transitionDur !== undefined ? sel.transitionDur : 0.35;
-                  const setTr = (val) => {
-                    if (isVid) setVideos(prev => prev.map(v => v.id === sel.id ? { ...v, transition: val } : v));
-                    else       setImages(prev => prev.map(i => i.id === sel.id ? { ...i, transition: val } : i));
-                  };
-                  const setDur = (val) => {
-                    if (isVid) setVideos(prev => prev.map(v => v.id === sel.id ? { ...v, transitionDur: val } : v));
-                    else       setImages(prev => prev.map(i => i.id === sel.id ? { ...i, transitionDur: val } : i));
+                  const trIn    = sel.transitionIn  || 'none';
+                  const trOut   = sel.transitionOut || 'none';
+                  const durIn   = sel.transitionInDur  ?? 0.35;
+                  const durOut  = sel.transitionOutDur ?? 0.35;
+                  const upd = (patch) => {
+                    if (isVid) setVideos(prev => prev.map(v => v.id === sel.id ? { ...v, ...patch } : v));
+                    else       setImages(prev => prev.map(i => i.id === sel.id ? { ...i, ...patch } : i));
                   };
                   const TRANSITIONS = [
-                    { value: 'none',       label: 'Nenhuma' },
-                    { value: 'fade',       label: 'Fade' },
-                    { value: 'slide-up',   label: 'Slide ↑' },
-                    { value: 'slide-down', label: 'Slide ↓' },
-                    { value: 'slide-left', label: 'Slide ←' },
-                    { value: 'zoom',       label: 'Zoom In' },
-                    { value: 'zoom-out',   label: 'Zoom Out' },
-                    { value: 'blur-in',    label: 'Blur' },
+                    { value: 'none',        label: '—'        },
+                    { value: 'fade',        label: 'Fade'     },
+                    { value: 'slide-up',    label: 'Slide ↑'  },
+                    { value: 'slide-down',  label: 'Slide ↓'  },
+                    { value: 'slide-left',  label: 'Slide ←'  },
+                    { value: 'slide-right', label: 'Slide →'  },
+                    { value: 'zoom',        label: 'Zoom +'   },
+                    { value: 'zoom-out',    label: 'Zoom −'   },
+                    { value: 'blur-in',     label: 'Blur'     },
+                    { value: 'rotate',      label: 'Girar'    },
+                    { value: 'flip-h',      label: 'Flip ↔'   },
+                    { value: 'flip-v',      label: 'Flip ↕'   },
+                    { value: 'bounce',      label: 'Bounce'   },
+                    { value: 'elastic',     label: 'Elástico' },
+                    { value: 'swing',       label: 'Swing'    },
+                    { value: 'drop',        label: 'Drop'     },
+                    { value: 'roll',        label: 'Rolar'    },
+                    { value: 'scale-pulse', label: 'Pulsar'   },
                   ];
+                  const TrGrid = ({ current, onSelect }) => (
+                    <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                      {TRANSITIONS.map(({ value, label }) => (
+                        <button key={value} onClick={() => onSelect(value)} style={{
+                          padding: '3px 8px', fontSize: 10, borderRadius: 7, cursor: 'pointer', fontWeight: 600,
+                          background: current === value ? `${accentBg}0.25)` : 'rgba(255,255,255,0.04)',
+                          border: `1px solid ${current === value ? `${accentBg}0.65)` : 'rgba(255,255,255,0.07)'}`,
+                          color: current === value ? accent : '#555',
+                        }}>{label}</button>
+                      ))}
+                    </div>
+                  );
+                  const DurSlider = ({ value, onChange }) => (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginTop: 2 }}>
+                      <span style={{ fontSize: 10, color: '#444', minWidth: 54 }}>Duração</span>
+                      <input type="range" min={0.05} max={2} step={0.05} value={value}
+                        onChange={e => onChange(+e.target.value)}
+                        onMouseDown={e => e.stopPropagation()}
+                        onPointerDown={e => e.stopPropagation()}
+                        style={{ flex: 1, accentColor: accent }} />
+                      <span style={{ fontSize: 10, color: accent, minWidth: 34, textAlign: 'right' }}>{value.toFixed(2)}s</span>
+                    </div>
+                  );
                   return (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, background: `${accentBg}0.04)`, border: `1px solid ${accentBg}0.18)`, borderRadius: 12, padding: '10px 12px' }}>
-                      <span style={{ fontSize: 11, color: accent, fontWeight: 700, letterSpacing: '0.5px' }}>✨ TRANSIÇÃO (entrada/saída)</span>
-                      <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
-                        {TRANSITIONS.map(({ value, label }) => (
-                          <button key={value} onClick={() => setTr(value)} style={{
-                            padding: '4px 10px', fontSize: 10, borderRadius: 8, cursor: 'pointer', fontWeight: 600,
-                            background: curTr === value ? `${accentBg}0.25)` : 'rgba(255,255,255,0.04)',
-                            border: `1px solid ${curTr === value ? `${accentBg}0.6)` : 'rgba(255,255,255,0.08)'}`,
-                            color: curTr === value ? accent : '#666',
-                          }}>{label}</button>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10, background: `${accentBg}0.04)`, border: `1px solid ${accentBg}0.18)`, borderRadius: 12, padding: '10px 12px' }}>
+                      <span style={{ fontSize: 11, color: accent, fontWeight: 700, letterSpacing: '0.5px' }}>✨ TRANSIÇÕES</span>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 5, background: 'rgba(255,255,255,0.02)', borderRadius: 8, padding: '8px 10px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                          <span style={{ fontSize: 10, color: accent, fontWeight: 700 }}>▶ ENTRADA</span>
+                          {trIn !== 'none' && <button onClick={() => upd({ transitionIn: 'none' })} style={{ background: 'none', border: 'none', color: '#444', cursor: 'pointer', fontSize: 11, padding: 0, lineHeight: 1 }}>✕</button>}
+                        </div>
+                        <TrGrid current={trIn} onSelect={v => upd({ transitionIn: v })} />
+                        {trIn !== 'none' && <DurSlider value={durIn} onChange={v => upd({ transitionInDur: v })} />}
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 5, background: 'rgba(255,255,255,0.02)', borderRadius: 8, padding: '8px 10px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                          <span style={{ fontSize: 10, color: accent, fontWeight: 700 }}>◀ SAÍDA</span>
+                          {trOut !== 'none' && <button onClick={() => upd({ transitionOut: 'none' })} style={{ background: 'none', border: 'none', color: '#444', cursor: 'pointer', fontSize: 11, padding: 0, lineHeight: 1 }}>✕</button>}
+                        </div>
+                        <TrGrid current={trOut} onSelect={v => upd({ transitionOut: v })} />
+                        {trOut !== 'none' && <DurSlider value={durOut} onChange={v => upd({ transitionOutDur: v })} />}
+                      </div>
+                      <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', alignItems: 'center' }}>
+                        <span style={{ fontSize: 10, color: '#444' }}>Ambos:</span>
+                        {['fade','slide-up','zoom','blur-in','bounce','roll'].map(v => (
+                          <button key={v} onClick={() => upd({ transitionIn: v, transitionOut: v })}
+                            style={{ padding: '3px 9px', fontSize: 10, borderRadius: 7, cursor: 'pointer', fontWeight: 600, background: (trIn===v&&trOut===v) ? `${accentBg}0.2)` : 'rgba(255,255,255,0.03)', border: `1px solid ${(trIn===v&&trOut===v) ? `${accentBg}0.5)` : 'rgba(255,255,255,0.06)'}`, color: (trIn===v&&trOut===v) ? accent : '#555' }}>
+                            {TRANSITIONS.find(t=>t.value===v)?.label}
+                          </button>
                         ))}
                       </div>
-                      {curTr !== 'none' && (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <span style={{ fontSize: 10, color: '#555', minWidth: 60 }}>Duração</span>
-                          <input type="range" min={0.1} max={1.5} step={0.05} value={curDur}
-                            onChange={e => setDur(+e.target.value)}
-                            style={{ flex: 1, accentColor: accent }} />
-                          <span style={{ fontSize: 10, color: accent, minWidth: 36, textAlign: 'right' }}>{curDur.toFixed(2)}s</span>
-                        </div>
-                      )}
                     </div>
                   );
                 })()}
