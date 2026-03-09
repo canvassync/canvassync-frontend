@@ -1875,31 +1875,29 @@ function App() {
             for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
             audioBufferData = bytes.buffer;
           }
-          // Decodifica → OfflineAudioContext: GainNode(vol) + playbackRate(speed)
-          const _tmpAc = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 48000 });
-          const _rawBuf = await _tmpAc.decodeAudioData(audioBufferData);
-          _tmpAc.close();
-          const _outS = Math.floor(48000 * outputDuration1);
-          const _offAc = new OfflineAudioContext(2, _outS, 48000);
-          const _bsrc = _offAc.createBufferSource();
-          _bsrc.buffer = _rawBuf; _bsrc.playbackRate.value = _spd1;
-          const _gain = _offAc.createGain(); _gain.gain.value = _vol1;
-          _bsrc.connect(_gain); _gain.connect(_offAc.destination);
-          _bsrc.start(0);
-          const _proc = await _offAc.startRendering();
-          const _pc0 = _proc.getChannelData(0);
-          const _pc1 = _proc.numberOfChannels > 1 ? _proc.getChannelData(1) : _pc0;
-          const _blk = 1200;
-          for (let _op = 0; _op < _outS; _op += _blk) {
-            const _bl = Math.min(_blk, _outS - _op);
-            const _ibuf = new Float32Array(_bl * 2);
-            for (let _i = 0; _i < _bl; _i++) {
-              _ibuf[_i*2]   = _pc0[_op+_i] || 0;
-              _ibuf[_i*2+1] = _pc1[_op+_i] || 0;
+          // Decodifica + reamostra com interpolação linear + aplica volume
+          const tmpAc1 = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 48000 });
+          const rawBuf1 = await tmpAc1.decodeAudioData(audioBufferData);
+          tmpAc1.close();
+          const _c0_1 = rawBuf1.getChannelData(0);
+          const _c1_1 = rawBuf1.numberOfChannels > 1 ? rawBuf1.getChannelData(1) : _c0_1;
+          const _srcLen1 = _c0_1.length;
+          const outSamp1 = Math.floor(48000 * outputDuration1);
+          const _blk1 = 2400;
+          for (let _op1 = 0; _op1 < outSamp1; _op1 += _blk1) {
+            const _bl1 = Math.min(_blk1, outSamp1 - _op1);
+            const _buf1 = new Float32Array(_bl1 * 2);
+            for (let _i = 0; _i < _bl1; _i++) {
+              const _sp = (_op1 + _i) * _spd1;
+              const _si = Math.floor(_sp); const _fr = _sp - _si;
+              const _si2 = Math.min(_si + 1, _srcLen1 - 1);
+              const _s = Math.min(_si, _srcLen1 - 1);
+              _buf1[_i*2]   = (_c0_1[_s] + (_c0_1[_si2] - _c0_1[_s]) * _fr) * _vol1;
+              _buf1[_i*2+1] = (_c1_1[_s] + (_c1_1[_si2] - _c1_1[_s]) * _fr) * _vol1;
             }
-            const _ad = new AudioData({ format: 'f32', sampleRate: 48000, numberOfChannels: 2,
-              numberOfFrames: _bl, timestamp: Math.round((_op/48000)*1_000_000), data: _ibuf.buffer });
-            aEncoder.encode(_ad); _ad.close();
+            const _ad1 = new AudioData({ format: 'f32', sampleRate: 48000, numberOfChannels: 2,
+              numberOfFrames: _bl1, timestamp: Math.round((_op1/48000)*1_000_000), data: _buf1.buffer });
+            aEncoder.encode(_ad1); _ad1.close();
           }
           await aEncoder.flush();
         } catch {
@@ -1907,11 +1905,10 @@ function App() {
         }
       }
       for (let i = 0; i < totalFrames; i++) {
-        const t = i / fps * _spd1;          // posição na fonte
-        const tOut = i / fps;               // timestamp de saída
+        const t = i / fps * _spd1;
         await renderAtTimeToCanvas(offCanvas, t);
         const bitmap = await createImageBitmap(offCanvas);
-        const videoFrame = new VideoFrame(bitmap, { timestamp: Math.round(tOut * 1_000_000) });
+        const videoFrame = new VideoFrame(bitmap, { timestamp: Math.round((i / fps) * 1_000_000) });
         vEncoder.encode(videoFrame);
         videoFrame.close();
         bitmap.close();
@@ -2227,25 +2224,23 @@ function App() {
           const aenc = new AudioEncoder({ output: (chunk, meta) => muxer.addAudioChunk(chunk, meta), error: console.error });
           aenc.configure({ codec: 'mp4a.40.2', sampleRate: 44100, numberOfChannels: _nChSD, bitrate: 128000 });
           const CHUNK = 4096;
-          // OfflineAudioContext: GainNode(vol) + playbackRate(speed)
-          const _outSampSD2 = Math.floor(44100 * outputDuration2);
-          const _offAcSD = new OfflineAudioContext(2, _outSampSD2, 44100);
-          const _bsrcSD = _offAcSD.createBufferSource();
-          _bsrcSD.buffer = _abSD; _bsrcSD.playbackRate.value = _spd2;
-          const _gainSD = _offAcSD.createGain(); _gainSD.gain.value = _vol2;
-          _bsrcSD.connect(_gainSD); _gainSD.connect(_offAcSD.destination);
-          _bsrcSD.start(0);
-          const _procSD = await _offAcSD.startRendering();
-          const _nChSD2 = Math.min(_procSD.numberOfChannels, _nChSD);
-          for (let i = 0; i < _outSampSD2; i += CHUNK) {
-            const len = Math.min(CHUNK, _outSampSD2 - i);
-            const planar = new Float32Array(len * _nChSD2);
-            for (let c = 0; c < _nChSD2; c++) {
-              const _pch = _procSD.getChannelData(c);
-              for (let s = 0; s < len; s++) planar[c*len+s] = _pch[i+s] || 0;
+          // Interpolação linear com volume
+          const _sdSrcLen = _abSD.getChannelData(0).length;
+          for (let i = 0; i < _outSampSD; i += CHUNK) {
+            const len = Math.min(CHUNK, _outSampSD - i);
+            const planar = new Float32Array(len * _nChSD);
+            for (let c = 0; c < _nChSD; c++) {
+              const _sdCh = _abSD.getChannelData(c);
+              for (let s = 0; s < len; s++) {
+                const _sp = (i + s) * _spd2;
+                const _si = Math.min(Math.floor(_sp), _sdSrcLen - 1);
+                const _si2 = Math.min(_si + 1, _sdSrcLen - 1);
+                const _fr = _sp - Math.floor(_sp);
+                planar[c * len + s] = (_sdCh[_si] + (_sdCh[_si2] - _sdCh[_si]) * _fr) * _vol2;
+              }
             }
             const aframe = new AudioData({ format: 'f32-planar', sampleRate: 44100, numberOfFrames: len,
-              numberOfChannels: _nChSD2, timestamp: Math.round(i/44100*1_000_000), data: planar });
+              numberOfChannels: _nChSD, timestamp: Math.round(i / 44100 * 1_000_000), data: planar });
             aenc.encode(aframe); aframe.close();
           }
           await aenc.flush();
@@ -2330,25 +2325,23 @@ function App() {
           const aenc = new AudioEncoder({ output: (chunk, meta) => muxer.addAudioChunk(chunk, meta), error: console.error });
           aenc.configure({ codec: 'mp4a.40.2', sampleRate: 44100, numberOfChannels: _nChHD, bitrate: 128000 });
           const CHUNK = 4096;
-          // OfflineAudioContext: GainNode(vol) + playbackRate(speed)
-          const _outSampHD2 = Math.floor(44100 * outputDuration3);
-          const _offAcHD = new OfflineAudioContext(2, _outSampHD2, 44100);
-          const _bsrcHD = _offAcHD.createBufferSource();
-          _bsrcHD.buffer = _abHD; _bsrcHD.playbackRate.value = _spd3;
-          const _gainHD = _offAcHD.createGain(); _gainHD.gain.value = _vol3;
-          _bsrcHD.connect(_gainHD); _gainHD.connect(_offAcHD.destination);
-          _bsrcHD.start(0);
-          const _procHD = await _offAcHD.startRendering();
-          const _nChHD2 = Math.min(_procHD.numberOfChannels, _nChHD);
-          for (let i = 0; i < _outSampHD2; i += CHUNK) {
-            const len = Math.min(CHUNK, _outSampHD2 - i);
-            const planar = new Float32Array(len * _nChHD2);
-            for (let c = 0; c < _nChHD2; c++) {
-              const _pch = _procHD.getChannelData(c);
-              for (let s = 0; s < len; s++) planar[c*len+s] = _pch[i+s] || 0;
+          // Interpolação linear com volume
+          const _hdSrcLen = _abHD.getChannelData(0).length;
+          for (let i = 0; i < _outSampHD; i += CHUNK) {
+            const len = Math.min(CHUNK, _outSampHD - i);
+            const planar = new Float32Array(len * _nChHD);
+            for (let c = 0; c < _nChHD; c++) {
+              const _hdCh = _abHD.getChannelData(c);
+              for (let s = 0; s < len; s++) {
+                const _sp = (i + s) * _spd3;
+                const _si = Math.min(Math.floor(_sp), _hdSrcLen - 1);
+                const _si2 = Math.min(_si + 1, _hdSrcLen - 1);
+                const _fr = _sp - Math.floor(_sp);
+                planar[c * len + s] = (_hdCh[_si] + (_hdCh[_si2] - _hdCh[_si]) * _fr) * _vol3;
+              }
             }
             const aframe = new AudioData({ format: 'f32-planar', sampleRate: 44100, numberOfFrames: len,
-              numberOfChannels: _nChHD2, timestamp: Math.round(i/44100*1_000_000), data: planar });
+              numberOfChannels: _nChHD, timestamp: Math.round(i / 44100 * 1_000_000), data: planar });
             aenc.encode(aframe); aframe.close();
           }
           await aenc.flush();
@@ -2442,28 +2435,26 @@ function App() {
 
           const ac     = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 48000 });
           const buffer = await ac.decodeAudioData(audioBufferData);
-          // OfflineAudioContext: GainNode(vol) + playbackRate(speed)
+          // Interpolação linear com volume
           ac.close();
-          const _outS4 = Math.floor(48000 * outputDuration4);
-          const _offAc4 = new OfflineAudioContext(2, _outS4, 48000);
-          const _bsrc4 = _offAc4.createBufferSource();
-          _bsrc4.buffer = buffer; _bsrc4.playbackRate.value = _spd4;
-          const _gain4 = _offAc4.createGain(); _gain4.gain.value = _vol4;
-          _bsrc4.connect(_gain4); _gain4.connect(_offAc4.destination);
-          _bsrc4.start(0);
-          const _proc4 = await _offAc4.startRendering();
-          const _pc04 = _proc4.getChannelData(0);
-          const _pc14 = _proc4.numberOfChannels > 1 ? _proc4.getChannelData(1) : _pc04;
-          const _blk4 = 1200;
-          for (let _op4 = 0; _op4 < _outS4; _op4 += _blk4) {
-            const _bl4 = Math.min(_blk4, _outS4 - _op4);
-            const _ibuf4 = new Float32Array(_bl4 * 2);
+          const _c0_4 = buffer.getChannelData(0);
+          const _c1_4 = buffer.numberOfChannels > 1 ? buffer.getChannelData(1) : _c0_4;
+          const _srcLen4 = _c0_4.length;
+          const outSamp4 = Math.floor(48000 * outputDuration4);
+          const _blk4 = 2400;
+          for (let _op4 = 0; _op4 < outSamp4; _op4 += _blk4) {
+            const _bl4 = Math.min(_blk4, outSamp4 - _op4);
+            const _buf4 = new Float32Array(_bl4 * 2);
             for (let _i = 0; _i < _bl4; _i++) {
-              _ibuf4[_i*2]   = _pc04[_op4+_i] || 0;
-              _ibuf4[_i*2+1] = _pc14[_op4+_i] || 0;
+              const _sp = (_op4 + _i) * _spd4;
+              const _si = Math.min(Math.floor(_sp), _srcLen4 - 1);
+              const _si2 = Math.min(_si + 1, _srcLen4 - 1);
+              const _fr = _sp - Math.floor(_sp);
+              _buf4[_i*2]   = (_c0_4[_si] + (_c0_4[_si2] - _c0_4[_si]) * _fr) * _vol4;
+              _buf4[_i*2+1] = (_c1_4[_si] + (_c1_4[_si2] - _c1_4[_si]) * _fr) * _vol4;
             }
             const _ad4 = new AudioData({ format: 'f32', sampleRate: 48000, numberOfChannels: 2,
-              numberOfFrames: _bl4, timestamp: Math.round((_op4/48000)*1_000_000), data: _ibuf4.buffer });
+              numberOfFrames: _bl4, timestamp: Math.round((_op4/48000)*1_000_000), data: _buf4.buffer });
             aEncoder.encode(_ad4); _ad4.close();
           }
           await aEncoder.flush();
