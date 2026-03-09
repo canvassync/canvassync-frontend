@@ -1773,55 +1773,56 @@ function App() {
     }
   };
 
-  // ── WSOLA Time-Stretch: preserva tom sem ruído de fase + aplica volume ────────
+  // ── SOLA Time-Stretch: preserva tom sem ruído + aplica volume ────────────────
   // chL/chR : Float32Array dos canais L e R já decodificados
   // speed   : velocidade do projeto (0.25–4)
   // volume  : 0–1
   // outLen  : número de amostras na saída
   //
-  // Diferença para OLA simples: antes de sobrepor cada frame, busca no entorno
-  // do srcPos o segmento de melhor correlação com o frame anterior. Isso garante
-  // que frames adjacentes sejam similares → sem cancelamento de fase → sem ruído.
+  // Correções vs versões anteriores:
+  //  1. Janela Hann PERIÓDICA (/frameSize, não /frameSize-1) → COLA exato = 1.0
+  //  2. Acumulador de normalização → garante amplitude correta mesmo com offsets SOLA
+  //  3. Correlação contra o BUFFER DE SAÍDA já escrito (SOLA), não contra a fonte
+  //  4. Clipping final a [-1,1] → evita distorção no AudioEncoder
   const _olaStretch = (chL, chR, speed, volume, outLen) => {
-    const frameSize  = 1024;
-    const hopOut     = 512;                         // COLA: hopOut = frameSize/2
-    const hopSrc     = Math.round(hopOut * speed);
-    const searchWin  = Math.min(128, hopSrc);       // janela de busca ±128 amostras
-    const corrLen    = 64;                          // amostras usadas na correlação
-    const srcLen     = chL.length;
+    const frameSize = 1024;
+    const hopOut    = 512;                        // 50% overlap
+    const hopSrc    = Math.round(hopOut * speed); // avanço na fonte
+    const searchWin = Math.min(hopOut, hopSrc);   // janela de busca SOLA ±searchWin
+    const corrLen   = 128;                        // amostras de correlação
+    const srcLen    = chL.length;
 
-    // Janela Hann (50 % overlap satisfaz condição COLA → sem normalização extra)
+    // ── Janela Hann PERIÓDICA: hann[i] + hann[i+N/2] = 1.0 exato ────────────
     const hann = new Float32Array(frameSize);
     for (let i = 0; i < frameSize; i++)
-      hann[i] = 0.5 * (1 - Math.cos(2 * Math.PI * i / (frameSize - 1)));
+      hann[i] = 0.5 * (1 - Math.cos(2 * Math.PI * i / frameSize));
 
     const outL = new Float32Array(outLen);
     const outR = new Float32Array(outLen);
+    const norm = new Float32Array(outLen); // acumula soma das janelas para normalização
 
-    // Guarda o "fim" do frame anterior para correlação
-    const prevTail = new Float32Array(corrLen);
-
-    let srcPos = 0;
-    let outPos = 0;
+    let srcPos = 0, outPos = 0;
 
     while (outPos < outLen) {
-      // ── WSOLA: busca offset de melhor correlação ──────────────────────────
+      // ── SOLA: correlaciona contra o overlap JÁ ESCRITO na saída ──────────
       let bestOffset = 0;
       if (outPos > 0) {
-        let bestCorr = -Infinity;
+        const refStart = outPos;                             // início do overlap na saída
+        const refLen   = Math.min(corrLen, outLen - refStart);
+        let   bestCorr = -Infinity;
         for (let delta = -searchWin; delta <= searchWin; delta++) {
-          const testPos = srcPos + delta;
-          if (testPos < 0 || testPos + corrLen > srcLen) continue;
+          const testSrc = srcPos + delta;
+          if (testSrc < 0 || testSrc + refLen > srcLen) continue;
           let corr = 0;
-          for (let k = 0; k < corrLen; k++)
-            corr += prevTail[k] * chL[testPos + k];
+          for (let k = 0; k < refLen; k++)
+            corr += outL[refStart + k] * chL[testSrc + k];
           if (corr > bestCorr) { bestCorr = corr; bestOffset = delta; }
         }
       }
 
       const actualSrc = srcPos + bestOffset;
 
-      // ── OLA com janela Hann ───────────────────────────────────────────────
+      // ── Overlap-Add com janela Hann ───────────────────────────────────────
       for (let i = 0; i < frameSize; i++) {
         const oi = outPos + i;
         if (oi >= outLen) break;
@@ -1829,22 +1830,18 @@ function App() {
         const w  = hann[i];
         outL[oi] += (si >= 0 && si < srcLen ? chL[si] : 0) * w;
         outR[oi] += (si >= 0 && si < srcLen ? chR[si] : 0) * w;
-      }
-
-      // Salva cauda do frame atual para próxima iteração
-      for (let k = 0; k < corrLen; k++) {
-        const si = actualSrc + frameSize - corrLen + k;
-        prevTail[k] = (si >= 0 && si < srcLen) ? chL[si] : 0;
+        norm[oi] += w;
       }
 
       srcPos += hopSrc;
       outPos += hopOut;
     }
 
-    // Aplica volume (COLA Hann 50 % → ganho ≈ 1, sem normalização necessária)
+    // ── Normaliza + aplica volume + limita a [-1, 1] ─────────────────────────
     for (let i = 0; i < outLen; i++) {
-      outL[i] *= volume;
-      outR[i] *= volume;
+      const n = norm[i] > 1e-4 ? norm[i] : 1;
+      outL[i] = Math.max(-1, Math.min(1, (outL[i] / n) * volume));
+      outR[i] = Math.max(-1, Math.min(1, (outR[i] / n) * volume));
     }
 
     return [outL, outR];
