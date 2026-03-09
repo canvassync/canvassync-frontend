@@ -11,6 +11,9 @@ function App() {
   const [projectSpeed,  setProjectSpeed]  = useState(1);    // 0.25–4
   const projectVolumeRef = useRef(1);
   const projectSpeedRef  = useRef(1);
+  // Sempre atualiza o ref SYNC + o estado — evita stale closure em handlers
+  const setVolume = (v) => { projectVolumeRef.current = v; setProjectVolume(v); };
+  const setSpeed  = (s) => { projectSpeedRef.current  = s; setProjectSpeed(s); };
   const [lyrics, setLyrics] = useState([]);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
@@ -534,8 +537,8 @@ function App() {
           img.onload = () => setImage(img);
           img.src = p.imageSrc;
         }
-        if (p.projectVolume !== undefined) setProjectVolume(p.projectVolume);
-        if (p.projectSpeed  !== undefined) setProjectSpeed(p.projectSpeed);
+        if (p.projectVolume !== undefined) setVolume(p.projectVolume);
+        if (p.projectSpeed  !== undefined) setSpeed(p.projectSpeed);
         if (p.audioBase64) {
           setAudioBase64(p.audioBase64);
           setAudioMimeType(p.audioMimeType || 'audio/mpeg');
@@ -1600,14 +1603,12 @@ function App() {
     return () => audio.removeEventListener('timeupdate', onTime);
   }, [audioSrc]);
 
-  // Mantém refs sempre atualizados + aplica imediatamente no elemento <audio>
+  // Aplica volume/speed no elemento <audio> ao mudar (ref já atualizado pelo wrapper)
   useEffect(() => {
-    projectVolumeRef.current = projectVolume;
     if (audioRef.current) audioRef.current.volume = Math.max(0, Math.min(1, projectVolume));
   }, [projectVolume]);
 
   useEffect(() => {
-    projectSpeedRef.current = projectSpeed;
     if (audioRef.current) audioRef.current.playbackRate = Math.max(0.25, Math.min(4, projectSpeed));
   }, [projectSpeed]);
 
@@ -1874,38 +1875,26 @@ function App() {
             for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
             audioBufferData = bytes.buffer;
           }
-          // Decodifica → aplica velocidade + volume via OfflineAudioContext+GainNode
+          // Decodifica áudio
           const tmpAc1 = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 48000 });
           const rawBuf1 = await tmpAc1.decodeAudioData(audioBufferData);
           tmpAc1.close();
+          const _r1ch0 = rawBuf1.getChannelData(0);
+          const _r1ch1 = rawBuf1.numberOfChannels > 1 ? rawBuf1.getChannelData(1) : _r1ch0;
           const outSamp1 = Math.floor(48000 * outputDuration1);
-          const offAc1 = new OfflineAudioContext(2, outSamp1, 48000);
-          const bsrc1 = offAc1.createBufferSource();
-          bsrc1.buffer = rawBuf1;
-          bsrc1.playbackRate.value = _spd1;
-          const gnd1 = offAc1.createGain();
-          gnd1.gain.value = _vol1;
-          bsrc1.connect(gnd1); gnd1.connect(offAc1.destination);
-          bsrc1.start(0);
-          const procBuf1 = await offAc1.startRendering();
-          const pc0_1 = procBuf1.getChannelData(0);
-          const pc1_1 = procBuf1.numberOfChannels > 1 ? procBuf1.getChannelData(1) : pc0_1;
-          const block = 1200;
-          for (let pos = 0; pos < outSamp1; pos += block) {
-            const len = Math.min(block, outSamp1 - pos);
-            const interleaved = new Float32Array(len * 2);
-            for (let i = 0; i < len; i++) {
-              interleaved[i * 2]     = pc0_1[pos + i] || 0;
-              interleaved[i * 2 + 1] = pc1_1[pos + i] || 0;
+          // Reamostragem manual: posição na fonte = outPos * speed → sem mudança de tom
+          const _blk1 = 1200;
+          for (let _op1 = 0; _op1 < outSamp1; _op1 += _blk1) {
+            const _bl1 = Math.min(_blk1, outSamp1 - _op1);
+            const _buf1 = new Float32Array(_bl1 * 2);
+            for (let _i = 0; _i < _bl1; _i++) {
+              const _si = Math.min(Math.round((_op1 + _i) * _spd1), _r1ch0.length - 1);
+              _buf1[_i * 2]     = (_r1ch0[_si] || 0) * _vol1;
+              _buf1[_i * 2 + 1] = (_r1ch1[_si] || 0) * _vol1;
             }
-            const audioDataObj = new AudioData({
-              format: 'f32', sampleRate: 48000, numberOfChannels: 2,
-              numberOfFrames: len,
-              timestamp: Math.round((pos / 48000) * 1_000_000),
-              data: interleaved.buffer
-            });
-            aEncoder.encode(audioDataObj);
-            audioDataObj.close();
+            const _ad1 = new AudioData({ format: 'f32', sampleRate: 48000, numberOfChannels: 2,
+              numberOfFrames: _bl1, timestamp: Math.round((_op1 / 48000) * 1_000_000), data: _buf1.buffer });
+            aEncoder.encode(_ad1); _ad1.close();
           }
           await aEncoder.flush();
         } catch {
@@ -2146,8 +2135,8 @@ function App() {
         }
 
         // Restaura áudio do projeto
-        if (p.projectVolume !== undefined) setProjectVolume(p.projectVolume);
-        if (p.projectSpeed  !== undefined) setProjectSpeed(p.projectSpeed);
+        if (p.projectVolume !== undefined) setVolume(p.projectVolume);
+        if (p.projectSpeed  !== undefined) setSpeed(p.projectSpeed);
         if (p.audioBase64) {
           setAudioBase64(p.audioBase64);
           setAudioMimeType(p.audioMimeType || 'audio/mpeg');
@@ -2206,20 +2195,11 @@ function App() {
             _buf = _by.buffer;
           }
           const _ac = new OfflineAudioContext(2, Math.ceil(effectiveDuration * 44100), 44100);
-          const _rawSD = await _ac.decodeAudioData(_buf);
-          // Aplica velocidade + volume via OfflineAudioContext+GainNode
-          const _outSampSDtmp = Math.floor(44100 * outputDuration2);
-          const _offSD = new OfflineAudioContext(2, _outSampSDtmp, 44100);
-          const _bsrcSD = _offSD.createBufferSource();
-          _bsrcSD.buffer = _rawSD; _bsrcSD.playbackRate.value = _spd2;
-          const _gndSD = _offSD.createGain(); _gndSD.gain.value = _vol2;
-          _bsrcSD.connect(_gndSD); _gndSD.connect(_offSD.destination);
-          _bsrcSD.start(0);
-          _abSD = await _offSD.startRendering();
+          _abSD = await _ac.decodeAudioData(_buf);
         } catch(_e) { console.warn('Audio decode SD:', _e); }
       }
       const _nChSD = _abSD ? Math.min(_abSD.numberOfChannels, 2) : 2;
-      const _outSampSD = _abSD ? _abSD.length : Math.floor(44100 * outputDuration2);
+      const _outSampSD = Math.floor(44100 * outputDuration2);
       const target = new ArrayBufferTarget();
       const muxer = new Muxer({ target, video: { codec: 'avc', width: W, height: H },
         audio: _abSD ? { codec: 'aac', sampleRate: 44100, numberOfChannels: _nChSD } : undefined,
@@ -2245,8 +2225,11 @@ function App() {
             const len = Math.min(CHUNK, _outSampSD - i);
             const planar = new Float32Array(len * _nChSD);
             for (let c = 0; c < _nChSD; c++) {
-              const ch = _abSD.getChannelData(c);
-              for (let s = 0; s < len; s++) planar[c * len + s] = ch[i + s] || 0;
+              const _sdCh = _abSD.getChannelData(c);
+              for (let s = 0; s < len; s++) {
+                const _si = Math.min(Math.round((i + s) * _spd2), _sdCh.length - 1);
+                planar[c * len + s] = (_sdCh[_si] || 0) * _vol2;
+              }
             }
             const aframe = new AudioData({ format: 'f32-planar', sampleRate: 44100, numberOfFrames: len,
               numberOfChannels: _nChSD, timestamp: Math.round(i / 44100 * 1_000_000), data: planar });
@@ -2307,19 +2290,11 @@ function App() {
             _buf = _by.buffer;
           }
           const _ac = new OfflineAudioContext(2, Math.ceil(effectiveDuration * 44100), 44100);
-          const _rawHD = await _ac.decodeAudioData(_buf);
-          const _outSampHDtmp = Math.floor(44100 * outputDuration3);
-          const _offHD = new OfflineAudioContext(2, _outSampHDtmp, 44100);
-          const _bsrcHD = _offHD.createBufferSource();
-          _bsrcHD.buffer = _rawHD; _bsrcHD.playbackRate.value = _spd3;
-          const _gndHD = _offHD.createGain(); _gndHD.gain.value = _vol3;
-          _bsrcHD.connect(_gndHD); _gndHD.connect(_offHD.destination);
-          _bsrcHD.start(0);
-          _abHD = await _offHD.startRendering();
+          _abHD = await _ac.decodeAudioData(_buf);
         } catch(_e) { console.warn('Audio decode HD:', _e); }
       }
       const _nChHD = _abHD ? Math.min(_abHD.numberOfChannels, 2) : 2;
-      const _outSampHD = _abHD ? _abHD.length : Math.floor(44100 * outputDuration3);
+      const _outSampHD = Math.floor(44100 * outputDuration3);
       const target = new ArrayBufferTarget();
       const muxer = new Muxer({ target, video: { codec: 'avc', width: W, height: H },
         audio: _abHD ? { codec: 'aac', sampleRate: 44100, numberOfChannels: _nChHD } : undefined,
@@ -2346,8 +2321,11 @@ function App() {
             const len = Math.min(CHUNK, _outSampHD - i);
             const planar = new Float32Array(len * _nChHD);
             for (let c = 0; c < _nChHD; c++) {
-              const ch = _abHD.getChannelData(c);
-              for (let s = 0; s < len; s++) planar[c * len + s] = ch[i + s] || 0;
+              const _hdCh = _abHD.getChannelData(c);
+              for (let s = 0; s < len; s++) {
+                const _si = Math.min(Math.round((i + s) * _spd3), _hdCh.length - 1);
+                planar[c * len + s] = (_hdCh[_si] || 0) * _vol3;
+              }
             }
             const aframe = new AudioData({ format: 'f32-planar', sampleRate: 44100, numberOfFrames: len,
               numberOfChannels: _nChHD, timestamp: Math.round(i / 44100 * 1_000_000), data: planar });
@@ -2444,36 +2422,23 @@ function App() {
 
           const ac     = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 48000 });
           const buffer = await ac.decodeAudioData(audioBufferData);
-          // Decodifica → aplica velocidade + volume via OfflineAudioContext+GainNode
+          // Reamostragem manual: sem mudança de tom
           ac.close();
+          const _r4ch0 = buffer.getChannelData(0);
+          const _r4ch1 = buffer.numberOfChannels > 1 ? buffer.getChannelData(1) : _r4ch0;
           const outSamp4 = Math.floor(48000 * outputDuration4);
-          const offAc4 = new OfflineAudioContext(2, outSamp4, 48000);
-          const bsrc4 = offAc4.createBufferSource();
-          bsrc4.buffer = buffer;
-          bsrc4.playbackRate.value = _spd4;
-          const gnd4 = offAc4.createGain();
-          gnd4.gain.value = _vol4;
-          bsrc4.connect(gnd4); gnd4.connect(offAc4.destination);
-          bsrc4.start(0);
-          const procBuf4 = await offAc4.startRendering();
-          const pc0_4 = procBuf4.getChannelData(0);
-          const pc1_4 = procBuf4.numberOfChannels > 1 ? procBuf4.getChannelData(1) : pc0_4;
-          const block4 = 1200;
-          for (let pos = 0; pos < outSamp4; pos += block4) {
-            const len = Math.min(block4, outSamp4 - pos);
-            const interleaved = new Float32Array(len * 2);
-            for (let i = 0; i < len; i++) {
-              interleaved[i * 2]     = pc0_4[pos + i] || 0;
-              interleaved[i * 2 + 1] = pc1_4[pos + i] || 0;
+          const _blk4 = 1200;
+          for (let _op4 = 0; _op4 < outSamp4; _op4 += _blk4) {
+            const _bl4 = Math.min(_blk4, outSamp4 - _op4);
+            const _buf4 = new Float32Array(_bl4 * 2);
+            for (let _i = 0; _i < _bl4; _i++) {
+              const _si = Math.min(Math.round((_op4 + _i) * _spd4), _r4ch0.length - 1);
+              _buf4[_i * 2]     = (_r4ch0[_si] || 0) * _vol4;
+              _buf4[_i * 2 + 1] = (_r4ch1[_si] || 0) * _vol4;
             }
-            const audioDataObj = new AudioData({
-              format: 'f32', sampleRate: 48000, numberOfChannels: 2,
-              numberOfFrames: len,
-              timestamp: Math.round((pos / 48000) * 1_000_000),
-              data: interleaved.buffer,
-            });
-            aEncoder.encode(audioDataObj);
-            audioDataObj.close();
+            const _ad4 = new AudioData({ format: 'f32', sampleRate: 48000, numberOfChannels: 2,
+              numberOfFrames: _bl4, timestamp: Math.round((_op4 / 48000) * 1_000_000), data: _buf4.buffer });
+            aEncoder.encode(_ad4); _ad4.close();
           }
           await aEncoder.flush();
         } catch { aEncoder = null; }
@@ -2656,7 +2621,7 @@ function App() {
               {projectVolume === 0 ? '🔇' : projectVolume < 0.5 ? '🔉' : '🔊'} Vol
             </span>
             <input type="range" min={0} max={1} step={0.01} value={projectVolume}
-              onChange={e => setProjectVolume(+e.target.value)}
+              onChange={e => setVolume(+e.target.value)}
               onMouseDown={e => e.stopPropagation()}
               onPointerDown={e => e.stopPropagation()}
               style={{ width: 90, accentColor: '#00BFFF' }} />
@@ -2667,7 +2632,7 @@ function App() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <span style={{ fontSize: 11, color: '#00BFFF', fontWeight: 700, whiteSpace: 'nowrap' }}>⚡ Vel</span>
             <input type="range" min={0.25} max={4} step={0.05} value={projectSpeed}
-              onChange={e => setProjectSpeed(+e.target.value)}
+              onChange={e => setSpeed(+e.target.value)}
               onMouseDown={e => e.stopPropagation()}
               onPointerDown={e => e.stopPropagation()}
               style={{ width: 90, accentColor: '#00BFFF' }} />
