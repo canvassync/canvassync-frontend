@@ -2559,53 +2559,6 @@ function App() {
             <input ref={audioInputRef} type="file" onChange={handleAudioChange} accept="audio/*" style={{ color: '#f8fafc', fontSize: '11px' }} />
           </div>
 
-          {/* Volume do áudio do projeto */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', minWidth: 110 }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <label style={{ fontSize: '11px', color: '#00BFFF', fontWeight: 600, letterSpacing: '0.5px' }}>
-                {projectVolume === 0 ? '🔇' : projectVolume < 0.5 ? '🔉' : '🔊'} Volume
-              </label>
-              <span style={{ fontSize: 10, color: projectVolume !== 1 ? '#00BFFF' : '#555', fontWeight: 700 }}>{Math.round(projectVolume * 100)}%</span>
-            </div>
-            <input type="range" min={0} max={1} step={0.01} value={projectVolume}
-              onChange={e => setProjectVolume(+e.target.value)}
-              onMouseDown={e => e.stopPropagation()}
-              onPointerDown={e => e.stopPropagation()}
-              style={{ width: '100%', accentColor: '#00BFFF' }} />
-            <div style={{ display: 'flex', gap: 3 }}>
-              {[0, 0.5, 1].map(v => (
-                <button key={v} onClick={() => setProjectVolume(v)} style={{
-                  flex: 1, padding: '2px 0', fontSize: 10, borderRadius: 6, cursor: 'pointer', fontWeight: 600,
-                  background: projectVolume === v ? 'rgba(0,191,255,0.2)' : 'rgba(255,255,255,0.04)',
-                  border: `1px solid ${projectVolume === v ? 'rgba(0,191,255,0.5)' : 'rgba(255,255,255,0.07)'}`,
-                  color: projectVolume === v ? '#00BFFF' : '#555',
-                }}>{v === 0 ? '🔇' : `${v*100|0}%`}</button>
-              ))}
-            </div>
-          </div>
-
-          {/* Velocidade de reprodução do projeto */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', minWidth: 110 }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <label style={{ fontSize: '11px', color: '#00BFFF', fontWeight: 600, letterSpacing: '0.5px' }}>⚡ Velocidade</label>
-              <span style={{ fontSize: 10, color: projectSpeed !== 1 ? '#00BFFF' : '#555', fontWeight: 700 }}>{projectSpeed}×</span>
-            </div>
-            <input type="range" min={0.25} max={4} step={0.05} value={projectSpeed}
-              onChange={e => setProjectSpeed(+e.target.value)}
-              onMouseDown={e => e.stopPropagation()}
-              onPointerDown={e => e.stopPropagation()}
-              style={{ width: '100%', accentColor: '#00BFFF' }} />
-            <div style={{ display: 'flex', gap: 3 }}>
-              {[0.5, 1, 1.5, 2].map(s => (
-                <button key={s} onClick={() => setProjectSpeed(s)} style={{
-                  flex: 1, padding: '2px 0', fontSize: 10, borderRadius: 6, cursor: 'pointer', fontWeight: 600,
-                  background: projectSpeed === s ? 'rgba(0,191,255,0.2)' : 'rgba(255,255,255,0.04)',
-                  border: `1px solid ${projectSpeed === s ? 'rgba(0,191,255,0.5)' : 'rgba(255,255,255,0.07)'}`,
-                  color: projectSpeed === s ? '#00BFFF' : '#555',
-                }}>{s}×</button>
-              ))}
-            </div>
-          </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
             <label style={{ fontSize: '11px', color: '#a78bfa', fontWeight: 600, letterSpacing: '0.5px' }}>🎬 Vídeos</label>
             <input ref={videoInputRef} type="file" onChange={handleVideoUpload} accept="video/*" multiple style={{ color: '#aaa', fontSize: '11px' }} />
@@ -2636,6 +2589,33 @@ function App() {
           <button onClick={handleClearProject} style={{ background: 'rgba(239,68,68,0.07)', border: '1px solid rgba(239,68,68,0.25)', padding: '7px 14px', borderRadius: '14px', cursor: 'pointer', fontWeight: 'bold', fontSize: '11px', color: '#f87171' }}>
             {t('ed_clear_project')}
           </button>
+
+          {/* ── Separador vertical ── */}
+          <div style={{ width: 1, height: 36, background: 'rgba(255,255,255,0.07)', margin: '0 4px' }} />
+
+          {/* Volume do projeto */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ fontSize: 11, color: '#00BFFF', fontWeight: 700, whiteSpace: 'nowrap' }}>
+              {projectVolume === 0 ? '🔇' : projectVolume < 0.5 ? '🔉' : '🔊'} Vol
+            </span>
+            <input type="range" min={0} max={1} step={0.01} value={projectVolume}
+              onChange={e => setProjectVolume(+e.target.value)}
+              onMouseDown={e => e.stopPropagation()}
+              onPointerDown={e => e.stopPropagation()}
+              style={{ width: 90, accentColor: '#00BFFF' }} />
+            <span style={{ fontSize: 10, color: projectVolume !== 1 ? '#00BFFF' : '#555', minWidth: 30, fontWeight: 700 }}>{Math.round(projectVolume * 100)}%</span>
+          </div>
+
+          {/* Velocidade do projeto */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ fontSize: 11, color: '#00BFFF', fontWeight: 700, whiteSpace: 'nowrap' }}>⚡ Vel</span>
+            <input type="range" min={0.25} max={4} step={0.05} value={projectSpeed}
+              onChange={e => setProjectSpeed(+e.target.value)}
+              onMouseDown={e => e.stopPropagation()}
+              onPointerDown={e => e.stopPropagation()}
+              style={{ width: 90, accentColor: '#00BFFF' }} />
+            <span style={{ fontSize: 10, color: projectSpeed !== 1 ? '#00BFFF' : '#555', minWidth: 28, fontWeight: 700 }}>{projectSpeed}×</span>
+          </div>
         </div>
       </div>
 
