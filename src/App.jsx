@@ -1773,6 +1773,45 @@ function App() {
     }
   };
 
+  // ── OLA Time-Stretch: preserva tom + aplica volume ───────────────────────────
+  // chL/chR: Float32Array dos canais L e R decodificados
+  // speed: velocidade do projeto (0.25–4); volume: 0–1
+  // outLen: número de amostras esperado na saída
+  const _olaStretch = (chL, chR, speed, volume, outLen) => {
+    const frameSize = 1024;
+    const hopOut    = 512;
+    const hopSrc    = Math.round(hopOut * speed);  // avanço na fonte
+    const srcLen    = chL.length;
+    // Janela Hann
+    const hann = new Float32Array(frameSize);
+    for (let i = 0; i < frameSize; i++)
+      hann[i] = 0.5 * (1 - Math.cos(2 * Math.PI * i / (frameSize - 1)));
+    const outL = new Float32Array(outLen);
+    const outR = new Float32Array(outLen);
+    const norm = new Float32Array(outLen); // acumulador de janela p/ normalização
+    let srcPos = 0, outPos = 0;
+    while (outPos < outLen) {
+      for (let i = 0; i < frameSize; i++) {
+        const oi = outPos + i;
+        if (oi >= outLen) break;
+        const si = srcPos + i;
+        const w  = hann[i];
+        outL[oi] += (si < srcLen ? chL[si] : 0) * w;
+        outR[oi] += (si < srcLen ? chR[si] : 0) * w;
+        norm[oi] += w;
+      }
+      srcPos += hopSrc;
+      outPos += hopOut;
+    }
+    // Normaliza sobreposição e aplica volume por amostra
+    for (let i = 0; i < outLen; i++) {
+      const n = norm[i] > 1e-4 ? norm[i] : 1;
+      outL[i] = (outL[i] / n) * volume;
+      outR[i] = (outR[i] / n) * volume;
+    }
+    return [outL, outR];
+  };
+
   const handleSaveWebmOffline = async () => {
     const baseCanvas = canvasRef.current;
     if (!baseCanvas) return;
