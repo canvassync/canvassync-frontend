@@ -1875,7 +1875,7 @@ function App() {
             for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
             audioBufferData = bytes.buffer;
           }
-          // Decodifica + reamostra com interpolação linear + aplica volume
+          // Decodifica + reamostra linear + volume — f32-planar (obrigatorio no Chrome)
           const tmpAc1 = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 48000 });
           const rawBuf1 = await tmpAc1.decodeAudioData(audioBufferData);
           tmpAc1.close();
@@ -1886,21 +1886,22 @@ function App() {
           const _blk1 = 2400;
           for (let _op1 = 0; _op1 < outSamp1; _op1 += _blk1) {
             const _bl1 = Math.min(_blk1, outSamp1 - _op1);
-            const _buf1 = new Float32Array(_bl1 * 2);
+            const _planar1 = new Float32Array(_bl1 * 2);
             for (let _i = 0; _i < _bl1; _i++) {
               const _sp = (_op1 + _i) * _spd1;
-              const _si = Math.floor(_sp); const _fr = _sp - _si;
+              const _si = Math.min(Math.floor(_sp), _srcLen1 - 1);
               const _si2 = Math.min(_si + 1, _srcLen1 - 1);
-              const _s = Math.min(_si, _srcLen1 - 1);
-              _buf1[_i*2]   = (_c0_1[_s] + (_c0_1[_si2] - _c0_1[_s]) * _fr) * _vol1;
-              _buf1[_i*2+1] = (_c1_1[_s] + (_c1_1[_si2] - _c1_1[_s]) * _fr) * _vol1;
+              const _fr = _sp - Math.floor(_sp);
+              _planar1[_i]        = (_c0_1[_si] + (_c0_1[_si2] - _c0_1[_si]) * _fr) * _vol1;
+              _planar1[_bl1 + _i] = (_c1_1[_si] + (_c1_1[_si2] - _c1_1[_si]) * _fr) * _vol1;
             }
-            const _ad1 = new AudioData({ format: 'f32', sampleRate: 48000, numberOfChannels: 2,
-              numberOfFrames: _bl1, timestamp: Math.round((_op1/48000)*1_000_000), data: _buf1.buffer });
+            const _ad1 = new AudioData({ format: 'f32-planar', sampleRate: 48000, numberOfChannels: 2,
+              numberOfFrames: _bl1, timestamp: Math.round((_op1/48000)*1_000_000), data: _planar1.buffer });
             aEncoder.encode(_ad1); _ad1.close();
           }
           await aEncoder.flush();
-        } catch {
+        } catch(e) {
+          console.error('[WEBM SD Audio]', e);
           aEncoder = null;
         }
       }
@@ -2244,7 +2245,7 @@ function App() {
             aenc.encode(aframe); aframe.close();
           }
           await aenc.flush();
-        } catch(e) { console.warn('Audio MP4 encode failed:', e); }
+        } catch(e) { console.error('[MP4 SD Audio]', e); }
       }
       muxer.finalize();
       setExportProgress(1);
@@ -2345,7 +2346,7 @@ function App() {
             aenc.encode(aframe); aframe.close();
           }
           await aenc.flush();
-        } catch(e) { console.warn('Audio HD MP4 encode failed:', e); }
+        } catch(e) { console.error('[MP4 HD Audio]', e); }
       }
       muxer.finalize();
       setExportProgress(1);
@@ -2435,7 +2436,7 @@ function App() {
 
           const ac     = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 48000 });
           const buffer = await ac.decodeAudioData(audioBufferData);
-          // Interpolação linear com volume
+          // Interpolacao linear + volume — f32-planar (obrigatorio no Chrome)
           ac.close();
           const _c0_4 = buffer.getChannelData(0);
           const _c1_4 = buffer.numberOfChannels > 1 ? buffer.getChannelData(1) : _c0_4;
@@ -2444,21 +2445,24 @@ function App() {
           const _blk4 = 2400;
           for (let _op4 = 0; _op4 < outSamp4; _op4 += _blk4) {
             const _bl4 = Math.min(_blk4, outSamp4 - _op4);
-            const _buf4 = new Float32Array(_bl4 * 2);
+            const _planar4 = new Float32Array(_bl4 * 2);
             for (let _i = 0; _i < _bl4; _i++) {
               const _sp = (_op4 + _i) * _spd4;
               const _si = Math.min(Math.floor(_sp), _srcLen4 - 1);
               const _si2 = Math.min(_si + 1, _srcLen4 - 1);
               const _fr = _sp - Math.floor(_sp);
-              _buf4[_i*2]   = (_c0_4[_si] + (_c0_4[_si2] - _c0_4[_si]) * _fr) * _vol4;
-              _buf4[_i*2+1] = (_c1_4[_si] + (_c1_4[_si2] - _c1_4[_si]) * _fr) * _vol4;
+              _planar4[_i]        = (_c0_4[_si] + (_c0_4[_si2] - _c0_4[_si]) * _fr) * _vol4;
+              _planar4[_bl4 + _i] = (_c1_4[_si] + (_c1_4[_si2] - _c1_4[_si]) * _fr) * _vol4;
             }
-            const _ad4 = new AudioData({ format: 'f32', sampleRate: 48000, numberOfChannels: 2,
-              numberOfFrames: _bl4, timestamp: Math.round((_op4/48000)*1_000_000), data: _buf4.buffer });
+            const _ad4 = new AudioData({ format: 'f32-planar', sampleRate: 48000, numberOfChannels: 2,
+              numberOfFrames: _bl4, timestamp: Math.round((_op4/48000)*1_000_000), data: _planar4.buffer });
             aEncoder.encode(_ad4); _ad4.close();
           }
           await aEncoder.flush();
-        } catch { aEncoder = null; }
+        } catch(e) {
+          console.error('[WEBM HD Audio]', e);
+          aEncoder = null;
+        }
       }
 
       // Frames HD
