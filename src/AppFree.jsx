@@ -131,19 +131,21 @@ function AppFree() {
     const files = Array.from(e.target.files || []);
     if (!files.length) return;
     const results = await Promise.all(files.map(readFileAsDataUrl));
-    setImages(prev => {
-      const newItems = results.map((src, index) => {
-        const img = new Image();
-        const id  = Date.now() + index;
-        img.onload = () => {
-          const placement = buildImagePlacement(img);
-          setImages(prev2 => prev2.map(item => item.id === id ? { ...item, ...placement } : item));
-        };
-        img.src = src;
-        return { id, src, img, x: 40, y: 60, width: 180, height: 180, radius: 18 };
-      });
-      return [...prev, ...newItems];
-    });
+    // Carrega todas as imagens ANTES de adicionar ao estado — evita drawImage com img não carregada
+    const loaded = await Promise.all(results.map((src, index) => new Promise((resolve) => {
+      const img = new Image();
+      const id  = Date.now() + index;
+      img.onload = () => {
+        const placement = buildImagePlacement(img);
+        resolve({ id, src, img, ...placement });
+      };
+      img.onerror = () => {
+        // Fallback se a imagem falhar: adiciona com tamanho padrão
+        resolve({ id, src, img, x: 40, y: 60, width: 180, height: 180, radius: 18 });
+      };
+      img.src = src;
+    })));
+    setImages(prev => [...prev, ...loaded]);
     e.target.value = '';
   };
 
@@ -314,7 +316,7 @@ function AppFree() {
 
     // Imagens sobrepostas (todas visíveis — sem timeline no Free)
     images.forEach(item => {
-      if (!item?.img) return;
+      if (!item?.img || !item.img.complete || item.img.naturalWidth === 0) return;
       drawRoundedImage(ctx, item.img, item.x, item.y, item.width, item.height, item.radius ?? 18);
       if (activeImageId === item.id) {
         ctx.save();
@@ -474,19 +476,31 @@ function AppFree() {
         display: 'flex', flexDirection: 'column', height: '100vh', width: '100vw',
         background: '#080808', color: '#f0f0f0',
         fontFamily: "'DM Sans', 'Poppins', system-ui, sans-serif",
-        overflow: 'hidden', position: 'fixed', top: 0, left: 0,
+        overflowX: 'hidden', overflowY: 'auto', position: 'fixed', top: 0, left: 0,
       }}
       onMouseMove={handleGlobalMouseMove}
       onMouseUp={handleGlobalMouseUp}
+      onTouchMove={e => {
+        const t = e.touches[0];
+        handleGlobalMouseMove({ clientX: t.clientX, clientY: t.clientY });
+      }}
+      onTouchEnd={handleGlobalMouseUp}
     >
       <style>{`
         .free-scrollbar::-webkit-scrollbar { width: 8px; }
         .free-scrollbar::-webkit-scrollbar-track { background: #0a0a0a; border-radius: 10px; }
         .free-scrollbar::-webkit-scrollbar-thumb { background: #00BFFF; border-radius: 10px; border: 2px solid #0a0a0a; }
+        @media (max-width: 700px) {
+          .free-body { flex-direction: column !important; overflow-y: auto !important; overflow-x: hidden !important; }
+          .free-panel { width: 100% !important; min-width: 0 !important; border-right: none !important; border-bottom: 1px solid rgba(255,255,255,0.07) !important; max-height: 55vh !important; }
+          .free-canvas-area { flex: none !important; width: 100% !important; min-height: 55vw !important; padding: 12px 0 !important; }
+          .free-canvas-area canvas { max-height: 70vw !important; max-width: 90vw !important; }
+          .free-header-scroll { overflow-x: auto !important; flex-wrap: nowrap !important; }
+        }
       `}</style>
 
       {/* ══ HEADER ══════════════════════════════════════════════════════════════ */}
-      <div style={{
+      <div className="free-header-scroll" style={{
         display: 'flex', flexWrap: 'wrap', gap: '12px', padding: '12px 18px',
         background: 'rgba(8,8,8,0.97)', borderBottom: '1px solid rgba(0,191,255,0.12)',
         fontSize: '12px', alignItems: 'center', width: '100%', boxSizing: 'border-box',
@@ -556,10 +570,10 @@ function AppFree() {
       </div>
 
       {/* ══ BODY ════════════════════════════════════════════════════════════════ */}
-      <div style={{ display: 'flex', flex: 1, width: '100%', overflow: 'hidden' }}>
+      <div className="free-body free-scrollbar" style={{ display: 'flex', flex: 1, width: '100%', overflow: 'hidden' }}>
 
         {/* ── PAINEL ESQUERDO ──────────────────────────────────────────────── */}
-        <div className="free-scrollbar" style={{
+        <div className="free-panel free-scrollbar" style={{
           width: '360px', minWidth: '360px',
           borderRight: '1px solid rgba(255,255,255,0.07)',
           display: 'flex', flexDirection: 'column',
@@ -715,6 +729,7 @@ function AppFree() {
 
         {/* ── PREVIEW CENTRO ───────────────────────────────────────────────── */}
         <div
+          className="free-canvas-area"
           ref={canvasContainerRef}
           style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#090909', position: 'relative' }}
         >
@@ -723,6 +738,11 @@ function AppFree() {
             width={270}
             height={480}
             onMouseDown={handleCanvasMouseDown}
+            onTouchStart={e => {
+              e.preventDefault();
+              const t = e.touches[0];
+              handleCanvasMouseDown({ clientX: t.clientX, clientY: t.clientY, preventDefault: () => {} });
+            }}
             onContextMenu={e => {
               e.preventDefault();
               const canvas = canvasRef.current;
