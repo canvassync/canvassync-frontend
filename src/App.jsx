@@ -22,20 +22,43 @@ function App() {
   const [imageSrc, setImageSrc] = useState(null);
   const [images, setImages] = useState([]);
   const [activeImageId, setActiveImageId] = useState(null);
-  // Filtros de imagem — armazenados por imagem em images[i].filters
+
+  // ── Helpers: filtros CSS e transições ───────────────────────────────────────
   const buildFilterString = (f) => {
     if (!f) return 'none';
-    const parts = [];
-    if (f.brightness !== undefined && f.brightness !== 100) parts.push(`brightness(${f.brightness}%)`);
-    if (f.contrast   !== undefined && f.contrast   !== 100) parts.push(`contrast(${f.contrast}%)`);
-    if (f.saturate   !== undefined && f.saturate   !== 100) parts.push(`saturate(${f.saturate}%)`);
-    if (f.hueRotate  !== undefined && f.hueRotate  !== 0)   parts.push(`hue-rotate(${f.hueRotate}deg)`);
-    if (f.blur       !== undefined && f.blur       !== 0)   parts.push(`blur(${f.blur}px)`);
-    if (f.sepia      !== undefined && f.sepia      !== 0)   parts.push(`sepia(${f.sepia}%)`);
-    if (f.grayscale  !== undefined && f.grayscale  !== 0)   parts.push(`grayscale(${f.grayscale}%)`);
-    if (f.invert     !== undefined && f.invert     !== 0)   parts.push(`invert(${f.invert}%)`);
-    if (f.opacity    !== undefined && f.opacity    !== 100) parts.push(`opacity(${f.opacity}%)`);
-    return parts.length ? parts.join(' ') : 'none';
+    const p = [];
+    if (f.brightness !== undefined && f.brightness !== 100) p.push(`brightness(${f.brightness}%)`);
+    if (f.contrast   !== undefined && f.contrast   !== 100) p.push(`contrast(${f.contrast}%)`);
+    if (f.saturate   !== undefined && f.saturate   !== 100) p.push(`saturate(${f.saturate}%)`);
+    if (f.hueRotate  !== undefined && f.hueRotate  !== 0)   p.push(`hue-rotate(${f.hueRotate}deg)`);
+    if (f.blur       !== undefined && f.blur       !== 0)   p.push(`blur(${f.blur}px)`);
+    if (f.sepia      !== undefined && f.sepia      !== 0)   p.push(`sepia(${f.sepia}%)`);
+    if (f.grayscale  !== undefined && f.grayscale  !== 0)   p.push(`grayscale(${f.grayscale}%)`);
+    if (f.opacity    !== undefined && f.opacity    !== 100) p.push(`opacity(${f.opacity}%)`);
+    return p.length ? p.join(' ') : 'none';
+  };
+  // Retorna { alpha, tx, ty, scale } para aplicar antes de drawRotatedElement
+  const getTransitionTransform = (item, t) => {
+    const tr   = item.transition   || 'none';
+    const dur  = item.transitionDur !== undefined ? item.transitionDur : 0.35;
+    if (tr === 'none' || dur === 0) return null;
+    const eIn  = Math.min(1, Math.max(0, (t - item.start) / dur));
+    const eOut = Math.min(1, Math.max(0, (item.end   - t)  / dur));
+    const ease = x => 1 - Math.pow(1 - x, 3); // cubic ease-out
+    const pi   = ease(eIn);
+    const po   = ease(eOut);
+    const prog = Math.min(pi, po); // 0→1→0 over lifetime
+    if (tr === 'fade')       return { alpha: prog, tx: 0,  ty: 0,  scale: 1 };
+    if (tr === 'slide-up')   return { alpha: prog, tx: 0,  ty: (1 - prog) * 60 * (eIn < 1 ? 1 : -1), scale: 1 };
+    if (tr === 'slide-down') return { alpha: prog, tx: 0,  ty: -(1 - prog) * 60 * (eIn < 1 ? 1 : -1), scale: 1 };
+    if (tr === 'slide-left') return { alpha: prog, tx: (1 - prog) * 60 * (eIn < 1 ? 1 : -1),  ty: 0,  scale: 1 };
+    if (tr === 'zoom')       return { alpha: prog, tx: 0,  ty: 0,  scale: 0.5 + 0.5 * prog };
+    if (tr === 'zoom-out')   return { alpha: prog, tx: 0,  ty: 0,  scale: 1 + 0.5 * (1 - prog) };
+    if (tr === 'blur-in') {
+      const blurVal = (1 - prog) * 12;
+      return { alpha: 1, tx: 0, ty: 0, scale: 1, filterOverride: `blur(${blurVal.toFixed(1)}px)` };
+    }
+    return null;
   };
   const [videos, setVideos] = useState([]);      // { id, src, videoEl, start, end, x, y, width, height, radius, muted }
   const [activeVideoId, setActiveVideoId] = useState(null);
@@ -1187,9 +1210,19 @@ function App() {
 
     // Desenha TODOS os vídeos ativos (abaixo das imagens)
     getVideosForTime(time).forEach(v => {
-      if (!v.videoEl || v.videoEl.readyState < 1) return; // readyState>=1: mantém frame durante seek
+      if (!v.videoEl || v.videoEl.readyState < 1) return;
       const vRot = (v.rotation || 0) * Math.PI / 180;
+      const _vf  = buildFilterString(v.filters);
+      const _vtr = getTransitionTransform(v, time);
+      ctx.save();
+      if (_vtr) {
+        ctx.globalAlpha = _vtr.alpha;
+        if (_vtr.filterOverride) ctx.filter = _vtr.filterOverride;
+        else if (_vf !== 'none') ctx.filter = _vf;
+        if (_vtr.scale !== 1) { const cx=v.x+v.width/2,cy=v.y+v.height/2; ctx.translate(cx+_vtr.tx,cy+_vtr.ty); ctx.scale(_vtr.scale,_vtr.scale); ctx.translate(-cx,-cy); } else { ctx.translate(_vtr.tx,_vtr.ty); }
+      } else if (_vf !== 'none') { ctx.filter = _vf; }
       drawRotatedElement(ctx, () => drawRoundedImage(ctx, v.videoEl, v.x, v.y, v.width, v.height, v.radius ?? 12), v.x, v.y, v.width, v.height, v.rotation);
+      ctx.filter = 'none'; ctx.restore();
       if (activeVideoId === v.id) {
         const cx = v.x + v.width / 2, cy = v.y + v.height / 2;
         ctx.save();
@@ -1207,10 +1240,17 @@ function App() {
     const overlayImages = getImagesForTime(time);
     overlayImages.forEach(overlayImage => {
       const iRot = (overlayImage.rotation || 0) * Math.PI / 180;
-      const _imgFilter = buildFilterString(overlayImage.filters);
-      if (_imgFilter !== 'none') ctx.filter = _imgFilter;
+      const _if  = buildFilterString(overlayImage.filters);
+      const _itr = getTransitionTransform(overlayImage, time);
+      ctx.save();
+      if (_itr) {
+        ctx.globalAlpha = _itr.alpha;
+        if (_itr.filterOverride) ctx.filter = _itr.filterOverride;
+        else if (_if !== 'none') ctx.filter = _if;
+        if (_itr.scale !== 1) { const cx=overlayImage.x+overlayImage.width/2,cy=overlayImage.y+overlayImage.height/2; ctx.translate(cx+_itr.tx,cy+_itr.ty); ctx.scale(_itr.scale,_itr.scale); ctx.translate(-cx,-cy); } else { ctx.translate(_itr.tx,_itr.ty); }
+      } else if (_if !== 'none') { ctx.filter = _if; }
       drawRotatedElement(ctx, () => drawRoundedImage(ctx, overlayImage.img, overlayImage.x, overlayImage.y, overlayImage.width, overlayImage.height, overlayImage.radius ?? 18), overlayImage.x, overlayImage.y, overlayImage.width, overlayImage.height, overlayImage.rotation);
-      ctx.filter = 'none';
+      ctx.filter = 'none'; ctx.restore();
       if (activeImageId === overlayImage.id) {
         const cx = overlayImage.x + overlayImage.width / 2, cy = overlayImage.y + overlayImage.height / 2;
         ctx.save();
@@ -1534,14 +1574,21 @@ function App() {
     })));
     activeVids.forEach(v => {
       if (!v.videoEl || v.videoEl.readyState < 1) return;
+      const _evf = buildFilterString(v.filters);
+      const _etr = getTransitionTransform(v, t);
+      ctx.save();
+      if (_etr) { ctx.globalAlpha=_etr.alpha; if(_etr.filterOverride) ctx.filter=_etr.filterOverride; else if(_evf!=='none') ctx.filter=_evf; if(_etr.scale!==1){const cx=v.x+v.width/2,cy=v.y+v.height/2;ctx.translate(cx+_etr.tx,cy+_etr.ty);ctx.scale(_etr.scale,_etr.scale);ctx.translate(-cx,-cy);}else{ctx.translate(_etr.tx,_etr.ty);} } else if(_evf!=='none'){ctx.filter=_evf;}
       drawRotatedElement(ctx, () => drawRoundedImage(ctx, v.videoEl, v.x, v.y, v.width, v.height, v.radius ?? 12), v.x, v.y, v.width, v.height, v.rotation);
+      ctx.filter='none'; ctx.restore();
     });
     // Renderiza TODAS as imagens ativas no instante t
     getImagesForTime(t).forEach(overlayImage => {
-      const _expFilter = buildFilterString(overlayImage.filters);
-      if (_expFilter !== 'none') ctx.filter = _expFilter;
+      const _eif = buildFilterString(overlayImage.filters);
+      const _eit = getTransitionTransform(overlayImage, t);
+      ctx.save();
+      if (_eit) { ctx.globalAlpha=_eit.alpha; if(_eit.filterOverride) ctx.filter=_eit.filterOverride; else if(_eif!=='none') ctx.filter=_eif; if(_eit.scale!==1){const cx=overlayImage.x+overlayImage.width/2,cy=overlayImage.y+overlayImage.height/2;ctx.translate(cx+_eit.tx,cy+_eit.ty);ctx.scale(_eit.scale,_eit.scale);ctx.translate(-cx,-cy);}else{ctx.translate(_eit.tx,_eit.ty);} } else if(_eif!=='none'){ctx.filter=_eif;}
       drawRotatedElement(ctx, () => drawRoundedImage(ctx, overlayImage.img, overlayImage.x, overlayImage.y, overlayImage.width, overlayImage.height, overlayImage.radius ?? 18), overlayImage.x, overlayImage.y, overlayImage.width, overlayImage.height, overlayImage.rotation);
-      ctx.filter = 'none';
+      ctx.filter='none'; ctx.restore();
     });
     ctx.fillStyle = textColor;
     ctx.textAlign = 'center';
@@ -2496,14 +2543,23 @@ function App() {
                   ))}
                 </div>
 
-                {/* ── FILTROS DE IMAGEM — só para imagens, não vídeos ── */}
-                {!isVid && (() => {
-                  const flt = selImg?.filters || {};
-                  const setF = (prop, val) => setImages(prev => prev.map(i =>
-                    i.id === sel.id ? { ...i, filters: { ...(i.filters || {}), [prop]: val } } : i
-                  ));
-                  const resetF = () => setImages(prev => prev.map(i => i.id === sel.id ? { ...i, filters: {} } : i));
-
+                {/* ── FILTROS ── */}
+                {(() => {
+                  const accent = isVid ? '#a78bfa' : '#fbbf24';
+                  const accentBg = isVid ? 'rgba(167,139,250,' : 'rgba(251,191,36,';
+                  const flt = sel.filters || {};
+                  const setF = (prop, val) => {
+                    if (isVid) setVideos(prev => prev.map(v => v.id === sel.id ? { ...v, filters: { ...(v.filters||{}), [prop]: val } } : v));
+                    else       setImages(prev => prev.map(i => i.id === sel.id ? { ...i, filters: { ...(i.filters||{}), [prop]: val } } : i));
+                  };
+                  const resetF = () => {
+                    if (isVid) setVideos(prev => prev.map(v => v.id === sel.id ? { ...v, filters: {} } : v));
+                    else       setImages(prev => prev.map(i => i.id === sel.id ? { ...i, filters: {} } : i));
+                  };
+                  const setPreset = (f) => {
+                    if (isVid) setVideos(prev => prev.map(v => v.id === sel.id ? { ...v, filters: f } : v));
+                    else       setImages(prev => prev.map(i => i.id === sel.id ? { ...i, filters: f } : i));
+                  };
                   const PRESETS = [
                     { label: 'Original', f: {} },
                     { label: 'P&B',      f: { grayscale: 100 } },
@@ -2516,58 +2572,43 @@ function App() {
                     { label: 'Fade',     f: { brightness: 130, saturate: 60, contrast: 85 } },
                     { label: 'Dramático',f: { contrast: 150, saturate: 50, brightness: 90 } },
                   ];
-                  const isPreset = (pf) => JSON.stringify(flt) === JSON.stringify(pf);
-
                   const SLIDERS = [
-                    { key: 'brightness', label: 'Brilho',     min: 0,   max: 200, def: 100, unit: '%' },
-                    { key: 'contrast',   label: 'Contraste',  min: 0,   max: 200, def: 100, unit: '%' },
-                    { key: 'saturate',   label: 'Saturação',  min: 0,   max: 300, def: 100, unit: '%' },
-                    { key: 'hueRotate',  label: 'Matiz',      min: 0,   max: 360, def: 0,   unit: '°' },
-                    { key: 'blur',       label: 'Desfoque',   min: 0,   max: 20,  def: 0,   unit: 'px' },
-                    { key: 'sepia',      label: 'Sépia',      min: 0,   max: 100, def: 0,   unit: '%' },
-                    { key: 'grayscale',  label: 'P&B',        min: 0,   max: 100, def: 0,   unit: '%' },
-                    { key: 'opacity',    label: 'Opacidade',  min: 0,   max: 100, def: 100, unit: '%' },
+                    { key: 'brightness', label: 'Brilho',    min: 0,   max: 200, def: 100, unit: '%' },
+                    { key: 'contrast',   label: 'Contraste', min: 0,   max: 200, def: 100, unit: '%' },
+                    { key: 'saturate',   label: 'Saturação', min: 0,   max: 300, def: 100, unit: '%' },
+                    { key: 'hueRotate',  label: 'Matiz',     min: 0,   max: 360, def: 0,   unit: '°' },
+                    { key: 'blur',       label: 'Desfoque',  min: 0,   max: 20,  def: 0,   unit: 'px' },
+                    { key: 'sepia',      label: 'Sépia',     min: 0,   max: 100, def: 0,   unit: '%' },
+                    { key: 'grayscale',  label: 'P&B',       min: 0,   max: 100, def: 0,   unit: '%' },
+                    { key: 'opacity',    label: 'Opacidade', min: 0,   max: 100, def: 100, unit: '%' },
                   ];
-
+                  const isPreset = (pf) => JSON.stringify(flt) === JSON.stringify(pf);
                   return (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, background: 'rgba(251,191,36,0.04)', border: '1px solid rgba(251,191,36,0.15)', borderRadius: 12, padding: '10px 12px', marginTop: 2 }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, background: `${accentBg}0.04)`, border: `1px solid ${accentBg}0.18)`, borderRadius: 12, padding: '10px 12px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                        <span style={{ fontSize: 11, color: '#fbbf24', fontWeight: 700, letterSpacing: '0.5px' }}>🎨 FILTROS</span>
+                        <span style={{ fontSize: 11, color: accent, fontWeight: 700, letterSpacing: '0.5px' }}>🎨 FILTROS</span>
                         <button onClick={resetF} style={{ background: 'none', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, padding: '2px 8px', fontSize: 10, color: '#666', cursor: 'pointer' }}>Resetar</button>
                       </div>
-
-                      {/* Presets */}
                       <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
                         {PRESETS.map(({ label, f }) => (
-                          <button key={label}
-                            onClick={() => setImages(prev => prev.map(i => i.id === sel.id ? { ...i, filters: f } : i))}
-                            style={{
-                              padding: '3px 9px', fontSize: 10, borderRadius: 8, cursor: 'pointer', fontWeight: 600,
-                              background: isPreset(f) ? 'rgba(251,191,36,0.25)' : 'rgba(255,255,255,0.04)',
-                              border: `1px solid ${isPreset(f) ? 'rgba(251,191,36,0.6)' : 'rgba(255,255,255,0.08)'}`,
-                              color: isPreset(f) ? '#fbbf24' : '#666',
-                            }}>
-                            {label}
-                          </button>
+                          <button key={label} onClick={() => setPreset(f)} style={{
+                            padding: '3px 9px', fontSize: 10, borderRadius: 8, cursor: 'pointer', fontWeight: 600,
+                            background: isPreset(f) ? `${accentBg}0.25)` : 'rgba(255,255,255,0.04)',
+                            border: `1px solid ${isPreset(f) ? `${accentBg}0.6)` : 'rgba(255,255,255,0.08)'}`,
+                            color: isPreset(f) ? accent : '#666',
+                          }}>{label}</button>
                         ))}
                       </div>
-
-                      {/* Sliders */}
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
                         {SLIDERS.map(({ key, label, min, max, def, unit }) => {
                           const val = flt[key] !== undefined ? flt[key] : def;
                           const changed = val !== def;
                           return (
                             <div key={key} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                              <span style={{ fontSize: 10, color: changed ? '#fbbf24' : '#555', minWidth: 60, fontWeight: changed ? 700 : 400 }}>{label}</span>
-                              <input type="range" min={min} max={max} value={val}
-                                onChange={e => setF(key, +e.target.value)}
-                                style={{ flex: 1, accentColor: '#fbbf24', height: 3 }} />
-                              <span style={{ fontSize: 10, color: changed ? '#fbbf24' : '#555', minWidth: 36, textAlign: 'right' }}>{val}{unit}</span>
-                              {changed && (
-                                <button onClick={() => setF(key, def)}
-                                  style={{ background: 'none', border: 'none', color: '#555', cursor: 'pointer', fontSize: 12, padding: '0 2px', lineHeight: 1 }}>↺</button>
-                              )}
+                              <span style={{ fontSize: 10, color: changed ? accent : '#555', minWidth: 60, fontWeight: changed ? 700 : 400 }}>{label}</span>
+                              <input type="range" min={min} max={max} value={val} onChange={e => setF(key, +e.target.value)} style={{ flex: 1, accentColor: accent, height: 3 }} />
+                              <span style={{ fontSize: 10, color: changed ? accent : '#555', minWidth: 36, textAlign: 'right' }}>{val}{unit}</span>
+                              {changed && <button onClick={() => setF(key, def)} style={{ background: 'none', border: 'none', color: '#555', cursor: 'pointer', fontSize: 12, padding: '0 2px' }}>↺</button>}
                             </div>
                           );
                         })}
@@ -2575,6 +2616,57 @@ function App() {
                     </div>
                   );
                 })()}
+
+                {/* ── TRANSIÇÕES ── */}
+                {(() => {
+                  const accent = isVid ? '#a78bfa' : '#fbbf24';
+                  const accentBg = isVid ? 'rgba(167,139,250,' : 'rgba(251,191,36,';
+                  const curTr  = sel.transition    || 'none';
+                  const curDur = sel.transitionDur !== undefined ? sel.transitionDur : 0.35;
+                  const setTr = (val) => {
+                    if (isVid) setVideos(prev => prev.map(v => v.id === sel.id ? { ...v, transition: val } : v));
+                    else       setImages(prev => prev.map(i => i.id === sel.id ? { ...i, transition: val } : i));
+                  };
+                  const setDur = (val) => {
+                    if (isVid) setVideos(prev => prev.map(v => v.id === sel.id ? { ...v, transitionDur: val } : v));
+                    else       setImages(prev => prev.map(i => i.id === sel.id ? { ...i, transitionDur: val } : i));
+                  };
+                  const TRANSITIONS = [
+                    { value: 'none',       label: 'Nenhuma' },
+                    { value: 'fade',       label: 'Fade' },
+                    { value: 'slide-up',   label: 'Slide ↑' },
+                    { value: 'slide-down', label: 'Slide ↓' },
+                    { value: 'slide-left', label: 'Slide ←' },
+                    { value: 'zoom',       label: 'Zoom In' },
+                    { value: 'zoom-out',   label: 'Zoom Out' },
+                    { value: 'blur-in',    label: 'Blur' },
+                  ];
+                  return (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, background: `${accentBg}0.04)`, border: `1px solid ${accentBg}0.18)`, borderRadius: 12, padding: '10px 12px' }}>
+                      <span style={{ fontSize: 11, color: accent, fontWeight: 700, letterSpacing: '0.5px' }}>✨ TRANSIÇÃO (entrada/saída)</span>
+                      <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
+                        {TRANSITIONS.map(({ value, label }) => (
+                          <button key={value} onClick={() => setTr(value)} style={{
+                            padding: '4px 10px', fontSize: 10, borderRadius: 8, cursor: 'pointer', fontWeight: 600,
+                            background: curTr === value ? `${accentBg}0.25)` : 'rgba(255,255,255,0.04)',
+                            border: `1px solid ${curTr === value ? `${accentBg}0.6)` : 'rgba(255,255,255,0.08)'}`,
+                            color: curTr === value ? accent : '#666',
+                          }}>{label}</button>
+                        ))}
+                      </div>
+                      {curTr !== 'none' && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <span style={{ fontSize: 10, color: '#555', minWidth: 60 }}>Duração</span>
+                          <input type="range" min={0.1} max={1.5} step={0.05} value={curDur}
+                            onChange={e => setDur(+e.target.value)}
+                            style={{ flex: 1, accentColor: accent }} />
+                          <span style={{ fontSize: 10, color: accent, minWidth: 36, textAlign: 'right' }}>{curDur.toFixed(2)}s</span>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
+
               </div>
             );
           })()}
