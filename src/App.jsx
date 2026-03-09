@@ -9,6 +9,8 @@ function App() {
   const [audioSrc, setAudioSrc] = useState(null);
   const [projectVolume, setProjectVolume] = useState(1);    // 0–1
   const [projectSpeed,  setProjectSpeed]  = useState(1);    // 0.25–4
+  const projectVolumeRef = useRef(1);
+  const projectSpeedRef  = useRef(1);
   const [lyrics, setLyrics] = useState([]);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
@@ -1598,17 +1600,16 @@ function App() {
     return () => audio.removeEventListener('timeupdate', onTime);
   }, [audioSrc]);
 
-  // Sincroniza volume e velocidade com o elemento <audio>
-  // audioSrc na dependência garante re-aplicação após import/troca de áudio
+  // Mantém refs sempre atualizados + aplica imediatamente no elemento <audio>
   useEffect(() => {
-    if (!audioRef.current) return;
-    audioRef.current.volume = Math.max(0, Math.min(1, projectVolume));
-  }, [projectVolume, audioSrc]);
+    projectVolumeRef.current = projectVolume;
+    if (audioRef.current) audioRef.current.volume = Math.max(0, Math.min(1, projectVolume));
+  }, [projectVolume]);
 
   useEffect(() => {
-    if (!audioRef.current) return;
-    audioRef.current.playbackRate = Math.max(0.25, Math.min(4, projectSpeed));
-  }, [projectSpeed, audioSrc]);
+    projectSpeedRef.current = projectSpeed;
+    if (audioRef.current) audioRef.current.playbackRate = Math.max(0.25, Math.min(4, projectSpeed));
+  }, [projectSpeed]);
 
   const renderAtTimeToCanvas = async (targetCanvas, t, scale = 1) => {
     const ctx = targetCanvas.getContext('2d');
@@ -1829,8 +1830,8 @@ function App() {
       return 3;
     })();
     if (!effectiveDuration || effectiveDuration <= 0) return;
-    const _spd1 = Math.max(0.25, Math.min(4, projectSpeed));
-    const _vol1 = Math.max(0, Math.min(1, projectVolume));
+    const _spd1 = Math.max(0.25, Math.min(4, projectSpeedRef.current));
+    const _vol1 = Math.max(0, Math.min(1, projectVolumeRef.current));
     const outputDuration1 = effectiveDuration / _spd1;
     // Pausa todos os vídeos antes de exportar
     videosRef.current.forEach(v => { if (v.videoEl && !v.videoEl.paused) v.videoEl.pause(); });
@@ -2183,8 +2184,8 @@ function App() {
       return 3;
     })();
     if (!effectiveDuration || effectiveDuration <= 0) return;
-    const _spd2 = Math.max(0.25, Math.min(4, projectSpeed));
-    const _vol2 = Math.max(0, Math.min(1, projectVolume));
+    const _spd2 = Math.max(0.25, Math.min(4, projectSpeedRef.current));
+    const _vol2 = Math.max(0, Math.min(1, projectVolumeRef.current));
     const outputDuration2 = effectiveDuration / _spd2;
     setIsExporting(true); setExportProgress(0);
     try {
@@ -2283,8 +2284,8 @@ function App() {
       return 3;
     })();
     if (!effectiveDuration || effectiveDuration <= 0) return;
-    const _spd3 = Math.max(0.25, Math.min(4, projectSpeed));
-    const _vol3 = Math.max(0, Math.min(1, projectVolume));
+    const _spd3 = Math.max(0.25, Math.min(4, projectSpeedRef.current));
+    const _vol3 = Math.max(0, Math.min(1, projectVolumeRef.current));
     const outputDuration3 = effectiveDuration / _spd3;
     setIsExporting(true); setExportProgress(0);
     try {
@@ -2385,8 +2386,8 @@ function App() {
       return 3;
     })();
     if (!effectiveDuration || effectiveDuration <= 0) return;
-    const _spd4 = Math.max(0.25, Math.min(4, projectSpeed));
-    const _vol4 = Math.max(0, Math.min(1, projectVolume));
+    const _spd4 = Math.max(0.25, Math.min(4, projectSpeedRef.current));
+    const _vol4 = Math.max(0, Math.min(1, projectVolumeRef.current));
     const outputDuration4 = effectiveDuration / _spd4;
 
     const SCALE = 4; // 270×480 → 1080×1920
@@ -3256,6 +3257,8 @@ function App() {
                   }
                 });
                 if (audio) {
+                  audio.volume       = Math.max(0, Math.min(1, projectVolumeRef.current));
+                  audio.playbackRate = Math.max(0.25, Math.min(4, projectSpeedRef.current));
                   audio.play().catch(() => {});
                 } else {
                   // Sem áudio: clock virtual baseado em Date.now()
@@ -3481,7 +3484,11 @@ function App() {
         <audio
           ref={audioRef}
           src={audioSrc}
-          onLoadedMetadata={(e) => setDuration(e.target.duration)}
+          onLoadedMetadata={(e) => {
+            setDuration(e.target.duration);
+            e.target.volume       = Math.max(0, Math.min(1, projectVolumeRef.current));
+            e.target.playbackRate = Math.max(0.25, Math.min(4, projectSpeedRef.current));
+          }}
           onEnded={() => setIsPlaying(false)}
         />
       )}
