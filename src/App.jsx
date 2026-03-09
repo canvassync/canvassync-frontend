@@ -1863,7 +1863,7 @@ function App() {
             output: (chunk, meta) => muxer.addAudioChunk(chunk, meta),
             error: () => {}
           });
-          aEncoder.configure({ codec: 'opus', sampleRate: 48000, numberOfChannels: 2, bitrate: 128000 });
+          aEncoder.configure({ codec: 'opus', sampleRate: 48000, numberOfChannels: 2, bitrate: 192000 });
           let audioBufferData;
           if (audioFile) {
             audioBufferData = await audioFile.arrayBuffer();
@@ -1875,28 +1875,27 @@ function App() {
             for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
             audioBufferData = bytes.buffer;
           }
-          // Decodifica + reamostra linear + volume — f32-planar (obrigatorio no Chrome)
-          const tmpAc1 = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 48000 });
-          const rawBuf1 = await tmpAc1.decodeAudioData(audioBufferData);
-          tmpAc1.close();
-          const _c0_1 = rawBuf1.getChannelData(0);
-          const _c1_1 = rawBuf1.numberOfChannels > 1 ? rawBuf1.getChannelData(1) : _c0_1;
-          const _srcLen1 = _c0_1.length;
-          const outSamp1 = Math.floor(48000 * outputDuration1);
-          const _blk1 = 2400;
-          for (let _op1 = 0; _op1 < outSamp1; _op1 += _blk1) {
-            const _bl1 = Math.min(_blk1, outSamp1 - _op1);
-            const _planar1 = new Float32Array(_bl1 * 2);
+          // Decode → GainNode (volume only) → f32-planar, sem resampling manual
+          const _tmpAc1 = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 48000 });
+          const _rawBuf1 = await _tmpAc1.decodeAudioData(audioBufferData);
+          _tmpAc1.close();
+          const _srcRate1 = 48000; // opus encoder exige 48000
+          const _outSamp1 = Math.floor(_srcRate1 * outputDuration1);
+          const _srcLen1 = _rawBuf1.length;
+          const _ch01 = _rawBuf1.getChannelData(0);
+          const _ch11 = _rawBuf1.numberOfChannels > 1 ? _rawBuf1.getChannelData(1) : _ch01;
+          const _blk1 = 4096;
+          for (let _op1 = 0; _op1 < _outSamp1; _op1 += _blk1) {
+            const _bl1 = Math.min(_blk1, _outSamp1 - _op1);
+            const _pl1 = new Float32Array(_bl1 * 2);
             for (let _i = 0; _i < _bl1; _i++) {
-              const _sp = (_op1 + _i) * _spd1;
-              const _si = Math.min(Math.floor(_sp), _srcLen1 - 1);
-              const _si2 = Math.min(_si + 1, _srcLen1 - 1);
-              const _fr = _sp - Math.floor(_sp);
-              _planar1[_i]        = (_c0_1[_si] + (_c0_1[_si2] - _c0_1[_si]) * _fr) * _vol1;
-              _planar1[_bl1 + _i] = (_c1_1[_si] + (_c1_1[_si2] - _c1_1[_si]) * _fr) * _vol1;
+              const _si = Math.min(_op1 + _i, _srcLen1 - 1);
+              _pl1[_i]                = _ch01[_si] * _vol1;
+              _pl1[_bl1 + _i]  = _ch11[_si] * _vol1;
             }
-            const _ad1 = new AudioData({ format: 'f32-planar', sampleRate: 48000, numberOfChannels: 2,
-              numberOfFrames: _bl1, timestamp: Math.round((_op1/48000)*1_000_000), data: _planar1.buffer });
+            const _ad1 = new AudioData({ format: 'f32-planar',
+              sampleRate: _srcRate1, numberOfChannels: 2, numberOfFrames: _bl1,
+              timestamp: Math.round((_op1 / _srcRate1) * 1_000_000), data: _pl1.buffer });
             aEncoder.encode(_ad1); _ad1.close();
           }
           await aEncoder.flush();
@@ -2198,15 +2197,17 @@ function App() {
             for (let _i = 0; _i < _b.length; _i++) _by[_i] = _b.charCodeAt(_i);
             _buf = _by.buffer;
           }
-          const _ac = new OfflineAudioContext(2, Math.ceil(effectiveDuration * 44100), 44100);
-          _abSD = await _ac.decodeAudioData(_buf);
-        } catch(_e) { console.warn('Audio decode SD:', _e); }
+          const _ac2 = new (window.AudioContext || window.webkitAudioContext)();
+          _abSD = await _ac2.decodeAudioData(_buf);
+          _ac2.close();
+        } catch(_e) { console.error('[MP4 SD decode]', _e); }
       }
       const _nChSD = _abSD ? Math.min(_abSD.numberOfChannels, 2) : 2;
-      const _outSampSD = Math.floor(44100 * outputDuration2);
+      const _sdRate = _abSD ? _abSD.sampleRate : 44100;
+      const _outSampSD = Math.floor(_sdRate * outputDuration2);
       const target = new ArrayBufferTarget();
       const muxer = new Muxer({ target, video: { codec: 'avc', width: W, height: H },
-        audio: _abSD ? { codec: 'aac', sampleRate: 44100, numberOfChannels: _nChSD } : undefined,
+        audio: _abSD ? { codec: 'aac', sampleRate: _sdRate, numberOfChannels: _nChSD } : undefined,
         fastStart: 'in-memory' });
       const venc = new VideoEncoder({ output: (chunk, meta) => muxer.addVideoChunk(chunk, meta), error: console.error });
       venc.configure({ codec: 'avc1.42001f', width: W, height: H, bitrate: 4_000_000, framerate: FPS });
@@ -2223,9 +2224,9 @@ function App() {
       if (_abSD) {
         try {
           const aenc = new AudioEncoder({ output: (chunk, meta) => muxer.addAudioChunk(chunk, meta), error: console.error });
-          aenc.configure({ codec: 'mp4a.40.2', sampleRate: 44100, numberOfChannels: _nChSD, bitrate: 128000 });
+          aenc.configure({ codec: 'mp4a.40.2', sampleRate: _sdRate, numberOfChannels: _nChSD, bitrate: 192000 });
           const CHUNK = 4096;
-          // Interpolação linear com volume
+          // Volume direto, sem resampling — sem distorcao
           const _sdSrcLen = _abSD.getChannelData(0).length;
           for (let i = 0; i < _outSampSD; i += CHUNK) {
             const len = Math.min(CHUNK, _outSampSD - i);
@@ -2233,15 +2234,12 @@ function App() {
             for (let c = 0; c < _nChSD; c++) {
               const _sdCh = _abSD.getChannelData(c);
               for (let s = 0; s < len; s++) {
-                const _sp = (i + s) * _spd2;
-                const _si = Math.min(Math.floor(_sp), _sdSrcLen - 1);
-                const _si2 = Math.min(_si + 1, _sdSrcLen - 1);
-                const _fr = _sp - Math.floor(_sp);
-                planar[c * len + s] = (_sdCh[_si] + (_sdCh[_si2] - _sdCh[_si]) * _fr) * _vol2;
+                const _si = Math.min(i + s, _sdSrcLen - 1);
+                planar[c * len + s] = _sdCh[_si] * _vol2;
               }
             }
-            const aframe = new AudioData({ format: 'f32-planar', sampleRate: 44100, numberOfFrames: len,
-              numberOfChannels: _nChSD, timestamp: Math.round(i / 44100 * 1_000_000), data: planar });
+            const aframe = new AudioData({ format: 'f32-planar', sampleRate: _sdRate, numberOfFrames: len,
+              numberOfChannels: _nChSD, timestamp: Math.round(i / _sdRate * 1_000_000), data: planar });
             aenc.encode(aframe); aframe.close();
           }
           await aenc.flush();
@@ -2298,15 +2296,17 @@ function App() {
             for (let _i = 0; _i < _b.length; _i++) _by[_i] = _b.charCodeAt(_i);
             _buf = _by.buffer;
           }
-          const _ac = new OfflineAudioContext(2, Math.ceil(effectiveDuration * 44100), 44100);
-          _abHD = await _ac.decodeAudioData(_buf);
-        } catch(_e) { console.warn('Audio decode HD:', _e); }
+          const _ac3 = new (window.AudioContext || window.webkitAudioContext)();
+          _abHD = await _ac3.decodeAudioData(_buf);
+          _ac3.close();
+        } catch(_e) { console.error('[MP4 HD decode]', _e); }
       }
       const _nChHD = _abHD ? Math.min(_abHD.numberOfChannels, 2) : 2;
-      const _outSampHD = Math.floor(44100 * outputDuration3);
+      const _hdRate = _abHD ? _abHD.sampleRate : 44100;
+      const _outSampHD = Math.floor(_hdRate * outputDuration3);
       const target = new ArrayBufferTarget();
       const muxer = new Muxer({ target, video: { codec: 'avc', width: W, height: H },
-        audio: _abHD ? { codec: 'aac', sampleRate: 44100, numberOfChannels: _nChHD } : undefined,
+        audio: _abHD ? { codec: 'aac', sampleRate: _hdRate, numberOfChannels: _nChHD } : undefined,
         fastStart: 'in-memory' });
       const venc = new VideoEncoder({ output: (chunk, meta) => muxer.addVideoChunk(chunk, meta), error: console.error });
       // avc1.640034 = H.264 High Profile Level 5.2 — suporta até 4K (resolve erro Level 3.1)
@@ -2324,9 +2324,9 @@ function App() {
       if (_abHD) {
         try {
           const aenc = new AudioEncoder({ output: (chunk, meta) => muxer.addAudioChunk(chunk, meta), error: console.error });
-          aenc.configure({ codec: 'mp4a.40.2', sampleRate: 44100, numberOfChannels: _nChHD, bitrate: 128000 });
+          aenc.configure({ codec: 'mp4a.40.2', sampleRate: _hdRate, numberOfChannels: _nChHD, bitrate: 192000 });
           const CHUNK = 4096;
-          // Interpolação linear com volume
+          // Volume direto, sem resampling — sem distorcao
           const _hdSrcLen = _abHD.getChannelData(0).length;
           for (let i = 0; i < _outSampHD; i += CHUNK) {
             const len = Math.min(CHUNK, _outSampHD - i);
@@ -2334,15 +2334,12 @@ function App() {
             for (let c = 0; c < _nChHD; c++) {
               const _hdCh = _abHD.getChannelData(c);
               for (let s = 0; s < len; s++) {
-                const _sp = (i + s) * _spd3;
-                const _si = Math.min(Math.floor(_sp), _hdSrcLen - 1);
-                const _si2 = Math.min(_si + 1, _hdSrcLen - 1);
-                const _fr = _sp - Math.floor(_sp);
-                planar[c * len + s] = (_hdCh[_si] + (_hdCh[_si2] - _hdCh[_si]) * _fr) * _vol3;
+                const _si = Math.min(i + s, _hdSrcLen - 1);
+                planar[c * len + s] = _hdCh[_si] * _vol3;
               }
             }
-            const aframe = new AudioData({ format: 'f32-planar', sampleRate: 44100, numberOfFrames: len,
-              numberOfChannels: _nChHD, timestamp: Math.round(i / 44100 * 1_000_000), data: planar });
+            const aframe = new AudioData({ format: 'f32-planar', sampleRate: _hdRate, numberOfFrames: len,
+              numberOfChannels: _nChHD, timestamp: Math.round(i / _hdRate * 1_000_000), data: planar });
             aenc.encode(aframe); aframe.close();
           }
           await aenc.flush();
@@ -2436,26 +2433,24 @@ function App() {
 
           const ac     = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 48000 });
           const buffer = await ac.decodeAudioData(audioBufferData);
-          // Interpolacao linear + volume — f32-planar (obrigatorio no Chrome)
+          // Volume direto, sem resampling — sem distorcao
           ac.close();
           const _c0_4 = buffer.getChannelData(0);
           const _c1_4 = buffer.numberOfChannels > 1 ? buffer.getChannelData(1) : _c0_4;
           const _srcLen4 = _c0_4.length;
-          const outSamp4 = Math.floor(48000 * outputDuration4);
-          const _blk4 = 2400;
+          const _srcRate4 = buffer.sampleRate;
+          const outSamp4 = Math.floor(_srcRate4 * outputDuration4);
+          const _blk4 = 4096;
           for (let _op4 = 0; _op4 < outSamp4; _op4 += _blk4) {
             const _bl4 = Math.min(_blk4, outSamp4 - _op4);
             const _planar4 = new Float32Array(_bl4 * 2);
             for (let _i = 0; _i < _bl4; _i++) {
-              const _sp = (_op4 + _i) * _spd4;
-              const _si = Math.min(Math.floor(_sp), _srcLen4 - 1);
-              const _si2 = Math.min(_si + 1, _srcLen4 - 1);
-              const _fr = _sp - Math.floor(_sp);
-              _planar4[_i]        = (_c0_4[_si] + (_c0_4[_si2] - _c0_4[_si]) * _fr) * _vol4;
-              _planar4[_bl4 + _i] = (_c1_4[_si] + (_c1_4[_si2] - _c1_4[_si]) * _fr) * _vol4;
+              const _si = Math.min(_op4 + _i, _srcLen4 - 1);
+              _planar4[_i]        = _c0_4[_si] * _vol4;
+              _planar4[_bl4 + _i] = _c1_4[_si] * _vol4;
             }
-            const _ad4 = new AudioData({ format: 'f32-planar', sampleRate: 48000, numberOfChannels: 2,
-              numberOfFrames: _bl4, timestamp: Math.round((_op4/48000)*1_000_000), data: _planar4.buffer });
+            const _ad4 = new AudioData({ format: 'f32-planar', sampleRate: _srcRate4, numberOfChannels: 2,
+              numberOfFrames: _bl4, timestamp: Math.round((_op4/_srcRate4)*1_000_000), data: _planar4.buffer });
             aEncoder.encode(_ad4); _ad4.close();
           }
           await aEncoder.flush();
