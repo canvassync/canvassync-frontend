@@ -846,7 +846,7 @@ function App() {
       }
       if (showTemplatePanel && templateBtnRef.current && !templateBtnRef.current.contains(e.target) &&
           !(templatePortalRef.current && templatePortalRef.current.contains(e.target))) {
-        setShowTemplatePanel(false);
+        // handled by overlay
       }
     };
     window.addEventListener('keydown', onKey);
@@ -3595,26 +3595,27 @@ function App() {
             >🎨 Templates</button>
 
             {showTemplatePanel && createPortal(
-              <div
-                ref={templatePortalRef}
-                data-template-portal
-                onMouseDown={e => e.stopPropagation()}
-                style={{
-                  position: 'fixed',
-                  top:  templatePanelPos.top,
-                  left: templatePanelPos.left,
-                  zIndex: 99999,
-                  background: '#0f172a',
-                  border: '1px solid rgba(16,185,129,0.3)',
-                  borderRadius: 20,
-                  width: 740,
-                  maxHeight: '82vh',
-                  boxShadow: '0 24px 64px rgba(0,0,0,0.85)',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  overflow: 'hidden',
-                }}
-              >
+              <>
+                {/* Overlay fecha ao clicar fora — nativo, sem problemas de propagação */}
+                <div onClick={() => setShowTemplatePanel(false)} style={{ position:'fixed', inset:0, zIndex:99998 }} />
+                <div
+                  ref={templatePortalRef}
+                  style={{
+                    position: 'fixed',
+                    top:  templatePanelPos.top,
+                    left: templatePanelPos.left,
+                    zIndex: 99999,
+                    background: '#0f172a',
+                    border: '1px solid rgba(16,185,129,0.3)',
+                    borderRadius: 20,
+                    width: 740,
+                    maxHeight: '82vh',
+                    boxShadow: '0 24px 64px rgba(0,0,0,0.85)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    overflow: 'hidden',
+                  }}
+                >
                 {/* Header do painel */}
                 <div style={{ padding: '16px 20px 12px', borderBottom: '1px solid rgba(255,255,255,0.07)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <div>
@@ -3662,7 +3663,7 @@ function App() {
                       <div key={tpl.id} style={{
                         background: '#0a0f1e',
                         border: '1px solid rgba(255,255,255,0.07)',
-                        borderRadius: 14, overflow: 'hidden',
+                        borderRadius: 14,
                         cursor: 'pointer', transition: 'border 0.15s, background 0.15s',
                         display: 'flex', flexDirection: 'column',
                       }}
@@ -3673,7 +3674,7 @@ function App() {
                         <div style={{
                           width: '100%', height: 118, background: '#060c18', flexShrink: 0,
                           display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative',
-                          overflow: 'visible',
+                          borderRadius: '14px 14px 0 0', overflow: 'hidden',
                         }}>
                           {/* Mini-tela proporcional ao formato */}
                           <div style={{
@@ -3725,7 +3726,7 @@ function App() {
 
                         {/* Botão aplicar */}
                         <button
-                          onClick={(e) => { e.stopPropagation(); applyTemplate(tpl); }}
+                          onClick={() => applyTemplate(tpl)}
                           style={{
                             margin: '4px 12px 12px', padding: '8px 0', borderRadius: 9, cursor: 'pointer',
                             background: `${tpl.accent}20`,
@@ -3747,6 +3748,7 @@ function App() {
                   O template não altera suas mídias (fundo, imagens, áudio, vídeos) nem as letras da música
                 </div>
               </div>
+              </>
             , document.body)}
           </div>
 
