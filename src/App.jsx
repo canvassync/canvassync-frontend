@@ -26,6 +26,16 @@ function App() {
   const [textColor, setTextColor] = useState('#ffffff');
   const [fontFamily, setFontFamily] = useState('Poppins');
   const [exportFormat, setExportFormat] = useState('webm_offline_audio');
+
+  // ── Formato do canvas ─────────────────────────────────────────────────────
+  const CANVAS_FORMATS = {
+    '16:9': { width: 1280, height: 720,  label: '16:9 — YouTube' },
+    '9:16': { width: 720,  height: 1280, label: '9:16 — Stories/TikTok' },
+    '1:1':  { width: 1080, height: 1080, label: '1:1 — Instagram' },
+    '4:3':  { width: 1024, height: 768,  label: '4:3 — Clássico' },
+  };
+  const [canvasFormat, setCanvasFormat] = useState('16:9');
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const [imageSrc, setImageSrc] = useState(null);
   const [images, setImages] = useState([]);
   const [activeImageId, setActiveImageId] = useState(null);
@@ -219,6 +229,13 @@ function App() {
     document.head.appendChild(link);
   }, []);
 
+  // Fecha tela cheia com ESC
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === 'Escape') setIsFullscreen(false); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
   const handleImageChange = (e) => {
     const file = e.target.files[0];
     if (file) {
@@ -242,9 +259,9 @@ function App() {
   });
 
   const getCanvasSize = useCallback(() => {
-    const canvas = canvasRef.current;
-    return { width: canvas?.width || 270, height: canvas?.height || 480 };
-  }, []);
+    const fmt = CANVAS_FORMATS[canvasFormat] || CANVAS_FORMATS['16:9'];
+    return { width: fmt.width, height: fmt.height };
+  }, [canvasFormat]);
 
   const buildImagePlacement = useCallback((img) => {
     const { width: canvasW, height: canvasH } = getCanvasSize();
@@ -2671,6 +2688,14 @@ function App() {
             <option value="png">🖼️ PNG</option>
             <option value="jpg">🖼️ JPG</option>
           </select>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+            <label style={{ fontSize: '10px', color: '#a78bfa', fontWeight: 700, letterSpacing: '0.5px' }}>📐 CANVAS</label>
+            <select value={canvasFormat} onChange={(e) => setCanvasFormat(e.target.value)} style={{ backgroundColor: '#111', color: '#f0f0f0', border: '1px solid rgba(167,139,250,0.3)', borderRadius: '14px', padding: '7px 10px', fontSize: '12px' }}>
+              {Object.entries(CANVAS_FORMATS).map(([key, val]) => (
+                <option key={key} value={key}>{key} — {val.width}×{val.height}</option>
+              ))}
+            </select>
+          </div>
           <button onClick={handleSave} disabled={isExporting} style={{ background: isExporting ? '#0a1a1a' : '#00BFFF', border: 'none', padding: '10px 18px', borderRadius: '18px', cursor: isExporting ? 'not-allowed' : 'pointer', fontWeight: 'bold', fontSize: '12px', color: isExporting ? '#555' : '#000', boxShadow: isExporting ? 'none' : '0 6px 20px rgba(0,191,255,0.3)', opacity: 1 }}>
             {isExporting ? `${t('ed_exporting')} ${Math.round(exportProgress * 100)}%` : t('ed_save')}
           </button>
@@ -3177,10 +3202,33 @@ function App() {
 
         {/* PREVIEW CENTRO */}
         <div ref={canvasContainerRef} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg, #141b34 0%, #0b1024 100%)', position: 'relative' }}>
+          {/* Botão tela cheia */}
+          <button
+            onClick={() => setIsFullscreen(true)}
+            title="Visualização em tela cheia"
+            style={{
+              position: 'absolute', top: 12, right: 12, zIndex: 10,
+              background: 'rgba(0,191,255,0.12)', border: '1px solid rgba(0,191,255,0.3)',
+              borderRadius: '10px', padding: '6px 12px', cursor: 'pointer',
+              fontSize: '13px', color: '#00BFFF', fontWeight: 700,
+              backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', gap: 6,
+            }}
+          >⛶ Tela Cheia</button>
+
+          {/* Badge do formato atual */}
+          <div style={{
+            position: 'absolute', top: 12, left: 12, zIndex: 10,
+            background: 'rgba(167,139,250,0.15)', border: '1px solid rgba(167,139,250,0.3)',
+            borderRadius: '8px', padding: '4px 10px', fontSize: '11px',
+            color: '#a78bfa', fontWeight: 700, backdropFilter: 'blur(8px)',
+          }}>
+            {canvasFormat} · {CANVAS_FORMATS[canvasFormat].width}×{CANVAS_FORMATS[canvasFormat].height}
+          </div>
+
           <canvas 
             ref={canvasRef} 
-            width={270} 
-            height={480} 
+            width={CANVAS_FORMATS[canvasFormat].width} 
+            height={CANVAS_FORMATS[canvasFormat].height} 
             onMouseDown={handleCanvasMouseDown}
             onContextMenu={(e) => {
               e.preventDefault();
@@ -3207,8 +3255,57 @@ function App() {
                 }
               });
             }}
-            style={{ border: '1px solid rgba(0,191,255,0.15)', borderRadius: '26px', maxHeight: '90%', cursor: 'move', boxShadow: '0 24px 50px rgba(10, 12, 24, 0.55)' }} 
+            style={{ border: '1px solid rgba(0,191,255,0.15)', borderRadius: '12px', maxWidth: '100%', maxHeight: '88%', cursor: 'move', boxShadow: '0 24px 50px rgba(10, 12, 24, 0.55)', objectFit: 'contain' }} 
           />
+
+          {/* Modal Tela Cheia */}
+          {isFullscreen && (
+            <div
+              onClick={() => setIsFullscreen(false)}
+              style={{
+                position: 'fixed', inset: 0, zIndex: 9999,
+                background: 'rgba(0,0,0,0.92)',
+                display: 'flex', flexDirection: 'column',
+                alignItems: 'center', justifyContent: 'center', gap: 16,
+                backdropFilter: 'blur(6px)',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                <span style={{ color: '#a78bfa', fontWeight: 700, fontSize: 13 }}>
+                  {canvasFormat} · {CANVAS_FORMATS[canvasFormat].width}×{CANVAS_FORMATS[canvasFormat].height}
+                </span>
+                <button
+                  onClick={() => setIsFullscreen(false)}
+                  style={{ background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.4)', borderRadius: 10, padding: '5px 14px', color: '#f87171', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}
+                >✕ Fechar</button>
+              </div>
+              <canvas
+                ref={node => {
+                  if (!node || !canvasRef.current) return;
+                  // Espelha o conteúdo do canvas principal neste canvas de preview
+                  const src = canvasRef.current;
+                  node.width  = src.width;
+                  node.height = src.height;
+                  const ctx = node.getContext('2d');
+                  const draw = () => {
+                    ctx.clearRect(0, 0, node.width, node.height);
+                    ctx.drawImage(src, 0, 0);
+                    node._rafId = requestAnimationFrame(draw);
+                  };
+                  if (node._rafId) cancelAnimationFrame(node._rafId);
+                  draw();
+                  node._cleanup = () => cancelAnimationFrame(node._rafId);
+                }}
+                onClick={e => e.stopPropagation()}
+                style={{
+                  maxWidth: '92vw', maxHeight: '82vh',
+                  borderRadius: '14px',
+                  border: '1px solid rgba(0,191,255,0.2)',
+                  boxShadow: '0 30px 80px rgba(0,0,0,0.7)',
+                }}
+              />
+            </div>
+          )}
 
           {/* OVERLAY DE EDIÇÃO DE LYRIC */}
           {editingLyricId && (() => {
