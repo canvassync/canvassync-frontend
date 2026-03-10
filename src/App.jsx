@@ -632,7 +632,8 @@ function App() {
   const [showTemplatePanel, setShowTemplatePanel] = useState(false);
   const [templatePanelPos, setTemplatePanelPos]   = useState({ top: 80, left: 0 });
   const [templateFormatTab, setTemplateFormatTab] = useState('16:9');
-  const templateBtnRef = useRef(null);
+  const templateBtnRef    = useRef(null);
+  const templatePortalRef = useRef(null);
   const sfxLastTimeRef  = useRef(0);                        // último t conhecido para detecção de cruzamento
   const soundEffectsRef = useRef([]);
   useEffect(() => { soundEffectsRef.current = soundEffects; }, [soundEffects]);
@@ -844,7 +845,7 @@ function App() {
         setShowSfxPanel(false);
       }
       if (showTemplatePanel && templateBtnRef.current && !templateBtnRef.current.contains(e.target) &&
-          !e.target.closest('[data-template-portal]')) {
+          !(templatePortalRef.current && templatePortalRef.current.contains(e.target))) {
         setShowTemplatePanel(false);
       }
     };
@@ -3595,8 +3596,9 @@ function App() {
 
             {showTemplatePanel && createPortal(
               <div
+                ref={templatePortalRef}
                 data-template-portal
-                onClick={e => e.stopPropagation()}
+                onMouseDown={e => e.stopPropagation()}
                 style={{
                   position: 'fixed',
                   top:  templatePanelPos.top,
@@ -3669,8 +3671,9 @@ function App() {
                       >
                         {/* Preview — altura fixa 118px para todos os formatos */}
                         <div style={{
-                          width: '100%', height: previewH, background: '#060c18', flexShrink: 0,
+                          width: '100%', height: 118, background: '#060c18', flexShrink: 0,
                           display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative',
+                          overflow: 'visible',
                         }}>
                           {/* Mini-tela proporcional ao formato */}
                           <div style={{
