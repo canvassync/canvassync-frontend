@@ -55,6 +55,307 @@ const ANIMATED_STICKERS = [
 
 
 // Calcula offset de animação de sticker baseado em tempo real
+const SFX_LIST = [
+  { key:'applause',  emoji:'👏', name:'Aplausos',    dur:2.5 },
+  { key:'explosion', emoji:'💥', name:'Explosão',    dur:2.0 },
+  { key:'whoosh',    emoji:'💨', name:'Whoosh',      dur:0.8 },
+  { key:'bell',      emoji:'🔔', name:'Sino',        dur:1.8 },
+  { key:'kick',      emoji:'🥁', name:'Bumbo',       dur:0.6 },
+  { key:'fanfare',   emoji:'🎺', name:'Fanfarra',    dur:2.2 },
+  { key:'laser',     emoji:'🔫', name:'Laser',       dur:0.7 },
+  { key:'success',   emoji:'✅', name:'Sucesso',     dur:1.0 },
+  { key:'error',     emoji:'❌', name:'Erro',        dur:0.6 },
+  { key:'notify',    emoji:'🔕', name:'Notificação', dur:0.5 },
+  { key:'coin',      emoji:'🪙', name:'Moeda',       dur:0.6 },
+  { key:'punch',     emoji:'👊', name:'Soco',        dur:0.4 },
+  { key:'glass',     emoji:'🥂', name:'Brinde',      dur:2.0 },
+  { key:'powerup',   emoji:'🎮', name:'Power Up',    dur:1.2 },
+  { key:'pop',       emoji:'🎈', name:'Pop',         dur:0.3 },
+  { key:'thunder',   emoji:'⛈️', name:'Trovão',     dur:3.0 },
+  { key:'heartbeat', emoji:'💓', name:'Coração',     dur:1.2 },
+  { key:'swoosh',    emoji:'⚡', name:'Swoosh',      dur:0.4 },
+  { key:'horn',      emoji:'📯', name:'Buzina',      dur:1.0 },
+  { key:'crowd',     emoji:'🎉', name:'Multidão',    dur:2.5 },
+  { key:'drop',      emoji:'💧', name:'Gota',        dur:0.6 },
+  { key:'drums',     emoji:'🎵', name:'Bateria',     dur:1.6 },
+  { key:'woah',      emoji:'😮', name:'Woah',        dur:0.9 },
+  { key:'cash',      emoji:'💰', name:'Dinheiro',    dur:1.0 },
+];
+
+const synthesizeSfxBuffer = async (key) => {
+  const SR = 44100;
+  const dur = (SFX_LIST.find(s => s.key === key) || {dur:1}).dur;
+  const len = Math.ceil(SR * dur);
+  const ctx = new OfflineAudioContext(2, len, SR);
+  const dest = ctx.destination;
+
+  const osc = (type, freq, gainVal, startT, stopT, freqEnd) => {
+    const o = ctx.createOscillator();
+    const g = ctx.createGain();
+    o.type = type;
+    o.frequency.setValueAtTime(freq, startT);
+    if (freqEnd !== undefined) o.frequency.exponentialRampToValueAtTime(Math.max(1, freqEnd), stopT);
+    g.gain.setValueAtTime(gainVal, startT);
+    o.connect(g); g.connect(dest);
+    o.start(startT); o.stop(stopT);
+    return g;
+  };
+  const env = (gainNode, a, d, s, r, startT) => {
+    const g = gainNode.gain;
+    g.setValueAtTime(0, startT);
+    g.linearRampToValueAtTime(1, startT + a);
+    g.linearRampToValueAtTime(s, startT + a + d);
+    g.setValueAtTime(s, startT + a + d);
+    g.linearRampToValueAtTime(0, startT + a + d + r);
+  };
+  const noise = (gainVal, startT, stopT, filterType, filterFreq) => {
+    const bufLen = Math.ceil(SR * (stopT - startT));
+    const nb = ctx.createBuffer(1, bufLen, SR);
+    const nd = nb.getChannelData(0);
+    for (let i = 0; i < bufLen; i++) nd[i] = Math.random() * 2 - 1;
+    const src = ctx.createBufferSource();
+    src.buffer = nb;
+    const g = ctx.createGain(); g.gain.value = gainVal;
+    if (filterType) {
+      const f = ctx.createBiquadFilter();
+      f.type = filterType; f.frequency.value = filterFreq || 1000;
+      src.connect(f); f.connect(g);
+    } else { src.connect(g); }
+    g.connect(dest);
+    src.start(startT); src.stop(stopT);
+    return g;
+  };
+
+  switch (key) {
+    case 'applause': {
+      const g = noise(0, 0, dur, 'bandpass', 2200);
+      g.gain.setValueAtTime(0, 0);
+      g.gain.linearRampToValueAtTime(0.5, 0.4);
+      g.gain.setValueAtTime(0.5, dur - 0.6);
+      g.gain.linearRampToValueAtTime(0, dur);
+      noise(0.15, 0, dur, 'highpass', 4000);
+      break;
+    }
+    case 'explosion': {
+      const g = noise(0, 0, dur, 'lowpass', 300);
+      g.gain.setValueAtTime(0.8, 0);
+      g.gain.exponentialRampToValueAtTime(0.01, dur);
+      const g2 = noise(0, 0, 0.2, null, 0);
+      g2.gain.setValueAtTime(0.6, 0);
+      g2.gain.exponentialRampToValueAtTime(0.01, 0.2);
+      const og = osc('sine', 80, 0.6, 0, 0.3, 30);
+      og.gain.exponentialRampToValueAtTime(0.01, 0.3);
+      break;
+    }
+    case 'whoosh': {
+      const g = noise(0.5, 0, dur, 'bandpass', 3000);
+      g.gain.setValueAtTime(0, 0);
+      g.gain.linearRampToValueAtTime(0.6, dur * 0.3);
+      g.gain.linearRampToValueAtTime(0, dur);
+      break;
+    }
+    case 'bell': {
+      const freqs = [880, 1320, 2200, 3520];
+      const vols  = [0.5, 0.25, 0.12, 0.06];
+      freqs.forEach((f, i) => {
+        const g = osc('sine', f, vols[i], 0, dur);
+        g.gain.setValueAtTime(vols[i], 0);
+        g.gain.exponentialRampToValueAtTime(0.001, dur);
+      });
+      break;
+    }
+    case 'kick': {
+      const og = osc('sine', 150, 0.8, 0, 0.5, 40);
+      og.gain.setValueAtTime(0.8, 0);
+      og.gain.exponentialRampToValueAtTime(0.01, 0.4);
+      const ng = noise(0, 0, 0.06, 'highpass', 3000);
+      ng.gain.setValueAtTime(0.4, 0);
+      ng.gain.exponentialRampToValueAtTime(0.01, 0.06);
+      break;
+    }
+    case 'fanfare': {
+      const notes = [[523,0],[659,0.3],[784,0.6],[1047,0.9]];
+      notes.forEach(([f,t]) => {
+        const g = osc('sawtooth', f, 0.15, t, t+0.6);
+        g.gain.setValueAtTime(0, t);
+        g.gain.linearRampToValueAtTime(0.2, t+0.05);
+        g.gain.setValueAtTime(0.2, t+0.4);
+        g.gain.linearRampToValueAtTime(0, t+0.6);
+      });
+      // final chord
+      [523,659,784].forEach(f => {
+        const g = osc('sawtooth', f, 0.12, 1.2, dur);
+        g.gain.setValueAtTime(0.12, 1.2);
+        g.gain.linearRampToValueAtTime(0, dur);
+      });
+      break;
+    }
+    case 'laser': {
+      const g = osc('sawtooth', 1200, 0.4, 0, dur, 150);
+      g.gain.setValueAtTime(0.4, 0);
+      g.gain.exponentialRampToValueAtTime(0.01, dur);
+      break;
+    }
+    case 'success': {
+      [[523,0],[659,0.15],[784,0.3],[1047,0.45]].forEach(([f,t]) => {
+        const g = osc('sine', f, 0.4, t, t+0.35);
+        g.gain.setValueAtTime(0.4, t);
+        g.gain.linearRampToValueAtTime(0, t+0.35);
+      });
+      break;
+    }
+    case 'error': {
+      [[440,0],[330,0.2]].forEach(([f,t]) => {
+        const g = osc('sawtooth', f, 0.35, t, t+0.25);
+        g.gain.setValueAtTime(0.35, t);
+        g.gain.linearRampToValueAtTime(0, t+0.25);
+        noise(0.05, t, t+0.25, 'highpass', 2000);
+      });
+      break;
+    }
+    case 'notify': {
+      [[880,0],[1047,0.18]].forEach(([f,t]) => {
+        const g = osc('sine', f, 0.4, t, t+0.15);
+        g.gain.setValueAtTime(0.4, t);
+        g.gain.linearRampToValueAtTime(0, t+0.15);
+      });
+      break;
+    }
+    case 'coin': {
+      [[1200,0],[1400,0.08],[1600,0.16]].forEach(([f,t]) => {
+        const g = osc('sine', f, 0.35, t, t+0.2);
+        g.gain.setValueAtTime(0.35, t);
+        g.gain.exponentialRampToValueAtTime(0.001, t+0.2);
+      });
+      break;
+    }
+    case 'punch': {
+      const og = osc('sine', 120, 0.6, 0, 0.3, 40);
+      og.gain.setValueAtTime(0.6, 0);
+      og.gain.exponentialRampToValueAtTime(0.01, 0.3);
+      const ng = noise(0, 0, 0.08, 'lowpass', 500);
+      ng.gain.setValueAtTime(0.5, 0);
+      ng.gain.exponentialRampToValueAtTime(0.01, 0.08);
+      break;
+    }
+    case 'glass': {
+      [2093,2637,3136].forEach((f,i) => {
+        const g = osc('sine', f, 0.2-i*0.05, 0, dur);
+        g.gain.setValueAtTime(0.2-i*0.05, 0.005);
+        g.gain.exponentialRampToValueAtTime(0.001, dur);
+      });
+      noise(0.08, 0, 0.05, 'highpass', 5000);
+      break;
+    }
+    case 'powerup': {
+      const g = osc('square', 220, 0.2, 0, 0.8, 880);
+      g.gain.setValueAtTime(0.2, 0);
+      g.gain.setValueAtTime(0.2, 0.7);
+      g.gain.linearRampToValueAtTime(0, 0.8);
+      [[880,0.8],[1047,0.9],[1319,1.0]].forEach(([f,t]) => {
+        const g2 = osc('square', f, 0.25, t, t+0.2);
+        g2.gain.setValueAtTime(0.25, t);
+        g2.gain.linearRampToValueAtTime(0, t+0.2);
+      });
+      break;
+    }
+    case 'pop': {
+      const og = osc('sine', 800, 0.6, 0, 0.15, 80);
+      og.gain.setValueAtTime(0.6, 0);
+      og.gain.exponentialRampToValueAtTime(0.01, 0.15);
+      noise(0.3, 0, 0.04, null, 0);
+      break;
+    }
+    case 'thunder': {
+      const g1 = noise(0, 0, dur, 'lowpass', 200);
+      g1.gain.setValueAtTime(0.01, 0);
+      g1.gain.linearRampToValueAtTime(0.9, 0.05);
+      g1.gain.exponentialRampToValueAtTime(0.1, 1.5);
+      g1.gain.linearRampToValueAtTime(0, dur);
+      noise(0.4, 0, 0.1, 'highpass', 2000);
+      osc('sine', 60, 0.3, 0, 0.8, 30);
+      break;
+    }
+    case 'heartbeat': {
+      const beat = (t) => {
+        const og = osc('sine', 100, 0.5, t, t+0.12, 40);
+        og.gain.setValueAtTime(0.5, t);
+        og.gain.exponentialRampToValueAtTime(0.01, t+0.12);
+        const og2 = osc('sine', 80, 0.3, t+0.14, t+0.24, 35);
+        og2.gain.setValueAtTime(0.3, t+0.14);
+        og2.gain.exponentialRampToValueAtTime(0.01, t+0.24);
+      };
+      beat(0); beat(0.6);
+      break;
+    }
+    case 'swoosh': {
+      const g = noise(0, 0, dur, 'bandpass', 5000);
+      g.gain.setValueAtTime(0, 0);
+      g.gain.linearRampToValueAtTime(0.7, dur * 0.2);
+      g.gain.linearRampToValueAtTime(0, dur);
+      break;
+    }
+    case 'horn': {
+      const g = osc('sawtooth', 220, 0, 0, dur);
+      g.gain.setValueAtTime(0, 0);
+      g.gain.linearRampToValueAtTime(0.4, 0.1);
+      g.gain.setValueAtTime(0.4, dur-0.2);
+      g.gain.linearRampToValueAtTime(0, dur);
+      osc('sawtooth', 330, 0.15, 0, dur);
+      break;
+    }
+    case 'crowd': {
+      const g = noise(0, 0, dur, 'bandpass', 1800);
+      g.gain.setValueAtTime(0.2, 0);
+      g.gain.linearRampToValueAtTime(0.55, 0.5);
+      g.gain.setValueAtTime(0.55, dur-0.5);
+      g.gain.linearRampToValueAtTime(0.1, dur);
+      noise(0.1, 0, dur, 'highpass', 3500);
+      break;
+    }
+    case 'drop': {
+      const g = osc('sine', 880, 0.5, 0, dur, 110);
+      g.gain.setValueAtTime(0.5, 0);
+      g.gain.exponentialRampToValueAtTime(0.001, dur);
+      break;
+    }
+    case 'drums': {
+      // kick at 0, 0.4, 0.8; snare at 0.2, 0.6, 1.0, 1.4
+      [0, 0.4, 0.8, 1.2].forEach(t => {
+        const og = osc('sine', 150, 0.7, t, t+0.3, 40);
+        og.gain.setValueAtTime(0.7, t);
+        og.gain.exponentialRampToValueAtTime(0.01, t+0.25);
+      });
+      [0.2, 0.6, 1.0, 1.4].forEach(t => {
+        const ng = noise(0, t, t+0.15, 'bandpass', 3000);
+        ng.gain.setValueAtTime(0.4, t);
+        ng.gain.exponentialRampToValueAtTime(0.01, t+0.15);
+      });
+      break;
+    }
+    case 'woah': {
+      const g = osc('sine', 200, 0.4, 0, dur, 800);
+      g.gain.setValueAtTime(0, 0);
+      g.gain.linearRampToValueAtTime(0.4, 0.05);
+      g.gain.setValueAtTime(0.4, dur-0.1);
+      g.gain.linearRampToValueAtTime(0, dur);
+      break;
+    }
+    case 'cash': {
+      [[800,0],[1000,0.1],[1200,0.2],[1600,0.35],[2000,0.5]].forEach(([f,t]) => {
+        const g = osc('triangle', f, 0.3, t, t+0.15);
+        g.gain.setValueAtTime(0.3, t);
+        g.gain.exponentialRampToValueAtTime(0.001, t+0.15);
+      });
+      noise(0.1, 0, 0.05, 'highpass', 5000);
+      break;
+    }
+  }
+
+  try { return await ctx.startRendering(); }
+  catch(e) { console.error('[SFX synth]', key, e); return null; }
+};
+
 const getStickerAnimTransform = (anim, t, size) => {
   switch (anim) {
     case 'bounce':  return { dy: Math.sin(t * 5) * size * 0.12, s: 1, r: 0, a: 1 };
@@ -101,12 +402,21 @@ function App() {
   const [canvasFormat, setCanvasFormat] = useState('16:9');
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [stickers, setStickers] = useState([]);           // [{id,type,content,animStyle,x,y,size,rotation}]
+  const [soundEffects, setSoundEffects] = useState([]);     // [{id,key,name,emoji,startTime,volume}]
+  const [showSfxPanel, setShowSfxPanel] = useState(false);
+  const [sfxPanelPos, setSfxPanelPos]   = useState({ top: 80, left: 0 });
   const [showStickerPanel, setShowStickerPanel] = useState(false);
   const [stickerPanelPos, setStickerPanelPos] = useState({ top: 80, left: 0 });
   const [stickerTab, setStickerTab] = useState('emoji');  // 'emoji'|'sticker'|'gif'
   const activeStickerRef = useRef(null);                  // id do sticker selecionado (sem re-render)
   const [activeStickerId, setActiveStickerId] = useState(null);
   const stickerBtnRef   = useRef(null);                   // posição real do botão para painel fixed
+  const sfxBtnRef       = useRef(null);
+  const sfxLiveAcRef    = useRef(null);                     // AudioContext para preview de SFX
+  const sfxPlayedRef    = useRef(new Set());                // IDs de SFX já disparados nesta sessão
+  const sfxLastTimeRef  = useRef(0);                        // último t conhecido para detecção de cruzamento
+  const soundEffectsRef = useRef([]);
+  useEffect(() => { soundEffectsRef.current = soundEffects; }, [soundEffects]);
   const [imageSrc, setImageSrc] = useState(null);
   const [images, setImages] = useState([]);
   const [activeImageId, setActiveImageId] = useState(null);
@@ -306,17 +616,19 @@ function App() {
       if (e.key === 'Escape') { setIsFullscreen(false); setShowStickerPanel(false); }
     };
     const onClickOut = (e) => {
-      if (!showStickerPanel) return;
-      // Fecha se clicou fora do botão e fora do painel portal
-      if (stickerBtnRef.current && !stickerBtnRef.current.contains(e.target) &&
+      if (showStickerPanel && stickerBtnRef.current && !stickerBtnRef.current.contains(e.target) &&
           !e.target.closest('[data-sticker-portal]')) {
         setShowStickerPanel(false);
+      }
+      if (showSfxPanel && sfxBtnRef.current && !sfxBtnRef.current.contains(e.target) &&
+          !e.target.closest('[data-sfx-portal]')) {
+        setShowSfxPanel(false);
       }
     };
     window.addEventListener('keydown', onKey);
     document.addEventListener('mousedown', onClickOut);
     return () => { window.removeEventListener('keydown', onKey); document.removeEventListener('mousedown', onClickOut); };
-  }, [showStickerPanel]);
+  }, [showStickerPanel, showSfxPanel]);
 
   const handleImageChange = (e) => {
     const file = e.target.files[0];
@@ -629,6 +941,7 @@ function App() {
         if (Array.isArray(p.stickers)) {
           setStickers(p.stickers);
         }
+        if (Array.isArray(p.soundEffects)) setSoundEffects(p.soundEffects);
         if (p.fontSize !== undefined) setFontSize(p.fontSize);
         if (p.textColor) setTextColor(p.textColor);
         if (p.fontFamily) setFontFamily(p.fontFamily);
@@ -1764,6 +2077,39 @@ function App() {
       if (playheadRef.current) {
         playheadRef.current.style.transform = `translateX(${t_now * zoomRef.current}px)`;
       }
+      // 1b) Disparar SFX na hora certa
+      if (isPlayingRef.current) {
+        const sfxList = soundEffectsRef.current;
+        const prevT   = sfxLastTimeRef.current;
+        for (const sfx of sfxList) {
+          const st = sfx.startTime || 0;
+          if (t_now >= st && prevT < st && !sfxPlayedRef.current.has(sfx.id)) {
+            sfxPlayedRef.current.add(sfx.id);
+            synthesizeSfxBuffer(sfx.key).then(buf => {
+              if (!buf) return;
+              try {
+                if (!sfxLiveAcRef.current || sfxLiveAcRef.current.state === 'closed') {
+                  sfxLiveAcRef.current = new (window.AudioContext || window.webkitAudioContext)();
+                }
+                const liveAc = sfxLiveAcRef.current;
+                const liveBuf = liveAc.createBuffer(buf.numberOfChannels, buf.length, buf.sampleRate);
+                for (let ch = 0; ch < buf.numberOfChannels; ch++)
+                  liveBuf.copyToChannel(buf.getChannelData(ch), ch);
+                const src = liveAc.createBufferSource();
+                const gain = liveAc.createGain();
+                gain.gain.value = sfx.volume ?? 1;
+                src.buffer = liveBuf;
+                src.connect(gain); gain.connect(liveAc.destination);
+                src.start();
+              } catch(e) { console.error('[SFX preview]', e); }
+            });
+          }
+        }
+        sfxLastTimeRef.current = t_now;
+      } else {
+        sfxPlayedRef.current.clear();
+        sfxLastTimeRef.current = 0;
+      }
       // 2) Sincronizar vídeos
       if (syncVideosInRAFRef.current) syncVideosInRAFRef.current();
       // 3) Desenhar o canvas
@@ -2047,6 +2393,27 @@ function App() {
     return [outL, outR];
   };
 
+  // Sintetiza e mixa todos os SFX colocados no timeline nos buffers de saída
+  const _mixSfxIntoBuffers = async (outL, outR, sfxArr, sampleRate) => {
+    if (!sfxArr || sfxArr.length === 0) return;
+    for (const sfx of sfxArr) {
+      try {
+        const buf = await synthesizeSfxBuffer(sfx.key);
+        if (!buf) continue;
+        const offset = Math.round((sfx.startTime || 0) * sampleRate);
+        const vol    = sfx.volume ?? 1;
+        const chL    = buf.getChannelData(0);
+        const chR    = buf.numberOfChannels > 1 ? buf.getChannelData(1) : chL;
+        for (let i = 0; i < buf.length; i++) {
+          const oi = offset + i;
+          if (oi >= outL.length) break;
+          outL[oi] = Math.max(-1, Math.min(1, outL[oi] + chL[i] * vol));
+          outR[oi] = Math.max(-1, Math.min(1, outR[oi] + chR[i] * vol));
+        }
+      } catch(e) { console.error('[SFX mix]', sfx.key, e); }
+    }
+  };
+
   const handleSaveWebmOffline = async () => {
     const baseCanvas = canvasRef.current;
     if (!baseCanvas) return;
@@ -2154,6 +2521,7 @@ function App() {
           const _rawBuf1 = await _tmpAc1.decodeAudioData(audioBufferData);
           _tmpAc1.close();
           const [_out01, _out11] = await _renderAudioStretched(_rawBuf1, _spd1, _vol1, 48000);
+          await _mixSfxIntoBuffers(_out01, _out11, soundEffects, 48000);
           const _blk1 = 4096;
           for (let _op1 = 0; _op1 < _out01.length; _op1 += _blk1) {
             const _bl1 = Math.min(_blk1, _out01.length - _op1);
@@ -2274,6 +2642,7 @@ function App() {
     })),
     extraTexts,
     stickers: stickers.map(s => ({ ...s })),
+    soundEffects: soundEffects.map(s => ({ ...s })),
     fontSize,
     textColor,
     fontFamily,
@@ -2359,6 +2728,7 @@ function App() {
         if (Array.isArray(p.stickers)) {
           setStickers(p.stickers);
         }
+        if (Array.isArray(p.soundEffects)) setSoundEffects(p.soundEffects);
         if (p.fontSize !== undefined) setFontSize(p.fontSize);
         if (p.textColor) setTextColor(p.textColor);
         if (p.fontFamily) setFontFamily(p.fontFamily);
@@ -2486,6 +2856,7 @@ function App() {
           const aenc = new AudioEncoder({ output: (chunk, meta) => muxer.addAudioChunk(chunk, meta), error: console.error });
           aenc.configure({ codec: 'mp4a.40.2', sampleRate: _sdRate, numberOfChannels: 2, bitrate: 192000 });
           const [_out02, _out12] = await _renderAudioStretched(_abSD, _spd2, _vol2, _sdRate);
+          await _mixSfxIntoBuffers(_out02, _out12, soundEffects, _sdRate);
           const _blk2 = 4096;
           for (let _op2 = 0; _op2 < _out02.length; _op2 += _blk2) {
             const _bl2 = Math.min(_blk2, _out02.length - _op2);
@@ -2582,6 +2953,7 @@ function App() {
           const aenc = new AudioEncoder({ output: (chunk, meta) => muxer.addAudioChunk(chunk, meta), error: console.error });
           aenc.configure({ codec: 'mp4a.40.2', sampleRate: _hdRate, numberOfChannels: 2, bitrate: 192000 });
           const [_out03, _out13] = await _renderAudioStretched(_abHD, _spd3, _vol3, _hdRate);
+          await _mixSfxIntoBuffers(_out03, _out13, soundEffects, _hdRate);
           const _blk3 = 4096;
           for (let _op3 = 0; _op3 < _out03.length; _op3 += _blk3) {
             const _bl3 = Math.min(_blk3, _out03.length - _op3);
@@ -2701,6 +3073,7 @@ function App() {
           const buffer = await ac.decodeAudioData(audioBufferData);
           ac.close();
           const [_out04, _out14] = await _renderAudioStretched(buffer, _spd4, _vol4, 48000);
+          await _mixSfxIntoBuffers(_out04, _out14, soundEffects, 48000);
           const _blk4 = 4096;
           for (let _op4 = 0; _op4 < _out04.length; _op4 += _blk4) {
             const _bl4 = Math.min(_blk4, _out04.length - _op4);
@@ -3019,6 +3392,91 @@ function App() {
                 </div>
               </div>
             , document.body)}
+
+
+          {/* ── Efeitos Sonoros ── */}
+          <div style={{ position: 'relative' }}>
+            <button
+              ref={sfxBtnRef}
+              onClick={() => {
+                const rect = sfxBtnRef.current?.getBoundingClientRect();
+                if (rect) setSfxPanelPos({ top: rect.bottom + 8, left: Math.min(rect.left, window.innerWidth - 380) });
+                setShowSfxPanel(v => !v);
+              }}
+              style={{
+                background: showSfxPanel ? 'rgba(16,185,129,0.2)' : 'rgba(16,185,129,0.07)',
+                border: `1px solid ${showSfxPanel ? 'rgba(16,185,129,0.6)' : 'rgba(16,185,129,0.25)'}`,
+                borderRadius: 14, padding: '7px 14px', cursor: 'pointer',
+                fontWeight: 700, fontSize: 13, color: '#10b981',
+                display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap',
+              }}
+            >🔊 Efeitos {soundEffects.length > 0 && <span style={{ background:'#10b981',color:'#000',borderRadius:8,padding:'1px 6px',fontSize:10,fontWeight:900 }}>{soundEffects.length}</span>}</button>
+
+            {showSfxPanel && createPortal(
+              <div data-sfx-portal onClick={e => e.stopPropagation()} style={{
+                position: 'fixed', top: sfxPanelPos.top, left: sfxPanelPos.left,
+                zIndex: 99999, background: '#111827',
+                border: '1px solid rgba(16,185,129,0.25)', borderRadius: 18,
+                width: 370, boxShadow: '0 16px 48px rgba(0,0,0,0.8)',
+                display: 'flex', flexDirection: 'column', overflow: 'hidden',
+              }}>
+                {/* Header */}
+                <div style={{ padding: '12px 16px 8px', borderBottom: '1px solid rgba(255,255,255,0.06)', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                  <span style={{ fontWeight:800, fontSize:13, color:'#10b981' }}>🔊 Efeitos Sonoros</span>
+                  <span style={{ fontSize:10, color:'#555' }}>Clique p/ adicionar na posição atual</span>
+                </div>
+                {/* Grid of SFX */}
+                <div style={{ padding: '10px 12px', maxHeight: 220, overflowY:'auto', display:'flex', flexWrap:'wrap', gap:6 }}>
+                  {SFX_LIST.map(sfx => (
+                    <button key={sfx.key}
+                      title={sfx.name}
+                      onClick={() => {
+                        const audio = document.querySelector('audio');
+                        const t = audio ? audio.currentTime : 0;
+                        setSoundEffects(prev => [...prev, { id: Date.now() + Math.random(), key: sfx.key, name: sfx.name, emoji: sfx.emoji, startTime: parseFloat(t.toFixed(2)), volume: 1 }]);
+                      }}
+                      style={{ background:'rgba(255,255,255,0.04)', border:'1px solid rgba(16,185,129,0.15)', borderRadius:10, padding:'6px 8px', cursor:'pointer', display:'flex', flexDirection:'column', alignItems:'center', gap:3, minWidth:60 }}
+                      onMouseEnter={e => e.currentTarget.style.background='rgba(16,185,129,0.15)'}
+                      onMouseLeave={e => e.currentTarget.style.background='rgba(255,255,255,0.04)'}
+                    >
+                      <span style={{ fontSize:20 }}>{sfx.emoji}</span>
+                      <span style={{ fontSize:9, color:'#aaa', fontWeight:600 }}>{sfx.name}</span>
+                    </button>
+                  ))}
+                </div>
+                {/* Placed effects list */}
+                {soundEffects.length > 0 && (
+                  <div style={{ borderTop:'1px solid rgba(255,255,255,0.06)', padding:'8px 12px', maxHeight:180, overflowY:'auto' }}>
+                    <div style={{ fontSize:9, color:'#555', fontWeight:700, marginBottom:6 }}>COLOCADOS NO VÍDEO</div>
+                    {soundEffects.map((sfx, i) => (
+                      <div key={sfx.id} style={{ display:'flex', alignItems:'center', gap:8, padding:'4px 0', borderBottom:'1px solid rgba(255,255,255,0.04)' }}>
+                        <span style={{ fontSize:16 }}>{sfx.emoji}</span>
+                        <span style={{ fontSize:11, color:'#ccc', fontWeight:600, flex:1 }}>{sfx.name}</span>
+                        <span style={{ fontSize:10, color:'#10b981', minWidth:36 }}>{sfx.startTime.toFixed(1)}s</span>
+                        <input type="range" min={0.1} max={2} step={0.1}
+                          value={sfx.volume}
+                          title={`Volume: ${Math.round(sfx.volume*100)}%`}
+                          onChange={e => setSoundEffects(prev => prev.map(s => s.id === sfx.id ? {...s, volume: Number(e.target.value)} : s))}
+                          style={{ width:60, accentColor:'#10b981', cursor:'pointer' }}
+                        />
+                        <span style={{ fontSize:9, color:'#555', minWidth:28 }}>{Math.round(sfx.volume*100)}%</span>
+                        <button onClick={() => setSoundEffects(prev => prev.filter(s => s.id !== sfx.id))}
+                          style={{ background:'rgba(239,68,68,0.1)', border:'1px solid rgba(239,68,68,0.3)', borderRadius:6, padding:'2px 7px', fontSize:11, color:'#f87171', cursor:'pointer' }}>✕</button>
+                      </div>
+                    ))}
+                    <button onClick={() => setSoundEffects([])} style={{ marginTop:8, background:'rgba(239,68,68,0.08)', border:'1px solid rgba(239,68,68,0.2)', borderRadius:8, padding:'4px 12px', fontSize:10, color:'#f87171', fontWeight:700, cursor:'pointer', width:'100%' }}>
+                      Remover todos
+                    </button>
+                  </div>
+                )}
+                {soundEffects.length === 0 && (
+                  <div style={{ padding:'10px 16px 14px', fontSize:11, color:'#444', textAlign:'center' }}>
+                    Pausa o vídeo na posição desejada e clique em um efeito
+                  </div>
+                )}
+              </div>
+            , document.body)}
+          </div>
           </div>
         </div>
       </div>
