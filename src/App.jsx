@@ -1717,6 +1717,9 @@ function App() {
   const stickersRef = useRef([]);
   useEffect(() => { stickersRef.current = stickers; }, [stickers]);
 
+  const drawRef = useRef(null);
+  useEffect(() => { drawRef.current = draw; }, [draw]);
+
   const syncVideosInRAFRef = useRef(null);
   useEffect(() => { syncVideosInRAFRef.current = syncVideosInRAF; }, [syncVideosInRAF]);
 
