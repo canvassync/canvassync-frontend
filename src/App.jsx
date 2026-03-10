@@ -2281,31 +2281,18 @@ function App() {
       const muxer = new Muxer({ target, video: { codec: 'avc', width: W, height: H },
         audio: _abSD ? { codec: 'aac', sampleRate: _sdRate, numberOfChannels: 2 } : undefined,
         fastStart: 'in-memory' });
-      const venc = new VideoEncoder({ output: (chunk, meta) => muxer.addVideoChunk(chunk, meta), error: console.error });
-      venc.configure({ codec: 'avc1.42001f', width: W, height: H, bitrate: 4_000_000, framerate: FPS });
-      const offCanvas = new OffscreenCanvas(W, H);
-      for (let fi = 0; fi < TOTAL; fi++) {
-        const t = fi / FPS * _spd2;
-        await renderAtTimeToCanvas(offCanvas, t);
-        const frame = new VideoFrame(offCanvas, { timestamp: Math.round(fi * 1_000_000 / FPS), duration: Math.round(1_000_000 / FPS) });
-        venc.encode(frame, { keyFrame: fi % 60 === 0 });
-        frame.close();
-        setExportProgress(fi / TOTAL * (_abSD ? 0.85 : 1));
-      }
-      await venc.flush();
+      // ── Áudio PRIMEIRO (igual ao WEBM) → mp4-muxer recebe chunks em ordem ──
       if (_abSD) {
         try {
           const aenc = new AudioEncoder({ output: (chunk, meta) => muxer.addAudioChunk(chunk, meta), error: console.error });
           aenc.configure({ codec: 'mp4a.40.2', sampleRate: _sdRate, numberOfChannels: 2, bitrate: 192000 });
-          const CHUNK = 4096;
-          // Renderiza áudio com WOLA (preserva tom) + volume
           const [_out02, _out12] = await _renderAudioStretched(_abSD, _spd2, _vol2, _sdRate);
           const _blk2 = 4096;
           for (let _op2 = 0; _op2 < _out02.length; _op2 += _blk2) {
             const _bl2 = Math.min(_blk2, _out02.length - _op2);
             const _pl2 = new Float32Array(_bl2 * 2);
             for (let _i = 0; _i < _bl2; _i++) {
-              _pl2[_i]              = _out02[_op2+_i] || 0;
+              _pl2[_i]         = _out02[_op2+_i] || 0;
               _pl2[_bl2+_i]    = _out12[_op2+_i] || 0;
             }
             const _ad2 = new AudioData({ format:'f32-planar', sampleRate:_sdRate, numberOfChannels:2,
@@ -2315,6 +2302,19 @@ function App() {
           await aenc.flush();
         } catch(e) { console.error('[MP4 SD Audio]', e); }
       }
+      // ── Vídeo depois ──────────────────────────────────────────────────────
+      const venc = new VideoEncoder({ output: (chunk, meta) => muxer.addVideoChunk(chunk, meta), error: console.error });
+      venc.configure({ codec: 'avc1.42001f', width: W, height: H, bitrate: 4_000_000, framerate: FPS });
+      const offCanvas = new OffscreenCanvas(W, H);
+      for (let fi = 0; fi < TOTAL; fi++) {
+        const t = fi / FPS * _spd2;
+        await renderAtTimeToCanvas(offCanvas, t);
+        const frame = new VideoFrame(offCanvas, { timestamp: Math.round(fi * 1_000_000 / FPS), duration: Math.round(1_000_000 / FPS) });
+        venc.encode(frame, { keyFrame: fi % 60 === 0 });
+        frame.close();
+        setExportProgress(fi / TOTAL);
+      }
+      await venc.flush();
       muxer.finalize();
       setExportProgress(1);
       const blob = new Blob([target.buffer], { type: 'video/mp4' });
@@ -2377,6 +2377,28 @@ function App() {
       const muxer = new Muxer({ target, video: { codec: 'avc', width: W, height: H },
         audio: _abHD ? { codec: 'aac', sampleRate: _hdRate, numberOfChannels: 2 } : undefined,
         fastStart: 'in-memory' });
+      // ── Áudio PRIMEIRO (igual ao WEBM) → mp4-muxer recebe chunks em ordem ──
+      if (_abHD) {
+        try {
+          const aenc = new AudioEncoder({ output: (chunk, meta) => muxer.addAudioChunk(chunk, meta), error: console.error });
+          aenc.configure({ codec: 'mp4a.40.2', sampleRate: _hdRate, numberOfChannels: 2, bitrate: 192000 });
+          const [_out03, _out13] = await _renderAudioStretched(_abHD, _spd3, _vol3, _hdRate);
+          const _blk3 = 4096;
+          for (let _op3 = 0; _op3 < _out03.length; _op3 += _blk3) {
+            const _bl3 = Math.min(_blk3, _out03.length - _op3);
+            const _pl3 = new Float32Array(_bl3 * 2);
+            for (let _i = 0; _i < _bl3; _i++) {
+              _pl3[_i]         = _out03[_op3+_i] || 0;
+              _pl3[_bl3+_i]    = _out13[_op3+_i] || 0;
+            }
+            const _ad3 = new AudioData({ format:'f32-planar', sampleRate:_hdRate, numberOfChannels:2,
+              numberOfFrames:_bl3, timestamp:Math.round((_op3/_hdRate)*1_000_000), data:_pl3.buffer });
+            aenc.encode(_ad3); _ad3.close();
+          }
+          await aenc.flush();
+        } catch(e) { console.error('[MP4 HD Audio]', e); }
+      }
+      // ── Vídeo depois ──────────────────────────────────────────────────────
       const venc = new VideoEncoder({ output: (chunk, meta) => muxer.addVideoChunk(chunk, meta), error: console.error });
       // avc1.640034 = H.264 High Profile Level 5.2 — suporta até 4K (resolve erro Level 3.1)
       venc.configure({ codec: 'avc1.640034', width: W, height: H, bitrate: 8_000_000, framerate: FPS });
@@ -2387,31 +2409,9 @@ function App() {
         const frame = new VideoFrame(offCanvas, { timestamp: Math.round(fi * 1_000_000 / FPS), duration: Math.round(1_000_000 / FPS) });
         venc.encode(frame, { keyFrame: fi % 60 === 0 });
         frame.close();
-        setExportProgress(fi / TOTAL * (_abHD ? 0.85 : 1));
+        setExportProgress(fi / TOTAL);
       }
       await venc.flush();
-      if (_abHD) {
-        try {
-          const aenc = new AudioEncoder({ output: (chunk, meta) => muxer.addAudioChunk(chunk, meta), error: console.error });
-          aenc.configure({ codec: 'mp4a.40.2', sampleRate: _hdRate, numberOfChannels: 2, bitrate: 192000 });
-          const CHUNK = 4096;
-          // Renderiza áudio com WOLA (preserva tom) + volume
-          const [_out03, _out13] = await _renderAudioStretched(_abHD, _spd3, _vol3, _hdRate);
-          const _blk3 = 4096;
-          for (let _op3 = 0; _op3 < _out03.length; _op3 += _blk3) {
-            const _bl3 = Math.min(_blk3, _out03.length - _op3);
-            const _pl3 = new Float32Array(_bl3 * 2);
-            for (let _i = 0; _i < _bl3; _i++) {
-              _pl3[_i]              = _out03[_op3+_i] || 0;
-              _pl3[_bl3+_i]    = _out13[_op3+_i] || 0;
-            }
-            const _ad3 = new AudioData({ format:'f32-planar', sampleRate:_hdRate, numberOfChannels:2,
-              numberOfFrames:_bl3, timestamp:Math.round((_op3/_hdRate)*1_000_000), data:_pl3.buffer });
-            aenc.encode(_ad3); _ad3.close();
-          }
-          await aenc.flush();
-        } catch(e) { console.error('[MP4 HD Audio]', e); }
-      }
       muxer.finalize();
       setExportProgress(1);
       const blob = new Blob([target.buffer], { type: 'video/mp4' });
