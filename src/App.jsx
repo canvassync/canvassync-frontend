@@ -2275,12 +2275,11 @@ function App() {
           _ac2.close();
         } catch(_e) { console.error('[MP4 SD decode]', _e); }
       }
-      const _nChSD = _abSD ? Math.min(_abSD.numberOfChannels, 2) : 2;
       const _sdRate = 44100;
       const _outSampSD = Math.floor(_sdRate * outputDuration2);
       const target = new ArrayBufferTarget();
       const muxer = new Muxer({ target, video: { codec: 'avc', width: W, height: H },
-        audio: _abSD ? { codec: 'aac', sampleRate: _sdRate, numberOfChannels: _nChSD } : undefined,
+        audio: _abSD ? { codec: 'aac', sampleRate: _sdRate, numberOfChannels: 2 } : undefined,
         fastStart: 'in-memory' });
       const venc = new VideoEncoder({ output: (chunk, meta) => muxer.addVideoChunk(chunk, meta), error: console.error });
       venc.configure({ codec: 'avc1.42001f', width: W, height: H, bitrate: 4_000_000, framerate: FPS });
@@ -2297,7 +2296,7 @@ function App() {
       if (_abSD) {
         try {
           const aenc = new AudioEncoder({ output: (chunk, meta) => muxer.addAudioChunk(chunk, meta), error: console.error });
-          aenc.configure({ codec: 'mp4a.40.2', sampleRate: _sdRate, numberOfChannels: _nChSD, bitrate: 192000 });
+          aenc.configure({ codec: 'mp4a.40.2', sampleRate: _sdRate, numberOfChannels: 2, bitrate: 192000 });
           const CHUNK = 4096;
           // Renderiza áudio com WOLA (preserva tom) + volume
           const [_out02, _out12] = await _renderAudioStretched(_abSD, _spd2, _vol2, _sdRate);
@@ -2372,12 +2371,11 @@ function App() {
           _ac3.close();
         } catch(_e) { console.error('[MP4 HD decode]', _e); }
       }
-      const _nChHD = _abHD ? Math.min(_abHD.numberOfChannels, 2) : 2;
       const _hdRate = 44100;
       const _outSampHD = Math.floor(_hdRate * outputDuration3);
       const target = new ArrayBufferTarget();
       const muxer = new Muxer({ target, video: { codec: 'avc', width: W, height: H },
-        audio: _abHD ? { codec: 'aac', sampleRate: _hdRate, numberOfChannels: _nChHD } : undefined,
+        audio: _abHD ? { codec: 'aac', sampleRate: _hdRate, numberOfChannels: 2 } : undefined,
         fastStart: 'in-memory' });
       const venc = new VideoEncoder({ output: (chunk, meta) => muxer.addVideoChunk(chunk, meta), error: console.error });
       // avc1.640034 = H.264 High Profile Level 5.2 — suporta até 4K (resolve erro Level 3.1)
@@ -2395,7 +2393,7 @@ function App() {
       if (_abHD) {
         try {
           const aenc = new AudioEncoder({ output: (chunk, meta) => muxer.addAudioChunk(chunk, meta), error: console.error });
-          aenc.configure({ codec: 'mp4a.40.2', sampleRate: _hdRate, numberOfChannels: _nChHD, bitrate: 192000 });
+          aenc.configure({ codec: 'mp4a.40.2', sampleRate: _hdRate, numberOfChannels: 2, bitrate: 192000 });
           const CHUNK = 4096;
           // Renderiza áudio com WOLA (preserva tom) + volume
           const [_out03, _out13] = await _renderAudioStretched(_abHD, _spd3, _vol3, _hdRate);
