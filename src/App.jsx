@@ -1406,7 +1406,11 @@ function App() {
     });
   }, [audioPxWidth, waveformPeaks]);
 
-  const draw = useCallback(() => {
+  const gifCacheRef = useRef(new Map()); // url → HTMLImageElement
+  const stickersRef = useRef([]);
+  useEffect(() => { stickersRef.current = stickers; }, [stickers]);
+
+    const draw = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
@@ -1678,7 +1682,7 @@ function App() {
       ctx.restore();
     });
     // Não agenda mais RAF aqui — o loop unificado abaixo cuida disso
-  }, [activeImageId, activeVideoId, activeExtraTextId, activeLyricId, editingLyricId, drawRotatedElement, drawRoundedImage, drawRoundedRect, drawResizeHandles, extraTextColor, extraTextFontFamily, extraTextFontSize, extraTexts, fontFamily, fontSize, getImagesForTime, getVideosForTime, image, lyrics, textColor, wrapLyricText, videos, shadowEnabled, shadowBlur, shadowColor, shadowOffsetX, shadowOffsetY, gradientEnabled, gradientColor1, gradientColor2, stickers]);
+  }, [activeImageId, activeVideoId, activeExtraTextId, activeLyricId, editingLyricId, drawRotatedElement, drawRoundedImage, drawRoundedRect, drawResizeHandles, extraTextColor, extraTextFontFamily, extraTextFontSize, extraTexts, fontFamily, fontSize, getImagesForTime, getVideosForTime, image, lyrics, textColor, wrapLyricText, videos, shadowEnabled, shadowBlur, shadowColor, shadowOffsetX, shadowOffsetY, gradientEnabled, gradientColor1, gradientColor2]);
 
 
   // ── Sync de vídeos via função chamada pelo loop RAF ──────────────────────
@@ -1714,10 +1718,6 @@ function App() {
   // ── REFS para o loop RAF unificado ────────────────────────────────────────
   // Mantemos todas as dependências em refs para que o loop NUNCA precise ser
   // recriado. Recriação = cancel + restart = solavanco visível no playhead.
-  const gifCacheRef = useRef(new Map()); // url → HTMLImageElement
-  const stickersRef = useRef([]);
-  useEffect(() => { stickersRef.current = stickers; }, [stickers]);
-
   const drawRef = useRef(null);
   useEffect(() => { drawRef.current = draw; }, [draw]);
 
