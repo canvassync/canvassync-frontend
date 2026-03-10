@@ -760,19 +760,21 @@ function App() {
     setGifSearching(true);
     setGifSearchResults([]);
     try {
-      // Giphy public beta key (rate-limited, for demo use)
-      const key = 'dc6zaTOxFJmzC';
-      const res = await fetch(`https://api.giphy.com/v1/gifs/search?api_key=${key}&q=${encodeURIComponent(query)}&limit=16&rating=g`);
+      const key = 'AIzaSyC44MszwiAVrBFl3R1v7MOGpCgH0ZBVFTI';
+      const res = await fetch(
+        `https://tenor.googleapis.com/v2/search?q=${encodeURIComponent(query)}&key=${key}&limit=16&media_filter=gif&contentfilter=medium`
+      );
       const data = await res.json();
-      if (data.data) {
-        setGifSearchResults(data.data.map(g => ({
-          url: g.images.fixed_width_small.url,
-          preview: g.images.fixed_width_small.url,
-          label: g.title || query,
-        })));
+      if (data.results) {
+        setGifSearchResults(data.results.map(g => ({
+          url:     g.media_formats?.gif?.url     || g.media_formats?.tinygif?.url || '',
+          preview: g.media_formats?.tinygif?.url || g.media_formats?.gif?.url     || '',
+          label:   g.title || query,
+        })).filter(g => g.url));
       }
     } catch(e) {
-      console.error('[Giphy search]', e);
+      console.error('[Tenor search]', e);
+      setGifSearchResults([]);
     }
     setGifSearching(false);
   };
@@ -780,10 +782,9 @@ function App() {
   const addGifFromUrl = (url) => {
     if (!url.trim()) return;
     const cleanUrl = url.trim();
-    if (!gifCacheRef.current.has(cleanUrl)) {
-      const img = new Image(); img.crossOrigin = 'anonymous'; img.src = cleanUrl;
-      gifCacheRef.current.set(cleanUrl, img);
-    }
+    const img = new Image();
+    img.src = cleanUrl;
+    gifCacheRef.current.set(cleanUrl, img);
     addSticker('gif', cleanUrl, null);
     setGifUrlInput('');
   };
@@ -1235,14 +1236,7 @@ function App() {
         : s));
       return;
     }
-    // Sticker resize
-    if (dragging && dragging.type === 'sticker-resize') {
-      const dx = mouseX - dragging.startX, dy = mouseY - dragging.startY;
-      const delta = (Math.abs(dx) > Math.abs(dy) ? dx : dy);
-      const newSize = Math.max(20, Math.min(400, dragging.startSize + delta * 1.5));
-      setStickers(prev => prev.map(s => s.id === dragging.id ? { ...s, size: newSize } : s));
-      return;
-    }
+
 
     // Extra text move
     if (dragging && dragging.type === 'extra' && draggingExtraIndex !== null) {
@@ -3164,10 +3158,26 @@ function App() {
                   )}
                 </div>
 
+                {activeStickerId && stickers.find(s => s.id === activeStickerId) && (() => {
+                  const sel = stickers.find(s => s.id === activeStickerId);
+                  return (
+                    <div style={{ padding: '8px 14px', borderTop: '1px solid rgba(0,191,255,0.2)', background: 'rgba(0,191,255,0.05)', display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <span style={{ fontSize: 10, color: '#00BFFF', fontWeight: 700, whiteSpace: 'nowrap' }}>📐 Tamanho</span>
+                      <input type="range" min={20} max={400} step={4}
+                        value={sel.size || 80}
+                        onChange={e => setStickers(prev => prev.map(s => s.id === activeStickerId ? { ...s, size: Number(e.target.value) } : s))}
+                        style={{ flex: 1, accentColor: '#00BFFF', cursor: 'pointer' }}
+                      />
+                      <span style={{ fontSize: 11, color: '#00BFFF', fontWeight: 700, minWidth: 34, textAlign: 'right' }}>{Math.round(sel.size || 80)}px</span>
+                      <button onClick={() => { activeStickerRef.current = null; setActiveStickerId(null); }}
+                        style={{ background: 'none', border: 'none', color: '#555', cursor: 'pointer', fontSize: 14 }}>✕</button>
+                    </div>
+                  );
+                })()}
                 <div style={{ padding: '8px 12px', borderTop: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <span style={{ fontSize: 10, color: '#555' }}>Arraste para mover · botão direito para remover</span>
+                  <span style={{ fontSize: 10, color: '#555' }}>Clique para selecionar · arraste para mover · botão direito remove</span>
                   {stickers.length > 0 && (
-                    <button onClick={() => setStickers([])} style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 8, padding: '3px 10px', fontSize: 10, color: '#f87171', fontWeight: 700, cursor: 'pointer' }}>
+                    <button onClick={() => { setStickers([]); setActiveStickerId(null); }} style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 8, padding: '3px 10px', fontSize: 10, color: '#f87171', fontWeight: 700, cursor: 'pointer' }}>
                       Limpar todos
                     </button>
                   )}
