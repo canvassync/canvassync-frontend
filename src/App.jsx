@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo, createPortal } from 'react';
 import { useAuth } from './hooks/useAuth.jsx';
 import { useLanguage, LangToggle } from './hooks/useLanguage.jsx';
 
@@ -292,7 +292,10 @@ function App() {
       if (e.key === 'Escape') { setIsFullscreen(false); setShowStickerPanel(false); }
     };
     const onClickOut = (e) => {
-      if (showStickerPanel && !e.target.closest?.('[data-sticker-panel]')) {
+      if (!showStickerPanel) return;
+      // Fecha se clicou fora do botão e fora do painel portal
+      if (stickerBtnRef.current && !stickerBtnRef.current.contains(e.target) &&
+          !e.target.closest('[data-sticker-portal]')) {
         setShowStickerPanel(false);
       }
     };
@@ -2944,18 +2947,19 @@ function App() {
               }}
             >✨ Stickers {stickers.length > 0 && <span style={{ background:'#fbbf24',color:'#000',borderRadius:8,padding:'1px 6px',fontSize:10,fontWeight:900 }}>{stickers.length}</span>}</button>
 
-            {showStickerPanel && (() => {
+            {showStickerPanel && createPortal((() => {
               const btnRect = stickerBtnRef.current?.getBoundingClientRect();
               const panelTop  = btnRect ? btnRect.bottom + 8 : 80;
               const panelLeft = btnRect ? Math.min(btnRect.left, window.innerWidth - 372) : 0;
               return (
               <div
+                data-sticker-portal
                 onClick={e => e.stopPropagation()}
                 style={{
                   position: 'fixed',
                   top: panelTop,
                   left: panelLeft,
-                  zIndex: 9000,
+                  zIndex: 99999,
                   background: '#111827', border: '1px solid rgba(251,191,36,0.25)',
                   borderRadius: 18, width: 360, boxShadow: '0 16px 48px rgba(0,0,0,0.8)',
                   overflow: 'hidden',
@@ -3035,7 +3039,7 @@ function App() {
                 </div>
               </div>
               );
-            })()}
+            })(), document.body)}
           </div>
         </div>
       </div>
