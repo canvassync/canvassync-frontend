@@ -4484,6 +4484,59 @@ function App() {
             </div>
           ))}
 
+          {/* Sliders de tamanho flutuante — aparece quando imagem está selecionada */}
+          {(() => {
+            const selImg = activeImageId ? images.find(i => i.id === activeImageId) : null;
+            if (!selImg) return null;
+            const canvasW = CANVAS_FORMATS[canvasFormat]?.width  || 1280;
+            const canvasH = CANVAS_FORMATS[canvasFormat]?.height || 720;
+            const setW = (v) => setImages(prev => prev.map(i => i.id === selImg.id ? { ...i, width:  Number(v) } : i));
+            const setH = (v) => setImages(prev => prev.map(i => i.id === selImg.id ? { ...i, height: Number(v) } : i));
+            return (
+              <div style={{
+                position: 'absolute', bottom: 12, left: '50%', transform: 'translateX(-50%)',
+                zIndex: 100, background: 'rgba(10,12,28,0.92)', border: '1px solid rgba(251,191,36,0.5)',
+                borderRadius: 14, padding: '8px 16px', display: 'flex', alignItems: 'center', gap: 14,
+                backdropFilter: 'blur(10px)', boxShadow: '0 4px 24px rgba(0,0,0,0.55)', minWidth: 320,
+              }}>
+                <span style={{ fontSize: 10, color: '#fbbf24', fontWeight: 700, whiteSpace: 'nowrap' }}>🖼️ Tamanho</span>
+
+                {/* Largura */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1 }}>
+                  <span style={{ fontSize: 10, color: '#888', whiteSpace: 'nowrap' }}>W</span>
+                  <input
+                    type="range" min={20} max={canvasW} step={2}
+                    value={Math.round(selImg.width || 100)}
+                    onMouseDown={e => e.stopPropagation()}
+                    onPointerDown={e => e.stopPropagation()}
+                    onChange={e => setW(e.target.value)}
+                    style={{ flex: 1, accentColor: '#fbbf24', cursor: 'pointer' }}
+                  />
+                  <span style={{ fontSize: 10, color: '#fbbf24', fontWeight: 700, minWidth: 36, textAlign: 'right' }}>{Math.round(selImg.width || 100)}px</span>
+                </div>
+
+                {/* Altura */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1 }}>
+                  <span style={{ fontSize: 10, color: '#888', whiteSpace: 'nowrap' }}>H</span>
+                  <input
+                    type="range" min={20} max={canvasH} step={2}
+                    value={Math.round(selImg.height || 100)}
+                    onMouseDown={e => e.stopPropagation()}
+                    onPointerDown={e => e.stopPropagation()}
+                    onChange={e => setH(e.target.value)}
+                    style={{ flex: 1, accentColor: '#fbbf24', cursor: 'pointer' }}
+                  />
+                  <span style={{ fontSize: 10, color: '#fbbf24', fontWeight: 700, minWidth: 36, textAlign: 'right' }}>{Math.round(selImg.height || 100)}px</span>
+                </div>
+
+                <button
+                  onClick={() => setActiveImageId(null)}
+                  style={{ background: 'none', border: 'none', color: '#666', cursor: 'pointer', fontSize: 16, lineHeight: 1 }}
+                >✕</button>
+              </div>
+            );
+          })()}
+
           {/* Modal Tela Cheia */}
           {isFullscreen && (
             <div
