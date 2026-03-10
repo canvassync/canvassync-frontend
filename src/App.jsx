@@ -372,218 +372,242 @@ const CANVAS_TEMPLATES = [
   // ─── 16:9 ──────────────────────────────────────────────────────────────
   { id:'169_bold', format:'16:9', name:'Bold Center', accent:'#00BFFF',
     desc:'Texto central com máximo impacto, glow azul',
+    descEn:'Center text with maximum impact, blue glow',
     settings:{ fontSize:72, fontFamily:'Bebas Neue', textColor:'#ffffff',
       gradientEnabled:true, gradientColor1:'#ffffff', gradientColor2:'#00BFFF',
       shadowEnabled:true, shadowBlur:28, shadowColor:'rgba(0,191,255,0.65)', shadowOffsetX:0, shadowOffsetY:4, zoom:60 },
     extraTexts:[
-      { rx:0.5, ry:0.88, text:'@seucanal', fs:28, ff:'Poppins', color:'rgba(255,255,255,0.55)' },
+      { rx:0.5, ry:0.88, text:'@seucanal', textEn:'@yourchannel', fs:28, ff:'Poppins', color:'rgba(255,255,255,0.55)' },
     ]},
   { id:'169_lower3', format:'16:9', name:'Lower Third', accent:'#fbbf24',
     desc:'Legenda inferior esquerda estilo noticiário',
+    descEn:'Lower-left caption, news broadcast style',
     settings:{ fontSize:52, fontFamily:'Montserrat', textColor:'#ffffff',
       gradientEnabled:false, shadowEnabled:true, shadowBlur:16, shadowColor:'rgba(0,0,0,0.9)', shadowOffsetX:0, shadowOffsetY:2, zoom:55 },
     extraTexts:[
-      { rx:0.08, ry:0.84, text:'Nome do Artista', fs:42, ff:'Bebas Neue', color:'#fbbf24' },
-      { rx:0.08, ry:0.93, text:'feat. Colaborador • 2024', fs:20, ff:'Poppins', color:'rgba(255,255,255,0.65)' },
+      { rx:0.08, ry:0.84, text:'Nome do Artista', textEn:'Artist Name', fs:42, ff:'Bebas Neue', color:'#fbbf24' },
+      { rx:0.08, ry:0.93, text:'feat. Colaborador • 2024', textEn:'feat. Collaborator • 2024', fs:20, ff:'Poppins', color:'rgba(255,255,255,0.65)' },
     ]},
   { id:'169_neon_split', format:'16:9', name:'Neon Split', accent:'#a78bfa',
     desc:'Dois blocos de texto, glow roxo vibrante',
+    descEn:'Two text blocks, vibrant purple glow',
     settings:{ fontSize:58, fontFamily:'Poppins', textColor:'#ffffff',
       gradientEnabled:true, gradientColor1:'#a78bfa', gradientColor2:'#f0abfc',
       shadowEnabled:true, shadowBlur:32, shadowColor:'rgba(167,139,250,0.75)', shadowOffsetX:0, shadowOffsetY:0, zoom:55 },
     extraTexts:[
-      { rx:0.5, ry:0.12, text:'✦ TRACK TITLE ✦', fs:34, ff:'Bebas Neue', color:'#a78bfa' },
-      { rx:0.5, ry:0.92, text:'Álbum • Ano • Gravadora', fs:22, ff:'Poppins', color:'rgba(255,255,255,0.45)' },
+      { rx:0.5, ry:0.12, text:'✦ TRACK TITLE ✦', textEn:'✦ TRACK TITLE ✦', fs:34, ff:'Bebas Neue', color:'#a78bfa' },
+      { rx:0.5, ry:0.92, text:'Álbum • Ano • Gravadora', textEn:'Album • Year • Label', fs:22, ff:'Poppins', color:'rgba(255,255,255,0.45)' },
     ]},
   { id:'169_minimal', format:'16:9', name:'Minimal Dark', accent:'#e2e8f0',
     desc:'Layout limpo com tipografia elegante',
+    descEn:'Clean layout with elegant typography',
     settings:{ fontSize:48, fontFamily:'Raleway', textColor:'#ffffff',
       gradientEnabled:false, shadowEnabled:false, shadowBlur:12, shadowColor:'rgba(0,0,0,0.9)', shadowOffsetX:0, shadowOffsetY:2, zoom:50 },
     extraTexts:[
-      { rx:0.5, ry:0.10, text:'──────────────────', fs:16, ff:'Poppins', color:'rgba(255,255,255,0.18)' },
-      { rx:0.5, ry:0.90, text:'──────────────────', fs:16, ff:'Poppins', color:'rgba(255,255,255,0.18)' },
-      { rx:0.5, ry:0.96, text:'stream agora • todas as plataformas', fs:17, ff:'Raleway', color:'rgba(255,255,255,0.38)' },
+      { rx:0.5, ry:0.10, text:'──────────────────', textEn:'──────────────────', fs:16, ff:'Poppins', color:'rgba(255,255,255,0.18)' },
+      { rx:0.5, ry:0.90, text:'──────────────────', textEn:'──────────────────', fs:16, ff:'Poppins', color:'rgba(255,255,255,0.18)' },
+      { rx:0.5, ry:0.96, text:'stream agora • todas as plataformas', textEn:'stream now • all platforms', fs:17, ff:'Raleway', color:'rgba(255,255,255,0.38)' },
     ]},
   { id:'169_fire', format:'16:9', name:'Fire Hype', accent:'#ff6b00',
     desc:'Trap/rap com gradiente de fogo explosivo',
+    descEn:'Trap/rap with explosive fire gradient',
     settings:{ fontSize:82, fontFamily:'Bebas Neue', textColor:'#ff6b00',
       gradientEnabled:true, gradientColor1:'#ff6b00', gradientColor2:'#ffd700',
       shadowEnabled:true, shadowBlur:42, shadowColor:'rgba(255,107,0,0.85)', shadowOffsetX:0, shadowOffsetY:0, zoom:62 },
     extraTexts:[
-      { rx:0.5, ry:0.09, text:'🔥 NEW MUSIC 🔥', fs:28, ff:'Bebas Neue', color:'#ffd700' },
-      { rx:0.5, ry:0.92, text:'DISPONÍVEL AGORA', fs:24, ff:'Montserrat', color:'rgba(255,255,255,0.75)' },
+      { rx:0.5, ry:0.09, text:'🔥 NEW MUSIC 🔥', textEn:'🔥 NEW MUSIC 🔥', fs:28, ff:'Bebas Neue', color:'#ffd700' },
+      { rx:0.5, ry:0.92, text:'DISPONÍVEL AGORA', textEn:'AVAILABLE NOW', fs:24, ff:'Montserrat', color:'rgba(255,255,255,0.75)' },
     ]},
-  { id:'169_gold', format:'16:9', name:'Clássico Gold', accent:'#d4af37',
+  { id:'169_gold', format:'16:9', name:'Classic Gold', accent:'#d4af37',
     desc:'Elegante dourado para MPB/clássico',
+    descEn:'Elegant gold for classic/acoustic music',
     settings:{ fontSize:58, fontFamily:'Playfair Display', textColor:'#d4af37',
       gradientEnabled:true, gradientColor1:'#d4af37', gradientColor2:'#fff8dc',
       shadowEnabled:true, shadowBlur:22, shadowColor:'rgba(212,175,55,0.5)', shadowOffsetX:0, shadowOffsetY:2, zoom:56 },
     extraTexts:[
-      { rx:0.5, ry:0.08, text:'◆  ◆  ◆', fs:22, ff:'Poppins', color:'rgba(212,175,55,0.5)' },
-      { rx:0.5, ry:0.93, text:'◆  ◆  ◆', fs:22, ff:'Poppins', color:'rgba(212,175,55,0.5)' },
+      { rx:0.5, ry:0.08, text:'◆  ◆  ◆', textEn:'◆  ◆  ◆', fs:22, ff:'Poppins', color:'rgba(212,175,55,0.5)' },
+      { rx:0.5, ry:0.93, text:'◆  ◆  ◆', textEn:'◆  ◆  ◆', fs:22, ff:'Poppins', color:'rgba(212,175,55,0.5)' },
     ]},
   // ─── 9:16 ──────────────────────────────────────────────────────────────
   { id:'916_viral', format:'9:16', name:'Viral Reels', accent:'#ff4081',
     desc:'Texto grande + CTA no rodapé, Reels/TikTok',
+    descEn:'Big text + CTA at the bottom, Reels/TikTok',
     settings:{ fontSize:80, fontFamily:'Bebas Neue', textColor:'#ffffff',
       gradientEnabled:true, gradientColor1:'#ff4081', gradientColor2:'#ff80ab',
       shadowEnabled:true, shadowBlur:32, shadowColor:'rgba(255,64,129,0.75)', shadowOffsetX:0, shadowOffsetY:4, zoom:42 },
     extraTexts:[
-      { rx:0.5, ry:0.06, text:'🎵 OUÇA AGORA', fs:30, ff:'Poppins', color:'rgba(255,255,255,0.9)' },
-      { rx:0.5, ry:0.95, text:'▸ segue pra mais', fs:26, ff:'Poppins', color:'rgba(255,255,255,0.65)' },
+      { rx:0.5, ry:0.06, text:'🎵 OUÇA AGORA', textEn:'🎵 LISTEN NOW', fs:30, ff:'Poppins', color:'rgba(255,255,255,0.9)' },
+      { rx:0.5, ry:0.95, text:'▸ segue pra mais', textEn:'▸ follow for more', fs:26, ff:'Poppins', color:'rgba(255,255,255,0.65)' },
     ]},
   { id:'916_neon', format:'9:16', name:'Center Neon', accent:'#00e5ff',
     desc:'Texto centralizado com glow ciano forte',
+    descEn:'Centered text with strong cyan glow',
     settings:{ fontSize:88, fontFamily:'Bebas Neue', textColor:'#00e5ff',
       gradientEnabled:false, shadowEnabled:true, shadowBlur:52, shadowColor:'rgba(0,229,255,0.92)', shadowOffsetX:0, shadowOffsetY:0, zoom:42 },
     extraTexts:[
-      { rx:0.5, ry:0.11, text:'◈  LANÇAMENTO  ◈', fs:26, ff:'Montserrat', color:'rgba(0,229,255,0.55)' },
-      { rx:0.5, ry:0.90, text:'@artista • todas as plataformas', fs:22, ff:'Poppins', color:'rgba(255,255,255,0.45)' },
+      { rx:0.5, ry:0.11, text:'◈  LANÇAMENTO  ◈', textEn:'◈  NEW RELEASE  ◈', fs:26, ff:'Montserrat', color:'rgba(0,229,255,0.55)' },
+      { rx:0.5, ry:0.90, text:'@artista • todas as plataformas', textEn:'@artist • all platforms', fs:22, ff:'Poppins', color:'rgba(255,255,255,0.45)' },
     ]},
   { id:'916_gradient', format:'9:16', name:'Gradient Wave', accent:'#c084fc',
     desc:'Roxo/rosa vibrante, Stories premium',
+    descEn:'Vibrant purple/pink, premium Stories',
     settings:{ fontSize:82, fontFamily:'Poppins', textColor:'#ffffff',
       gradientEnabled:true, gradientColor1:'#c084fc', gradientColor2:'#f9a8d4',
       shadowEnabled:true, shadowBlur:36, shadowColor:'rgba(192,132,252,0.72)', shadowOffsetX:0, shadowOffsetY:0, zoom:42 },
     extraTexts:[
-      { rx:0.5, ry:0.07, text:'✦ nova música ✦', fs:26, ff:'Raleway', color:'rgba(255,255,255,0.55)' },
-      { rx:0.5, ry:0.93, text:'🎧 disponível agora', fs:26, ff:'Poppins', color:'rgba(255,255,255,0.65)' },
+      { rx:0.5, ry:0.07, text:'✦ nova música ✦', textEn:'✦ new music ✦', fs:26, ff:'Raleway', color:'rgba(255,255,255,0.55)' },
+      { rx:0.5, ry:0.93, text:'🎧 disponível agora', textEn:'🎧 available now', fs:26, ff:'Poppins', color:'rgba(255,255,255,0.65)' },
     ]},
   { id:'916_clean', format:'9:16', name:'Stories Clean', accent:'#f1f5f9',
     desc:'Minimalista elegante, indie/pop',
+    descEn:'Elegant minimalist, indie/pop',
     settings:{ fontSize:72, fontFamily:'Raleway', textColor:'#ffffff',
       gradientEnabled:false, shadowEnabled:false, shadowBlur:12, shadowColor:'rgba(0,0,0,0.9)', shadowOffsetX:0, shadowOffsetY:2, zoom:40 },
     extraTexts:[
-      { rx:0.5, ry:0.07, text:'N O V O  S I N G L E', fs:22, ff:'Raleway', color:'rgba(255,255,255,0.38)' },
-      { rx:0.5, ry:0.94, text:'ouça • salve • compartilhe', fs:20, ff:'Poppins', color:'rgba(255,255,255,0.32)' },
+      { rx:0.5, ry:0.07, text:'N O V O  S I N G L E', textEn:'N E W  S I N G L E', fs:22, ff:'Raleway', color:'rgba(255,255,255,0.38)' },
+      { rx:0.5, ry:0.94, text:'ouça • salve • compartilhe', textEn:'listen • save • share', fs:20, ff:'Poppins', color:'rgba(255,255,255,0.32)' },
     ]},
   { id:'916_hype', format:'9:16', name:'Dark Hype', accent:'#39ff14',
     desc:'Trap/drill urbano agressivo, verde neon',
+    descEn:'Aggressive urban trap/drill, neon green',
     settings:{ fontSize:92, fontFamily:'Bebas Neue', textColor:'#39ff14',
       gradientEnabled:false, shadowEnabled:true, shadowBlur:48, shadowColor:'rgba(57,255,20,0.85)', shadowOffsetX:0, shadowOffsetY:0, zoom:42 },
     extraTexts:[
-      { rx:0.5, ry:0.05, text:'OUT NOW', fs:28, ff:'Montserrat', color:'rgba(255,255,255,0.88)' },
-      { rx:0.5, ry:0.96, text:'▶ STREAM ▶', fs:26, ff:'Bebas Neue', color:'rgba(57,255,20,0.75)' },
+      { rx:0.5, ry:0.05, text:'OUT NOW', textEn:'OUT NOW', fs:28, ff:'Montserrat', color:'rgba(255,255,255,0.88)' },
+      { rx:0.5, ry:0.96, text:'▶ STREAM ▶', textEn:'▶ STREAM ▶', fs:26, ff:'Bebas Neue', color:'rgba(57,255,20,0.75)' },
     ]},
   { id:'916_lofi', format:'9:16', name:'Lo-Fi Vibes', accent:'#f59e0b',
     desc:'Chill, cores quentes, vibe café',
+    descEn:'Chill, warm tones, coffee shop vibe',
     settings:{ fontSize:66, fontFamily:'Lora', textColor:'#f59e0b',
       gradientEnabled:true, gradientColor1:'#f59e0b', gradientColor2:'#fde68a',
       shadowEnabled:true, shadowBlur:22, shadowColor:'rgba(245,158,11,0.45)', shadowOffsetX:0, shadowOffsetY:2, zoom:40 },
     extraTexts:[
-      { rx:0.5, ry:0.07, text:'lo-fi  •  chill  •  beats', fs:24, ff:'Lora', color:'rgba(253,230,138,0.6)' },
-      { rx:0.5, ry:0.93, text:'☕  relaxa e ouve', fs:24, ff:'Lora', color:'rgba(255,255,255,0.5)' },
+      { rx:0.5, ry:0.07, text:'lo-fi  •  chill  •  beats', textEn:'lo-fi  •  chill  •  beats', fs:24, ff:'Lora', color:'rgba(253,230,138,0.6)' },
+      { rx:0.5, ry:0.93, text:'☕  relaxa e ouve', textEn:'☕  chill and vibe', fs:24, ff:'Lora', color:'rgba(255,255,255,0.5)' },
     ]},
   // ─── 1:1 ───────────────────────────────────────────────────────────────
   { id:'11_impact', format:'1:1', name:'Impact Square', accent:'#ff3d00',
     desc:'Máximo impacto para feed quadrado',
+    descEn:'Maximum impact for square feed',
     settings:{ fontSize:94, fontFamily:'Bebas Neue', textColor:'#ffffff',
       gradientEnabled:true, gradientColor1:'#ff3d00', gradientColor2:'#ff9100',
       shadowEnabled:true, shadowBlur:42, shadowColor:'rgba(255,61,0,0.82)', shadowOffsetX:0, shadowOffsetY:0, zoom:50 },
     extraTexts:[
-      { rx:0.5, ry:0.07, text:'🔥 NOVO LANÇAMENTO 🔥', fs:28, ff:'Montserrat', color:'rgba(255,145,0,0.9)' },
-      { rx:0.5, ry:0.94, text:'disponível em todas as plataformas', fs:22, ff:'Poppins', color:'rgba(255,255,255,0.48)' },
+      { rx:0.5, ry:0.07, text:'🔥 NOVO LANÇAMENTO 🔥', textEn:'🔥 NEW RELEASE 🔥', fs:28, ff:'Montserrat', color:'rgba(255,145,0,0.9)' },
+      { rx:0.5, ry:0.94, text:'disponível em todas as plataformas', textEn:'available on all platforms', fs:22, ff:'Poppins', color:'rgba(255,255,255,0.48)' },
     ]},
   { id:'11_blue_neon', format:'1:1', name:'Blue Neon', accent:'#00BFFF',
     desc:'Azul neon, estilo eletrônico/pop',
+    descEn:'Neon blue, electronic/pop style',
     settings:{ fontSize:84, fontFamily:'Bebas Neue', textColor:'#00BFFF',
       gradientEnabled:false, shadowEnabled:true, shadowBlur:52, shadowColor:'rgba(0,191,255,0.92)', shadowOffsetX:0, shadowOffsetY:0, zoom:50 },
     extraTexts:[
-      { rx:0.5, ry:0.07, text:'◈  SINGLE  ◈', fs:26, ff:'Bebas Neue', color:'rgba(0,191,255,0.48)' },
-      { rx:0.5, ry:0.94, text:'@artista  ·  link na bio', fs:22, ff:'Poppins', color:'rgba(255,255,255,0.42)' },
+      { rx:0.5, ry:0.07, text:'◈  SINGLE  ◈', textEn:'◈  SINGLE  ◈', fs:26, ff:'Bebas Neue', color:'rgba(0,191,255,0.48)' },
+      { rx:0.5, ry:0.94, text:'@artista  ·  link na bio', textEn:'@artist  ·  link in bio', fs:22, ff:'Poppins', color:'rgba(255,255,255,0.42)' },
     ]},
   { id:'11_gold', format:'1:1', name:'Gold Feed', accent:'#d4af37',
     desc:'Elegante dourado para feed premium',
+    descEn:'Elegant gold for premium feed',
     settings:{ fontSize:78, fontFamily:'Playfair Display', textColor:'#d4af37',
       gradientEnabled:true, gradientColor1:'#d4af37', gradientColor2:'#fff8dc',
       shadowEnabled:true, shadowBlur:26, shadowColor:'rgba(212,175,55,0.62)', shadowOffsetX:0, shadowOffsetY:2, zoom:50 },
     extraTexts:[
-      { rx:0.5, ry:0.07, text:'—  —  —  —  —  —', fs:18, ff:'Poppins', color:'rgba(212,175,55,0.38)' },
-      { rx:0.5, ry:0.93, text:'—  —  —  —  —  —', fs:18, ff:'Poppins', color:'rgba(212,175,55,0.38)' },
-      { rx:0.5, ry:0.97, text:'ouça agora em todos os streamings', fs:18, ff:'Raleway', color:'rgba(255,255,255,0.32)' },
+      { rx:0.5, ry:0.07, text:'—  —  —  —  —  —', textEn:'—  —  —  —  —  —', fs:18, ff:'Poppins', color:'rgba(212,175,55,0.38)' },
+      { rx:0.5, ry:0.93, text:'—  —  —  —  —  —', textEn:'—  —  —  —  —  —', fs:18, ff:'Poppins', color:'rgba(212,175,55,0.38)' },
+      { rx:0.5, ry:0.97, text:'ouça agora em todos os streamings', textEn:'listen now on all platforms', fs:18, ff:'Raleway', color:'rgba(255,255,255,0.32)' },
     ]},
   { id:'11_minimal', format:'1:1', name:'Minimal Square', accent:'#e2e8f0',
     desc:'Clean e moderno, ótimo para pop/indie',
+    descEn:'Clean and modern, great for pop/indie',
     settings:{ fontSize:72, fontFamily:'Raleway', textColor:'#ffffff',
       gradientEnabled:false, shadowEnabled:false, shadowBlur:12, shadowColor:'rgba(0,0,0,0.9)', shadowOffsetX:0, shadowOffsetY:2, zoom:50 },
     extraTexts:[
-      { rx:0.5, ry:0.06, text:'novo  single', fs:22, ff:'Raleway', color:'rgba(255,255,255,0.28)' },
-      { rx:0.5, ry:0.95, text:'2024', fs:20, ff:'Raleway', color:'rgba(255,255,255,0.22)' },
+      { rx:0.5, ry:0.06, text:'novo  single', textEn:'new  single', fs:22, ff:'Raleway', color:'rgba(255,255,255,0.28)' },
+      { rx:0.5, ry:0.95, text:'2024', textEn:'2024', fs:20, ff:'Raleway', color:'rgba(255,255,255,0.22)' },
     ]},
   { id:'11_trap', format:'1:1', name:'Trap Vibes', accent:'#00ff87',
     desc:'Urbano agressivo, trap/rap verde neon',
+    descEn:'Aggressive urban trap/rap neon green',
     settings:{ fontSize:90, fontFamily:'Bebas Neue', textColor:'#00ff87',
       gradientEnabled:false, shadowEnabled:true, shadowBlur:52, shadowColor:'rgba(0,255,135,0.88)', shadowOffsetX:0, shadowOffsetY:0, zoom:50 },
     extraTexts:[
-      { rx:0.5, ry:0.05, text:'OUT NOW', fs:26, ff:'Montserrat', color:'rgba(255,255,255,0.82)' },
-      { rx:0.5, ry:0.96, text:'🔊 ESCUTA AGORA 🔊', fs:24, ff:'Bebas Neue', color:'rgba(0,255,135,0.68)' },
+      { rx:0.5, ry:0.05, text:'OUT NOW', textEn:'OUT NOW', fs:26, ff:'Montserrat', color:'rgba(255,255,255,0.82)' },
+      { rx:0.5, ry:0.96, text:'🔊 ESCUTA AGORA 🔊', textEn:'🔊 LISTEN NOW 🔊', fs:24, ff:'Bebas Neue', color:'rgba(0,255,135,0.68)' },
     ]},
   { id:'11_retro', format:'1:1', name:'Retro Pop', accent:'#ff6eb4',
     desc:'Anos 80/90 com cores retrô vibrantes',
+    descEn:'80s/90s with vibrant retro colors',
     settings:{ fontSize:76, fontFamily:'Bebas Neue', textColor:'#ffffff',
       gradientEnabled:true, gradientColor1:'#ff6eb4', gradientColor2:'#ffe44d',
       shadowEnabled:true, shadowBlur:22, shadowColor:'rgba(255,110,180,0.52)', shadowOffsetX:4, shadowOffsetY:4, zoom:50 },
     extraTexts:[
-      { rx:0.5, ry:0.07, text:'✦ VIDEOCLIPE OFICIAL ✦', fs:24, ff:'Bebas Neue', color:'#ffe44d' },
-      { rx:0.5, ry:0.94, text:'inscreva-se  •  ative o sino 🔔', fs:20, ff:'Poppins', color:'rgba(255,228,77,0.68)' },
+      { rx:0.5, ry:0.07, text:'✦ VIDEOCLIPE OFICIAL ✦', textEn:'✦ OFFICIAL MUSIC VIDEO ✦', fs:24, ff:'Bebas Neue', color:'#ffe44d' },
+      { rx:0.5, ry:0.94, text:'inscreva-se  •  ative o sino 🔔', textEn:'subscribe  •  hit the bell 🔔', fs:20, ff:'Poppins', color:'rgba(255,228,77,0.68)' },
     ]},
   // ─── 4:3 ───────────────────────────────────────────────────────────────
-  { id:'43_classic', format:'4:3', name:'Clássico TV', accent:'#e2e8f0',
+  { id:'43_classic', format:'4:3', name:'Classic TV', accent:'#e2e8f0',
     desc:'Layout tradicional estilo apresentação TV',
+    descEn:'Traditional layout, TV presentation style',
     settings:{ fontSize:66, fontFamily:'Oswald', textColor:'#ffffff',
       gradientEnabled:false, shadowEnabled:true, shadowBlur:16, shadowColor:'rgba(0,0,0,0.9)', shadowOffsetX:0, shadowOffsetY:3, zoom:55 },
     extraTexts:[
-      { rx:0.5, ry:0.10, text:'VIDEOCLIPE OFICIAL', fs:28, ff:'Oswald', color:'rgba(255,255,255,0.48)' },
-      { rx:0.5, ry:0.92, text:'Inscreva-se no Canal', fs:22, ff:'Poppins', color:'rgba(255,255,255,0.38)' },
+      { rx:0.5, ry:0.10, text:'VIDEOCLIPE OFICIAL', textEn:'OFFICIAL MUSIC VIDEO', fs:28, ff:'Oswald', color:'rgba(255,255,255,0.48)' },
+      { rx:0.5, ry:0.92, text:'Inscreva-se no Canal', textEn:'Subscribe to the Channel', fs:22, ff:'Poppins', color:'rgba(255,255,255,0.38)' },
     ]},
   { id:'43_gold', format:'4:3', name:'Gold Broadcast', accent:'#d4af37',
     desc:'Profissional com dourado, MPB/sertanejo',
+    descEn:'Professional gold, acoustic/country style',
     settings:{ fontSize:70, fontFamily:'Playfair Display', textColor:'#d4af37',
       gradientEnabled:true, gradientColor1:'#d4af37', gradientColor2:'#fff8dc',
       shadowEnabled:true, shadowBlur:22, shadowColor:'rgba(212,175,55,0.52)', shadowOffsetX:0, shadowOffsetY:2, zoom:55 },
     extraTexts:[
-      { rx:0.5, ry:0.09, text:'◆  A U T O R  ◆', fs:26, ff:'Raleway', color:'rgba(212,175,55,0.58)' },
-      { rx:0.5, ry:0.92, text:'disponível em todos os streamings', fs:20, ff:'Raleway', color:'rgba(255,255,255,0.32)' },
+      { rx:0.5, ry:0.09, text:'◆  A U T O R  ◆', textEn:'◆  A R T I S T  ◆', fs:26, ff:'Raleway', color:'rgba(212,175,55,0.58)' },
+      { rx:0.5, ry:0.92, text:'disponível em todos os streamings', textEn:'available on all streaming platforms', fs:20, ff:'Raleway', color:'rgba(255,255,255,0.32)' },
     ]},
   { id:'43_neon', format:'4:3', name:'Neon Screen', accent:'#00e5ff',
     desc:'Tela neon eletrônica, lyric video',
+    descEn:'Electronic neon screen, lyric video',
     settings:{ fontSize:72, fontFamily:'Bebas Neue', textColor:'#00e5ff',
       gradientEnabled:false, shadowEnabled:true, shadowBlur:48, shadowColor:'rgba(0,229,255,0.92)', shadowOffsetX:0, shadowOffsetY:0, zoom:55 },
     extraTexts:[
-      { rx:0.5, ry:0.10, text:'▶  LYRIC VIDEO  ◀', fs:26, ff:'Bebas Neue', color:'rgba(0,229,255,0.48)' },
-      { rx:0.5, ry:0.92, text:'@artista  ·  link na bio', fs:20, ff:'Poppins', color:'rgba(255,255,255,0.38)' },
+      { rx:0.5, ry:0.10, text:'▶  LYRIC VIDEO  ◀', textEn:'▶  LYRIC VIDEO  ◀', fs:26, ff:'Bebas Neue', color:'rgba(0,229,255,0.48)' },
+      { rx:0.5, ry:0.92, text:'@artista  ·  link na bio', textEn:'@artist  ·  link in bio', fs:20, ff:'Poppins', color:'rgba(255,255,255,0.38)' },
     ]},
   { id:'43_minimal', format:'4:3', name:'Minimal 4:3', accent:'#94a3b8',
     desc:'Moderno e limpo para apresentações',
+    descEn:'Modern and clean for presentations',
     settings:{ fontSize:60, fontFamily:'Raleway', textColor:'#ffffff',
       gradientEnabled:false, shadowEnabled:false, shadowBlur:12, shadowColor:'rgba(0,0,0,0.9)', shadowOffsetX:0, shadowOffsetY:2, zoom:55 },
     extraTexts:[
-      { rx:0.5, ry:0.09, text:'N O V A  M Ú S I C A', fs:22, ff:'Raleway', color:'rgba(148,163,184,0.48)' },
-      { rx:0.5, ry:0.92, text:'ouça agora', fs:22, ff:'Raleway', color:'rgba(148,163,184,0.38)' },
+      { rx:0.5, ry:0.09, text:'N O V A  M Ú S I C A', textEn:'N E W  M U S I C', fs:22, ff:'Raleway', color:'rgba(148,163,184,0.48)' },
+      { rx:0.5, ry:0.92, text:'ouça agora', textEn:'listen now', fs:22, ff:'Raleway', color:'rgba(148,163,184,0.38)' },
     ]},
   { id:'43_fire', format:'4:3', name:'Fire Stage', accent:'#ff6b00',
     desc:'Rock/metal com energia explosiva',
+    descEn:'Rock/metal with explosive energy',
     settings:{ fontSize:78, fontFamily:'Bebas Neue', textColor:'#ff6b00',
       gradientEnabled:true, gradientColor1:'#ff6b00', gradientColor2:'#ffd700',
       shadowEnabled:true, shadowBlur:42, shadowColor:'rgba(255,107,0,0.82)', shadowOffsetX:0, shadowOffsetY:0, zoom:56 },
     extraTexts:[
-      { rx:0.5, ry:0.09, text:'🔥 AO VIVO 🔥', fs:26, ff:'Bebas Neue', color:'#ffd700' },
-      { rx:0.5, ry:0.92, text:'INSCREVA-SE E ATIVE O SINO', fs:18, ff:'Montserrat', color:'rgba(255,107,0,0.68)' },
+      { rx:0.5, ry:0.09, text:'🔥 AO VIVO 🔥', textEn:'🔥 LIVE 🔥', fs:26, ff:'Bebas Neue', color:'#ffd700' },
+      { rx:0.5, ry:0.92, text:'INSCREVA-SE E ATIVE O SINO', textEn:'SUBSCRIBE AND HIT THE BELL', fs:18, ff:'Montserrat', color:'rgba(255,107,0,0.68)' },
     ]},
   { id:'43_retro', format:'4:3', name:'Retro Vintage', accent:'#c9a84c',
     desc:'Anos 70/80 vintage para clássicos',
+    descEn:'70s/80s vintage for classic tracks',
     settings:{ fontSize:68, fontFamily:'Lora', textColor:'#c9a84c',
       gradientEnabled:true, gradientColor1:'#c9a84c', gradientColor2:'#f5deb3',
       shadowEnabled:true, shadowBlur:18, shadowColor:'rgba(201,168,76,0.42)', shadowOffsetX:2, shadowOffsetY:2, zoom:55 },
     extraTexts:[
-      { rx:0.5, ry:0.09, text:'✦  C L Á S S I C O  ✦', fs:24, ff:'Lora', color:'rgba(201,168,76,0.58)' },
-      { rx:0.5, ry:0.92, text:'remasterizado  •  alta qualidade', fs:18, ff:'Lora', color:'rgba(255,255,255,0.28)' },
+      { rx:0.5, ry:0.09, text:'✦  C L Á S S I C O  ✦', textEn:'✦  C L A S S I C  ✦', fs:24, ff:'Lora', color:'rgba(201,168,76,0.58)' },
+      { rx:0.5, ry:0.92, text:'remasterizado  •  alta qualidade', textEn:'remastered  •  high quality', fs:18, ff:'Lora', color:'rgba(255,255,255,0.28)' },
     ]},
 ];
 
 function App() {
   const { user, isLoggedIn, isPro, loading: authLoading } = useAuth();
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
   const [image, setImage] = useState(null);
   const [audioSrc, setAudioSrc] = useState(null);
   const [projectVolume, setProjectVolume] = useState(1);    // 0–1
@@ -3422,7 +3446,7 @@ function App() {
     setZoom(s.zoom ?? 50);
     const newExtras = tpl.extraTexts.map((et, idx) => ({
       id:         Date.now() + idx,
-      text:       et.text,
+      text:       (lang === 'en' && et.textEn) ? et.textEn : et.text,
       x:          Math.round(cw * et.rx),
       y:          Math.round(ch * et.ry),
       rotation:   0,
@@ -3501,20 +3525,20 @@ function App() {
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-            <label style={{ fontSize: '11px', color: '#a78bfa', fontWeight: 600, letterSpacing: '0.5px' }}>🎬 Vídeos</label>
+            <label style={{ fontSize: '11px', color: '#a78bfa', fontWeight: 600, letterSpacing: '0.5px' }}>🎬 {t('ed_videos')}</label>
             <input ref={videoInputRef} type="file" onChange={handleVideoUpload} accept="video/*" multiple style={{ color: '#aaa', fontSize: '11px' }} />
           </div>
           <input ref={fontInputRef} type="file" accept=".ttf,.otf,.woff,.woff2" style={{ display: 'none' }} onChange={handleFontUpload} />
           <select value={exportFormat} onChange={(e) => setExportFormat(e.target.value)} style={{ backgroundColor: '#111', color: '#f0f0f0', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '14px', padding: '7px 10px', fontSize: '12px' }}>
-            <option value="webm_offline_audio">🎬 WEBM + Áudio</option>
-            <option value="mp4">🎬 MP4 + Áudio</option>
-            <option value="webm_hd">✨ HD 1080p WEBM</option>
-            <option value="mp4_hd">✨ HD 1080p MP4</option>
+            <option value="webm_offline_audio">🎬 {t('fmt_webm')}</option>
+            <option value="mp4">🎬 {t('fmt_mp4')}</option>
+            <option value="webm_hd">✨ {t('fmt_webm_hd')}</option>
+            <option value="mp4_hd">✨ {t('fmt_mp4_hd')}</option>
             <option value="png">🖼️ PNG</option>
             <option value="jpg">🖼️ JPG</option>
           </select>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-            <label style={{ fontSize: '10px', color: '#a78bfa', fontWeight: 700, letterSpacing: '0.5px' }}>📐 CANVAS</label>
+            <label style={{ fontSize: '10px', color: '#a78bfa', fontWeight: 700, letterSpacing: '0.5px' }}>📐 {t('ed_canvas_label')}</label>
             <select value={canvasFormat} onChange={(e) => setCanvasFormat(e.target.value)} style={{ backgroundColor: '#111', color: '#f0f0f0', border: '1px solid rgba(167,139,250,0.3)', borderRadius: '14px', padding: '7px 10px', fontSize: '12px' }}>
               {Object.entries(CANVAS_FORMATS).map(([key, val]) => (
                 <option key={key} value={key}>{key} — {val.width}×{val.height}</option>
@@ -3556,7 +3580,7 @@ function App() {
           {/* Volume do projeto */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <span style={{ fontSize: 11, color: '#00BFFF', fontWeight: 700, whiteSpace: 'nowrap' }}>
-              {projectVolume === 0 ? '🔇' : projectVolume < 0.5 ? '🔉' : '🔊'} Vol
+              {projectVolume === 0 ? '🔇' : projectVolume < 0.5 ? '🔉' : '🔊'} {t('ed_vol')}
             </span>
             <input type="range" min={0} max={1} step={0.01} value={projectVolume}
               onChange={e => setVolume(+e.target.value)}
@@ -3568,7 +3592,7 @@ function App() {
 
           {/* Velocidade do projeto */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ fontSize: 11, color: '#00BFFF', fontWeight: 700, whiteSpace: 'nowrap' }}>⚡ Vel</span>
+            <span style={{ fontSize: 11, color: '#00BFFF', fontWeight: 700, whiteSpace: 'nowrap' }}>⚡ {t('ed_speed')}</span>
             <input type="range" min={0.25} max={4} step={0.05} value={projectSpeed}
               onChange={e => setSpeed(+e.target.value)}
               onMouseDown={e => e.stopPropagation()}
@@ -3626,7 +3650,7 @@ function App() {
                   <div>
                     <div style={{ fontSize: 15, fontWeight: 800, color: '#10b981' }}>🎨 Templates</div>
                     <div style={{ fontSize: 11, color: '#475569', marginTop: 2 }}>
-                      Escolha um template — fontes, cores, textos e layout aplicados automaticamente
+                      {t('tpl_subtitle')}
                     </div>
                   </div>
                   <button onClick={() => setShowTemplatePanel(false)} style={{ background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 10, padding: '5px 12px', color: '#f87171', fontWeight: 700, fontSize: 12, cursor: 'pointer' }}>✕</button>
@@ -3646,7 +3670,7 @@ function App() {
                       }}>
                         <span style={{ fontSize: 16 }}>{icons[fmt]}</span>
                         <span>{fmt}</span>
-                        <span style={{ fontSize: 9, color: templateFormatTab === fmt ? 'rgba(16,185,129,0.7)' : '#333' }}>{count} templates</span>
+                        <span style={{ fontSize: 9, color: templateFormatTab === fmt ? 'rgba(16,185,129,0.7)' : '#333' }}>{count} {t('tpl_count')}</span>
                       </button>
                     );
                   })}
@@ -3721,7 +3745,7 @@ function App() {
                             <div style={{ width: 7, height: 7, borderRadius: '50%', background: tpl.accent, flexShrink: 0 }} />
                             <span style={{ fontSize: 11, fontWeight: 800, color: '#f1f5f9' }}>{tpl.name}</span>
                           </div>
-                          <span style={{ fontSize: 10, color: '#64748b', lineHeight: 1.4 }}>{tpl.desc}</span>
+                          <span style={{ fontSize: 10, color: '#64748b', lineHeight: 1.4 }}>{lang === 'en' && tpl.descEn ? tpl.descEn : tpl.desc}</span>
                           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3 }}>
                             <span style={{ fontSize: 9, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 4, padding: '1px 5px', color: '#94a3b8' }}>{s.fontFamily}</span>
                             {s.gradientEnabled && <span style={{ fontSize: 9, background: 'rgba(167,139,250,0.1)', border: '1px solid rgba(167,139,250,0.3)', borderRadius: 4, padding: '1px 5px', color: '#a78bfa' }}>gradient</span>}
@@ -3741,7 +3765,7 @@ function App() {
                           onMouseEnter={e => { e.currentTarget.style.background = `${tpl.accent}45`; e.currentTarget.style.color = '#fff'; }}
                           onMouseLeave={e => { e.currentTarget.style.background = `${tpl.accent}20`; e.currentTarget.style.color = tpl.accent; }}
                         >
-                          ✓ Usar template
+                          ✓ {t('tpl_use')}
                         </button>
                       </div>
                     );
@@ -3750,7 +3774,7 @@ function App() {
 
                 {/* Footer */}
                 <div style={{ padding: '10px 20px', borderTop: '1px solid rgba(255,255,255,0.06)', fontSize: 10, color: '#334155', textAlign: 'center' }}>
-                  O template não altera suas mídias (fundo, imagens, áudio, vídeos) nem as letras da música
+                  {t('tpl_footer')}
                 </div>
               </div>
               </>
@@ -3842,10 +3866,10 @@ function App() {
 
 
                 <div style={{ padding: '8px 12px', borderTop: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <span style={{ fontSize: 10, color: '#555' }}>Clique para selecionar · arraste para mover · botão direito remove</span>
+                  <span style={{ fontSize: 10, color: '#555' }}>{t('stk_hint')}</span>
                   {stickers.length > 0 && (
                     <button onClick={() => { setStickers([]); setActiveStickerId(null); }} style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 8, padding: '3px 10px', fontSize: 10, color: '#f87171', fontWeight: 700, cursor: 'pointer' }}>
-                      Limpar todos
+                      {t('stk_clear_all')}
                     </button>
                   )}
                 </div>
@@ -3869,7 +3893,7 @@ function App() {
                 fontWeight: 700, fontSize: 13, color: '#10b981',
                 display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap',
               }}
-            >🔊 Efeitos {soundEffects.length > 0 && <span style={{ background:'#10b981',color:'#000',borderRadius:8,padding:'1px 6px',fontSize:10,fontWeight:900 }}>{soundEffects.length}</span>}</button>
+            >🔊 {t('ed_sfx')} {soundEffects.length > 0 && <span style={{ background:'#10b981',color:'#000',borderRadius:8,padding:'1px 6px',fontSize:10,fontWeight:900 }}>{soundEffects.length}</span>}</button>
 
             {showSfxPanel && createPortal(
               <div data-sfx-portal onClick={e => e.stopPropagation()} style={{
@@ -3881,8 +3905,8 @@ function App() {
               }}>
                 {/* Header */}
                 <div style={{ padding: '12px 16px 8px', borderBottom: '1px solid rgba(255,255,255,0.06)', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-                  <span style={{ fontWeight:800, fontSize:13, color:'#10b981' }}>🔊 Efeitos Sonoros</span>
-                  <span style={{ fontSize:10, color:'#555' }}>Clique p/ adicionar na posição atual</span>
+                  <span style={{ fontWeight:800, fontSize:13, color:'#10b981' }}>🔊 {t('sfx_title')}</span>
+                  <span style={{ fontSize:10, color:'#555' }}>{t('sfx_hint')}</span>
                 </div>
                 {/* Grid of SFX */}
                 <div style={{ padding: '10px 12px', maxHeight: 220, overflowY:'auto', display:'flex', flexWrap:'wrap', gap:6 }}>
@@ -3906,7 +3930,7 @@ function App() {
                 {/* Placed effects list */}
                 {soundEffects.length > 0 && (
                   <div style={{ borderTop:'1px solid rgba(255,255,255,0.06)', padding:'8px 12px', maxHeight:180, overflowY:'auto' }}>
-                    <div style={{ fontSize:9, color:'#555', fontWeight:700, marginBottom:6 }}>COLOCADOS NO VÍDEO</div>
+                    <div style={{ fontSize:9, color:'#555', fontWeight:700, marginBottom:6 }}>{t('sfx_placed')}</div>
                     {soundEffects.map((sfx, i) => (
                       <div key={sfx.id} style={{ display:'flex', alignItems:'center', gap:8, padding:'4px 0', borderBottom:'1px solid rgba(255,255,255,0.04)' }}>
                         <span style={{ fontSize:16 }}>{sfx.emoji}</span>
@@ -3924,13 +3948,13 @@ function App() {
                       </div>
                     ))}
                     <button onClick={() => setSoundEffects([])} style={{ marginTop:8, background:'rgba(239,68,68,0.08)', border:'1px solid rgba(239,68,68,0.2)', borderRadius:8, padding:'4px 12px', fontSize:10, color:'#f87171', fontWeight:700, cursor:'pointer', width:'100%' }}>
-                      Remover todos
+                      {t('sfx_remove_all')}
                     </button>
                   </div>
                 )}
                 {soundEffects.length === 0 && (
                   <div style={{ padding:'10px 16px 14px', fontSize:11, color:'#444', textAlign:'center' }}>
-                    Pausa o vídeo na posição desejada e clique em um efeito
+                    {t('sfx_empty')}
                   </div>
                 )}
               </div>
@@ -3960,13 +3984,13 @@ function App() {
               <div style={{ padding: '12px 18px', borderBottom: '1px solid rgba(255,255,255,0.07)', display: 'flex', flexDirection: 'column', gap: 8 }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <label style={{ fontSize: '11px', color: isVid ? '#a78bfa' : '#fbbf24', fontWeight: 700, letterSpacing: '0.6px' }}>
-                    {isVid ? '🎬 VÍDEO SELECIONADO' : '🖼️ IMAGEM SELECIONADA'}
+                    {isVid ? t('sel_video') : t('sel_image')}
                   </label>
                   <button onClick={() => { if (isVid) setActiveVideoId(null); else setActiveImageId(null); }}
                     style={{ background: 'none', border: 'none', color: '#555', cursor: 'pointer', fontSize: 14 }}>✕</button>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <span style={{ fontSize: 11, color: '#888', minWidth: 52 }}>Rotação</span>
+                  <span style={{ fontSize: 11, color: '#888', minWidth: 52 }}>{t('ed_rotation')}</span>
                   <input type="range" min="-180" max="180" value={rot}
                     onChange={e => setRot(parseInt(e.target.value))}
                     style={{ flex: 1, accentColor: isVid ? '#a78bfa' : '#fbbf24' }} />
@@ -4002,33 +4026,33 @@ function App() {
                     else       setImages(prev => prev.map(i => i.id === sel.id ? { ...i, filters: f } : i));
                   };
                   const PRESETS = [
-                    { label: 'Original', f: {} },
-                    { label: 'P&B',      f: { grayscale: 100 } },
-                    { label: 'Sépia',    f: { sepia: 80 } },
-                    { label: 'Cinema',   f: { contrast: 115, saturate: 80, brightness: 95 } },
-                    { label: 'Neon',     f: { saturate: 200, brightness: 110, contrast: 120 } },
-                    { label: 'Vintage',  f: { sepia: 40, contrast: 90, brightness: 105, saturate: 80 } },
-                    { label: 'Frio',     f: { hueRotate: 190, saturate: 120 } },
-                    { label: 'Quente',   f: { hueRotate: 340, saturate: 130, brightness: 105 } },
-                    { label: 'Fade',     f: { brightness: 130, saturate: 60, contrast: 85 } },
-                    { label: 'Dramático',f: { contrast: 150, saturate: 50, brightness: 90 } },
+                    { label: t('prs_original'), f: {} },
+                    { label: t('prs_bw'),      f: { grayscale: 100 } },
+                    { label: t('prs_sepia'),    f: { sepia: 80 } },
+                    { label: t('prs_cinema'),   f: { contrast: 115, saturate: 80, brightness: 95 } },
+                    { label: t('prs_neon'),     f: { saturate: 200, brightness: 110, contrast: 120 } },
+                    { label: t('prs_vintage'),  f: { sepia: 40, contrast: 90, brightness: 105, saturate: 80 } },
+                    { label: t('prs_cold'),     f: { hueRotate: 190, saturate: 120 } },
+                    { label: t('prs_warm'),     f: { hueRotate: 340, saturate: 130, brightness: 105 } },
+                    { label: t('prs_fade'),     f: { brightness: 130, saturate: 60, contrast: 85 } },
+                    { label: t('prs_dramatic'), f: { contrast: 150, saturate: 50, brightness: 90 } },
                   ];
                   const SLIDERS = [
-                    { key: 'brightness', label: 'Brilho',    min: 0,   max: 200, def: 100, unit: '%' },
-                    { key: 'contrast',   label: 'Contraste', min: 0,   max: 200, def: 100, unit: '%' },
-                    { key: 'saturate',   label: 'Saturação', min: 0,   max: 300, def: 100, unit: '%' },
-                    { key: 'hueRotate',  label: 'Matiz',     min: 0,   max: 360, def: 0,   unit: '°' },
-                    { key: 'blur',       label: 'Desfoque',  min: 0,   max: 20,  def: 0,   unit: 'px' },
-                    { key: 'sepia',      label: 'Sépia',     min: 0,   max: 100, def: 0,   unit: '%' },
-                    { key: 'grayscale',  label: 'P&B',       min: 0,   max: 100, def: 0,   unit: '%' },
-                    { key: 'opacity',    label: 'Opacidade', min: 0,   max: 100, def: 100, unit: '%' },
+                    { key: 'brightness', label: t('flt_brightness'), min: 0,   max: 200, def: 100, unit: '%' },
+                    { key: 'contrast',   label: t('flt_contrast'),   min: 0,   max: 200, def: 100, unit: '%' },
+                    { key: 'saturate',   label: t('flt_saturate'),   min: 0,   max: 300, def: 100, unit: '%' },
+                    { key: 'hueRotate',  label: t('flt_hue'),        min: 0,   max: 360, def: 0,   unit: '°' },
+                    { key: 'blur',       label: t('flt_blur'),       min: 0,   max: 20,  def: 0,   unit: 'px' },
+                    { key: 'sepia',      label: t('flt_sepia'),      min: 0,   max: 100, def: 0,   unit: '%' },
+                    { key: 'grayscale',  label: t('flt_bw'),         min: 0,   max: 100, def: 0,   unit: '%' },
+                    { key: 'opacity',    label: t('flt_opacity'),    min: 0,   max: 100, def: 100, unit: '%' },
                   ];
                   const isPreset = (pf) => JSON.stringify(flt) === JSON.stringify(pf);
                   return (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 8, background: `${accentBg}0.04)`, border: `1px solid ${accentBg}0.18)`, borderRadius: 12, padding: '10px 12px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                        <span style={{ fontSize: 11, color: accent, fontWeight: 700, letterSpacing: '0.5px' }}>🎨 FILTROS</span>
-                        <button onClick={resetF} style={{ background: 'none', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, padding: '2px 8px', fontSize: 10, color: '#666', cursor: 'pointer' }}>Resetar</button>
+                        <span style={{ fontSize: 11, color: accent, fontWeight: 700, letterSpacing: '0.5px' }}>🎨 {t('ed_filters')}</span>
+                        <button onClick={resetF} style={{ background: 'none', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, padding: '2px 8px', fontSize: 10, color: '#666', cursor: 'pointer' }}>{t('ed_reset')}</button>
                       </div>
                       <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
                         {PRESETS.map(({ label, f }) => (
@@ -4084,7 +4108,7 @@ function App() {
                     { value: 'flip-h',      label: 'Flip ↔'   },
                     { value: 'flip-v',      label: 'Flip ↕'   },
                     { value: 'bounce',      label: 'Bounce'   },
-                    { value: 'elastic',     label: 'Elástico' },
+                    { value: 'elastic',     label: t('tr_elastic') },
                     { value: 'swing',       label: 'Swing'    },
                     { value: 'drop',        label: 'Drop'     },
                     { value: 'roll',        label: 'Rolar'    },
@@ -4104,7 +4128,7 @@ function App() {
                   );
                   const DurSlider = ({ value, onChange }) => (
                     <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginTop: 2 }}>
-                      <span style={{ fontSize: 10, color: '#444', minWidth: 54 }}>Duração</span>
+                      <span style={{ fontSize: 10, color: '#444', minWidth: 54 }}>{t('ed_duration')}</span>
                       <input type="range" min={0.05} max={2} step={0.05} value={value}
                         onChange={e => onChange(+e.target.value)}
                         onMouseDown={e => e.stopPropagation()}
@@ -4115,10 +4139,10 @@ function App() {
                   );
                   return (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 10, background: `${accentBg}0.04)`, border: `1px solid ${accentBg}0.18)`, borderRadius: 12, padding: '10px 12px' }}>
-                      <span style={{ fontSize: 11, color: accent, fontWeight: 700, letterSpacing: '0.5px' }}>✨ TRANSIÇÕES</span>
+                      <span style={{ fontSize: 11, color: accent, fontWeight: 700, letterSpacing: '0.5px' }}>✨ {t('ed_transitions')}</span>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 5, background: 'rgba(255,255,255,0.02)', borderRadius: 8, padding: '8px 10px', border: '1px solid rgba(255,255,255,0.05)' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
-                          <span style={{ fontSize: 10, color: accent, fontWeight: 700 }}>▶ ENTRADA</span>
+                          <span style={{ fontSize: 10, color: accent, fontWeight: 700 }}>▶ {t('tr_in')}</span>
                           {trIn !== 'none' && <button onClick={() => upd({ transitionIn: 'none' })} style={{ background: 'none', border: 'none', color: '#444', cursor: 'pointer', fontSize: 11, padding: 0, lineHeight: 1 }}>✕</button>}
                         </div>
                         <TrGrid current={trIn} onSelect={v => upd({ transitionIn: v })} />
@@ -4126,14 +4150,14 @@ function App() {
                       </div>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 5, background: 'rgba(255,255,255,0.02)', borderRadius: 8, padding: '8px 10px', border: '1px solid rgba(255,255,255,0.05)' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
-                          <span style={{ fontSize: 10, color: accent, fontWeight: 700 }}>◀ SAÍDA</span>
+                          <span style={{ fontSize: 10, color: accent, fontWeight: 700 }}>◀ {t('tr_out')}</span>
                           {trOut !== 'none' && <button onClick={() => upd({ transitionOut: 'none' })} style={{ background: 'none', border: 'none', color: '#444', cursor: 'pointer', fontSize: 11, padding: 0, lineHeight: 1 }}>✕</button>}
                         </div>
                         <TrGrid current={trOut} onSelect={v => upd({ transitionOut: v })} />
                         {trOut !== 'none' && <DurSlider value={durOut} onChange={v => upd({ transitionOutDur: v })} />}
                       </div>
                       <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', alignItems: 'center' }}>
-                        <span style={{ fontSize: 10, color: '#444' }}>Ambos:</span>
+                        <span style={{ fontSize: 10, color: '#444' }}>{t('tr_both')}:</span>
                         {['fade','slide-up','zoom','blur-in','bounce','roll'].map(v => (
                           <button key={v} onClick={() => upd({ transitionIn: v, transitionOut: v })}
                             style={{ padding: '3px 9px', fontSize: 10, borderRadius: 7, cursor: 'pointer', fontWeight: 600, background: (trIn===v&&trOut===v) ? `${accentBg}0.2)` : 'rgba(255,255,255,0.03)', border: `1px solid ${(trIn===v&&trOut===v) ? `${accentBg}0.5)` : 'rgba(255,255,255,0.06)'}`, color: (trIn===v&&trOut===v) ? accent : '#555' }}>
@@ -4179,7 +4203,7 @@ function App() {
                   value={activeExtraTextId ? (extraTexts.find(t=>t.id===activeExtraTextId)?.fontSize || extraTextFontSize) : (extraTexts.length ? extraTexts[extraTexts.length-1]?.fontSize || extraTextFontSize : extraTextFontSize)}
                   onChange={e => { const v=parseInt(e.target.value); setExtraTextFontSize(v); const tid = activeExtraTextId || (extraTexts.length ? extraTexts[extraTexts.length-1].id : null); if(tid) setExtraTexts(prev=>prev.map(t=>t.id===tid?{...t,fontSize:v}:t)); }}
                   style={{ width: '90px', accentColor: '#00BFFF' }} />
-                <button onClick={() => fontInputRef.current?.click()} style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.25)', borderRadius: '8px', padding: '3px 9px', fontSize: '10px', color: '#f59e0b', cursor: 'pointer' }}>+ Fonte</button>
+                <button onClick={() => fontInputRef.current?.click()} style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.25)', borderRadius: '8px', padding: '3px 9px', fontSize: '10px', color: '#f59e0b', cursor: 'pointer' }}>+ {t('ed_add_font')}</button>
               </div>
             </div>
             {/* Sombra + Gradiente por item */}
@@ -4191,7 +4215,7 @@ function App() {
               return (
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', background: 'rgba(0,191,255,0.03)', border: '1px solid rgba(0,191,255,0.08)', borderRadius: 10, padding: '8px 10px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                    <span style={{ fontSize: '10px', color: '#64748b', fontWeight: 700 }}>SOMBRA</span>
+                    <span style={{ fontSize: '10px', color: '#64748b', fontWeight: 700 }}>{t('ed_shadow')}</span>
                     <input type="checkbox" checked={sel.shadowEnabled ?? true} onChange={e => setP('shadowEnabled', e.target.checked)} style={{ accentColor: '#00BFFF' }} />
                     {(sel.shadowEnabled ?? true) && <>
                       <input type="color" value={(sel.shadowColor || '#000000').replace(/rgba?\([^)]+\)/, '#000000')} onChange={e => setP('shadowColor', e.target.value)} style={{ width: '22px', height: '22px', padding: 0, border: 'none', background: 'none', cursor: 'pointer' }} />
@@ -4199,7 +4223,7 @@ function App() {
                     </>}
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                    <span style={{ fontSize: '10px', color: '#64748b', fontWeight: 700 }}>GRADIENTE</span>
+                    <span style={{ fontSize: '10px', color: '#64748b', fontWeight: 700 }}>{t('ed_gradient')}</span>
                     <input type="checkbox" checked={sel.gradientEnabled ?? false} onChange={e => setP('gradientEnabled', e.target.checked)} style={{ accentColor: '#00BFFF' }} />
                     {(sel.gradientEnabled ?? false) && <>
                       <input type="color" value={sel.gradientColor1 || '#ffffff'} onChange={e => setP('gradientColor1', e.target.value)} style={{ width: '22px', height: '22px', padding: 0, border: 'none', background: 'none', cursor: 'pointer' }} />
@@ -4211,7 +4235,7 @@ function App() {
             })()}
             <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-end' }}>
               <textarea
-                placeholder={"Ex: Nome da Banda\nUse Enter para nova linha"}
+                placeholder={t('et_placeholder')}
                 value={newExtraInput}
                 onChange={(e) => setNewExtraInput(e.target.value)}
                 rows={3}
@@ -4219,7 +4243,7 @@ function App() {
               />
               <button onClick={addExtraText} style={{ padding: '0 16px', height: '56px', background: '#00BFFF', border: 'none', borderRadius: '14px', cursor: 'pointer', fontWeight: 'bold', color: '#000', boxShadow: '0 4px 16px rgba(0,191,255,0.25)', fontSize: '22px' }}>+</button>
             </div>
-            <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.22)', marginTop: '-4px' }}>Arraste para mover • Círculo roxo para girar • Botão direito para remover</span>
+            <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.22)', marginTop: '-4px' }}>{t('et_hint')}</span>
           </div>
 
           {/* ══ SEÇÃO LETRA DA MÚSICA ══ */}
@@ -4228,8 +4252,8 @@ function App() {
             {/* Linha config letra — por lyric selecionada ou padrão global */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
               <label style={{ fontSize: '11px', color: '#00BFFF', fontWeight: '700', letterSpacing: '0.5px' }}>
-                LETRA DA MÚSICA
-                {activeLyricId && <span style={{ marginLeft: 6, color: 'rgba(0,191,255,0.6)', fontWeight: 400, fontSize: 10 }}>(selecionada)</span>}
+                {t('ed_lyrics_title')}
+                {activeLyricId && <span style={{ marginLeft: 6, color: 'rgba(0,191,255,0.6)', fontWeight: 400, fontSize: 10 }}>({t('ed_selected')})</span>}
               </label>
               <input type="color" value={textColor} onChange={(e) => setTextColor(e.target.value)} title="Cor da letra" style={{ width: '26px', height: '26px', padding: 0, border: '1px solid rgba(0,191,255,0.2)', background: '#111', borderRadius: '7px', cursor: 'pointer' }} />
               <select
@@ -4288,7 +4312,7 @@ function App() {
               return (
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', background: 'rgba(0,191,255,0.03)', border: '1px solid rgba(0,191,255,0.08)', borderRadius: 10, padding: '8px 10px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                    <span style={{ fontSize: '10px', color: '#64748b', fontWeight: 700 }}>SOMBRA</span>
+                    <span style={{ fontSize: '10px', color: '#64748b', fontWeight: 700 }}>{t('ed_shadow')}</span>
                     <input type="checkbox" checked={uiShOn} onChange={e => applyLP('shadowEnabled', e.target.checked)} style={{ accentColor: '#00BFFF' }} />
                     {uiShOn && <>
                       <input type="color" value={uiShCol.startsWith('rgba') ? '#000000' : uiShCol} onChange={e => applyLP('shadowColor', e.target.value)} style={{ width: '22px', height: '22px', padding: 0, border: 'none', background: 'none', cursor: 'pointer' }} title="Cor da sombra" />
@@ -4296,14 +4320,14 @@ function App() {
                     </>}
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                    <span style={{ fontSize: '10px', color: '#64748b', fontWeight: 700 }}>GRADIENTE</span>
+                    <span style={{ fontSize: '10px', color: '#64748b', fontWeight: 700 }}>{t('ed_gradient')}</span>
                     <input type="checkbox" checked={uiGrOn} onChange={e => applyLP('gradientEnabled', e.target.checked)} style={{ accentColor: '#00BFFF' }} />
                     {uiGrOn && <>
                       <input type="color" value={uiGr1} onChange={e => applyLP('gradientColor1', e.target.value)} style={{ width: '22px', height: '22px', padding: 0, border: 'none', background: 'none', cursor: 'pointer' }} title="Cor 1" />
                       <input type="color" value={uiGr2} onChange={e => applyLP('gradientColor2', e.target.value)} style={{ width: '22px', height: '22px', padding: 0, border: 'none', background: 'none', cursor: 'pointer' }} title="Cor 2" />
                     </>}
                   </div>
-                  <button onClick={() => fontInputRef.current?.click()} style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.25)', borderRadius: '8px', padding: '3px 9px', fontSize: '10px', color: '#f59e0b', cursor: 'pointer' }}>+ Fonte TTF/OTF</button>
+                  <button onClick={() => fontInputRef.current?.click()} style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.25)', borderRadius: '8px', padding: '3px 9px', fontSize: '10px', color: '#f59e0b', cursor: 'pointer' }}>+ {t('ed_add_font_ttf')}</button>
                 </div>
               );
             })()}
@@ -4323,8 +4347,8 @@ function App() {
               };
               return (
                 <div style={{ display:'flex', alignItems:'center', gap:'8px', flexWrap:'wrap', background:'rgba(139,92,246,0.06)', border:'1px solid rgba(139,92,246,0.2)', borderRadius:10, padding:'8px 10px' }}>
-                  <span style={{ fontSize:'10px', color:'#a78bfa', fontWeight:700, marginRight:2 }}>ANIMAÇÃO</span>
-                  {[['none','Nenhuma'],['fade','Fade'],['slide','Slide'],['typewriter','Typewriter']].map(([v, label]) => (
+                  <span style={{ fontSize:'10px', color:'#a78bfa', fontWeight:700, marginRight:2 }}>{t('ed_animation')}</span>
+                  {[['none', t('anim_none')],['fade','Fade'],['slide','Slide'],['typewriter','Typewriter']].map(([v, label]) => (
                     <button key={v} onClick={() => setAnim(v)} style={{
                       padding:'3px 10px', fontSize:'10px', borderRadius:'8px', cursor:'pointer', fontWeight:600,
                       background: curAnim === v ? 'rgba(139,92,246,0.3)' : 'rgba(255,255,255,0.04)',
@@ -4334,7 +4358,7 @@ function App() {
                   ))}
                   {curAnim === 'typewriter' && (
                     <div style={{ display:'flex', alignItems:'center', gap:'5px', marginLeft:4 }}>
-                      <span style={{ fontSize:'10px', color:'#64748b' }}>Vel.</span>
+                      <span style={{ fontSize:'10px', color:'#64748b' }}>{t('ed_speed_anim')}</span>
                       <input type="range" min="5" max="80" step="5" value={curSpeed}
                         onChange={e => setSpd(+e.target.value)}
                         style={{ width:'70px', accentColor:'#a78bfa' }} />
@@ -4391,7 +4415,7 @@ function App() {
               </button>
             </div>
             <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.22)', marginTop: '-4px' }}>
-              Dê Play • clique MARCAR no ritmo para sincronizar. Na timeline: clique na marcação para selecionar no vídeo, duplo-clique no vídeo para editar o texto.
+              {t('ed_lyrics_hint')}
             </span>
           </div>
         </div>
@@ -4409,7 +4433,7 @@ function App() {
               fontSize: '13px', color: '#00BFFF', fontWeight: 700,
               backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', gap: 6,
             }}
-          >⛶ Tela Cheia</button>
+          >⛶ {t('ed_fullscreen')}</button>
 
           {/* Badge do formato atual */}
           <div style={{
@@ -4499,7 +4523,7 @@ function App() {
                 borderRadius: 14, padding: '8px 16px', display: 'flex', alignItems: 'center', gap: 14,
                 backdropFilter: 'blur(10px)', boxShadow: '0 4px 24px rgba(0,0,0,0.55)', minWidth: 320,
               }}>
-                <span style={{ fontSize: 10, color: '#fbbf24', fontWeight: 700, whiteSpace: 'nowrap' }}>🖼️ Tamanho</span>
+                <span style={{ fontSize: 10, color: '#fbbf24', fontWeight: 700, whiteSpace: 'nowrap' }}>🖼️ {t('ed_size')}</span>
 
                 {/* Largura */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1 }}>
@@ -4665,9 +4689,9 @@ function App() {
                   <button
                     onClick={() => { removeLyric(editingLyricId); setEditingLyricId(null); setActiveLyricId(null); }}
                     style={{ padding: '5px 14px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: '10px', color: '#f87171', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer', boxShadow: 'none' }}
-                  >✕ Apagar</button>
+                  >✕ {t('ed_delete')}</button>
                 </div>
-                <span style={{ fontSize: '10px', color: 'rgba(0,191,255,0.5)', textShadow: '0 1px 4px rgba(0,0,0,0.8)' }}>Enter = nova linha • Esc = fechar</span>
+                <span style={{ fontSize: '10px', color: 'rgba(0,191,255,0.5)', textShadow: '0 1px 4px rgba(0,0,0,0.8)' }}>{t('ed_inline_hint')}</span>
               </div>
             );
           })()}
@@ -4718,9 +4742,9 @@ function App() {
                   <button
                     onClick={() => { removeExtraText(editingExtraTextId); setEditingExtraTextId(null); setActiveExtraTextId(null); }}
                     style={{ padding: '5px 14px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: '10px', color: '#f87171', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer', boxShadow: 'none' }}
-                  >✕ Apagar</button>
+                  >✕ {t('ed_delete')}</button>
                 </div>
-                <span style={{ fontSize: '10px', color: 'rgba(167,139,250,0.5)', textShadow: '0 1px 4px rgba(0,0,0,0.8)' }}>Enter = nova linha • Esc = fechar</span>
+                <span style={{ fontSize: '10px', color: 'rgba(167,139,250,0.5)', textShadow: '0 1px 4px rgba(0,0,0,0.8)' }}>{t('ed_inline_hint')}</span>
               </div>
             );
           })()}
@@ -4937,7 +4961,7 @@ function App() {
                     border: 'none', borderRadius: 6, padding: '2px 6px',
                     fontSize: 11, color: '#fff', cursor: 'pointer', lineHeight: 1.4,
                   }}
-                  title={v.muted ? 'Áudio mudo — clique para ativar' : 'Clique para mutar áudio'}
+                  title={v.muted ? t('vid_unmute') : t('vid_mute')}
                 >
                   {v.muted ? '🔇' : '🔊'}
                 </button>
