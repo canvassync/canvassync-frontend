@@ -797,7 +797,6 @@ function App() {
     const size = Math.round(Math.min(cw, ch) * 0.12);
     if (type === 'gif' && !gifCacheRef.current.has(content)) {
       const img = new Image();
-      img.crossOrigin = 'anonymous';
       img.src = content;
       gifCacheRef.current.set(content, img);
     }
@@ -979,20 +978,6 @@ function App() {
       const sz  = stk.size || 80;
       const half = sz / 2 + 8;
       // Check resize corner handles first (only when selected)
-      if (activeStickerRef.current === stk.id) {
-        const corners = [
-          { cx: stk.x - half, cy: stk.y - half },
-          { cx: stk.x + half, cy: stk.y - half },
-          { cx: stk.x - half, cy: stk.y + half },
-          { cx: stk.x + half, cy: stk.y + half },
-        ];
-        for (const corner of corners) {
-          if (Math.abs(mouseX - corner.cx) <= 10 && Math.abs(mouseY - corner.cy) <= 10) {
-            setDragging({ type: 'sticker-resize', id: stk.id, startX: mouseX, startY: mouseY, startSize: sz });
-            return;
-          }
-        }
-      }
       if (Math.abs(mouseX - stk.x) <= half && Math.abs(mouseY - stk.y) <= half) {
         activeStickerRef.current = stk.id;
         setActiveStickerId(stk.id);
@@ -3097,83 +3082,24 @@ function App() {
                   )}
 
                   {stickerTab === 'gif' && (
-                    <div>
-                      {/* Busca na web via Giphy */}
-                      <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
-                        <input
-                          value={gifSearch}
-                          onChange={e => setGifSearch(e.target.value)}
-                          onKeyDown={e => e.key === 'Enter' && searchGiphy(gifSearch)}
-                          placeholder="🔍 Procurar GIF na web..."
-                          style={{ flex: 1, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, padding: '5px 10px', fontSize: 11, color: '#fff', outline: 'none' }}
-                        />
-                        <button onClick={() => searchGiphy(gifSearch)}
-                          style={{ background: 'rgba(251,191,36,0.15)', border: '1px solid rgba(251,191,36,0.4)', borderRadius: 8, padding: '5px 10px', fontSize: 11, color: '#fbbf24', fontWeight: 700, cursor: 'pointer' }}>
-                          {gifSearching ? '...' : 'Buscar'}
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                      {GIF_LIST.map(gif => (
+                        <button key={gif.key} onClick={() => addSticker('gif', gif.url, null)}
+                          title={gif.label}
+                          style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 10, overflow: 'hidden', cursor: 'pointer', width: 72, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, padding: '5px 3px' }}
+                          onMouseEnter={e => e.currentTarget.style.background='rgba(251,191,36,0.15)'}
+                          onMouseLeave={e => e.currentTarget.style.background='rgba(255,255,255,0.04)'}
+                        >
+                          <img src={gif.url} alt={gif.label}
+                            style={{ width: 62, height: 62, objectFit: 'cover', borderRadius: 6, pointerEvents: 'none' }} />
+                          <span style={{ fontSize: 8, color: '#aaa', fontWeight: 700, textAlign: 'center' }}>{gif.label}</span>
                         </button>
-                      </div>
-                      {/* URL direta */}
-                      <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
-                        <input
-                          value={gifUrlInput}
-                          onChange={e => setGifUrlInput(e.target.value)}
-                          onKeyDown={e => e.key === 'Enter' && addGifFromUrl(gifUrlInput)}
-                          placeholder="Cole URL de GIF..."
-                          style={{ flex: 1, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, padding: '5px 10px', fontSize: 11, color: '#fff', outline: 'none' }}
-                        />
-                        <button onClick={() => addGifFromUrl(gifUrlInput)}
-                          style={{ background: 'rgba(34,197,94,0.15)', border: '1px solid rgba(34,197,94,0.4)', borderRadius: 8, padding: '5px 10px', fontSize: 11, color: '#4ade80', fontWeight: 700, cursor: 'pointer' }}>
-                          ➕
-                        </button>
-                      </div>
-                      {/* Resultados da busca */}
-                      {gifSearchResults.length > 0 && (
-                        <div>
-                          <div style={{ fontSize: 9, color: '#666', marginBottom: 4, fontWeight: 700 }}>RESULTADOS</div>
-                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
-                            {gifSearchResults.map((g, i) => (
-                              <button key={i} onClick={() => { addSticker('gif', g.url, null); setGifSearchResults([]); setGifSearch(''); }}
-                                style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(251,191,36,0.3)', borderRadius: 8, overflow: 'hidden', cursor: 'pointer', padding: 0, width: 72 }}>
-                                <img src={g.preview} alt={g.label} crossOrigin="anonymous"
-                                  style={{ width: 72, height: 72, objectFit: 'cover', display: 'block' }} />
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                      {/* GIFs padrão */}
-                      <div style={{ fontSize: 9, color: '#666', marginBottom: 4, fontWeight: 700 }}>BIBLIOTECA</div>
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                        {GIF_LIST.map(gif => (
-                          <button key={gif.key} onClick={() => { addSticker('gif', gif.url, null); }}
-                            title={gif.label}
-                            style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 10, overflow: 'hidden', cursor: 'pointer', width: 72, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, padding: '5px 3px' }}
-                            onMouseEnter={e => e.currentTarget.style.background='rgba(251,191,36,0.15)'}
-                            onMouseLeave={e => e.currentTarget.style.background='rgba(255,255,255,0.04)'}
-                          >
-                            <img src={gif.url} alt={gif.label} crossOrigin="anonymous"
-                              style={{ width: 62, height: 62, objectFit: 'cover', borderRadius: 6, pointerEvents: 'none' }} />
-                            <span style={{ fontSize: 8, color: '#aaa', fontWeight: 700, textAlign: 'center' }}>{gif.label}</span>
-                          </button>
-                        ))}
-                      </div>
+                      ))}
                     </div>
                   )}
                 </div>
 
-                {stickers.filter(s => s.id === activeStickerId).map(sel => (
-                  <div key={sel.id} style={{ padding: '8px 14px', borderTop: '1px solid rgba(0,191,255,0.2)', background: 'rgba(0,191,255,0.05)', display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <span style={{ fontSize: 10, color: '#00BFFF', fontWeight: 700, whiteSpace: 'nowrap' }}>📐 Tamanho</span>
-                    <input type="range" min={20} max={400} step={4}
-                      value={sel.size || 80}
-                      onChange={e => setStickers(prev => prev.map(s => s.id === sel.id ? { ...s, size: Number(e.target.value) } : s))}
-                      style={{ flex: 1, accentColor: '#00BFFF', cursor: 'pointer' }}
-                    />
-                    <span style={{ fontSize: 11, color: '#00BFFF', fontWeight: 700, minWidth: 34, textAlign: 'right' }}>{Math.round(sel.size || 80)}px</span>
-                    <button onClick={() => { activeStickerRef.current = null; setActiveStickerId(null); }}
-                      style={{ background: 'none', border: 'none', color: '#555', cursor: 'pointer', fontSize: 14 }}>✕</button>
-                  </div>
-                ))}
+
                 <div style={{ padding: '8px 12px', borderTop: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <span style={{ fontSize: 10, color: '#555' }}>Clique para selecionar · arraste para mover · botão direito remove</span>
                   {stickers.length > 0 && (
@@ -3712,14 +3638,34 @@ function App() {
             style={{ border: '1px solid rgba(0,191,255,0.15)', borderRadius: '12px', maxWidth: '100%', maxHeight: '88%', cursor: 'move', boxShadow: '0 24px 50px rgba(10, 12, 24, 0.55)', objectFit: 'contain' }} 
           />
 
-          {/* Hidden GIF container — mantém imgs no DOM para animar frames */}
-          <div style={{ position: 'absolute', opacity: 0, pointerEvents: 'none', width: 0, height: 0, overflow: 'hidden' }}>
+          {/* GIFs renderizados off-screen para que o browser anime os frames */}
+          <div style={{ position: 'fixed', left: -9999, top: -9999, pointerEvents: 'none' }}>
             {stickers.filter(s => s.type === 'gif').map(s => (
-              <img key={s.id} src={s.content} crossOrigin="anonymous"
+              <img key={s.id} src={s.content}
                 onLoad={e => { gifCacheRef.current.set(s.content, e.target); }}
-                style={{ width: 1, height: 1 }} />
+                style={{ width: 80, height: 80 }} />
             ))}
           </div>
+
+          {/* Slider de tamanho flutuante — aparece quando sticker está selecionado */}
+          {stickers.filter(s => s.id === activeStickerId).map(sel => (
+            <div key={sel.id} style={{
+              position: 'absolute', bottom: 12, left: '50%', transform: 'translateX(-50%)',
+              zIndex: 100, background: 'rgba(10,12,28,0.92)', border: '1px solid rgba(0,191,255,0.4)',
+              borderRadius: 12, padding: '7px 14px', display: 'flex', alignItems: 'center', gap: 10,
+              backdropFilter: 'blur(8px)', boxShadow: '0 4px 20px rgba(0,0,0,0.5)', minWidth: 240,
+            }}>
+              <span style={{ fontSize: 10, color: '#00BFFF', fontWeight: 700, whiteSpace: 'nowrap' }}>📐 Tamanho</span>
+              <input type="range" min={20} max={400} step={4}
+                value={sel.size || 80}
+                onChange={e => setStickers(prev => prev.map(s => s.id === sel.id ? { ...s, size: Number(e.target.value) } : s))}
+                style={{ flex: 1, accentColor: '#00BFFF', cursor: 'pointer' }}
+              />
+              <span style={{ fontSize: 11, color: '#00BFFF', fontWeight: 700, minWidth: 34, textAlign: 'right' }}>{Math.round(sel.size || 80)}px</span>
+              <button onClick={() => { activeStickerRef.current = null; setActiveStickerId(null); }}
+                style={{ background: 'none', border: 'none', color: '#666', cursor: 'pointer', fontSize: 16, lineHeight: 1 }}>✕</button>
+            </div>
+          ))}
 
           {/* Modal Tela Cheia */}
           {isFullscreen && (
