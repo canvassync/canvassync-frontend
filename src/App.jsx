@@ -3435,6 +3435,12 @@ function App() {
   };
 
   return (
+    <div style={{ 
+      display: 'flex', 
+      flexDirection: 'column', 
+      height: '100vh', 
+      width: '100vw', 
+      background: '#080808', 
       color: '#f0f0f0', 
       fontFamily: "'DM Sans', 'Poppins', system-ui, sans-serif", 
       overflow: 'hidden',
