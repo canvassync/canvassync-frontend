@@ -3403,7 +3403,7 @@ function App() {
                 </div>
               </div>
             , document.body)}
-
+          </div>
 
           {/* ── Efeitos Sonoros ── */}
           <div style={{ position: 'relative' }}>
