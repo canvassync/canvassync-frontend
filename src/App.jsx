@@ -1,5 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import { createPortal } from 'react-dom';
+import React, { useState, useRef, useEffect, useCallback, useMemo, createPortal } from 'react';
 import { useAuth } from './hooks/useAuth.jsx';
 import { useLanguage, LangToggle } from './hooks/useLanguage.jsx';
 
@@ -33,14 +32,26 @@ const ANIMATED_STICKERS = [
 ];
 
 const GIF_LIST = [
-  { key:'fire',      url:'https://media.giphy.com/media/l0HlBO7eyXzSZkJri/giphy.gif',  label:'🔥 Fogo'      },
-  { key:'confetti',  url:'https://media.giphy.com/media/g9582DNuQppxC/giphy.gif',       label:'🎊 Confete'   },
-  { key:'hearts',    url:'https://media.giphy.com/media/3o6Zt6n6Z3ixpGVYkE/giphy.gif', label:'❤️ Corações'  },
-  { key:'stars',     url:'https://media.giphy.com/media/5b5OU7aUekfdSAER5I/giphy.gif',  label:'⭐ Estrelas'  },
-  { key:'rainbow',   url:'https://media.giphy.com/media/xUPGcguWZHRC2HyBRS/giphy.gif', label:'🌈 Arco-íris' },
-  { key:'fireworks', url:'https://media.giphy.com/media/3oEduQAsYcJKQH2XsI/giphy.gif', label:'🎆 Fogos'     },
-  { key:'money',     url:'https://media.giphy.com/media/l4JySAWfMaY7w88sU/giphy.gif',  label:'💸 Dinheiro'  },
-  { key:'explosion', url:'https://media.giphy.com/media/l0MYGb1LuZ3n7dRnO/giphy.gif',  label:'💥 Explosão'  },
+  { key:'fire',      url:'https://media.giphy.com/media/l0HlBO7eyXzSZkJri/giphy.gif',   label:'🔥 Fogo'       },
+  { key:'confetti',  url:'https://media.giphy.com/media/g9582DNuQppxC/giphy.gif',        label:'🎊 Confete'    },
+  { key:'hearts',    url:'https://media.giphy.com/media/3o6Zt6n6Z3ixpGVYkE/giphy.gif',  label:'❤️ Corações'   },
+  { key:'stars',     url:'https://media.giphy.com/media/5b5OU7aUekfdSAER5I/giphy.gif',   label:'⭐ Estrelas'   },
+  { key:'rainbow',   url:'https://media.giphy.com/media/xUPGcguWZHRC2HyBRS/giphy.gif',  label:'🌈 Arco-íris'  },
+  { key:'fireworks', url:'https://media.giphy.com/media/3oEduQAsYcJKQH2XsI/giphy.gif',  label:'🎆 Fogos'      },
+  { key:'money',     url:'https://media.giphy.com/media/l4JySAWfMaY7w88sU/giphy.gif',   label:'💸 Dinheiro'   },
+  { key:'explosion', url:'https://media.giphy.com/media/l0MYGb1LuZ3n7dRnO/giphy.gif',   label:'💥 Explosão'   },
+  { key:'dance',     url:'https://media.giphy.com/media/5xaOcLGvzHxDKjufnLW/giphy.gif', label:'🕺 Dança'      },
+  { key:'clap',      url:'https://media.giphy.com/media/l3q2wJsC23ikJg9xe/giphy.gif',   label:'👏 Palmas'     },
+  { key:'wow',       url:'https://media.giphy.com/media/ToMjGpx9F5ktZw8qPUQ/giphy.gif', label:'😮 Wow'        },
+  { key:'laugh',     url:'https://media.giphy.com/media/ZqlvCTNHpqrio/giphy.gif',        label:'😂 Risada'     },
+  { key:'love',      url:'https://media.giphy.com/media/3ohhwMOelcIa0JBFXO/giphy.gif',  label:'😍 Amor'       },
+  { key:'cool',      url:'https://media.giphy.com/media/l0HlPtgtB9i3HDQD6/giphy.gif',   label:'😎 Cool'       },
+  { key:'music',     url:'https://media.giphy.com/media/l0HlGHrv7DY0GU5vi/giphy.gif',   label:'🎵 Música'     },
+  { key:'party',     url:'https://media.giphy.com/media/l0MYt5jPR6QX5pnqM/giphy.gif',   label:'🎉 Festa'      },
+  { key:'trophy',    url:'https://media.giphy.com/media/4JVTF9zR9BicshFAb7/giphy.gif',  label:'🏆 Troféu'     },
+  { key:'lightning', url:'https://media.giphy.com/media/xUPGcguWZHRC2HyBRS/giphy.gif',  label:'⚡ Raio'       },
+  { key:'snow',      url:'https://media.giphy.com/media/l0HlKghxCBLBBPBus/giphy.gif',   label:'❄️ Neve'       },
+  { key:'glitter',   url:'https://media.giphy.com/media/26BROrSHlmyzzHf3i/giphy.gif',   label:'✨ Glitter'    },
 ];
 
 // Calcula offset de animação de sticker baseado em tempo real
@@ -93,6 +104,10 @@ function App() {
   const [showStickerPanel, setShowStickerPanel] = useState(false);
   const [stickerPanelPos, setStickerPanelPos] = useState({ top: 80, left: 0 });
   const [stickerTab, setStickerTab] = useState('emoji');  // 'emoji'|'sticker'|'gif'
+  const [gifSearch, setGifSearch] = useState('');
+  const [gifSearchResults, setGifSearchResults] = useState([]);
+  const [gifSearching, setGifSearching] = useState(false);
+  const [gifUrlInput, setGifUrlInput] = useState('');
   const activeStickerRef = useRef(null);                  // id do sticker selecionado (sem re-render)
   const stickerBtnRef   = useRef(null);                   // posição real do botão para painel fixed
   const [imageSrc, setImageSrc] = useState(null);
@@ -738,6 +753,39 @@ function App() {
     setExtraTexts(extraTexts.filter(t => t.id !== id));
   };
 
+  const searchGiphy = async (query) => {
+    if (!query.trim()) return;
+    setGifSearching(true);
+    setGifSearchResults([]);
+    try {
+      // Giphy public beta key (rate-limited, for demo use)
+      const key = 'dc6zaTOxFJmzC';
+      const res = await fetch(`https://api.giphy.com/v1/gifs/search?api_key=${key}&q=${encodeURIComponent(query)}&limit=16&rating=g`);
+      const data = await res.json();
+      if (data.data) {
+        setGifSearchResults(data.data.map(g => ({
+          url: g.images.fixed_width_small.url,
+          preview: g.images.fixed_width_small.url,
+          label: g.title || query,
+        })));
+      }
+    } catch(e) {
+      console.error('[Giphy search]', e);
+    }
+    setGifSearching(false);
+  };
+
+  const addGifFromUrl = (url) => {
+    if (!url.trim()) return;
+    const cleanUrl = url.trim();
+    if (!gifCacheRef.current.has(cleanUrl)) {
+      const img = new Image(); img.crossOrigin = 'anonymous'; img.src = cleanUrl;
+      gifCacheRef.current.set(cleanUrl, img);
+    }
+    addSticker('gif', cleanUrl, null);
+    setGifUrlInput('');
+  };
+
   const addSticker = (type, content, animStyle = null) => {
     const canvas = canvasRef.current;
     const cw = canvas?.width  || 720;
@@ -926,6 +974,21 @@ function App() {
       const stk = stickers[i];
       const sz  = stk.size || 80;
       const half = sz / 2 + 8;
+      // Check resize corner handles first (only when selected)
+      if (activeStickerRef.current === stk.id) {
+        const corners = [
+          { cx: stk.x - half, cy: stk.y - half },
+          { cx: stk.x + half, cy: stk.y - half },
+          { cx: stk.x - half, cy: stk.y + half },
+          { cx: stk.x + half, cy: stk.y + half },
+        ];
+        for (const corner of corners) {
+          if (Math.abs(mouseX - corner.cx) <= 10 && Math.abs(mouseY - corner.cy) <= 10) {
+            setDragging({ type: 'sticker-resize', id: stk.id, startX: mouseX, startY: mouseY, startSize: sz });
+            return;
+          }
+        }
+      }
       if (Math.abs(mouseX - stk.x) <= half && Math.abs(mouseY - stk.y) <= half) {
         activeStickerRef.current = stk.id;
         setDragging({ type: 'sticker', id: stk.id, offsetX: mouseX - stk.x, offsetY: mouseY - stk.y });
@@ -1168,6 +1231,14 @@ function App() {
       setStickers(prev => prev.map(s => s.id === dragging.id
         ? { ...s, x: mouseX - dragging.offsetX, y: mouseY - dragging.offsetY }
         : s));
+      return;
+    }
+    // Sticker resize
+    if (dragging && dragging.type === 'sticker-resize') {
+      const dx = mouseX - dragging.startX, dy = mouseY - dragging.startY;
+      const delta = (Math.abs(dx) > Math.abs(dy) ? dx : dy);
+      const newSize = Math.max(20, Math.min(400, dragging.startSize + delta * 1.5));
+      setStickers(prev => prev.map(s => s.id === dragging.id ? { ...s, size: newSize } : s));
       return;
     }
 
@@ -1671,14 +1742,21 @@ function App() {
         ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
         ctx.fillText(stk.content, 0, 0);
       }
-      // Indicador de seleção
+      // Indicador de seleção + handles de resize
       if (activeStickerRef.current === stk.id) {
         ctx.globalAlpha = 1;
         ctx.strokeStyle = 'rgba(0,191,255,0.85)';
         ctx.lineWidth = 2 / s;
         ctx.setLineDash([5, 4]);
-        ctx.strokeRect(-sz / 2 - 6, -sz / 2 - 6, sz + 12, sz + 12);
+        const bx = -sz / 2 - 8, by = -sz / 2 - 8, bw = sz + 16, bh = sz + 16;
+        ctx.strokeRect(bx, by, bw, bh);
         ctx.setLineDash([]);
+        // Corner resize handles
+        const hs = 9 / s;
+        ctx.fillStyle = '#00BFFF';
+        [[bx,by],[bx+bw,by],[bx,by+bh],[bx+bw,by+bh]].forEach(([hx,hy]) => {
+          ctx.fillRect(hx - hs/2, hy - hs/2, hs, hs);
+        });
       }
       ctx.restore();
     });
@@ -3020,19 +3098,66 @@ function App() {
                   )}
 
                   {stickerTab === 'gif' && (
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                      {GIF_LIST.map(gif => (
-                        <button key={gif.key} onClick={() => { addSticker('gif', gif.url, null); }}
-                          title={gif.label}
-                          style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 12, overflow: 'hidden', cursor: 'pointer', width: 80, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, padding: '6px 4px', transition: 'background 0.15s' }}
-                          onMouseEnter={e => e.currentTarget.style.background='rgba(251,191,36,0.15)'}
-                          onMouseLeave={e => e.currentTarget.style.background='rgba(255,255,255,0.04)'}
-                        >
-                          <img src={gif.url} alt={gif.label} crossOrigin="anonymous"
-                            style={{ width: 64, height: 64, objectFit: 'cover', borderRadius: 8, pointerEvents: 'none' }} />
-                          <span style={{ fontSize: 9, color: '#aaa', fontWeight: 700, textAlign: 'center' }}>{gif.label}</span>
+                    <div>
+                      {/* Busca na web via Giphy */}
+                      <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
+                        <input
+                          value={gifSearch}
+                          onChange={e => setGifSearch(e.target.value)}
+                          onKeyDown={e => e.key === 'Enter' && searchGiphy(gifSearch)}
+                          placeholder="🔍 Procurar GIF na web..."
+                          style={{ flex: 1, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, padding: '5px 10px', fontSize: 11, color: '#fff', outline: 'none' }}
+                        />
+                        <button onClick={() => searchGiphy(gifSearch)}
+                          style={{ background: 'rgba(251,191,36,0.15)', border: '1px solid rgba(251,191,36,0.4)', borderRadius: 8, padding: '5px 10px', fontSize: 11, color: '#fbbf24', fontWeight: 700, cursor: 'pointer' }}>
+                          {gifSearching ? '...' : 'Buscar'}
                         </button>
-                      ))}
+                      </div>
+                      {/* URL direta */}
+                      <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
+                        <input
+                          value={gifUrlInput}
+                          onChange={e => setGifUrlInput(e.target.value)}
+                          onKeyDown={e => e.key === 'Enter' && addGifFromUrl(gifUrlInput)}
+                          placeholder="Cole URL de GIF..."
+                          style={{ flex: 1, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, padding: '5px 10px', fontSize: 11, color: '#fff', outline: 'none' }}
+                        />
+                        <button onClick={() => addGifFromUrl(gifUrlInput)}
+                          style={{ background: 'rgba(34,197,94,0.15)', border: '1px solid rgba(34,197,94,0.4)', borderRadius: 8, padding: '5px 10px', fontSize: 11, color: '#4ade80', fontWeight: 700, cursor: 'pointer' }}>
+                          ➕
+                        </button>
+                      </div>
+                      {/* Resultados da busca */}
+                      {gifSearchResults.length > 0 && (
+                        <div>
+                          <div style={{ fontSize: 9, color: '#666', marginBottom: 4, fontWeight: 700 }}>RESULTADOS</div>
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
+                            {gifSearchResults.map((g, i) => (
+                              <button key={i} onClick={() => { addSticker('gif', g.url, null); setGifSearchResults([]); setGifSearch(''); }}
+                                style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(251,191,36,0.3)', borderRadius: 8, overflow: 'hidden', cursor: 'pointer', padding: 0, width: 72 }}>
+                                <img src={g.preview} alt={g.label} crossOrigin="anonymous"
+                                  style={{ width: 72, height: 72, objectFit: 'cover', display: 'block' }} />
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {/* GIFs padrão */}
+                      <div style={{ fontSize: 9, color: '#666', marginBottom: 4, fontWeight: 700 }}>BIBLIOTECA</div>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                        {GIF_LIST.map(gif => (
+                          <button key={gif.key} onClick={() => { addSticker('gif', gif.url, null); }}
+                            title={gif.label}
+                            style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 10, overflow: 'hidden', cursor: 'pointer', width: 72, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, padding: '5px 3px' }}
+                            onMouseEnter={e => e.currentTarget.style.background='rgba(251,191,36,0.15)'}
+                            onMouseLeave={e => e.currentTarget.style.background='rgba(255,255,255,0.04)'}
+                          >
+                            <img src={gif.url} alt={gif.label} crossOrigin="anonymous"
+                              style={{ width: 62, height: 62, objectFit: 'cover', borderRadius: 6, pointerEvents: 'none' }} />
+                            <span style={{ fontSize: 8, color: '#aaa', fontWeight: 700, textAlign: 'center' }}>{gif.label}</span>
+                          </button>
+                        ))}
+                      </div>
                     </div>
                   )}
                 </div>
@@ -3574,6 +3699,15 @@ function App() {
             }}
             style={{ border: '1px solid rgba(0,191,255,0.15)', borderRadius: '12px', maxWidth: '100%', maxHeight: '88%', cursor: 'move', boxShadow: '0 24px 50px rgba(10, 12, 24, 0.55)', objectFit: 'contain' }} 
           />
+
+          {/* Hidden GIF container — mantém imgs no DOM para animar frames */}
+          <div style={{ position: 'absolute', opacity: 0, pointerEvents: 'none', width: 0, height: 0, overflow: 'hidden' }}>
+            {stickers.filter(s => s.type === 'gif').map(s => (
+              <img key={s.id} src={s.content} crossOrigin="anonymous"
+                onLoad={e => { gifCacheRef.current.set(s.content, e.target); }}
+                style={{ width: 1, height: 1 }} />
+            ))}
+          </div>
 
           {/* Modal Tela Cheia */}
           {isFullscreen && (
