@@ -3270,13 +3270,61 @@ function App() {
                 backdropFilter: 'blur(6px)',
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+              <div onClick={e => e.stopPropagation()} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                 <span style={{ color: '#a78bfa', fontWeight: 700, fontSize: 13 }}>
                   {canvasFormat} · {CANVAS_FORMATS[canvasFormat].width}×{CANVAS_FORMATS[canvasFormat].height}
                 </span>
+                {/* Play / Pause */}
+                <button
+                  onClick={() => {
+                    const audio = audioRef.current;
+                    if (isPlaying) {
+                      if (audio) audio.pause();
+                      if (clockIntervalRef.current) { clearInterval(clockIntervalRef.current); clockIntervalRef.current = null; }
+                      setIsPlaying(false);
+                    } else {
+                      if (audio) {
+                        audio.volume       = Math.max(0, Math.min(1, projectVolumeRef.current));
+                        audio.playbackRate = Math.max(0.25, Math.min(4, projectSpeedRef.current));
+                        audio.play().catch(() => {});
+                      } else {
+                        const startWall = Date.now();
+                        const startVirt = virtualTimeRef.current;
+                        if (clockIntervalRef.current) clearInterval(clockIntervalRef.current);
+                        clockIntervalRef.current = setInterval(() => {
+                          const elapsed = (Date.now() - startWall) / 1000;
+                          virtualTimeRef.current = startVirt + elapsed;
+                          setCurrentTime(startVirt + elapsed);
+                        }, 30);
+                      }
+                      setIsPlaying(true);
+                    }
+                  }}
+                  style={{
+                    background: isPlaying ? '#00BFFF' : 'rgba(0,191,255,0.12)',
+                    border: '1px solid rgba(0,191,255,0.4)',
+                    borderRadius: 10, padding: '6px 18px',
+                    color: isPlaying ? '#000' : '#00BFFF',
+                    fontWeight: 700, fontSize: 14, cursor: 'pointer',
+                    boxShadow: isPlaying ? '0 4px 16px rgba(0,191,255,0.35)' : 'none',
+                  }}
+                >{isPlaying ? '⏸ Pausar' : '▶ Play'}</button>
+                {/* Stop */}
+                <button
+                  onClick={handleStopPlayback}
+                  style={{
+                    background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)',
+                    borderRadius: 10, padding: '6px 18px',
+                    color: '#f87171', fontWeight: 700, fontSize: 14, cursor: 'pointer',
+                  }}
+                >⏹ Stop</button>
+                {/* Tempo */}
+                <span style={{ fontSize: 13, color: '#00BFFF', fontWeight: 700, minWidth: 100 }}>
+                  {formatTime(currentTime)} / {formatTime(duration)}
+                </span>
                 <button
                   onClick={() => setIsFullscreen(false)}
-                  style={{ background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.4)', borderRadius: 10, padding: '5px 14px', color: '#f87171', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}
+                  style={{ background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.4)', borderRadius: 10, padding: '6px 14px', color: '#f87171', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}
                 >✕ Fechar</button>
               </div>
               <canvas
