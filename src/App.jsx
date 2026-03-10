@@ -92,6 +92,7 @@ function App() {
   const [showStickerPanel, setShowStickerPanel] = useState(false);
   const [stickerTab, setStickerTab] = useState('emoji');  // 'emoji'|'sticker'|'gif'
   const activeStickerRef = useRef(null);                  // id do sticker selecionado (sem re-render)
+  const stickerBtnRef   = useRef(null);                   // posição real do botão para painel fixed
   const [imageSrc, setImageSrc] = useState(null);
   const [images, setImages] = useState([]);
   const [activeImageId, setActiveImageId] = useState(null);
@@ -2932,6 +2933,7 @@ function App() {
           {/* Stickers / Emojis / GIFs */}
           <div style={{ position: 'relative' }}>
             <button
+              ref={stickerBtnRef}
               onClick={() => setShowStickerPanel(v => !v)}
               style={{
                 background: showStickerPanel ? 'rgba(251,191,36,0.2)' : 'rgba(251,191,36,0.07)',
@@ -2942,11 +2944,18 @@ function App() {
               }}
             >✨ Stickers {stickers.length > 0 && <span style={{ background:'#fbbf24',color:'#000',borderRadius:8,padding:'1px 6px',fontSize:10,fontWeight:900 }}>{stickers.length}</span>}</button>
 
-            {showStickerPanel && (
+            {showStickerPanel && (() => {
+              const btnRect = stickerBtnRef.current?.getBoundingClientRect();
+              const panelTop  = btnRect ? btnRect.bottom + 8 : 80;
+              const panelLeft = btnRect ? Math.min(btnRect.left, window.innerWidth - 372) : 0;
+              return (
               <div
                 onClick={e => e.stopPropagation()}
                 style={{
-                  position: 'absolute', top: 'calc(100% + 8px)', left: 0, zIndex: 500,
+                  position: 'fixed',
+                  top: panelTop,
+                  left: panelLeft,
+                  zIndex: 9000,
                   background: '#111827', border: '1px solid rgba(251,191,36,0.25)',
                   borderRadius: 18, width: 360, boxShadow: '0 16px 48px rgba(0,0,0,0.8)',
                   overflow: 'hidden',
@@ -3025,7 +3034,8 @@ function App() {
                   )}
                 </div>
               </div>
-            )}
+              );
+            })()}
           </div>
         </div>
       </div>
