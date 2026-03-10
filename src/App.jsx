@@ -3251,13 +3251,24 @@ function App() {
               ))}
             </select>
           </div>
-          <button onClick={handleSave} disabled={isExporting} style={{ background: isExporting ? '#0a1a1a' : '#00BFFF', border: 'none', padding: '10px 18px', borderRadius: '18px', cursor: isExporting ? 'not-allowed' : 'pointer', fontWeight: 'bold', fontSize: '12px', color: isExporting ? '#555' : '#000', boxShadow: isExporting ? 'none' : '0 6px 20px rgba(0,191,255,0.3)', opacity: 1 }}>
-            {isExporting ? `${t('ed_exporting')} ${Math.round(exportProgress * 100)}%` : t('ed_save')}
-          </button>
           <LangToggle style={{ marginLeft: 'auto' }} />
         </div>
-        {/* Linha 2: exportar projeto · importar projeto · limpar projeto */}
+        {/* Linha 2: salvar · exportar projeto · importar projeto · limpar projeto */}
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', alignItems: 'center' }}>
+          {/* Salvar + indicador de progresso */}
+          <button onClick={handleSave} disabled={isExporting} style={{ background: isExporting ? '#0a1a1a' : '#00BFFF', border: 'none', padding: '8px 18px', borderRadius: '14px', cursor: isExporting ? 'not-allowed' : 'pointer', fontWeight: 'bold', fontSize: '12px', color: isExporting ? '#555' : '#000', boxShadow: isExporting ? 'none' : '0 4px 16px rgba(0,191,255,0.3)', whiteSpace: 'nowrap' }}>
+            {t('ed_save')}
+          </button>
+          {isExporting && (
+            <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+              <div style={{ width:120, height:6, background:'rgba(255,255,255,0.08)', borderRadius:4, overflow:'hidden' }}>
+                <div style={{ height:'100%', width:`${Math.round(exportProgress*100)}%`, background:'#00BFFF', borderRadius:4, transition:'width 0.2s' }} />
+              </div>
+              <span style={{ fontSize:11, color:'#00BFFF', fontWeight:700, whiteSpace:'nowrap' }}>{t('ed_exporting')} {Math.round(exportProgress*100)}%</span>
+            </div>
+          )}
+          {/* Separador */}
+          <div style={{ width:1, height:28, background:'rgba(255,255,255,0.07)' }} />
           <button onClick={exportProject} style={{ background: 'rgba(0,191,255,0.08)', border: '1px solid rgba(0,191,255,0.2)', padding: '7px 14px', borderRadius: '14px', cursor: 'pointer', fontWeight: 'bold', fontSize: '11px', color: '#00BFFF' }}>
             {t('ed_export_project')}
           </button>
@@ -3476,7 +3487,6 @@ function App() {
                 )}
               </div>
             , document.body)}
-          </div>
           </div>
         </div>
       </div>
