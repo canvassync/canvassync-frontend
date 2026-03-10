@@ -1410,7 +1410,7 @@ function App() {
   const stickersRef = useRef([]);
   useEffect(() => { stickersRef.current = stickers; }, [stickers]);
 
-    const draw = useCallback(() => {
+  const draw = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
