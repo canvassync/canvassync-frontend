@@ -3648,8 +3648,14 @@ function App() {
                 <div style={{ overflowY: 'auto', flex: 1, minHeight: 0, padding: '16px', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
                   {CANVAS_TEMPLATES.filter(t => t.format === templateFormatTab).map(tpl => {
                     const s = tpl.settings;
-                    const fmtAspect = {'16:9':'56.25%','9:16':'177.78%','1:1':'100%','4:3':'75%'};
-                    const aspectPad = fmtAspect[tpl.format] || '56.25%';
+                    // Mini-canvas proporcional dentro de um preview fixo 210×118
+                    const previewW = 210, previewH = 118;
+                    const fmtRatios = {'16:9':[16,9],'9:16':[9,16],'1:1':[1,1],'4:3':[4,3]};
+                    const [rw, rh] = fmtRatios[tpl.format] || [16,9];
+                    // Dimensões da mini-tela dentro do preview (letterbox/pillarbox)
+                    let mw = previewW * 0.88, mh = mw * (rh / rw);
+                    if (mh > previewH * 0.88) { mh = previewH * 0.88; mw = mh * (rw / rh); }
+                    mw = Math.round(mw); mh = Math.round(mh);
                     return (
                       <div key={tpl.id} style={{
                         background: '#0a0f1e',
@@ -3661,68 +3667,69 @@ function App() {
                         onMouseEnter={e => { e.currentTarget.style.border = `1px solid ${tpl.accent}70`; e.currentTarget.style.background = '#0e1628'; }}
                         onMouseLeave={e => { e.currentTarget.style.border = '1px solid rgba(255,255,255,0.07)'; e.currentTarget.style.background = '#0a0f1e'; }}
                       >
-                        {/* Preview CSS */}
-                        <div style={{ position: 'relative', width: '100%', paddingTop: aspectPad, background: '#060c18' }}>
+                        {/* Preview — altura fixa 118px para todos os formatos */}
+                        <div style={{
+                          width: '100%', height: previewH, background: '#060c18', flexShrink: 0,
+                          display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative',
+                        }}>
+                          {/* Mini-tela proporcional ao formato */}
                           <div style={{
-                            position: 'absolute', inset: 0,
-                            background: `radial-gradient(ellipse at 50% 50%, ${tpl.accent}18 0%, transparent 70%)`,
-                            display: 'flex', flexDirection: 'column',
-                            alignItems: 'center', justifyContent: 'center',
-                            padding: '8%', gap: 4,
+                            width: mw, height: mh, position: 'relative', borderRadius: 4, overflow: 'hidden',
+                            background: `radial-gradient(ellipse at 50% 50%, ${tpl.accent}20 0%, #080818 70%)`,
+                            boxShadow: s.shadowEnabled ? `0 0 14px ${tpl.accent}50` : 'none',
+                            border: `1px solid ${tpl.accent}30`,
+                            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 3,
                           }}>
-                            {/* Linha superior de extra texto simulada */}
-                            <div style={{ width: '60%', height: 3, borderRadius: 2, background: tpl.accent, opacity: 0.35, alignSelf: 'center', marginBottom: 4 }} />
-                            {/* Bloco do lyric principal */}
+                            {/* Linha topo extra */}
+                            <div style={{ width: '55%', height: 2, borderRadius: 1, background: tpl.accent, opacity: 0.35 }} />
+                            {/* Bloco lyric principal */}
                             <div style={{
-                              width: '80%', height: 10, borderRadius: 3,
+                              width: '75%', height: Math.max(5, Math.round(mh * 0.09)), borderRadius: 2,
                               background: s.gradientEnabled
                                 ? `linear-gradient(90deg, ${s.gradientColor1}, ${s.gradientColor2})`
                                 : s.textColor,
-                              boxShadow: s.shadowEnabled ? `0 0 12px ${tpl.accent}80` : 'none',
-                              opacity: 0.95,
+                              boxShadow: s.shadowEnabled ? `0 0 8px ${tpl.accent}80` : 'none',
                             }} />
                             <div style={{
-                              width: '60%', height: 7, borderRadius: 2,
-                              background: s.gradientEnabled ? s.gradientColor2 : s.textColor,
-                              opacity: 0.6, marginTop: 3,
+                              width: '55%', height: Math.max(3, Math.round(mh * 0.065)), borderRadius: 2,
+                              background: s.gradientEnabled ? s.gradientColor2 : s.textColor, opacity: 0.55,
                             }} />
-                            {/* Linha inferior de extra texto simulada */}
-                            <div style={{ width: '55%', height: 3, borderRadius: 2, background: tpl.accent, opacity: 0.28, alignSelf: 'center', marginTop: 6 }} />
+                            {/* Linha rodapé extra */}
+                            <div style={{ width: '50%', height: 2, borderRadius: 1, background: tpl.accent, opacity: 0.25 }} />
                           </div>
-                          {/* Badge do formato */}
+                          {/* Badge formato */}
                           <div style={{
-                            position: 'absolute', top: 6, right: 6,
+                            position: 'absolute', top: 5, right: 6,
                             background: `${tpl.accent}22`, border: `1px solid ${tpl.accent}44`,
-                            borderRadius: 5, padding: '1px 5px', fontSize: 8,
+                            borderRadius: 4, padding: '1px 5px', fontSize: 8,
                             color: tpl.accent, fontWeight: 700,
                           }}>{tpl.format}</div>
                         </div>
 
                         {/* Info */}
-                        <div style={{ padding: '10px 12px', flex: 1, display: 'flex', flexDirection: 'column', gap: 5 }}>
+                        <div style={{ padding: '9px 12px 6px', display: 'flex', flexDirection: 'column', gap: 4 }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                            <div style={{ width: 8, height: 8, borderRadius: '50%', background: tpl.accent, flexShrink: 0 }} />
-                            <span style={{ fontSize: 12, fontWeight: 800, color: '#f1f5f9' }}>{tpl.name}</span>
+                            <div style={{ width: 7, height: 7, borderRadius: '50%', background: tpl.accent, flexShrink: 0 }} />
+                            <span style={{ fontSize: 11, fontWeight: 800, color: '#f1f5f9' }}>{tpl.name}</span>
                           </div>
                           <span style={{ fontSize: 10, color: '#64748b', lineHeight: 1.4 }}>{tpl.desc}</span>
-                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-                            <span style={{ fontSize: 9, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 5, padding: '1px 6px', color: '#94a3b8' }}>{s.fontFamily}</span>
-                            {s.gradientEnabled && <span style={{ fontSize: 9, background: 'rgba(167,139,250,0.1)', border: '1px solid rgba(167,139,250,0.3)', borderRadius: 5, padding: '1px 6px', color: '#a78bfa' }}>gradient</span>}
-                            {s.shadowEnabled && <span style={{ fontSize: 9, background: 'rgba(251,191,36,0.1)', border: '1px solid rgba(251,191,36,0.3)', borderRadius: 5, padding: '1px 6px', color: '#fbbf24' }}>glow</span>}
-                            <span style={{ fontSize: 9, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 5, padding: '1px 6px', color: '#94a3b8' }}>+{tpl.extraTexts.length} texto{tpl.extraTexts.length !== 1 ? 's' : ''}</span>
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3 }}>
+                            <span style={{ fontSize: 9, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 4, padding: '1px 5px', color: '#94a3b8' }}>{s.fontFamily}</span>
+                            {s.gradientEnabled && <span style={{ fontSize: 9, background: 'rgba(167,139,250,0.1)', border: '1px solid rgba(167,139,250,0.3)', borderRadius: 4, padding: '1px 5px', color: '#a78bfa' }}>gradient</span>}
+                            {s.shadowEnabled && <span style={{ fontSize: 9, background: 'rgba(251,191,36,0.1)', border: '1px solid rgba(251,191,36,0.3)', borderRadius: 4, padding: '1px 5px', color: '#fbbf24' }}>glow</span>}
                           </div>
                         </div>
 
                         {/* Botão aplicar */}
                         <button
-                          onClick={() => applyTemplate(tpl)}
+                          onClick={(e) => { e.stopPropagation(); applyTemplate(tpl); }}
                           style={{
-                            margin: '0 12px 12px', padding: '8px 0', borderRadius: 10, cursor: 'pointer',
+                            margin: '4px 12px 12px', padding: '8px 0', borderRadius: 9, cursor: 'pointer',
                             background: `${tpl.accent}20`,
                             border: `1px solid ${tpl.accent}55`, color: tpl.accent,
                             fontWeight: 800, fontSize: 12,
                           }}
-                          onMouseEnter={e => { e.currentTarget.style.background = `${tpl.accent}40`; e.currentTarget.style.color = '#fff'; }}
+                          onMouseEnter={e => { e.currentTarget.style.background = `${tpl.accent}45`; e.currentTarget.style.color = '#fff'; }}
                           onMouseLeave={e => { e.currentTarget.style.background = `${tpl.accent}20`; e.currentTarget.style.color = tpl.accent; }}
                         >
                           ✓ Usar template
