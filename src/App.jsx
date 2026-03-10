@@ -1609,11 +1609,7 @@ function App() {
   }, [projectVolume]);
 
   useEffect(() => {
-    const audio = audioRef.current;
-    // Só aplica enquanto pausado — mudar playbackRate em tempo real causa ruído/click
-    if (audio && audio.paused) {
-      audio.playbackRate = Math.max(0.25, Math.min(4, projectSpeed));
-    }
+    if (audioRef.current) audioRef.current.playbackRate = Math.max(0.25, Math.min(4, projectSpeed));
   }, [projectSpeed]);
 
   const renderAtTimeToCanvas = async (targetCanvas, t, scale = 1) => {
@@ -1777,100 +1773,82 @@ function App() {
     }
   };
 
-  // ── Renderização de áudio com velocidade + volume via OfflineAudioContext ─────
-  // Usa o mesmo engine de time-stretch nativo do browser (preservesPitch=true),
-  // idêntico ao <audio>.playbackRate no preview → zero artefatos DSP manuais.
+  // ── _renderAudioStretched: time-stretch preservando tom + volume ─────────────
+  // Estratégia:
+  //   speed == 1 → OfflineAudioContext puro (sem DSP, qualidade perfeita)
+  //   speed != 1 → WOLA 75 % overlap (frameSize=4096, hop=1024)
+  //                Janela Hann ao quadrado satisfaz condição WOLA → gain constante
+  //                Sem SOLA/correlação (que adicionava instabilidade)
+  //                Sem AudioBufferSourceNode.playbackRate (não suporta preservesPitch)
   // Retorna [Float32ArrayL, Float32ArrayR] prontos para o AudioEncoder.
   const _renderAudioStretched = async (audioBuffer, speed, volume, sampleRate) => {
-    const nCh = Math.min(audioBuffer.numberOfChannels, 2);
-    const outputFrames = Math.ceil((audioBuffer.duration / speed) * sampleRate);
-    const offCtx = new OfflineAudioContext(nCh, outputFrames, sampleRate);
-    const src = offCtx.createBufferSource();
-    src.buffer = audioBuffer;
-    src.playbackRate.value = speed;
-    if ('preservesPitch' in src) src.preservesPitch = true; // pitch-preservation se suportado
-    const gain = offCtx.createGain();
-    gain.gain.value = Math.max(0, Math.min(1, volume));
-    src.connect(gain);
-    gain.connect(offCtx.destination);
-    src.start(0);
-    const rendered = await offCtx.startRendering();
-    const chL = new Float32Array(rendered.getChannelData(0));
-    const chR = new Float32Array(nCh > 1 ? rendered.getChannelData(1) : rendered.getChannelData(0));
-    return [chL, chR];
-  };
+    const nCh    = Math.min(audioBuffer.numberOfChannels, 2);
+    const chL    = audioBuffer.getChannelData(0);
+    const chR    = nCh > 1 ? audioBuffer.getChannelData(1) : chL;
+    const srcLen = chL.length;
 
-  // ── SOLA Time-Stretch: preserva tom sem ruído + aplica volume ────────────────
-  // chL/chR : Float32Array dos canais L e R já decodificados
-  // speed   : velocidade do projeto (0.25–4)
-  // volume  : 0–1
-  // outLen  : número de amostras na saída
-  //
-  // Correções vs versões anteriores:
-  //  1. Janela Hann PERIÓDICA (/frameSize, não /frameSize-1) → COLA exato = 1.0
-  //  2. Acumulador de normalização → garante amplitude correta mesmo com offsets SOLA
-  //  3. Correlação contra o BUFFER DE SAÍDA já escrito (SOLA), não contra a fonte
-  //  4. Clipping final a [-1,1] → evita distorção no AudioEncoder
-  const _olaStretch = (chL, chR, speed, volume, outLen) => {
-    const frameSize = 1024;
-    const hopOut    = 512;                        // 50% overlap
-    const hopSrc    = Math.round(hopOut * speed); // avanço na fonte
-    const searchWin = Math.min(hopOut, hopSrc);   // janela de busca SOLA ±searchWin
-    const corrLen   = 128;                        // amostras de correlação
-    const srcLen    = chL.length;
+    // ── Caminho limpo para speed == 1: OfflineAudioContext com gain ──────────
+    if (Math.abs(speed - 1.0) < 0.005) {
+      const outFrames = Math.ceil(audioBuffer.duration * sampleRate);
+      const offCtx    = new OfflineAudioContext(nCh, outFrames, sampleRate);
+      const src       = offCtx.createBufferSource();
+      src.buffer      = audioBuffer;
+      const gain      = offCtx.createGain();
+      gain.gain.value = Math.max(0, Math.min(1, volume));
+      src.connect(gain);
+      gain.connect(offCtx.destination);
+      src.start(0);
+      const rendered  = await offCtx.startRendering();
+      return [
+        new Float32Array(rendered.getChannelData(0)),
+        new Float32Array(rendered.numberOfChannels > 1 ? rendered.getChannelData(1) : rendered.getChannelData(0)),
+      ];
+    }
 
-    // ── Janela Hann PERIÓDICA: hann[i] + hann[i+N/2] = 1.0 exato ────────────
+    // ── WOLA 75 % overlap para speed != 1 ────────────────────────────────────
+    // hopOut fixo; hopSrc avança mais rápido (speed>1) ou mais devagar (speed<1)
+    // Com janela Hann e 75 % overlap: Σ w²[n-kH] = 3/8 * N = constante → sem modulação
+    const frameSize = 4096;
+    const hopOut    = frameSize >> 2;              // 1024 — 75 % overlap
+    const hopSrc    = Math.round(hopOut * speed);
+    const outLen    = Math.ceil(srcLen / speed);
+
     const hann = new Float32Array(frameSize);
     for (let i = 0; i < frameSize; i++)
       hann[i] = 0.5 * (1 - Math.cos(2 * Math.PI * i / frameSize));
 
+    // Pré-calcula a constante de normalização WOLA (Σ w²  com hop=N/4)
+    // É exatamente 3/8 * frameSize para Hann + 75 % overlap, mas calculamos
+    // diretamente para ser robusto a qualquer frameSize.
+    let wolaGain = 0;
+    for (let i = 0; i < frameSize; i++) wolaGain += hann[i] * hann[i];
+    wolaGain /= hopOut; // ganho por amostra de saída
+
     const outL = new Float32Array(outLen);
     const outR = new Float32Array(outLen);
-    const norm = new Float32Array(outLen); // acumula soma das janelas para normalização
+    const norm = new Float32Array(outLen);
 
     let srcPos = 0, outPos = 0;
-
-    while (outPos < outLen) {
-      // ── SOLA: correlaciona contra o overlap JÁ ESCRITO na saída ──────────
-      let bestOffset = 0;
-      if (outPos > 0) {
-        const refStart = outPos;                             // início do overlap na saída
-        const refLen   = Math.min(corrLen, outLen - refStart);
-        let   bestCorr = -Infinity;
-        for (let delta = -searchWin; delta <= searchWin; delta++) {
-          const testSrc = srcPos + delta;
-          if (testSrc < 0 || testSrc + refLen > srcLen) continue;
-          let corr = 0;
-          for (let k = 0; k < refLen; k++)
-            corr += outL[refStart + k] * chL[testSrc + k];
-          if (corr > bestCorr) { bestCorr = corr; bestOffset = delta; }
-        }
-      }
-
-      const actualSrc = srcPos + bestOffset;
-
-      // ── Overlap-Add com janela Hann ───────────────────────────────────────
+    while (outPos < outLen + hopOut) {
       for (let i = 0; i < frameSize; i++) {
         const oi = outPos + i;
         if (oi >= outLen) break;
-        const si = actualSrc + i;
+        const si = srcPos + i;
         const w  = hann[i];
-        outL[oi] += (si >= 0 && si < srcLen ? chL[si] : 0) * w;
-        outR[oi] += (si >= 0 && si < srcLen ? chR[si] : 0) * w;
-        norm[oi] += w;
+        outL[oi] += (si < srcLen ? chL[si] : 0) * w;
+        outR[oi] += (si < srcLen ? chR[si] : 0) * w;
+        norm[oi] += w * w;
       }
-
       srcPos += hopSrc;
       outPos += hopOut;
     }
 
-    // ── Normaliza + aplica volume + limita a [-1, 1] ─────────────────────────
+    // Normaliza pelo acumulador WOLA + aplica volume + clipping
     for (let i = 0; i < outLen; i++) {
-      const n = norm[i] > 1e-4 ? norm[i] : 1;
+      const n = norm[i] > 1e-6 ? norm[i] : wolaGain;
       outL[i] = Math.max(-1, Math.min(1, (outL[i] / n) * volume));
       outR[i] = Math.max(-1, Math.min(1, (outR[i] / n) * volume));
     }
-
     return [outL, outR];
   };
 
@@ -1980,7 +1958,6 @@ function App() {
           const _tmpAc1 = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 48000 });
           const _rawBuf1 = await _tmpAc1.decodeAudioData(audioBufferData);
           _tmpAc1.close();
-          // Renderiza áudio com speed+volume via OfflineAudioContext (sem artefatos DSP)
           const [_out01, _out11] = await _renderAudioStretched(_rawBuf1, _spd1, _vol1, 48000);
           const _blk1 = 4096;
           for (let _op1 = 0; _op1 < _out01.length; _op1 += _blk1) {
@@ -2322,7 +2299,7 @@ function App() {
           const aenc = new AudioEncoder({ output: (chunk, meta) => muxer.addAudioChunk(chunk, meta), error: console.error });
           aenc.configure({ codec: 'mp4a.40.2', sampleRate: _sdRate, numberOfChannels: _nChSD, bitrate: 192000 });
           const CHUNK = 4096;
-          // Renderiza áudio com speed+volume via OfflineAudioContext (sem artefatos DSP)
+          // Renderiza áudio com WOLA (preserva tom) + volume
           const [_out02, _out12] = await _renderAudioStretched(_abSD, _spd2, _vol2, _sdRate);
           const _blk2 = 4096;
           for (let _op2 = 0; _op2 < _out02.length; _op2 += _blk2) {
@@ -2420,7 +2397,7 @@ function App() {
           const aenc = new AudioEncoder({ output: (chunk, meta) => muxer.addAudioChunk(chunk, meta), error: console.error });
           aenc.configure({ codec: 'mp4a.40.2', sampleRate: _hdRate, numberOfChannels: _nChHD, bitrate: 192000 });
           const CHUNK = 4096;
-          // Renderiza áudio com speed+volume via OfflineAudioContext (sem artefatos DSP)
+          // Renderiza áudio com WOLA (preserva tom) + volume
           const [_out03, _out13] = await _renderAudioStretched(_abHD, _spd3, _vol3, _hdRate);
           const _blk3 = 4096;
           for (let _op3 = 0; _op3 < _out03.length; _op3 += _blk3) {
@@ -2526,7 +2503,6 @@ function App() {
           const ac     = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 48000 });
           const buffer = await ac.decodeAudioData(audioBufferData);
           ac.close();
-          // Renderiza áudio com speed+volume via OfflineAudioContext (sem artefatos DSP)
           const [_out04, _out14] = await _renderAudioStretched(buffer, _spd4, _vol4, 48000);
           const _blk4 = 4096;
           for (let _op4 = 0; _op4 < _out04.length; _op4 += _blk4) {
