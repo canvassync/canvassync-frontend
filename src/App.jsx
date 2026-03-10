@@ -414,6 +414,11 @@ function App() {
   const sfxBtnRef       = useRef(null);
   const sfxLiveAcRef    = useRef(null);                     // AudioContext para preview de SFX
   const sfxPlayedRef    = useRef(new Set());                // IDs de SFX já disparados nesta sessão
+  // ── Templates ─────────────────────────────────────────────────────────────
+  const [showTemplatePanel, setShowTemplatePanel] = useState(false);
+  const [templatePanelPos, setTemplatePanelPos]   = useState({ top: 80, left: 0 });
+  const [templateFormatTab, setTemplateFormatTab] = useState('16:9');
+  const templateBtnRef = useRef(null);
   const sfxLastTimeRef  = useRef(0);                        // último t conhecido para detecção de cruzamento
   const soundEffectsRef = useRef([]);
   useEffect(() => { soundEffectsRef.current = soundEffects; }, [soundEffects]);
@@ -613,7 +618,7 @@ function App() {
   // Fecha tela cheia com ESC; fecha painel sticker com ESC ou clique fora
   useEffect(() => {
     const onKey = (e) => {
-      if (e.key === 'Escape') { setIsFullscreen(false); setShowStickerPanel(false); }
+      if (e.key === 'Escape') { setIsFullscreen(false); setShowStickerPanel(false); setShowTemplatePanel(false); }
     };
     const onClickOut = (e) => {
       if (showStickerPanel && stickerBtnRef.current && !stickerBtnRef.current.contains(e.target) &&
@@ -624,11 +629,15 @@ function App() {
           !e.target.closest('[data-sfx-portal]')) {
         setShowSfxPanel(false);
       }
+      if (showTemplatePanel && templateBtnRef.current && !templateBtnRef.current.contains(e.target) &&
+          !e.target.closest('[data-template-portal]')) {
+        setShowTemplatePanel(false);
+      }
     };
     window.addEventListener('keydown', onKey);
     document.addEventListener('mousedown', onClickOut);
     return () => { window.removeEventListener('keydown', onKey); document.removeEventListener('mousedown', onClickOut); };
-  }, [showStickerPanel, showSfxPanel]);
+  }, [showStickerPanel, showSfxPanel, showTemplatePanel]);
 
   const handleImageChange = (e) => {
     const file = e.target.files[0];
@@ -3171,13 +3180,261 @@ function App() {
     return null;
   }
 
+  // ── DADOS DOS TEMPLATES ────────────────────────────────────────────────────
+  const CANVAS_TEMPLATES = [
+    // ─── 16:9 ──────────────────────────────────────────────────────────────
+    { id:'169_bold', format:'16:9', name:'Bold Center', accent:'#00BFFF',
+      desc:'Texto central com máximo impacto, glow azul',
+      settings:{ fontSize:72, fontFamily:'Bebas Neue', textColor:'#ffffff',
+        gradientEnabled:true, gradientColor1:'#ffffff', gradientColor2:'#00BFFF',
+        shadowEnabled:true, shadowBlur:28, shadowColor:'rgba(0,191,255,0.65)', shadowOffsetX:0, shadowOffsetY:4, zoom:60 },
+      extraTexts:[
+        { rx:0.5, ry:0.88, text:'@seucanal', fs:28, ff:'Poppins', color:'rgba(255,255,255,0.55)' },
+      ]},
+    { id:'169_lower3', format:'16:9', name:'Lower Third', accent:'#fbbf24',
+      desc:'Legenda inferior esquerda estilo noticiário',
+      settings:{ fontSize:52, fontFamily:'Montserrat', textColor:'#ffffff',
+        gradientEnabled:false, shadowEnabled:true, shadowBlur:16, shadowColor:'rgba(0,0,0,0.9)', shadowOffsetX:0, shadowOffsetY:2, zoom:55 },
+      extraTexts:[
+        { rx:0.08, ry:0.84, text:'Nome do Artista', fs:42, ff:'Bebas Neue', color:'#fbbf24' },
+        { rx:0.08, ry:0.93, text:'feat. Colaborador • 2024', fs:20, ff:'Poppins', color:'rgba(255,255,255,0.65)' },
+      ]},
+    { id:'169_neon_split', format:'16:9', name:'Neon Split', accent:'#a78bfa',
+      desc:'Dois blocos de texto, glow roxo vibrante',
+      settings:{ fontSize:58, fontFamily:'Poppins', textColor:'#ffffff',
+        gradientEnabled:true, gradientColor1:'#a78bfa', gradientColor2:'#f0abfc',
+        shadowEnabled:true, shadowBlur:32, shadowColor:'rgba(167,139,250,0.75)', shadowOffsetX:0, shadowOffsetY:0, zoom:55 },
+      extraTexts:[
+        { rx:0.5, ry:0.12, text:'✦ TRACK TITLE ✦', fs:34, ff:'Bebas Neue', color:'#a78bfa' },
+        { rx:0.5, ry:0.92, text:'Álbum • Ano • Gravadora', fs:22, ff:'Poppins', color:'rgba(255,255,255,0.45)' },
+      ]},
+    { id:'169_minimal', format:'16:9', name:'Minimal Dark', accent:'#e2e8f0',
+      desc:'Layout limpo com tipografia elegante',
+      settings:{ fontSize:48, fontFamily:'Raleway', textColor:'#ffffff',
+        gradientEnabled:false, shadowEnabled:false, shadowBlur:12, shadowColor:'rgba(0,0,0,0.9)', shadowOffsetX:0, shadowOffsetY:2, zoom:50 },
+      extraTexts:[
+        { rx:0.5, ry:0.10, text:'──────────────────', fs:16, ff:'Poppins', color:'rgba(255,255,255,0.18)' },
+        { rx:0.5, ry:0.90, text:'──────────────────', fs:16, ff:'Poppins', color:'rgba(255,255,255,0.18)' },
+        { rx:0.5, ry:0.96, text:'stream agora • todas as plataformas', fs:17, ff:'Raleway', color:'rgba(255,255,255,0.38)' },
+      ]},
+    { id:'169_fire', format:'16:9', name:'Fire Hype', accent:'#ff6b00',
+      desc:'Trap/rap com gradiente de fogo explosivo',
+      settings:{ fontSize:82, fontFamily:'Bebas Neue', textColor:'#ff6b00',
+        gradientEnabled:true, gradientColor1:'#ff6b00', gradientColor2:'#ffd700',
+        shadowEnabled:true, shadowBlur:42, shadowColor:'rgba(255,107,0,0.85)', shadowOffsetX:0, shadowOffsetY:0, zoom:62 },
+      extraTexts:[
+        { rx:0.5, ry:0.09, text:'🔥 NEW MUSIC 🔥', fs:28, ff:'Bebas Neue', color:'#ffd700' },
+        { rx:0.5, ry:0.92, text:'DISPONÍVEL AGORA', fs:24, ff:'Montserrat', color:'rgba(255,255,255,0.75)' },
+      ]},
+    { id:'169_gold', format:'16:9', name:'Clássico Gold', accent:'#d4af37',
+      desc:'Elegante dourado para MPB/clássico',
+      settings:{ fontSize:58, fontFamily:'Playfair Display', textColor:'#d4af37',
+        gradientEnabled:true, gradientColor1:'#d4af37', gradientColor2:'#fff8dc',
+        shadowEnabled:true, shadowBlur:22, shadowColor:'rgba(212,175,55,0.5)', shadowOffsetX:0, shadowOffsetY:2, zoom:56 },
+      extraTexts:[
+        { rx:0.5, ry:0.08, text:'◆  ◆  ◆', fs:22, ff:'Poppins', color:'rgba(212,175,55,0.5)' },
+        { rx:0.5, ry:0.93, text:'◆  ◆  ◆', fs:22, ff:'Poppins', color:'rgba(212,175,55,0.5)' },
+      ]},
+    // ─── 9:16 ──────────────────────────────────────────────────────────────
+    { id:'916_viral', format:'9:16', name:'Viral Reels', accent:'#ff4081',
+      desc:'Texto grande + CTA no rodapé, Reels/TikTok',
+      settings:{ fontSize:80, fontFamily:'Bebas Neue', textColor:'#ffffff',
+        gradientEnabled:true, gradientColor1:'#ff4081', gradientColor2:'#ff80ab',
+        shadowEnabled:true, shadowBlur:32, shadowColor:'rgba(255,64,129,0.75)', shadowOffsetX:0, shadowOffsetY:4, zoom:42 },
+      extraTexts:[
+        { rx:0.5, ry:0.06, text:'🎵 OUÇA AGORA', fs:30, ff:'Poppins', color:'rgba(255,255,255,0.9)' },
+        { rx:0.5, ry:0.95, text:'▸ segue pra mais', fs:26, ff:'Poppins', color:'rgba(255,255,255,0.65)' },
+      ]},
+    { id:'916_neon', format:'9:16', name:'Center Neon', accent:'#00e5ff',
+      desc:'Texto centralizado com glow ciano forte',
+      settings:{ fontSize:88, fontFamily:'Bebas Neue', textColor:'#00e5ff',
+        gradientEnabled:false, shadowEnabled:true, shadowBlur:52, shadowColor:'rgba(0,229,255,0.92)', shadowOffsetX:0, shadowOffsetY:0, zoom:42 },
+      extraTexts:[
+        { rx:0.5, ry:0.11, text:'◈  LANÇAMENTO  ◈', fs:26, ff:'Montserrat', color:'rgba(0,229,255,0.55)' },
+        { rx:0.5, ry:0.90, text:'@artista • todas as plataformas', fs:22, ff:'Poppins', color:'rgba(255,255,255,0.45)' },
+      ]},
+    { id:'916_gradient', format:'9:16', name:'Gradient Wave', accent:'#c084fc',
+      desc:'Roxo/rosa vibrante, Stories premium',
+      settings:{ fontSize:82, fontFamily:'Poppins', textColor:'#ffffff',
+        gradientEnabled:true, gradientColor1:'#c084fc', gradientColor2:'#f9a8d4',
+        shadowEnabled:true, shadowBlur:36, shadowColor:'rgba(192,132,252,0.72)', shadowOffsetX:0, shadowOffsetY:0, zoom:42 },
+      extraTexts:[
+        { rx:0.5, ry:0.07, text:'✦ nova música ✦', fs:26, ff:'Raleway', color:'rgba(255,255,255,0.55)' },
+        { rx:0.5, ry:0.93, text:'🎧 disponível agora', fs:26, ff:'Poppins', color:'rgba(255,255,255,0.65)' },
+      ]},
+    { id:'916_clean', format:'9:16', name:'Stories Clean', accent:'#f1f5f9',
+      desc:'Minimalista elegante, indie/pop',
+      settings:{ fontSize:72, fontFamily:'Raleway', textColor:'#ffffff',
+        gradientEnabled:false, shadowEnabled:false, shadowBlur:12, shadowColor:'rgba(0,0,0,0.9)', shadowOffsetX:0, shadowOffsetY:2, zoom:40 },
+      extraTexts:[
+        { rx:0.5, ry:0.07, text:'N O V O  S I N G L E', fs:22, ff:'Raleway', color:'rgba(255,255,255,0.38)' },
+        { rx:0.5, ry:0.94, text:'ouça • salve • compartilhe', fs:20, ff:'Poppins', color:'rgba(255,255,255,0.32)' },
+      ]},
+    { id:'916_hype', format:'9:16', name:'Dark Hype', accent:'#39ff14',
+      desc:'Trap/drill urbano agressivo, verde neon',
+      settings:{ fontSize:92, fontFamily:'Bebas Neue', textColor:'#39ff14',
+        gradientEnabled:false, shadowEnabled:true, shadowBlur:48, shadowColor:'rgba(57,255,20,0.85)', shadowOffsetX:0, shadowOffsetY:0, zoom:42 },
+      extraTexts:[
+        { rx:0.5, ry:0.05, text:'OUT NOW', fs:28, ff:'Montserrat', color:'rgba(255,255,255,0.88)' },
+        { rx:0.5, ry:0.96, text:'▶ STREAM ▶', fs:26, ff:'Bebas Neue', color:'rgba(57,255,20,0.75)' },
+      ]},
+    { id:'916_lofi', format:'9:16', name:'Lo-Fi Vibes', accent:'#f59e0b',
+      desc:'Chill, cores quentes, vibe café',
+      settings:{ fontSize:66, fontFamily:'Lora', textColor:'#f59e0b',
+        gradientEnabled:true, gradientColor1:'#f59e0b', gradientColor2:'#fde68a',
+        shadowEnabled:true, shadowBlur:22, shadowColor:'rgba(245,158,11,0.45)', shadowOffsetX:0, shadowOffsetY:2, zoom:40 },
+      extraTexts:[
+        { rx:0.5, ry:0.07, text:'lo-fi  •  chill  •  beats', fs:24, ff:'Lora', color:'rgba(253,230,138,0.6)' },
+        { rx:0.5, ry:0.93, text:'☕  relaxa e ouve', fs:24, ff:'Lora', color:'rgba(255,255,255,0.5)' },
+      ]},
+    // ─── 1:1 ───────────────────────────────────────────────────────────────
+    { id:'11_impact', format:'1:1', name:'Impact Square', accent:'#ff3d00',
+      desc:'Máximo impacto para feed quadrado',
+      settings:{ fontSize:94, fontFamily:'Bebas Neue', textColor:'#ffffff',
+        gradientEnabled:true, gradientColor1:'#ff3d00', gradientColor2:'#ff9100',
+        shadowEnabled:true, shadowBlur:42, shadowColor:'rgba(255,61,0,0.82)', shadowOffsetX:0, shadowOffsetY:0, zoom:50 },
+      extraTexts:[
+        { rx:0.5, ry:0.07, text:'🔥 NOVO LANÇAMENTO 🔥', fs:28, ff:'Montserrat', color:'rgba(255,145,0,0.9)' },
+        { rx:0.5, ry:0.94, text:'disponível em todas as plataformas', fs:22, ff:'Poppins', color:'rgba(255,255,255,0.48)' },
+      ]},
+    { id:'11_blue_neon', format:'1:1', name:'Blue Neon', accent:'#00BFFF',
+      desc:'Azul neon, estilo eletrônico/pop',
+      settings:{ fontSize:84, fontFamily:'Bebas Neue', textColor:'#00BFFF',
+        gradientEnabled:false, shadowEnabled:true, shadowBlur:52, shadowColor:'rgba(0,191,255,0.92)', shadowOffsetX:0, shadowOffsetY:0, zoom:50 },
+      extraTexts:[
+        { rx:0.5, ry:0.07, text:'◈  SINGLE  ◈', fs:26, ff:'Bebas Neue', color:'rgba(0,191,255,0.48)' },
+        { rx:0.5, ry:0.94, text:'@artista  ·  link na bio', fs:22, ff:'Poppins', color:'rgba(255,255,255,0.42)' },
+      ]},
+    { id:'11_gold', format:'1:1', name:'Gold Feed', accent:'#d4af37',
+      desc:'Elegante dourado para feed premium',
+      settings:{ fontSize:78, fontFamily:'Playfair Display', textColor:'#d4af37',
+        gradientEnabled:true, gradientColor1:'#d4af37', gradientColor2:'#fff8dc',
+        shadowEnabled:true, shadowBlur:26, shadowColor:'rgba(212,175,55,0.62)', shadowOffsetX:0, shadowOffsetY:2, zoom:50 },
+      extraTexts:[
+        { rx:0.5, ry:0.07, text:'—  —  —  —  —  —', fs:18, ff:'Poppins', color:'rgba(212,175,55,0.38)' },
+        { rx:0.5, ry:0.93, text:'—  —  —  —  —  —', fs:18, ff:'Poppins', color:'rgba(212,175,55,0.38)' },
+        { rx:0.5, ry:0.97, text:'ouça agora em todos os streamings', fs:18, ff:'Raleway', color:'rgba(255,255,255,0.32)' },
+      ]},
+    { id:'11_minimal', format:'1:1', name:'Minimal Square', accent:'#e2e8f0',
+      desc:'Clean e moderno, ótimo para pop/indie',
+      settings:{ fontSize:72, fontFamily:'Raleway', textColor:'#ffffff',
+        gradientEnabled:false, shadowEnabled:false, shadowBlur:12, shadowColor:'rgba(0,0,0,0.9)', shadowOffsetX:0, shadowOffsetY:2, zoom:50 },
+      extraTexts:[
+        { rx:0.5, ry:0.06, text:'novo  single', fs:22, ff:'Raleway', color:'rgba(255,255,255,0.28)' },
+        { rx:0.5, ry:0.95, text:'2024', fs:20, ff:'Raleway', color:'rgba(255,255,255,0.22)' },
+      ]},
+    { id:'11_trap', format:'1:1', name:'Trap Vibes', accent:'#00ff87',
+      desc:'Urbano agressivo, trap/rap verde neon',
+      settings:{ fontSize:90, fontFamily:'Bebas Neue', textColor:'#00ff87',
+        gradientEnabled:false, shadowEnabled:true, shadowBlur:52, shadowColor:'rgba(0,255,135,0.88)', shadowOffsetX:0, shadowOffsetY:0, zoom:50 },
+      extraTexts:[
+        { rx:0.5, ry:0.05, text:'OUT NOW', fs:26, ff:'Montserrat', color:'rgba(255,255,255,0.82)' },
+        { rx:0.5, ry:0.96, text:'🔊 ESCUTA AGORA 🔊', fs:24, ff:'Bebas Neue', color:'rgba(0,255,135,0.68)' },
+      ]},
+    { id:'11_retro', format:'1:1', name:'Retro Pop', accent:'#ff6eb4',
+      desc:'Anos 80/90 com cores retrô vibrantes',
+      settings:{ fontSize:76, fontFamily:'Bebas Neue', textColor:'#ffffff',
+        gradientEnabled:true, gradientColor1:'#ff6eb4', gradientColor2:'#ffe44d',
+        shadowEnabled:true, shadowBlur:22, shadowColor:'rgba(255,110,180,0.52)', shadowOffsetX:4, shadowOffsetY:4, zoom:50 },
+      extraTexts:[
+        { rx:0.5, ry:0.07, text:'✦ VIDEOCLIPE OFICIAL ✦', fs:24, ff:'Bebas Neue', color:'#ffe44d' },
+        { rx:0.5, ry:0.94, text:'inscreva-se  •  ative o sino 🔔', fs:20, ff:'Poppins', color:'rgba(255,228,77,0.68)' },
+      ]},
+    // ─── 4:3 ───────────────────────────────────────────────────────────────
+    { id:'43_classic', format:'4:3', name:'Clássico TV', accent:'#e2e8f0',
+      desc:'Layout tradicional estilo apresentação TV',
+      settings:{ fontSize:66, fontFamily:'Oswald', textColor:'#ffffff',
+        gradientEnabled:false, shadowEnabled:true, shadowBlur:16, shadowColor:'rgba(0,0,0,0.9)', shadowOffsetX:0, shadowOffsetY:3, zoom:55 },
+      extraTexts:[
+        { rx:0.5, ry:0.10, text:'VIDEOCLIPE OFICIAL', fs:28, ff:'Oswald', color:'rgba(255,255,255,0.48)' },
+        { rx:0.5, ry:0.92, text:'Inscreva-se no Canal', fs:22, ff:'Poppins', color:'rgba(255,255,255,0.38)' },
+      ]},
+    { id:'43_gold', format:'4:3', name:'Gold Broadcast', accent:'#d4af37',
+      desc:'Profissional com dourado, MPB/sertanejo',
+      settings:{ fontSize:70, fontFamily:'Playfair Display', textColor:'#d4af37',
+        gradientEnabled:true, gradientColor1:'#d4af37', gradientColor2:'#fff8dc',
+        shadowEnabled:true, shadowBlur:22, shadowColor:'rgba(212,175,55,0.52)', shadowOffsetX:0, shadowOffsetY:2, zoom:55 },
+      extraTexts:[
+        { rx:0.5, ry:0.09, text:'◆  A U T O R  ◆', fs:26, ff:'Raleway', color:'rgba(212,175,55,0.58)' },
+        { rx:0.5, ry:0.92, text:'disponível em todos os streamings', fs:20, ff:'Raleway', color:'rgba(255,255,255,0.32)' },
+      ]},
+    { id:'43_neon', format:'4:3', name:'Neon Screen', accent:'#00e5ff',
+      desc:'Tela neon eletrônica, lyric video',
+      settings:{ fontSize:72, fontFamily:'Bebas Neue', textColor:'#00e5ff',
+        gradientEnabled:false, shadowEnabled:true, shadowBlur:48, shadowColor:'rgba(0,229,255,0.92)', shadowOffsetX:0, shadowOffsetY:0, zoom:55 },
+      extraTexts:[
+        { rx:0.5, ry:0.10, text:'▶  LYRIC VIDEO  ◀', fs:26, ff:'Bebas Neue', color:'rgba(0,229,255,0.48)' },
+        { rx:0.5, ry:0.92, text:'@artista  ·  link na bio', fs:20, ff:'Poppins', color:'rgba(255,255,255,0.38)' },
+      ]},
+    { id:'43_minimal', format:'4:3', name:'Minimal 4:3', accent:'#94a3b8',
+      desc:'Moderno e limpo para apresentações',
+      settings:{ fontSize:60, fontFamily:'Raleway', textColor:'#ffffff',
+        gradientEnabled:false, shadowEnabled:false, shadowBlur:12, shadowColor:'rgba(0,0,0,0.9)', shadowOffsetX:0, shadowOffsetY:2, zoom:55 },
+      extraTexts:[
+        { rx:0.5, ry:0.09, text:'N O V A  M Ú S I C A', fs:22, ff:'Raleway', color:'rgba(148,163,184,0.48)' },
+        { rx:0.5, ry:0.92, text:'ouça agora', fs:22, ff:'Raleway', color:'rgba(148,163,184,0.38)' },
+      ]},
+    { id:'43_fire', format:'4:3', name:'Fire Stage', accent:'#ff6b00',
+      desc:'Rock/metal com energia explosiva',
+      settings:{ fontSize:78, fontFamily:'Bebas Neue', textColor:'#ff6b00',
+        gradientEnabled:true, gradientColor1:'#ff6b00', gradientColor2:'#ffd700',
+        shadowEnabled:true, shadowBlur:42, shadowColor:'rgba(255,107,0,0.82)', shadowOffsetX:0, shadowOffsetY:0, zoom:56 },
+      extraTexts:[
+        { rx:0.5, ry:0.09, text:'🔥 AO VIVO 🔥', fs:26, ff:'Bebas Neue', color:'#ffd700' },
+        { rx:0.5, ry:0.92, text:'INSCREVA-SE E ATIVE O SINO', fs:18, ff:'Montserrat', color:'rgba(255,107,0,0.68)' },
+      ]},
+    { id:'43_retro', format:'4:3', name:'Retro Vintage', accent:'#c9a84c',
+      desc:'Anos 70/80 vintage para clássicos',
+      settings:{ fontSize:68, fontFamily:'Lora', textColor:'#c9a84c',
+        gradientEnabled:true, gradientColor1:'#c9a84c', gradientColor2:'#f5deb3',
+        shadowEnabled:true, shadowBlur:18, shadowColor:'rgba(201,168,76,0.42)', shadowOffsetX:2, shadowOffsetY:2, zoom:55 },
+      extraTexts:[
+        { rx:0.5, ry:0.09, text:'✦  C L Á S S I C O  ✦', fs:24, ff:'Lora', color:'rgba(201,168,76,0.58)' },
+        { rx:0.5, ry:0.92, text:'remasterizado  •  alta qualidade', fs:18, ff:'Lora', color:'rgba(255,255,255,0.28)' },
+      ]},
+  ];
+
+  // ── applyTemplate ──────────────────────────────────────────────────────────
+  const applyTemplate = (tpl) => {
+    const fmt = CANVAS_FORMATS[tpl.format] || CANVAS_FORMATS['16:9'];
+    const cw  = fmt.width;
+    const ch  = fmt.height;
+    const s   = tpl.settings;
+    setCanvasFormat(tpl.format);
+    setFontSize(s.fontSize);
+    setFontFamily(s.fontFamily);
+    setTextColor(s.textColor);
+    setGradientEnabled(s.gradientEnabled);
+    setGradientColor1(s.gradientColor1 ?? '#ffffff');
+    setGradientColor2(s.gradientColor2 ?? '#00BFFF');
+    setShadowEnabled(s.shadowEnabled);
+    setShadowBlur(s.shadowBlur ?? 12);
+    setShadowColor(s.shadowColor ?? 'rgba(0,0,0,0.9)');
+    setShadowOffsetX(s.shadowOffsetX ?? 0);
+    setShadowOffsetY(s.shadowOffsetY ?? 2);
+    setZoom(s.zoom ?? 50);
+    const newExtras = tpl.extraTexts.map((et, idx) => ({
+      id:         Date.now() + idx,
+      text:       et.text,
+      x:          Math.round(cw * et.rx),
+      y:          Math.round(ch * et.ry),
+      rotation:   0,
+      color:      et.color,
+      fontFamily: et.ff,
+      fontSize:   et.fs,
+    }));
+    setExtraTexts(newExtras);
+    if (newExtras.length > 0) {
+      const last = newExtras[newExtras.length - 1];
+      setExtraTextColor(last.color);
+      setExtraTextFontFamily(last.fontFamily);
+      setExtraTextFontSize(last.fontSize);
+      setActiveExtraTextId(last.id);
+    }
+    setShowTemplatePanel(false);
+  };
+
   return (
-    <div style={{ 
-      display: 'flex', 
-      flexDirection: 'column', 
-      height: '100vh', 
-      width: '100vw', 
-      background: '#080808', 
       color: '#f0f0f0', 
       fontFamily: "'DM Sans', 'Poppins', system-ui, sans-serif", 
       overflow: 'hidden',
@@ -3307,10 +3564,194 @@ function App() {
             <span style={{ fontSize: 10, color: projectSpeed !== 1 ? '#00BFFF' : '#555', minWidth: 28, fontWeight: 700 }}>{projectSpeed}×</span>
           </div>
 
+          {/* ── Botão Templates ── */}
+          <div style={{ position: 'relative' }}>
+            <button
+              ref={templateBtnRef}
+              onClick={() => {
+                const rect = templateBtnRef.current?.getBoundingClientRect();
+                if (rect) setTemplatePanelPos({
+                  top:  rect.bottom + 8,
+                  left: Math.min(rect.left, window.innerWidth - 760),
+                });
+                setTemplateFormatTab(canvasFormat);
+                setShowTemplatePanel(v => !v);
+              }}
+              style={{
+                background: showTemplatePanel ? 'rgba(16,185,129,0.22)' : 'rgba(16,185,129,0.08)',
+                border: `1px solid ${showTemplatePanel ? 'rgba(16,185,129,0.7)' : 'rgba(16,185,129,0.25)'}`,
+                borderRadius: 14, padding: '7px 14px', cursor: 'pointer',
+                fontWeight: 700, fontSize: 13, color: '#10b981',
+                display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap',
+              }}
+            >🎨 Templates</button>
+
+            {showTemplatePanel && createPortal(
+              <div
+                data-template-portal
+                onClick={e => e.stopPropagation()}
+                style={{
+                  position: 'fixed',
+                  top:  templatePanelPos.top,
+                  left: templatePanelPos.left,
+                  zIndex: 99999,
+                  background: '#0f172a',
+                  border: '1px solid rgba(16,185,129,0.3)',
+                  borderRadius: 20,
+                  width: 740,
+                  maxHeight: '82vh',
+                  boxShadow: '0 24px 64px rgba(0,0,0,0.85)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  overflow: 'hidden',
+                }}
+              >
+                {/* Header do painel */}
+                <div style={{ padding: '16px 20px 12px', borderBottom: '1px solid rgba(255,255,255,0.07)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div>
+                    <div style={{ fontSize: 15, fontWeight: 800, color: '#10b981' }}>🎨 Templates</div>
+                    <div style={{ fontSize: 11, color: '#475569', marginTop: 2 }}>
+                      Escolha um template — fontes, cores, textos e layout aplicados automaticamente
+                    </div>
+                  </div>
+                  <button onClick={() => setShowTemplatePanel(false)} style={{ background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 10, padding: '5px 12px', color: '#f87171', fontWeight: 700, fontSize: 12, cursor: 'pointer' }}>✕</button>
+                </div>
+
+                {/* Abas de formato */}
+                <div style={{ display: 'flex', borderBottom: '1px solid rgba(255,255,255,0.07)', background: 'rgba(0,0,0,0.2)' }}>
+                  {['16:9','9:16','1:1','4:3'].map(fmt => {
+                    const icons = {'16:9':'🖥️','9:16':'📱','1:1':'⬜','4:3':'📺'};
+                    const count = CANVAS_TEMPLATES.filter(t => t.format === fmt).length;
+                    return (
+                      <button key={fmt} onClick={() => setTemplateFormatTab(fmt)} style={{
+                        flex: 1, padding: '10px 4px', background: templateFormatTab === fmt ? 'rgba(16,185,129,0.12)' : 'transparent',
+                        border: 'none', borderBottom: templateFormatTab === fmt ? '2px solid #10b981' : '2px solid transparent',
+                        color: templateFormatTab === fmt ? '#10b981' : '#555', fontWeight: 700, fontSize: 12, cursor: 'pointer',
+                        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2,
+                      }}>
+                        <span style={{ fontSize: 16 }}>{icons[fmt]}</span>
+                        <span>{fmt}</span>
+                        <span style={{ fontSize: 9, color: templateFormatTab === fmt ? 'rgba(16,185,129,0.7)' : '#333' }}>{count} templates</span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Grid de templates */}
+                <div style={{ overflowY: 'auto', padding: '16px', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
+                  {CANVAS_TEMPLATES.filter(t => t.format === templateFormatTab).map(tpl => {
+                    const s = tpl.settings;
+                    // Dimensões do mini-preview SVG baseadas na proporção do formato
+                    const fmts = {'16:9':[210,118],'9:16':[90,160],'1:1':[130,130],'4:3':[160,120]};
+                    const [pw, ph] = fmts[tpl.format] || [180, 100];
+                    // Gera linhas de texto simuladas a partir dos extraTexts do template
+                    const extraLines = tpl.extraTexts.map(et => ({
+                      x: pw * et.rx,
+                      y: ph * et.ry,
+                      color: et.color,
+                      w: Math.min(pw * 0.8, Math.max(40, et.text.length * (et.fs / 12) * 2.2)),
+                      h: Math.max(4, et.fs / 10),
+                    }));
+                    return (
+                      <div key={tpl.id} style={{
+                        background: 'rgba(255,255,255,0.03)',
+                        border: '1px solid rgba(255,255,255,0.07)',
+                        borderRadius: 14, overflow: 'hidden',
+                        cursor: 'pointer', transition: 'all 0.15s',
+                        display: 'flex', flexDirection: 'column',
+                      }}
+                        onMouseEnter={e => { e.currentTarget.style.border = `1px solid ${tpl.accent}60`; e.currentTarget.style.background = `rgba(255,255,255,0.06)`; }}
+                        onMouseLeave={e => { e.currentTarget.style.border = '1px solid rgba(255,255,255,0.07)'; e.currentTarget.style.background = 'rgba(255,255,255,0.03)'; }}
+                      >
+                        {/* Preview SVG */}
+                        <div style={{ background: '#050510', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '10px 6px', minHeight: 100 }}>
+                          <svg width={pw} height={ph} viewBox={`0 0 ${pw} ${ph}`} style={{ borderRadius: 6, overflow: 'hidden' }}>
+                            {/* Fundo */}
+                            <rect width={pw} height={ph} fill="#080818" rx="4" />
+                            {/* Gradiente de fundo simulado */}
+                            <defs>
+                              <linearGradient id={`g_${tpl.id}`} x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" stopColor={tpl.accent} stopOpacity="0.08" />
+                                <stop offset="100%" stopColor={tpl.accent} stopOpacity="0.02" />
+                              </linearGradient>
+                              <filter id={`blur_${tpl.id}`}>
+                                <feGaussianBlur stdDeviation={s.shadowEnabled ? Math.min(s.shadowBlur / 8, 4) : 0} />
+                              </filter>
+                            </defs>
+                            <rect width={pw} height={ph} fill={`url(#g_${tpl.id})`} rx="4" />
+                            {/* Glow central simulando sombra do texto principal */}
+                            {s.shadowEnabled && (
+                              <ellipse cx={pw * 0.5} cy={ph * 0.5} rx={pw * 0.32} ry={ph * 0.18}
+                                fill={s.shadowColor || tpl.accent} opacity={0.22} filter={`url(#blur_${tpl.id})`} />
+                            )}
+                            {/* Texto principal simulado — bloco central */}
+                            <rect
+                              x={pw * 0.15} y={ph * 0.36} width={pw * 0.7} height={Math.max(6, s.fontSize / 18)}
+                              rx="2" fill={s.gradientEnabled ? s.gradientColor1 : s.textColor} opacity={0.9}
+                            />
+                            <rect
+                              x={pw * 0.22} y={ph * 0.36 + Math.max(6, s.fontSize / 18) + 4}
+                              width={pw * 0.56} height={Math.max(4, s.fontSize / 24)}
+                              rx="2" fill={s.gradientEnabled ? (s.gradientColor2 || s.gradientColor1) : s.textColor} opacity={0.6}
+                            />
+                            {/* Textos extras */}
+                            {extraLines.map((el, i) => (
+                              <rect key={i}
+                                x={Math.max(4, el.x - el.w / 2)} y={Math.max(2, el.y - el.h / 2)}
+                                width={Math.min(pw - 8, el.w)} height={Math.max(2, el.h)}
+                                rx="1" fill={el.color} opacity={0.75}
+                              />
+                            ))}
+                            {/* Borda accent */}
+                            <rect width={pw} height={ph} rx="4" fill="none" stroke={tpl.accent} strokeOpacity="0.2" strokeWidth="1" />
+                          </svg>
+                        </div>
+
+                        {/* Info */}
+                        <div style={{ padding: '10px 12px', flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <div style={{ width: 8, height: 8, borderRadius: '50%', background: tpl.accent, flexShrink: 0 }} />
+                            <span style={{ fontSize: 12, fontWeight: 800, color: '#f1f5f9' }}>{tpl.name}</span>
+                          </div>
+                          <span style={{ fontSize: 10, color: '#64748b', lineHeight: 1.4 }}>{tpl.desc}</span>
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 2 }}>
+                            <span style={{ fontSize: 9, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 5, padding: '1px 6px', color: '#94a3b8' }}>{s.fontFamily}</span>
+                            <span style={{ fontSize: 9, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 5, padding: '1px 6px', color: '#94a3b8' }}>sz {s.fontSize}</span>
+                            {s.gradientEnabled && <span style={{ fontSize: 9, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 5, padding: '1px 6px', color: '#a78bfa' }}>gradient</span>}
+                            {s.shadowEnabled && <span style={{ fontSize: 9, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 5, padding: '1px 6px', color: '#fbbf24' }}>glow</span>}
+                            <span style={{ fontSize: 9, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 5, padding: '1px 6px', color: '#94a3b8' }}>{tpl.extraTexts.length} texto{tpl.extraTexts.length !== 1 ? 's' : ''} extra</span>
+                          </div>
+                        </div>
+
+                        {/* Botão aplicar */}
+                        <button
+                          onClick={() => applyTemplate(tpl)}
+                          style={{
+                            margin: '0 12px 12px', padding: '8px 0', borderRadius: 10, cursor: 'pointer',
+                            background: `linear-gradient(135deg, ${tpl.accent}22, ${tpl.accent}44)`,
+                            border: `1px solid ${tpl.accent}66`, color: tpl.accent,
+                            fontWeight: 800, fontSize: 12, transition: 'all 0.15s',
+                          }}
+                          onMouseEnter={e => { e.currentTarget.style.background = `linear-gradient(135deg, ${tpl.accent}44, ${tpl.accent}66)`; e.currentTarget.style.color = '#fff'; }}
+                          onMouseLeave={e => { e.currentTarget.style.background = `linear-gradient(135deg, ${tpl.accent}22, ${tpl.accent}44)`; e.currentTarget.style.color = tpl.accent; }}
+                        >
+                          ✓ Usar template
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Footer */}
+                <div style={{ padding: '10px 20px', borderTop: '1px solid rgba(255,255,255,0.06)', fontSize: 10, color: '#334155', textAlign: 'center' }}>
+                  O template não altera suas mídias (fundo, imagens, áudio, vídeos) nem as letras da música
+                </div>
+              </div>
+            , document.body)}
+          </div>
+
           {/* ── Separador ── */}
           <div style={{ width: 1, height: 36, background: 'rgba(255,255,255,0.07)', margin: '0 4px' }} />
-
-          {/* Stickers / Emojis */}
           <div style={{ position: 'relative' }}>
             <button
               ref={stickerBtnRef}
