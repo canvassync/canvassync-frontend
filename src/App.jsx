@@ -111,6 +111,7 @@ function App() {
   const [gifSearching, setGifSearching] = useState(false);
   const [gifUrlInput, setGifUrlInput] = useState('');
   const activeStickerRef = useRef(null);                  // id do sticker selecionado (sem re-render)
+  const [activeStickerId, setActiveStickerId] = useState(null);
   const stickerBtnRef   = useRef(null);                   // posição real do botão para painel fixed
   const [imageSrc, setImageSrc] = useState(null);
   const [images, setImages] = useState([]);
@@ -994,11 +995,13 @@ function App() {
       }
       if (Math.abs(mouseX - stk.x) <= half && Math.abs(mouseY - stk.y) <= half) {
         activeStickerRef.current = stk.id;
+        setActiveStickerId(stk.id);
         setDragging({ type: 'sticker', id: stk.id, offsetX: mouseX - stk.x, offsetY: mouseY - stk.y });
         return;
       }
     }
     activeStickerRef.current = null;
+    setActiveStickerId(null);
 
     // Verifica colisão com textos extras (do último para o primeiro)
     for (let i = extraTexts.length - 1; i >= 0; i--) {
@@ -3158,22 +3161,19 @@ function App() {
                   )}
                 </div>
 
-                {activeStickerId && stickers.find(s => s.id === activeStickerId) && (() => {
-                  const sel = stickers.find(s => s.id === activeStickerId);
-                  return (
-                    <div style={{ padding: '8px 14px', borderTop: '1px solid rgba(0,191,255,0.2)', background: 'rgba(0,191,255,0.05)', display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <span style={{ fontSize: 10, color: '#00BFFF', fontWeight: 700, whiteSpace: 'nowrap' }}>📐 Tamanho</span>
-                      <input type="range" min={20} max={400} step={4}
-                        value={sel.size || 80}
-                        onChange={e => setStickers(prev => prev.map(s => s.id === activeStickerId ? { ...s, size: Number(e.target.value) } : s))}
-                        style={{ flex: 1, accentColor: '#00BFFF', cursor: 'pointer' }}
-                      />
-                      <span style={{ fontSize: 11, color: '#00BFFF', fontWeight: 700, minWidth: 34, textAlign: 'right' }}>{Math.round(sel.size || 80)}px</span>
-                      <button onClick={() => { activeStickerRef.current = null; setActiveStickerId(null); }}
-                        style={{ background: 'none', border: 'none', color: '#555', cursor: 'pointer', fontSize: 14 }}>✕</button>
-                    </div>
-                  );
-                })()}
+                {stickers.filter(s => s.id === activeStickerId).map(sel => (
+                  <div key={sel.id} style={{ padding: '8px 14px', borderTop: '1px solid rgba(0,191,255,0.2)', background: 'rgba(0,191,255,0.05)', display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <span style={{ fontSize: 10, color: '#00BFFF', fontWeight: 700, whiteSpace: 'nowrap' }}>📐 Tamanho</span>
+                    <input type="range" min={20} max={400} step={4}
+                      value={sel.size || 80}
+                      onChange={e => setStickers(prev => prev.map(s => s.id === sel.id ? { ...s, size: Number(e.target.value) } : s))}
+                      style={{ flex: 1, accentColor: '#00BFFF', cursor: 'pointer' }}
+                    />
+                    <span style={{ fontSize: 11, color: '#00BFFF', fontWeight: 700, minWidth: 34, textAlign: 'right' }}>{Math.round(sel.size || 80)}px</span>
+                    <button onClick={() => { activeStickerRef.current = null; setActiveStickerId(null); }}
+                      style={{ background: 'none', border: 'none', color: '#555', cursor: 'pointer', fontSize: 14 }}>✕</button>
+                  </div>
+                ))}
                 <div style={{ padding: '8px 12px', borderTop: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <span style={{ fontSize: 10, color: '#555' }}>Clique para selecionar · arraste para mover · botão direito remove</span>
                   {stickers.length > 0 && (
