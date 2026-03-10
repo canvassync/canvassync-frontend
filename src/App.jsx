@@ -821,6 +821,7 @@ function App() {
   const [dragging, setDragging] = useState(null);
   const [isScrubbing, setIsScrubbing] = useState(false);
   const [editingLyricId, setEditingLyricId] = useState(null);
+  const [editingExtraTextId, setEditingExtraTextId] = useState(null);
 
   // ── UNDO / REDO ────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -1506,6 +1507,10 @@ function App() {
       const { lx, ly } = toLocalSpace(mouseX, mouseY, txt.x, txt.y, rot);
       if (Math.abs(lx) <= halfW && Math.abs(ly) <= halfH) {
         setActiveExtraTextId(txt.id);
+        if (e.detail === 2) {
+          setEditingExtraTextId(txt.id);
+          return;
+        }
         setDraggingExtraIndex(i);
         setDragging({ type: 'extra', id: txt.id, offsetX: mouseX - txt.x, offsetY: mouseY - txt.y });
         return;
@@ -4562,8 +4567,7 @@ function App() {
           )}
 
           {/* OVERLAY DE EDIÇÃO DE LYRIC */}
-          {editingLyricId && (() => {
-            const canvas = canvasRef.current;
+          {editingLyricId && (() => {            const canvas = canvasRef.current;
             const container = canvasContainerRef.current;
             if (!canvas || !container) return null;
             const lyric = lyrics.find(l => l.id === editingLyricId);
@@ -4611,6 +4615,59 @@ function App() {
                   >✕ Apagar</button>
                 </div>
                 <span style={{ fontSize: '10px', color: 'rgba(0,191,255,0.5)', textShadow: '0 1px 4px rgba(0,0,0,0.8)' }}>Enter = nova linha • Esc = fechar</span>
+              </div>
+            );
+          })()}
+
+          {editingExtraTextId && (() => {
+            const canvas = canvasRef.current;
+            const container = canvasContainerRef.current;
+            if (!canvas || !container) return null;
+            const txt = extraTexts.find(t => t.id === editingExtraTextId);
+            if (!txt) return null;
+            const canvasRect = canvas.getBoundingClientRect();
+            const containerRect = container.getBoundingClientRect();
+            const scaleX = canvasRect.width / canvas.width;
+            const scaleY = canvasRect.height / canvas.height;
+            const px = txt.x * scaleX + (canvasRect.left - containerRect.left);
+            const py = txt.y * scaleY + (canvasRect.top - containerRect.top);
+            return (
+              <div style={{ position: 'absolute', left: px, top: py, transform: 'translate(-50%, -50%)', zIndex: 200, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', pointerEvents: 'all' }}>
+                <textarea
+                  autoFocus
+                  value={txt.text}
+                  onChange={(e) => setExtraTexts(prev => prev.map(t => t.id === editingExtraTextId ? { ...t, text: e.target.value } : t))}
+                  onKeyDown={(e) => { if (e.key === 'Escape') setEditingExtraTextId(null); e.stopPropagation(); }}
+                  rows={3}
+                  style={{
+                    background: 'rgba(10,14,30,0.93)',
+                    color: txt.color || extraTextColor,
+                    border: '2px solid rgba(167,139,250,0.8)',
+                    borderRadius: '14px',
+                    padding: '10px 14px',
+                    fontSize: `${Math.min(18, Math.max(12, Math.round((txt.fontSize || extraTextFontSize) * 0.45)))}px`,
+                    fontFamily: txt.fontFamily || extraTextFontFamily,
+                    fontWeight: 'bold',
+                    resize: 'none',
+                    width: '190px',
+                    textAlign: 'center',
+                    outline: 'none',
+                    boxShadow: '0 8px 28px rgba(167,139,250,0.25)',
+                    backdropFilter: 'blur(12px)',
+                    letterSpacing: '0.5px',
+                  }}
+                />
+                <div style={{ display: 'flex', gap: '6px' }}>
+                  <button
+                    onClick={() => setEditingExtraTextId(null)}
+                    style={{ padding: '5px 14px', background: '#a78bfa', border: 'none', borderRadius: '10px', color: '#000', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer', boxShadow: '0 4px 12px rgba(167,139,250,0.3)' }}
+                  >✓ OK</button>
+                  <button
+                    onClick={() => { removeExtraText(editingExtraTextId); setEditingExtraTextId(null); setActiveExtraTextId(null); }}
+                    style={{ padding: '5px 14px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: '10px', color: '#f87171', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer', boxShadow: 'none' }}
+                  >✕ Apagar</button>
+                </div>
+                <span style={{ fontSize: '10px', color: 'rgba(167,139,250,0.5)', textShadow: '0 1px 4px rgba(0,0,0,0.8)' }}>Enter = nova linha • Esc = fechar</span>
               </div>
             );
           })()}
