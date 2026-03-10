@@ -90,6 +90,7 @@ function App() {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [stickers, setStickers] = useState([]);           // [{id,type,content,animStyle,x,y,size,rotation}]
   const [showStickerPanel, setShowStickerPanel] = useState(false);
+  const [stickerPanelPos, setStickerPanelPos] = useState({ top: 80, left: 0 });
   const [stickerTab, setStickerTab] = useState('emoji');  // 'emoji'|'sticker'|'gif'
   const activeStickerRef = useRef(null);                  // id do sticker selecionado (sem re-render)
   const stickerBtnRef   = useRef(null);                   // posição real do botão para painel fixed
@@ -2940,7 +2941,14 @@ function App() {
           <div style={{ position: 'relative' }}>
             <button
               ref={stickerBtnRef}
-              onClick={() => setShowStickerPanel(v => !v)}
+              onClick={() => {
+                const rect = stickerBtnRef.current?.getBoundingClientRect();
+                if (rect) setStickerPanelPos({
+                  top:  rect.bottom + 8,
+                  left: Math.min(rect.left, window.innerWidth - 372),
+                });
+                setShowStickerPanel(v => !v);
+              }}
               style={{
                 background: showStickerPanel ? 'rgba(251,191,36,0.2)' : 'rgba(251,191,36,0.07)',
                 border: `1px solid ${showStickerPanel ? 'rgba(251,191,36,0.6)' : 'rgba(251,191,36,0.2)'}`,
@@ -2950,18 +2958,14 @@ function App() {
               }}
             >✨ Stickers {stickers.length > 0 && <span style={{ background:'#fbbf24',color:'#000',borderRadius:8,padding:'1px 6px',fontSize:10,fontWeight:900 }}>{stickers.length}</span>}</button>
 
-            {showStickerPanel && createPortal((() => {
-              const btnRect = stickerBtnRef.current?.getBoundingClientRect();
-              const panelTop  = btnRect ? btnRect.bottom + 8 : 80;
-              const panelLeft = btnRect ? Math.min(btnRect.left, window.innerWidth - 372) : 0;
-              return (
+            {showStickerPanel && createPortal(
               <div
                 data-sticker-portal
                 onClick={e => e.stopPropagation()}
                 style={{
                   position: 'fixed',
-                  top: panelTop,
-                  left: panelLeft,
+                  top: stickerPanelPos.top,
+                  left: stickerPanelPos.left,
                   zIndex: 99999,
                   background: '#111827', border: '1px solid rgba(251,191,36,0.25)',
                   borderRadius: 18, width: 360, boxShadow: '0 16px 48px rgba(0,0,0,0.8)',
@@ -3041,8 +3045,7 @@ function App() {
                   )}
                 </div>
               </div>
-              );
-            })(), document.body)}
+            , document.body)}
           </div>
         </div>
       </div>
@@ -3583,13 +3586,46 @@ function App() {
                 backdropFilter: 'blur(6px)',
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+              <div onClick={e => e.stopPropagation()} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                 <span style={{ color: '#a78bfa', fontWeight: 700, fontSize: 13 }}>
                   {canvasFormat} · {CANVAS_FORMATS[canvasFormat].width}×{CANVAS_FORMATS[canvasFormat].height}
                 </span>
                 <button
+                  onClick={() => {
+                    const audio = audioRef.current;
+                    if (isPlaying) {
+                      if (audio) audio.pause();
+                      if (clockIntervalRef.current) { clearInterval(clockIntervalRef.current); clockIntervalRef.current = null; }
+                      setIsPlaying(false);
+                    } else {
+                      if (audio) {
+                        audio.volume = Math.max(0, Math.min(1, projectVolumeRef.current));
+                        audio.playbackRate = Math.max(0.25, Math.min(4, projectSpeedRef.current));
+                        audio.play().catch(() => {});
+                      } else {
+                        const startWall = Date.now(); const startVirt = virtualTimeRef.current;
+                        if (clockIntervalRef.current) clearInterval(clockIntervalRef.current);
+                        clockIntervalRef.current = setInterval(() => {
+                          const elapsed = (Date.now() - startWall) / 1000;
+                          virtualTimeRef.current = startVirt + elapsed;
+                          setCurrentTime(startVirt + elapsed);
+                        }, 30);
+                      }
+                      setIsPlaying(true);
+                    }
+                  }}
+                  style={{ background: isPlaying ? '#00BFFF' : 'rgba(0,191,255,0.12)', border: '1px solid rgba(0,191,255,0.4)', borderRadius: 10, padding: '6px 18px', color: isPlaying ? '#000' : '#00BFFF', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}
+                >{isPlaying ? '⏸ Pausar' : '▶ Play'}</button>
+                <button
+                  onClick={handleStopPlayback}
+                  style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 10, padding: '6px 18px', color: '#f87171', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}
+                >⏹ Stop</button>
+                <span style={{ fontSize: 13, color: '#00BFFF', fontWeight: 700, minWidth: 100 }}>
+                  {formatTime(currentTime)} / {formatTime(duration)}
+                </span>
+                <button
                   onClick={() => setIsFullscreen(false)}
-                  style={{ background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.4)', borderRadius: 10, padding: '5px 14px', color: '#f87171', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}
+                  style={{ background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.4)', borderRadius: 10, padding: '6px 14px', color: '#f87171', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}
                 >✕ Fechar</button>
               </div>
               <canvas
