@@ -110,8 +110,8 @@ const TRANSLATIONS = {
     // Timeline
     ed_stop:          '⏹ Stop',
     ed_zoom:          'Zoom',
-
-    // Vídeo na timeline
+    ed_play:          '▶ Play',
+    ed_pause:         '⏸ Pause',
     vid_mute:         'Clique para mutar áudio',
     vid_unmute:       'Áudio mudo — clique para ativar',
   },
@@ -224,8 +224,8 @@ const TRANSLATIONS = {
     // Timeline
     ed_stop:          '⏹ Stop',
     ed_zoom:          'Zoom',
-
-    // Video in timeline
+    ed_play:          '▶ Play',
+    ed_pause:         '⏸ Pause',
     vid_mute:         'Click to mute audio',
     vid_unmute:       'Audio muted — click to enable',
   },
