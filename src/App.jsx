@@ -2973,6 +2973,48 @@ function App() {
     }
   };
 
+  // ════════════════════════════════════════════════════════════════
+  // saveWithPicker — diálogo nativo para nome e pasta do arquivo
+  // Usa File System Access API (Chrome/Edge); fallback automático.
+  // ════════════════════════════════════════════════════════════════
+  const saveWithPicker = async (blobOrDataUrl, suggestedName, mimeType, extensions) => {
+    // Normaliza para Blob
+    let blob;
+    if (typeof blobOrDataUrl === 'string' && blobOrDataUrl.startsWith('data:')) {
+      const res = await fetch(blobOrDataUrl);
+      blob = await res.blob();
+    } else {
+      blob = blobOrDataUrl instanceof Blob ? blobOrDataUrl : new Blob([blobOrDataUrl], { type: mimeType });
+    }
+
+    // Tenta File System Access API (Chrome 86+, Edge 86+)
+    if (window.showSaveFilePicker) {
+      try {
+        const handle = await window.showSaveFilePicker({
+          suggestedName,
+          types: [{ description: mimeType, accept: { [mimeType]: extensions } }],
+        });
+        const writable = await handle.createWritable();
+        await writable.write(blob);
+        await writable.close();
+        return;
+      } catch (err) {
+        if (err.name === 'AbortError') return; // usuário cancelou — não faz nada
+        // Outro erro: cai no fallback abaixo
+      }
+    }
+
+    // Fallback: download clássico via <a>
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = suggestedName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+  };
+
   const handleSaveWebmOffline = async () => {
     const baseCanvas = canvasRef.current;
     if (!baseCanvas) return;
@@ -3002,14 +3044,7 @@ function App() {
         await new Promise(r => setTimeout(r, 0));
       }
       const blob = await writer.complete();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'canvas.webm';
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+      await saveWithPicker(blob, 'canvas.webm', 'video/webm', ['.webm']);
     } finally {
       setIsExporting(false);
       setExportProgress(0);
@@ -3113,14 +3148,7 @@ function App() {
       await vEncoder.flush();
       muxer.finalize();
       const blob = new Blob([target.buffer], { type: 'video/webm' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'canvas.webm';
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+      await saveWithPicker(blob, 'canvas.webm', 'video/webm', ['.webm']);
     } finally {
       setIsExporting(false);
       setExportProgress(0);
@@ -3146,14 +3174,7 @@ function App() {
     recorder.ondataavailable = (e) => { if (e.data && e.data.size > 0) chunks.push(e.data); };
     recorder.onstop = () => {
       const blob = new Blob(chunks, { type: 'video/webm' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'canvas.webm';
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+      saveWithPicker(blob, 'canvas.webm', 'video/webm', ['.webm']);
     };
     recorder.start();
     if (audio) {
@@ -3234,14 +3255,7 @@ function App() {
       })
     );
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'projeto.json';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    await saveWithPicker(blob, 'projeto.json', 'application/json', ['.json']);
   };
 
   const importProjectFromFile = (file) => {
@@ -3447,10 +3461,7 @@ function App() {
       muxer.finalize();
       setExportProgress(1);
       const blob = new Blob([target.buffer], { type: 'video/mp4' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a'); a.href = url; a.download = 'canvas.mp4';
-      document.body.appendChild(a); a.click(); document.body.removeChild(a);
-      setTimeout(() => URL.revokeObjectURL(url), 5000);
+      await saveWithPicker(blob, 'canvas.mp4', 'video/mp4', ['.mp4']);
     } catch(err) {
       console.error('[MP4 Export]', err);
       alert('Erro ao exportar MP4: ' + err.message);
@@ -3546,8 +3557,7 @@ function App() {
       setExportProgress(1);
       const blob = new Blob([target.buffer], { type: 'video/mp4' });
       const url = URL.createObjectURL(blob);
-      const a = document.createElement('a'); a.href = url; a.download = 'canvas_hd_1080.mp4';
-      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      await saveWithPicker(new Blob([target.buffer], { type: 'video/mp4' }), 'canvas_hd_1080.mp4', 'video/mp4', ['.mp4']);
       setTimeout(() => URL.revokeObjectURL(url), 5000);
     } catch(err) {
       console.error('[MP4 HD Export]', err);
@@ -3669,14 +3679,7 @@ function App() {
       muxer.finalize();
 
       const blob = new Blob([target.buffer], { type: 'video/webm' });
-      const url  = URL.createObjectURL(blob);
-      const a    = document.createElement('a');
-      a.href     = url;
-      a.download = 'canvas_hd_1080.webm';
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+      await saveWithPicker(blob, 'canvas_hd_1080.webm', 'video/webm', ['.webm']);
     } finally {
       setIsExporting(false);
       setExportProgress(0);
@@ -3704,12 +3707,8 @@ function App() {
     }
     const isPng = exportFormat === 'png';
     const dataUrl = isPng ? canvas.toDataURL('image/png') : canvas.toDataURL('image/jpeg', 0.92);
-    const a = document.createElement('a');
-    a.href = dataUrl;
-    a.download = isPng ? 'canvas.png' : 'canvas.jpg';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+    const mime = isPng ? 'image/png' : 'image/jpeg';
+    await saveWithPicker(dataUrl, isPng ? 'canvas.png' : 'canvas.jpg', mime, isPng ? ['.png'] : ['.jpg', '.jpeg']);
   };
 
 

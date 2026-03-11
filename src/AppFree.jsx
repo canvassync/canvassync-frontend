@@ -648,18 +648,52 @@ function AppFree() {
     return () => cancelAnimationFrame(rafId);
   }, []);
 
+  // ════════════════════════════════════════════════════════════════
+  // saveWithPicker — diálogo nativo para nome e pasta do arquivo
+  // Usa File System Access API (Chrome/Edge); fallback automático.
+  // ════════════════════════════════════════════════════════════════
+  const saveWithPicker = async (blobOrDataUrl, suggestedName, mimeType, extensions) => {
+    let blob;
+    if (typeof blobOrDataUrl === 'string' && blobOrDataUrl.startsWith('data:')) {
+      const res = await fetch(blobOrDataUrl);
+      blob = await res.blob();
+    } else {
+      blob = blobOrDataUrl instanceof Blob ? blobOrDataUrl : new Blob([blobOrDataUrl], { type: mimeType });
+    }
+    if (window.showSaveFilePicker) {
+      try {
+        const handle = await window.showSaveFilePicker({
+          suggestedName,
+          types: [{ description: mimeType, accept: { [mimeType]: extensions } }],
+        });
+        const writable = await handle.createWritable();
+        await writable.write(blob);
+        await writable.close();
+        return;
+      } catch (err) {
+        if (err.name === 'AbortError') return;
+      }
+    }
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = suggestedName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+  };
+
   // ── Salvar imagem ─────────────────────────────────────────────────────────────
-  const handleSave = () => {
+  const handleSave = async () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     setActiveImageId(null); setActiveExtraTextId(null); activeStickerRef.current = null; setActiveStickerId(null);
     setTimeout(() => {
       const isPng = exportFormat === 'png';
       const dataUrl = isPng ? canvas.toDataURL('image/png') : canvas.toDataURL('image/jpeg', 0.92);
-      const a = document.createElement('a');
-      a.href = dataUrl;
-      a.download = isPng ? 'canvas-free.png' : 'canvas-free.jpg';
-      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      const mime = isPng ? 'image/png' : 'image/jpeg';
+      await saveWithPicker(dataUrl, isPng ? 'canvas-free.png' : 'canvas-free.jpg', mime, isPng ? ['.png'] : ['.jpg', '.jpeg']);
     }, 80);
   };
 
@@ -677,7 +711,7 @@ function AppFree() {
   };
 
   // ── Exportar projeto ──────────────────────────────────────────────────────────
-  const exportProject = () => {
+  const exportProject = async () => {
     const payload = {
       version: 'free-1',
       canvasFormat,
@@ -691,11 +725,7 @@ function AppFree() {
       extraTextFontSize,
     };
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
-    const url  = URL.createObjectURL(blob);
-    const a    = document.createElement('a');
-    a.href = url; a.download = 'projeto-free.json';
-    document.body.appendChild(a); a.click(); document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    await saveWithPicker(blob, 'projeto-free.json', 'application/json', ['.json']);
   };
 
   // ── Importar projeto ──────────────────────────────────────────────────────────
