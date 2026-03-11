@@ -1356,11 +1356,12 @@ function App() {
   }, [lyrics.length]);
 
   const markLyricTiming = useCallback(() => {
-    if (!audioRef.current) return;
     const lines = textLinesRef.current;
+    if (!lines || lines.length === 0) return;
     setCurrentLineIndex(prev => {
       if (prev >= lines.length) return prev;
-      const startTime = audioRef.current.currentTime;
+      // Usa tempo do áudio se disponível, senão usa o relógio virtual
+      const startTime = audioRef.current ? audioRef.current.currentTime : virtualTimeRef.current;
       const canvas = canvasRef.current;
       const newLine = {
         id: Date.now(),
@@ -1492,9 +1493,10 @@ function App() {
     setEditingLyricId(null);
     const lyric = lyrics.find(l => l.id === id);
     // Seek para o início da lyric apenas em 'move' (resize não deve mudar playhead)
-    if (type === 'move' && lyric && audioRef.current) {
+    if (type === 'move' && lyric) {
       const seekTo = lyric.start + 0.05;
-      audioRef.current.currentTime = seekTo;
+      if (audioRef.current) audioRef.current.currentTime = seekTo;
+      virtualTimeRef.current = seekTo;
       setCurrentTime(seekTo);
       if (playheadRef.current) {
         playheadRef.current.style.transform = `translateX(${seekTo * zoom}px)`;
@@ -1510,9 +1512,10 @@ function App() {
     setActiveImageId(id);
     const item = images.find(img => img.id === id);
     // Seek para dentro do range da imagem para ficar visível e editável no canvas
-    if (item && audioRef.current) {
+    if (item) {
       const seekTo = item.start + (item.end - item.start) * 0.01;
-      audioRef.current.currentTime = seekTo;
+      if (audioRef.current) audioRef.current.currentTime = seekTo;
+      virtualTimeRef.current = seekTo;
       setCurrentTime(seekTo);
       if (playheadRef.current) {
         playheadRef.current.style.transform = `translateX(${seekTo * zoom}px)`;
@@ -1525,9 +1528,10 @@ function App() {
     e.stopPropagation();
     setActiveVideoId(id);
     const item = videos.find(v => v.id === id);
-    if (item && audioRef.current) {
+    if (item) {
       const seekTo = item.start + 0.05;
-      audioRef.current.currentTime = seekTo;
+      if (audioRef.current) audioRef.current.currentTime = seekTo;
+      virtualTimeRef.current = seekTo;
       setCurrentTime(seekTo);
       if (playheadRef.current) playheadRef.current.style.transform = `translateX(${seekTo * zoom}px)`;
     }
@@ -2052,17 +2056,18 @@ function App() {
 
   // Marcadores de tempo para a régua (a cada ~80px, intervalos legíveis)
   const rulerMarkers = useMemo(() => {
-    if (!duration) return [];
+    const maxT = timelineMaxTime; // usa sempre o máximo de conteúdo (funciona sem áudio)
+    if (!maxT) return [];
     const minPxGap = 80;
     const niceIntervals = [1, 2, 5, 10, 15, 30, 60, 120, 300];
     const rawGap = minPxGap / zoom;
     const interval = niceIntervals.find(i => i >= rawGap) || 300;
     const markers = [];
-    for (let t = 0; t <= duration; t += interval) {
+    for (let t = 0; t <= maxT; t += interval) {
       markers.push(t);
     }
     return markers;
-  }, [duration, zoom]);
+  }, [timelineMaxTime, zoom]);
 
   const waveformBars = useMemo(() => {
     const count = Math.ceil(audioPxWidth / 3);
@@ -2398,6 +2403,10 @@ function App() {
 
   const videosRef = useRef(videos);
   useEffect(() => { videosRef.current = videos; }, [videos]);
+  const lyricsRef = useRef(lyrics);
+  useEffect(() => { lyricsRef.current = lyrics; }, [lyrics]);
+  const imagesRef = useRef(images);
+  useEffect(() => { imagesRef.current = images; }, [images]);
 
   // ── Waveform estático em canvas (sem re-renders do React) ─────────────────
   useEffect(() => {
@@ -4745,8 +4754,22 @@ function App() {
                         if (clockIntervalRef.current) clearInterval(clockIntervalRef.current);
                         clockIntervalRef.current = setInterval(() => {
                           const elapsed = (Date.now() - startWall) / 1000;
-                          virtualTimeRef.current = startVirt + elapsed;
-                          setCurrentTime(startVirt + elapsed);
+                          const newTime = startVirt + elapsed;
+                          const contentEnd = Math.max(
+                            lyricsRef.current.reduce((m, l) => Math.max(m, l.end || 0), 0),
+                            imagesRef.current.reduce((m, i) => Math.max(m, i.end || 0), 0),
+                            videosRef.current.reduce((m, v) => Math.max(m, v.end || 0), 0),
+                          );
+                          if (contentEnd > 0 && newTime >= contentEnd) {
+                            clearInterval(clockIntervalRef.current);
+                            clockIntervalRef.current = null;
+                            virtualTimeRef.current = contentEnd;
+                            setCurrentTime(contentEnd);
+                            setIsPlaying(false);
+                            return;
+                          }
+                          virtualTimeRef.current = newTime;
+                          setCurrentTime(newTime);
                         }, 30);
                       }
                       setIsPlaying(true);
@@ -4945,8 +4968,23 @@ function App() {
                   if (clockIntervalRef.current) clearInterval(clockIntervalRef.current);
                   clockIntervalRef.current = setInterval(() => {
                     const elapsed = (Date.now() - startWall) / 1000;
-                    virtualTimeRef.current = startVirt + elapsed;
-                    setCurrentTime(startVirt + elapsed);
+                    const newTime = startVirt + elapsed;
+                    // Para automaticamente ao final do conteúdo (sem áudio)
+                    const contentEnd = Math.max(
+                      lyricsRef.current.reduce((m, l) => Math.max(m, l.end || 0), 0),
+                      imagesRef.current.reduce((m, i) => Math.max(m, i.end || 0), 0),
+                      videosRef.current.reduce((m, v) => Math.max(m, v.end || 0), 0),
+                    );
+                    if (contentEnd > 0 && newTime >= contentEnd) {
+                      clearInterval(clockIntervalRef.current);
+                      clockIntervalRef.current = null;
+                      virtualTimeRef.current = contentEnd;
+                      setCurrentTime(contentEnd);
+                      setIsPlaying(false);
+                      return;
+                    }
+                    virtualTimeRef.current = newTime;
+                    setCurrentTime(newTime);
                   }, 30);
                 }
                 setIsPlaying(true);
