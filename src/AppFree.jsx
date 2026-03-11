@@ -867,85 +867,6 @@ function AppFree() {
             {t('free_save')}
           </button>
 
-          {/* Stickers */}
-          <div style={{ position: 'relative' }}>
-            <button ref={stickerBtnRef}
-              onClick={() => {
-                const rect = stickerBtnRef.current?.getBoundingClientRect();
-                if (rect) setStickerPanelPos({ top: rect.bottom + 8, left: Math.min(rect.left, window.innerWidth - 372) });
-                setShowStickerPanel(v => !v);
-              }}
-              style={{
-                background: showStickerPanel ? 'rgba(251,191,36,0.2)' : 'rgba(251,191,36,0.07)',
-                border: `1px solid ${showStickerPanel ? 'rgba(251,191,36,0.6)' : 'rgba(251,191,36,0.2)'}`,
-                borderRadius: 14, padding: '7px 14px', cursor: 'pointer',
-                fontWeight: 700, fontSize: 13, color: '#fbbf24',
-                display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap',
-              }}>
-              ✨ Stickers {stickers.length > 0 && <span style={{ background: '#fbbf24', color: '#000', borderRadius: 8, padding: '1px 6px', fontSize: 10, fontWeight: 900 }}>{stickers.length}</span>}
-            </button>
-
-          {showStickerPanel && createPortal(
-            <div onClick={e => e.stopPropagation()} style={{
-              position: 'fixed', top: stickerPanelPos.top, left: stickerPanelPos.left,
-              zIndex: 99999, background: '#111827', border: '1px solid rgba(251,191,36,0.25)',
-              borderRadius: 18, width: 360, boxShadow: '0 16px 48px rgba(0,0,0,0.8)', overflow: 'hidden',
-            }}>
-              {/* Tabs */}
-              <div style={{ display: 'flex', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
-                {[['emoji','😀 Emojis'],['sticker','✨ Animados']].map(([tab, label]) => (
-                  <button key={tab} onClick={() => setStickerTab(tab)} style={{
-                    flex: 1, padding: '10px 0', background: stickerTab === tab ? 'rgba(251,191,36,0.12)' : 'transparent',
-                    border: 'none', borderBottom: stickerTab === tab ? '2px solid #fbbf24' : '2px solid transparent',
-                    color: stickerTab === tab ? '#fbbf24' : '#888', fontWeight: 700, fontSize: 12, cursor: 'pointer',
-                  }}>{label}</button>
-                ))}
-              </div>
-              <div style={{ padding: 12, maxHeight: 260, overflowY: 'auto' }}>
-                {stickerTab === 'emoji' && (
-                  <div>
-                    {EMOJI_LIST.map((row, ri) => (
-                      <div key={ri} style={{ display: 'flex', gap: 4, marginBottom: 4, flexWrap: 'wrap' }}>
-                        {row.map(em => (
-                          <button key={em} onClick={() => addSticker('emoji', em, null)}
-                            style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 10, padding: '6px 4px', fontSize: 22, cursor: 'pointer', lineHeight: 1, width: 44 }}
-                            onMouseEnter={e => e.target.style.background = 'rgba(251,191,36,0.15)'}
-                            onMouseLeave={e => e.target.style.background = 'rgba(255,255,255,0.04)'}
-                          >{em}</button>
-                        ))}
-                      </div>
-                    ))}
-                  </div>
-                )}
-                {stickerTab === 'sticker' && (
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                    {ANIMATED_STICKERS.map(stk => (
-                      <button key={stk.key} onClick={() => addSticker('sticker', stk.emoji, stk.anim)}
-                        style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 12, padding: '8px 6px', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, width: 68 }}
-                        onMouseEnter={e => e.currentTarget.style.background = 'rgba(251,191,36,0.15)'}
-                        onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.04)'}
-                      >
-                        <span style={{ fontSize: 26 }}>{stk.emoji}</span>
-                        <span style={{ fontSize: 9, color: '#888', fontWeight: 700 }}>{stk.label}</span>
-                        <span style={{ fontSize: 8, color: '#fbbf24', fontWeight: 600 }}>{stk.anim}</span>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-              <div style={{ padding: '8px 12px', borderTop: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span style={{ fontSize: 10, color: '#555' }}>{t('stk_hint')}</span>
-                {stickers.length > 0 && (
-                  <button onClick={() => { setStickers([]); activeStickerRef.current = null; setActiveStickerId(null); }}
-                    style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 8, padding: '3px 10px', fontSize: 10, color: '#f87171', fontWeight: 700, cursor: 'pointer' }}>
-                    {t('stk_clear_all')}
-                  </button>
-                )}
-              </div>
-            </div>
-          , document.body)}
-        </div>
-
         {/* Banner upgrade — à direita */}
           <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 10, background: 'rgba(0,191,255,0.05)', border: '1px solid rgba(0,191,255,0.15)', borderRadius: 12, padding: '6px 14px', flexShrink: 0 }}>
             <span style={{ fontSize: 11, color: '#888' }}>{t('free_upgrade_msg')}</span>
@@ -976,7 +897,90 @@ function AppFree() {
             style={{ background: 'rgba(239,68,68,0.07)', border: '1px solid rgba(239,68,68,0.18)', padding: '6px 14px', borderRadius: 12, cursor: 'pointer', fontWeight: 'bold', fontSize: '11px', color: '#f87171', whiteSpace: 'nowrap' }}>
             {t('ed_clear_project')}
           </button>
+
+          {/* ── Stickers — direita da linha 2 ──────────────────────────────── */}
+          <div style={{ marginLeft: 'auto', position: 'relative' }}>
+            <button ref={stickerBtnRef}
+              onClick={() => {
+                const rect = stickerBtnRef.current?.getBoundingClientRect();
+                if (rect) setStickerPanelPos({ top: rect.bottom + 8, left: Math.min(rect.left, window.innerWidth - 372) });
+                setShowStickerPanel(v => !v);
+              }}
+              style={{
+                background: showStickerPanel ? 'rgba(251,191,36,0.2)' : 'rgba(251,191,36,0.07)',
+                border: `1px solid ${showStickerPanel ? 'rgba(251,191,36,0.6)' : 'rgba(251,191,36,0.2)'}`,
+                borderRadius: 14, padding: '7px 14px', cursor: 'pointer',
+                fontWeight: 700, fontSize: 13, color: '#fbbf24',
+                display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap',
+              }}>
+              ✨ Stickers {stickers.length > 0 && <span style={{ background: '#fbbf24', color: '#000', borderRadius: 8, padding: '1px 6px', fontSize: 10, fontWeight: 900 }}>{stickers.length}</span>}
+            </button>
+          </div>
         </div>{/* fim linha 2 */}
+
+        {showStickerPanel && createPortal(
+          <>
+            <div onClick={() => setShowStickerPanel(false)}
+              style={{ position: 'fixed', inset: 0, zIndex: 99998 }} />
+            <div onClick={e => e.stopPropagation()} style={{
+              position: 'fixed', top: stickerPanelPos.top, left: stickerPanelPos.left,
+              zIndex: 99999, background: '#111827', border: '1px solid rgba(251,191,36,0.25)',
+              borderRadius: 18, width: 360, boxShadow: '0 16px 48px rgba(0,0,0,0.8)', overflow: 'hidden',
+            }}>
+              <div style={{ display: 'flex', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+                {[['emoji','😀 Emojis'],['sticker','✨ Animados']].map(([tab, label]) => (
+                  <button key={tab} onClick={() => setStickerTab(tab)} style={{
+                    flex: 1, padding: '10px 0', background: stickerTab === tab ? 'rgba(251,191,36,0.12)' : 'transparent',
+                    border: 'none', borderBottom: stickerTab === tab ? '2px solid #fbbf24' : '2px solid transparent',
+                    color: stickerTab === tab ? '#fbbf24' : '#888', fontWeight: 700, fontSize: 12, cursor: 'pointer',
+                  }}>{label}</button>
+                ))}
+              </div>
+              <div style={{ padding: 12, maxHeight: 260, overflowY: 'auto' }}>
+                {stickerTab === 'emoji' && (
+                  <div>
+                    {EMOJI_LIST.map((row, ri) => (
+                      <div key={ri} style={{ display: 'flex', gap: 4, marginBottom: 4, flexWrap: 'wrap' }}>
+                        {row.map(em => (
+                          <button key={em} onClick={() => { addSticker('emoji', em, null); setShowStickerPanel(false); }}
+                            style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 10, padding: '6px 4px', fontSize: 22, cursor: 'pointer', lineHeight: 1, width: 44 }}
+                            onMouseEnter={e => e.target.style.background = 'rgba(251,191,36,0.15)'}
+                            onMouseLeave={e => e.target.style.background = 'rgba(255,255,255,0.04)'}
+                          >{em}</button>
+                        ))}
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {stickerTab === 'sticker' && (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                    {ANIMATED_STICKERS.map(stk => (
+                      <button key={stk.key} onClick={() => { addSticker('sticker', stk.emoji, stk.anim); setShowStickerPanel(false); }}
+                        style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 12, padding: '8px 6px', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, width: 68 }}
+                        onMouseEnter={e => e.currentTarget.style.background = 'rgba(251,191,36,0.15)'}
+                        onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.04)'}
+                      >
+                        <span style={{ fontSize: 26 }}>{stk.emoji}</span>
+                        <span style={{ fontSize: 9, color: '#888', fontWeight: 700 }}>{stk.label}</span>
+                        <span style={{ fontSize: 8, color: '#fbbf24', fontWeight: 600 }}>{stk.anim}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <div style={{ padding: '8px 12px', borderTop: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span style={{ fontSize: 10, color: '#555' }}>{t('stk_hint')}</span>
+                {stickers.length > 0 && (
+                  <button onClick={() => { setStickers([]); activeStickerRef.current = null; setActiveStickerId(null); }}
+                    style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 8, padding: '3px 10px', fontSize: 10, color: '#f87171', fontWeight: 700, cursor: 'pointer' }}>
+                    {t('stk_clear_all')}
+                  </button>
+                )}
+              </div>
+            </div>
+          </>
+        , document.body)}
+
       </div>{/* fim header */}
 
       {/* ══ BODY ════════════════════════════════════════════════════════════════ */}
@@ -1308,6 +1312,65 @@ function AppFree() {
             }}
             style={{ border: '1px solid rgba(0,191,255,0.15)', borderRadius: 14, maxHeight: '88%', maxWidth: '92%', cursor: 'move', boxShadow: '0 24px 50px rgba(0,0,0,0.55)' }}
           />
+
+          {/* ── Barra flutuante: tamanho do sticker selecionado ── */}
+          {stickers.filter(s => s.id === activeStickerId).map(sel => (
+            <div key={sel.id} style={{
+              position: 'absolute', bottom: 48, left: '50%', transform: 'translateX(-50%)',
+              zIndex: 100, background: 'rgba(10,12,28,0.93)', border: '1px solid rgba(251,191,36,0.45)',
+              borderRadius: 12, padding: '7px 14px', display: 'flex', alignItems: 'center', gap: 10,
+              backdropFilter: 'blur(8px)', boxShadow: '0 4px 20px rgba(0,0,0,0.5)', minWidth: 240,
+            }}>
+              <span style={{ fontSize: 10, color: '#fbbf24', fontWeight: 700, whiteSpace: 'nowrap' }}>📐 Tamanho</span>
+              <input type="range" min={20} max={400} step={4}
+                value={sel.size || 80}
+                onMouseDown={e => e.stopPropagation()} onPointerDown={e => e.stopPropagation()}
+                onChange={e => setStickers(prev => prev.map(s => s.id === sel.id ? { ...s, size: Number(e.target.value) } : s))}
+                style={{ flex: 1, accentColor: '#fbbf24', cursor: 'pointer' }}
+              />
+              <span style={{ fontSize: 11, color: '#fbbf24', fontWeight: 700, minWidth: 34, textAlign: 'right' }}>{Math.round(sel.size || 80)}px</span>
+              <button onClick={() => { activeStickerRef.current = null; setActiveStickerId(null); }}
+                style={{ background: 'none', border: 'none', color: '#666', cursor: 'pointer', fontSize: 16, lineHeight: 1 }}>✕</button>
+            </div>
+          ))}
+
+          {/* ── Barra flutuante: tamanho W/H da imagem selecionada ── */}
+          {(() => {
+            const selImg = activeImageId ? images.find(i => i.id === activeImageId) : null;
+            if (!selImg || activeStickerId) return null;
+            const setW = v => setImages(prev => prev.map(i => i.id === selImg.id ? { ...i, width:  Number(v) } : i));
+            const setH = v => setImages(prev => prev.map(i => i.id === selImg.id ? { ...i, height: Number(v) } : i));
+            return (
+              <div style={{
+                position: 'absolute', bottom: 48, left: '50%', transform: 'translateX(-50%)',
+                zIndex: 100, background: 'rgba(10,12,28,0.93)', border: '1px solid rgba(251,191,36,0.5)',
+                borderRadius: 14, padding: '8px 16px', display: 'flex', alignItems: 'center', gap: 14,
+                backdropFilter: 'blur(10px)', boxShadow: '0 4px 24px rgba(0,0,0,0.55)', minWidth: 300,
+              }}>
+                <span style={{ fontSize: 10, color: '#fbbf24', fontWeight: 700, whiteSpace: 'nowrap' }}>🖼️ {t('ed_size')}</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1 }}>
+                  <span style={{ fontSize: 10, color: '#888', whiteSpace: 'nowrap' }}>W</span>
+                  <input type="range" min={20} max={canvasW} step={2}
+                    value={Math.round(selImg.width || 100)}
+                    onMouseDown={e => e.stopPropagation()} onPointerDown={e => e.stopPropagation()}
+                    onChange={e => setW(e.target.value)}
+                    style={{ flex: 1, accentColor: '#fbbf24', cursor: 'pointer' }} />
+                  <span style={{ fontSize: 10, color: '#fbbf24', fontWeight: 700, minWidth: 36, textAlign: 'right' }}>{Math.round(selImg.width || 100)}px</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1 }}>
+                  <span style={{ fontSize: 10, color: '#888', whiteSpace: 'nowrap' }}>H</span>
+                  <input type="range" min={20} max={canvasH} step={2}
+                    value={Math.round(selImg.height || 100)}
+                    onMouseDown={e => e.stopPropagation()} onPointerDown={e => e.stopPropagation()}
+                    onChange={e => setH(e.target.value)}
+                    style={{ flex: 1, accentColor: '#fbbf24', cursor: 'pointer' }} />
+                  <span style={{ fontSize: 10, color: '#fbbf24', fontWeight: 700, minWidth: 36, textAlign: 'right' }}>{Math.round(selImg.height || 100)}px</span>
+                </div>
+                <button onClick={() => setActiveImageId(null)}
+                  style={{ background: 'none', border: 'none', color: '#666', cursor: 'pointer', fontSize: 16, lineHeight: 1 }}>✕</button>
+              </div>
+            );
+          })()}
 
           {/* Dica de marca d'água */}
           <div style={{ position: 'absolute', bottom: 14, left: '50%', transform: 'translateX(-50%)', background: 'rgba(0,0,0,0.65)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 10, padding: '5px 14px', fontSize: 11, color: '#555', whiteSpace: 'nowrap', pointerEvents: 'none' }}>
