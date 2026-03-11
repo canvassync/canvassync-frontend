@@ -83,6 +83,21 @@ function AppFree() {
   const [extraTextFontFamily, setExtraTextFontFamily] = useState('Poppins');
   const [extraTextFontSize, setExtraTextFontSize]   = useState(28);
 
+  // ── Fontes customizadas ────────────────────────────────────────────────────────
+  const [customFonts, setCustomFonts] = useState([]);
+  const fontInputRef = useRef(null);
+  const handleFontUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const name = file.name.replace(/\.[^.]+$/, '').replace(/[-_]/g, ' ');
+    const url  = URL.createObjectURL(file);
+    const face = new FontFace(name, `url(${url})`);
+    await face.load();
+    document.fonts.add(face);
+    setCustomFonts(prev => [...prev, { name, fileName: file.name }]);
+    e.target.value = '';
+  };
+
   // ── Stickers ─────────────────────────────────────────────────────────────────
   const [stickers, setStickers]             = useState([]);
   const [activeStickerId, setActiveStickerId] = useState(null);
@@ -161,6 +176,93 @@ function AppFree() {
       ctx.fillRect(hx - s/2, hy - s/2, s, s);
     });
   }, []);
+
+  // ── Filtros e Transições ──────────────────────────────────────────────────────
+  const buildFilterString = (f) => {
+    if (!f) return 'none';
+    const p = [];
+    if (f.brightness !== undefined && f.brightness !== 100) p.push(`brightness(${f.brightness}%)`);
+    if (f.contrast   !== undefined && f.contrast   !== 100) p.push(`contrast(${f.contrast}%)`);
+    if (f.saturate   !== undefined && f.saturate   !== 100) p.push(`saturate(${f.saturate}%)`);
+    if (f.hueRotate  !== undefined && f.hueRotate  !== 0)   p.push(`hue-rotate(${f.hueRotate}deg)`);
+    if (f.blur       !== undefined && f.blur       !== 0)   p.push(`blur(${f.blur}px)`);
+    if (f.sepia      !== undefined && f.sepia      !== 0)   p.push(`sepia(${f.sepia}%)`);
+    if (f.grayscale  !== undefined && f.grayscale  !== 0)   p.push(`grayscale(${f.grayscale}%)`);
+    if (f.opacity    !== undefined && f.opacity    !== 100) p.push(`opacity(${f.opacity}%)`);
+    return p.length ? p.join(' ') : 'none';
+  };
+
+  const _applyTr = (ctx, tr, itemFilt, item) => {
+    ctx.globalAlpha = Math.max(0, Math.min(1, tr.alpha));
+    const fParts = [];
+    if (tr.filterOverride) fParts.push(tr.filterOverride);
+    if (itemFilt && itemFilt !== 'none') fParts.push(itemFilt);
+    if (fParts.length) ctx.filter = fParts.join(' ');
+    const cx = item.x + item.width / 2, cy = item.y + item.height / 2;
+    ctx.translate(cx + (tr.tx||0), cy + (tr.ty||0));
+    const sx = (tr.scale??1) * (tr.scaleX??1);
+    const sy = (tr.scale??1) * (tr.scaleY??1);
+    if (sx !== 1 || sy !== 1) ctx.scale(sx, sy);
+    if (tr.addRotate) ctx.rotate(tr.addRotate);
+    ctx.translate(-cx, -cy);
+  };
+
+  const getTransitionTransform = (item, t) => {
+    const trIn  = item.transitionIn  || 'none';
+    const trOut = item.transitionOut || 'none';
+    const durIn  = item.transitionInDur  ?? 0.35;
+    const durOut = item.transitionOutDur ?? 0.35;
+    if (trIn === 'none' && trOut === 'none') return null;
+    const tIn  = durIn  > 0 ? Math.min(1, Math.max(0, (t - item.start) / durIn))  : 1;
+    const tOut = durOut > 0 ? Math.min(1, Math.max(0, (item.end - t)    / durOut)) : 1;
+    const eOut3   = x => 1 - Math.pow(1 - x, 3);
+    const eBounce = x => {
+      if (x < 1/2.75)    return 7.5625*x*x;
+      if (x < 2/2.75)    { x -= 1.5/2.75;  return 7.5625*x*x + 0.75; }
+      if (x < 2.5/2.75)  { x -= 2.25/2.75; return 7.5625*x*x + 0.9375; }
+      x -= 2.625/2.75;   return 7.5625*x*x + 0.984375;
+    };
+    const eElastic = x => x<=0||x>=1 ? x : Math.pow(2,-10*x)*Math.sin((x*10-0.75)*(2*Math.PI/3))+1;
+    const calc = (tr, prog, isEntry) => {
+      const p = eOut3(prog), inv = 1-p, d = isEntry ? 1 : -1;
+      const base = { alpha:1, tx:0, ty:0, scale:1, scaleX:1, scaleY:1, addRotate:0, filterOverride:null, isPulse:false };
+      switch(tr) {
+        case 'fade':        return {...base, alpha: p};
+        case 'slide-up':    return {...base, alpha: p, ty:  inv*80*d};
+        case 'slide-down':  return {...base, alpha: p, ty: -inv*80*d};
+        case 'slide-left':  return {...base, alpha: p, tx:  inv*80*d};
+        case 'slide-right': return {...base, alpha: p, tx: -inv*80*d};
+        case 'zoom':        return {...base, alpha: p, scale: 0.5+0.5*p};
+        case 'zoom-out':    return {...base, alpha: p, scale: 1+0.5*inv};
+        case 'blur-in':     return {...base, filterOverride:`blur(${(inv*14).toFixed(1)}px)`};
+        case 'rotate':      return {...base, alpha: p, addRotate: inv*Math.PI*(isEntry?-1:1)};
+        case 'flip-h':      return {...base, alpha: p, scaleX: prog<0.5?(isEntry?-1:1):(isEntry?1:-1)};
+        case 'flip-v':      return {...base, alpha: p, scaleY: prog<0.5?(isEntry?-1:1):(isEntry?1:-1)};
+        case 'bounce':      return {...base, alpha:Math.min(1,prog*3), ty:isEntry?(1-eBounce(prog))*70:-(1-eBounce(prog))*70};
+        case 'elastic':     return {...base, alpha:Math.min(1,prog*3), scale:eElastic(prog)};
+        case 'swing':       return {...base, alpha:p, addRotate:isEntry?(1-p)*0.45*d:-(1-p)*0.45*d};
+        case 'drop':        return {...base, alpha:Math.min(1,prog*3), ty:isEntry?-(1-eOut3(prog))*130:(1-eOut3(prog))*130};
+        case 'roll':        return {...base, alpha:p, tx:isEntry?-inv*120:inv*120, addRotate:isEntry?-inv*Math.PI*2:inv*Math.PI*2};
+        case 'scale-pulse': return {...base, isPulse:true, scalePulse: 1 + Math.sin(prog*Math.PI)*0.35};
+        default:            return base;
+      }
+    };
+    const rIn  = trIn  !== 'none' ? calc(trIn,  tIn,  true)  : {alpha:1,tx:0,ty:0,scale:1,scaleX:1,scaleY:1,addRotate:0,filterOverride:null,isPulse:false};
+    const rOut = trOut !== 'none' ? calc(trOut, tOut, false) : {alpha:1,tx:0,ty:0,scale:1,scaleX:1,scaleY:1,addRotate:0,filterOverride:null,isPulse:false};
+    const scaleIn  = rIn.isPulse  ? rIn.scalePulse  : rIn.scale;
+    const scaleOut = rOut.isPulse ? rOut.scalePulse : rOut.scale;
+    const combined = {
+      alpha: Math.min(rIn.alpha, rOut.alpha),
+      tx: rIn.tx + rOut.tx, ty: rIn.ty + rOut.ty,
+      scale: scaleIn * scaleOut, scaleX: rIn.scaleX * rOut.scaleX, scaleY: rIn.scaleY * rOut.scaleY,
+      addRotate: rIn.addRotate + rOut.addRotate,
+      filterOverride: rIn.filterOverride || rOut.filterOverride || null,
+    };
+    const isIdentity = combined.alpha>=1 && combined.tx===0 && combined.ty===0
+      && combined.scale===1 && combined.scaleX===1 && combined.scaleY===1
+      && combined.addRotate===0 && !combined.filterOverride;
+    return isIdentity ? null : combined;
+  };
 
   // ── Texto extra helpers ───────────────────────────────────────────────────────
   const getExtraTextBounds = useCallback((txt, ctx) => {
@@ -398,12 +500,20 @@ function AppFree() {
     images.forEach(item => {
       if (!item?.img || !item.img.complete || item.img.naturalWidth === 0) return;
       const rot = (item.rotation || 0) * Math.PI / 180;
+      const _if  = buildFilterString(item.filters);
+      const _itr = getTransitionTransform(item, 0);
       ctx.save();
+      if (_itr) {
+        _applyTr(ctx, _itr, _if, item);
+      } else {
+        if (_if !== 'none') ctx.filter = _if;
+      }
       if (rot) {
         const cx = item.x + item.width / 2, cy = item.y + item.height / 2;
         ctx.translate(cx, cy); ctx.rotate(rot); ctx.translate(-cx, -cy);
       }
       drawRoundedImage(ctx, item.img, item.x, item.y, item.width, item.height, item.radius ?? 18);
+      ctx.filter = 'none'; ctx.globalAlpha = 1;
       if (activeImageId === item.id) {
         ctx.strokeStyle = 'rgba(248,250,252,0.9)'; ctx.lineWidth = 2;
         drawRoundedRect(ctx, item.x, item.y, item.width, item.height, (item.radius ?? 18) + 2);
@@ -894,7 +1004,11 @@ function AppFree() {
                   <option value="Raleway">Raleway</option>
                   <option value="Playfair Display">Playfair</option>
                   <option value="Lora">Lora</option>
+                  {customFonts.map(f => <option key={f.name} value={f.name}>{f.name}</option>)}
                 </select>
+                {/* Botão adicionar fonte */}
+                <button onClick={() => fontInputRef.current?.click()} style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.25)', borderRadius: '8px', padding: '3px 9px', fontSize: '10px', color: '#f59e0b', cursor: 'pointer' }}>+ {t('ed_add_font')}</button>
+                <input ref={fontInputRef} type="file" accept=".ttf,.otf,.woff,.woff2" onChange={handleFontUpload} style={{ display: 'none' }} />
                 {/* Tamanho */}
                 <span style={{ fontSize: 10, color: '#94a3b8' }}>
                   {activeExtraTextId ? (extraTexts.find(t => t.id === activeExtraTextId)?.fontSize || extraTextFontSize) : extraTextFontSize}px
@@ -982,33 +1096,168 @@ function AppFree() {
             {activeImageId && (() => {
               const sel = images.find(i => i.id === activeImageId);
               if (!sel) return null;
+              const rot    = sel.rotation ?? 0;
+              const setRot = (deg) => setImages(prev => prev.map(i => i.id === sel.id ? { ...i, rotation: deg } : i));
+              const accent   = '#fbbf24';
+              const accentBg = 'rgba(251,191,36,';
+              const flt = sel.filters || {};
+              const setF = (prop, val) => setImages(prev => prev.map(i => i.id === sel.id ? { ...i, filters: { ...(i.filters||{}), [prop]: val } } : i));
+              const resetF  = () => setImages(prev => prev.map(i => i.id === sel.id ? { ...i, filters: {} } : i));
+              const setPreset = (f) => setImages(prev => prev.map(i => i.id === sel.id ? { ...i, filters: f } : i));
+              const trIn  = sel.transitionIn  || 'none';
+              const trOut = sel.transitionOut || 'none';
+              const durIn  = sel.transitionInDur  ?? 0.35;
+              const durOut = sel.transitionOutDur ?? 0.35;
+              const updTr  = (patch) => setImages(prev => prev.map(i => i.id === sel.id ? { ...i, ...patch } : i));
+              const PRESETS = [
+                { label: t('prs_original'), f: {} },
+                { label: t('prs_bw'),      f: { grayscale: 100 } },
+                { label: t('prs_sepia'),    f: { sepia: 80 } },
+                { label: t('prs_cinema'),   f: { contrast: 115, saturate: 80, brightness: 95 } },
+                { label: t('prs_neon'),     f: { saturate: 200, brightness: 110, contrast: 120 } },
+                { label: t('prs_vintage'),  f: { sepia: 40, contrast: 90, brightness: 105, saturate: 80 } },
+                { label: t('prs_cold'),     f: { hueRotate: 190, saturate: 120 } },
+                { label: t('prs_warm'),     f: { hueRotate: 340, saturate: 130, brightness: 105 } },
+                { label: t('prs_fade'),     f: { brightness: 130, saturate: 60, contrast: 85 } },
+                { label: t('prs_dramatic'), f: { contrast: 150, saturate: 50, brightness: 90 } },
+              ];
+              const SLIDERS = [
+                { key: 'brightness', label: t('flt_brightness'), min: 0,   max: 200, def: 100, unit: '%' },
+                { key: 'contrast',   label: t('flt_contrast'),   min: 0,   max: 200, def: 100, unit: '%' },
+                { key: 'saturate',   label: t('flt_saturate'),   min: 0,   max: 300, def: 100, unit: '%' },
+                { key: 'hueRotate',  label: t('flt_hue'),        min: 0,   max: 360, def: 0,   unit: '°' },
+                { key: 'blur',       label: t('flt_blur'),       min: 0,   max: 20,  def: 0,   unit: 'px' },
+                { key: 'sepia',      label: t('flt_sepia'),      min: 0,   max: 100, def: 0,   unit: '%' },
+                { key: 'grayscale',  label: t('flt_bw'),         min: 0,   max: 100, def: 0,   unit: '%' },
+                { key: 'opacity',    label: t('flt_opacity'),    min: 0,   max: 100, def: 100, unit: '%' },
+              ];
+              const TRANSITIONS = [
+                { value: 'none', label: '—' }, { value: 'fade', label: 'Fade' },
+                { value: 'slide-up', label: 'Slide ↑' }, { value: 'slide-down', label: 'Slide ↓' },
+                { value: 'slide-left', label: 'Slide ←' }, { value: 'slide-right', label: 'Slide →' },
+                { value: 'zoom', label: 'Zoom +' }, { value: 'zoom-out', label: 'Zoom −' },
+                { value: 'blur-in', label: 'Blur' }, { value: 'rotate', label: 'Girar' },
+                { value: 'flip-h', label: 'Flip ↔' }, { value: 'flip-v', label: 'Flip ↕' },
+                { value: 'bounce', label: 'Bounce' }, { value: 'elastic', label: t('tr_elastic') },
+                { value: 'swing', label: 'Swing' }, { value: 'drop', label: 'Drop' },
+                { value: 'roll', label: 'Rolar' }, { value: 'scale-pulse', label: 'Pulsar' },
+              ];
+              const isPreset = (pf) => JSON.stringify(flt) === JSON.stringify(pf);
+              const TrGrid = ({ current, onSelect }) => (
+                <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                  {TRANSITIONS.map(({ value, label }) => (
+                    <button key={value} onClick={() => onSelect(value)} style={{
+                      padding: '3px 8px', fontSize: 10, borderRadius: 7, cursor: 'pointer', fontWeight: 600,
+                      background: current === value ? `${accentBg}0.25)` : 'rgba(255,255,255,0.04)',
+                      border: `1px solid ${current === value ? `${accentBg}0.65)` : 'rgba(255,255,255,0.07)'}`,
+                      color: current === value ? accent : '#555',
+                    }}>{label}</button>
+                  ))}
+                </div>
+              );
+              const DurSlider = ({ value, onChange }) => (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginTop: 2 }}>
+                  <span style={{ fontSize: 10, color: '#444', minWidth: 54 }}>{t('ed_duration')}</span>
+                  <input type="range" min={0.05} max={2} step={0.05} value={value}
+                    onChange={e => onChange(+e.target.value)}
+                    onMouseDown={e => e.stopPropagation()} onPointerDown={e => e.stopPropagation()}
+                    style={{ flex: 1, accentColor: accent }} />
+                  <span style={{ fontSize: 10, color: accent, minWidth: 34, textAlign: 'right' }}>{value.toFixed(2)}s</span>
+                </div>
+              );
               return (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, background: 'rgba(251,191,36,0.04)', border: '1px solid rgba(251,191,36,0.2)', borderRadius: 10, padding: '10px 12px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{ fontSize: 10, color: '#fbbf24', fontWeight: 700, minWidth: 52 }}>{t('ed_rotation')}</span>
-                    <input type="range" min="-180" max="180" value={sel.rotation ?? 0}
-                      onChange={e => setImages(prev => prev.map(i => i.id === activeImageId ? { ...i, rotation: +e.target.value } : i))}
-                      onMouseDown={e => e.stopPropagation()} onPointerDown={e => e.stopPropagation()}
-                      style={{ flex: 1, accentColor: '#fbbf24' }} />
-                    <span style={{ fontSize: 10, color: '#fbbf24', minWidth: 34 }}>{Math.round(sel.rotation ?? 0)}°</span>
+                <div style={{ padding: '12px 18px', borderBottom: '1px solid rgba(255,255,255,0.07)', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <label style={{ fontSize: '11px', color: accent, fontWeight: 700, letterSpacing: '0.6px' }}>{t('sel_image')}</label>
+                    <button onClick={() => setActiveImageId(null)} style={{ background: 'none', border: 'none', color: '#555', cursor: 'pointer', fontSize: 14 }}>✕</button>
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{ fontSize: 10, color: '#fbbf24', fontWeight: 700, minWidth: 52 }}>W</span>
-                    <input type="range" min="20" max={canvasW}
-                      value={Math.round(sel.width || 180)}
-                      onChange={e => setImages(prev => prev.map(i => i.id === activeImageId ? { ...i, width: +e.target.value } : i))}
+
+                  {/* Rotação */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <span style={{ fontSize: 11, color: '#888', minWidth: 52 }}>{t('ed_rotation')}</span>
+                    <input type="range" min="-180" max="180" value={rot}
+                      onChange={e => setRot(parseInt(e.target.value))}
                       onMouseDown={e => e.stopPropagation()} onPointerDown={e => e.stopPropagation()}
-                      style={{ flex: 1, accentColor: '#fbbf24' }} />
-                    <span style={{ fontSize: 10, color: '#fbbf24', minWidth: 34 }}>{Math.round(sel.width || 180)}px</span>
+                      style={{ flex: 1, accentColor: accent }} />
+                    <span style={{ fontSize: 11, color: '#ccc', minWidth: 40, textAlign: 'right' }}>{rot}°</span>
+                    <button onClick={() => setRot(0)} style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '3px 8px', fontSize: 11, color: '#888', cursor: 'pointer' }}>0°</button>
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{ fontSize: 10, color: '#fbbf24', fontWeight: 700, minWidth: 52 }}>H</span>
-                    <input type="range" min="20" max={canvasH}
-                      value={Math.round(sel.height || 180)}
-                      onChange={e => setImages(prev => prev.map(i => i.id === activeImageId ? { ...i, height: +e.target.value } : i))}
-                      onMouseDown={e => e.stopPropagation()} onPointerDown={e => e.stopPropagation()}
-                      style={{ flex: 1, accentColor: '#fbbf24' }} />
-                    <span style={{ fontSize: 10, color: '#fbbf24', minWidth: 34 }}>{Math.round(sel.height || 180)}px</span>
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                    {[-90, -45, 0, 45, 90, 180].map(d => (
+                      <button key={d} onClick={() => setRot(d)} style={{
+                        background: rot === d ? `${accentBg}0.2)` : 'rgba(255,255,255,0.04)',
+                        border: `1px solid ${rot === d ? `${accentBg}0.5)` : 'rgba(255,255,255,0.08)'}`,
+                        borderRadius: 8, padding: '3px 10px', fontSize: 11,
+                        color: rot === d ? '#fff' : '#666', cursor: 'pointer',
+                      }}>{d}°</button>
+                    ))}
+                  </div>
+
+                  {/* Filtros */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8, background: `${accentBg}0.04)`, border: `1px solid ${accentBg}0.18)`, borderRadius: 12, padding: '10px 12px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <span style={{ fontSize: 11, color: accent, fontWeight: 700 }}>🎨 {t('ed_filters')}</span>
+                      <button onClick={resetF} style={{ background: 'none', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, padding: '2px 8px', fontSize: 10, color: '#666', cursor: 'pointer' }}>{t('ed_reset')}</button>
+                    </div>
+                    <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
+                      {PRESETS.map(({ label, f }) => (
+                        <button key={label} onClick={() => setPreset(f)} style={{
+                          padding: '3px 9px', fontSize: 10, borderRadius: 8, cursor: 'pointer', fontWeight: 600,
+                          background: isPreset(f) ? `${accentBg}0.25)` : 'rgba(255,255,255,0.04)',
+                          border: `1px solid ${isPreset(f) ? `${accentBg}0.6)` : 'rgba(255,255,255,0.08)'}`,
+                          color: isPreset(f) ? accent : '#666',
+                        }}>{label}</button>
+                      ))}
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                      {SLIDERS.map(({ key, label, min, max, def, unit }) => {
+                        const val = flt[key] !== undefined ? flt[key] : def;
+                        const changed = val !== def;
+                        return (
+                          <div key={key} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <span style={{ fontSize: 10, color: changed ? accent : '#555', minWidth: 60, fontWeight: changed ? 700 : 400 }}>{label}</span>
+                            <input type="range" min={min} max={max} value={val}
+                              onChange={e => setF(key, +e.target.value)}
+                              onMouseDown={e => e.stopPropagation()} onPointerDown={e => e.stopPropagation()}
+                              style={{ flex: 1, accentColor: accent, height: 3 }} />
+                            <span style={{ fontSize: 10, color: changed ? accent : '#555', minWidth: 36, textAlign: 'right' }}>{val}{unit}</span>
+                            {changed && <button onClick={() => setF(key, def)} style={{ background: 'none', border: 'none', color: '#555', cursor: 'pointer', fontSize: 12, padding: '0 2px' }}>↺</button>}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Transições */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10, background: `${accentBg}0.04)`, border: `1px solid ${accentBg}0.18)`, borderRadius: 12, padding: '10px 12px' }}>
+                    <span style={{ fontSize: 11, color: accent, fontWeight: 700 }}>✨ {t('ed_transitions')}</span>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 5, background: 'rgba(255,255,255,0.02)', borderRadius: 8, padding: '8px 10px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                        <span style={{ fontSize: 10, color: accent, fontWeight: 700 }}>▶ {t('tr_in')}</span>
+                        {trIn !== 'none' && <button onClick={() => updTr({ transitionIn: 'none' })} style={{ background: 'none', border: 'none', color: '#444', cursor: 'pointer', fontSize: 11, padding: 0 }}>✕</button>}
+                      </div>
+                      <TrGrid current={trIn} onSelect={v => updTr({ transitionIn: v })} />
+                      {trIn !== 'none' && <DurSlider value={durIn} onChange={v => updTr({ transitionInDur: v })} />}
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 5, background: 'rgba(255,255,255,0.02)', borderRadius: 8, padding: '8px 10px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                        <span style={{ fontSize: 10, color: accent, fontWeight: 700 }}>◀ {t('tr_out')}</span>
+                        {trOut !== 'none' && <button onClick={() => updTr({ transitionOut: 'none' })} style={{ background: 'none', border: 'none', color: '#444', cursor: 'pointer', fontSize: 11, padding: 0 }}>✕</button>}
+                      </div>
+                      <TrGrid current={trOut} onSelect={v => updTr({ transitionOut: v })} />
+                      {trOut !== 'none' && <DurSlider value={durOut} onChange={v => updTr({ transitionOutDur: v })} />}
+                    </div>
+                    <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', alignItems: 'center' }}>
+                      <span style={{ fontSize: 10, color: '#444' }}>{t('tr_both')}:</span>
+                      {['fade','slide-up','zoom','blur-in','bounce','roll'].map(v => (
+                        <button key={v} onClick={() => updTr({ transitionIn: v, transitionOut: v })} style={{
+                          padding: '3px 9px', fontSize: 10, borderRadius: 7, cursor: 'pointer', fontWeight: 600,
+                          background: (trIn===v&&trOut===v) ? `${accentBg}0.2)` : 'rgba(255,255,255,0.03)',
+                          border: `1px solid ${(trIn===v&&trOut===v) ? `${accentBg}0.5)` : 'rgba(255,255,255,0.06)'}`,
+                          color: (trIn===v&&trOut===v) ? accent : '#555',
+                        }}>{TRANSITIONS.find(tr=>tr.value===v)?.label}</button>
+                      ))}
+                    </div>
                   </div>
                 </div>
               );
