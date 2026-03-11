@@ -4,7 +4,7 @@ import { useLanguage, LangToggle } from "./hooks/useLanguage.jsx";
 import {
   Play, Zap, Download, Layers, Star, Check, ChevronRight,
   Music, Image, Sparkles, ArrowRight, Menu, X,
-  MessageSquare, Bot
+  MessageSquare, Bot, Volume2, Film, Wand2, Sticker
 } from "lucide-react";
 
 
@@ -138,7 +138,7 @@ export default function CanvasSyncLanding() {
     { icon: <Download size={22} />, title: t("feat2_title"), desc: t("feat2_desc") },
     { icon: <Layers size={22} />,   title: t("feat3_title"), desc: t("feat3_desc") },
     { icon: <Zap size={22} />,      title: t("feat4_title"), desc: t("feat4_desc") },
-    { icon: <Image size={22} />,    title: t("feat5_title"), desc: t("feat5_desc") },
+    { icon: <Volume2 size={22} />,  title: t("feat5_title"), desc: t("feat5_desc") },
     { icon: <Sparkles size={22} />, title: t("feat6_title"), desc: t("feat6_desc") },
   ];
 
@@ -295,6 +295,7 @@ export default function CanvasSyncLanding() {
           .features-grid { grid-template-columns: 1fr !important; }
           .testimonials-grid { grid-template-columns: 1fr !important; }
           .stats-grid { grid-template-columns: repeat(2, 1fr) !important; }
+          .formats-grid { grid-template-columns: repeat(2, 1fr) !important; }
         }
       `}</style>
 
@@ -534,10 +535,10 @@ export default function CanvasSyncLanding() {
             }}
           >
             {[
-              { value: 12000, suffix: "+", label: "Vídeos criados" },
-              { value: 97, suffix: "%", label: "Satisfação dos usuários" },
-              { value: 5, suffix: "min", label: "Tempo médio por vídeo" },
-              { value: 0, suffix: "R$", label: "Para começar" },
+              { value: 24, suffix: "",   label: "Templates prontos" },
+              { value: 16, suffix: "",   label: "Transições animadas" },
+              { value: 24, suffix: "",   label: "Efeitos sonoros" },
+              { value: 4,  suffix: "",   label: "Formatos de export" },
             ].map((stat, i) => (
               <div
                 key={i}
@@ -595,6 +596,66 @@ export default function CanvasSyncLanding() {
                   </div>
                   <h3 style={{ fontSize: 16, fontWeight: 600, marginBottom: 10, color: "#eee" }}>{f.title}</h3>
                   <p style={{ fontSize: 14, color: "#666", lineHeight: 1.65 }}>{f.desc}</p>
+                </div>
+              </Reveal>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ═══ CANVAS FORMATS ══════════════════════════════════════════════════ */}
+      <section style={{ padding: "80px 24px", background: "#060606" }}>
+        <div style={{ maxWidth: 1100, margin: "0 auto" }}>
+          <Reveal>
+            <div style={{ textAlign: "center", marginBottom: 56 }}>
+              <p style={{ color: "#00BFFF", fontSize: 12, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", marginBottom: 14 }}>
+                {t("formats_label")}
+              </p>
+              <h2 className="syne" style={{ fontSize: "clamp(28px, 5vw, 48px)", fontWeight: 800, letterSpacing: "-1px" }}>
+                {t("formats_title1")}{" "}
+                <span className="gradient-text">{t("formats_title2")}</span>
+              </h2>
+              <p style={{ color: "#666", marginTop: 16, fontSize: 16, maxWidth: 480, margin: "16px auto 0" }}>
+                {t("formats_sub")}
+              </p>
+            </div>
+          </Reveal>
+
+          <div className="formats-grid" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16 }}>
+            {[
+              { ratio: "16:9", label: "YouTube", sub: "1280 × 720", color: "#ff0000", icon: "▶", w: 80, h: 45 },
+              { ratio: "9:16", label: "Stories / TikTok", sub: "720 × 1280", color: "#00e5ff", icon: "📱", w: 40, h: 71 },
+              { ratio: "1:1",  label: "Instagram Feed", sub: "1080 × 1080", color: "#c084fc", icon: "⊞", w: 60, h: 60 },
+              { ratio: "4:3",  label: "Broadcast / TV", sub: "1280 × 960", color: "#fbbf24", icon: "📺", w: 72, h: 54 },
+            ].map((f, i) => (
+              <Reveal key={i} delay={i * 80}>
+                <div className="card" style={{ textAlign: "center", padding: "28px 20px", cursor: "default" }}>
+                  {/* Canvas mockup */}
+                  <div style={{ display: "flex", justifyContent: "center", marginBottom: 20, height: 90, alignItems: "center" }}>
+                    <div style={{
+                      width: f.w, height: f.h,
+                      borderRadius: 6,
+                      background: "linear-gradient(135deg, #0d0d0d, #181818)",
+                      border: `1.5px solid ${f.color}44`,
+                      boxShadow: `0 0 18px ${f.color}22`,
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      position: "relative", overflow: "hidden",
+                    }}>
+                      {/* fake lyric lines */}
+                      <div style={{ position: "absolute", width: "70%", display: "flex", flexDirection: "column", gap: 4, alignItems: "center" }}>
+                        <div style={{ height: 2, width: "100%", background: `${f.color}66`, borderRadius: 2 }} />
+                        <div style={{ height: 2, width: "70%", background: `${f.color}33`, borderRadius: 2 }} />
+                      </div>
+                      {/* glow dot */}
+                      <div style={{ position: "absolute", top: 4, right: 4, width: 4, height: 4, borderRadius: "50%", background: f.color, boxShadow: `0 0 6px ${f.color}` }} />
+                    </div>
+                  </div>
+
+                  <div className="syne" style={{ fontSize: 22, fontWeight: 800, color: f.color, marginBottom: 6, letterSpacing: "-0.5px" }}>
+                    {f.ratio}
+                  </div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: "#ccc", marginBottom: 4 }}>{f.label}</div>
+                  <div style={{ fontSize: 11, color: "#444", fontFamily: "monospace" }}>{f.sub}</div>
                 </div>
               </Reveal>
             ))}
