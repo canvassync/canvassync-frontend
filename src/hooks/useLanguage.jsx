@@ -114,6 +114,22 @@ const TRANSLATIONS = {
     ed_pause:         '⏸ Pause',
     vid_mute:         'Clique para mutar áudio',
     vid_unmute:       'Áudio mudo — clique para ativar',
+
+    // ── Plano Free (exclusivos) ──────────────────────────────────────────────
+    free_save:          '💾 Salvar Imagem',
+    free_upgrade_msg:   '🚀 Desbloqueie vídeos, música e muito mais',
+    free_upgrade_btn:   'Ver Pro',
+    free_upgrade_link:  'Upgrade para Pro',
+    free_text_limit:    'Limite do plano Free atingido.',
+    free_images_comp:   'Imagens na composição',
+    free_image_label:   'Imagem',
+    free_no_images:     'Nenhuma imagem adicionada ainda',
+    free_lyric_sync:    'Sincronização de Letra',
+    free_lyric_locked:  'Adicionar música e sincronizar letras é exclusivo do plano Pro.',
+    free_see_pro:       'Ver plano Pro',
+    free_watermark_msg: '⚡ Marca d\'água removida no plano Pro',
+    free_close:         'Fechar',
+    free_click_close:   'Clique fora para fechar',
   },
 
   'en': {
@@ -228,6 +244,22 @@ const TRANSLATIONS = {
     ed_pause:         '⏸ Pause',
     vid_mute:         'Click to mute audio',
     vid_unmute:       'Audio muted — click to enable',
+
+    // ── Free plan (exclusive) ────────────────────────────────────────────────
+    free_save:          '💾 Save Image',
+    free_upgrade_msg:   '🚀 Unlock videos, music and much more',
+    free_upgrade_btn:   'See Pro',
+    free_upgrade_link:  'Upgrade to Pro',
+    free_text_limit:    'Free plan limit reached.',
+    free_images_comp:   'Images in composition',
+    free_image_label:   'Image',
+    free_no_images:     'No images added yet',
+    free_lyric_sync:    'Lyric Sync',
+    free_lyric_locked:  'Adding music and syncing lyrics is exclusive to the Pro plan.',
+    free_see_pro:       'See Pro plan',
+    free_watermark_msg: '⚡ Watermark removed on Pro plan',
+    free_close:         'Close',
+    free_click_close:   'Click outside to close',
   },
 };
 
