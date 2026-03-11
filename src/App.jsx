@@ -4659,6 +4659,59 @@ function App() {
             );
           })()}
 
+          {/* Sliders de tamanho flutuante — aparece quando vídeo está selecionado */}
+          {(() => {
+            const selVid = activeVideoId ? videos.find(v => v.id === activeVideoId) : null;
+            if (!selVid || activeImageId) return null;
+            const canvasW = CANVAS_FORMATS[canvasFormat]?.width  || 1280;
+            const canvasH = CANVAS_FORMATS[canvasFormat]?.height || 720;
+            const setW = (v) => setVideos(prev => prev.map(vv => vv.id === selVid.id ? { ...vv, width:  Number(v) } : vv));
+            const setH = (v) => setVideos(prev => prev.map(vv => vv.id === selVid.id ? { ...vv, height: Number(v) } : vv));
+            return (
+              <div style={{
+                position: 'absolute', bottom: 12, left: '50%', transform: 'translateX(-50%)',
+                zIndex: 100, background: 'rgba(10,12,28,0.92)', border: '1px solid rgba(167,139,250,0.5)',
+                borderRadius: 14, padding: '8px 16px', display: 'flex', alignItems: 'center', gap: 14,
+                backdropFilter: 'blur(10px)', boxShadow: '0 4px 24px rgba(0,0,0,0.55)', minWidth: 320,
+              }}>
+                <span style={{ fontSize: 10, color: '#a78bfa', fontWeight: 700, whiteSpace: 'nowrap' }}>🎬 {t('ed_size')}</span>
+
+                {/* Largura */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1 }}>
+                  <span style={{ fontSize: 10, color: '#888', whiteSpace: 'nowrap' }}>W</span>
+                  <input
+                    type="range" min={20} max={canvasW} step={2}
+                    value={Math.round(selVid.width || 100)}
+                    onMouseDown={e => e.stopPropagation()}
+                    onPointerDown={e => e.stopPropagation()}
+                    onChange={e => setW(e.target.value)}
+                    style={{ flex: 1, accentColor: '#a78bfa', cursor: 'pointer' }}
+                  />
+                  <span style={{ fontSize: 10, color: '#a78bfa', fontWeight: 700, minWidth: 36, textAlign: 'right' }}>{Math.round(selVid.width || 100)}px</span>
+                </div>
+
+                {/* Altura */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1 }}>
+                  <span style={{ fontSize: 10, color: '#888', whiteSpace: 'nowrap' }}>H</span>
+                  <input
+                    type="range" min={20} max={canvasH} step={2}
+                    value={Math.round(selVid.height || 100)}
+                    onMouseDown={e => e.stopPropagation()}
+                    onPointerDown={e => e.stopPropagation()}
+                    onChange={e => setH(e.target.value)}
+                    style={{ flex: 1, accentColor: '#a78bfa', cursor: 'pointer' }}
+                  />
+                  <span style={{ fontSize: 10, color: '#a78bfa', fontWeight: 700, minWidth: 36, textAlign: 'right' }}>{Math.round(selVid.height || 100)}px</span>
+                </div>
+
+                <button
+                  onClick={() => setActiveVideoId(null)}
+                  style={{ background: 'none', border: 'none', color: '#666', cursor: 'pointer', fontSize: 16, lineHeight: 1 }}
+                >✕</button>
+              </div>
+            );
+          })()}
+
           {/* Modal Tela Cheia */}
           {isFullscreen && (
             <div
