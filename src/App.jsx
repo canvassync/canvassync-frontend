@@ -1643,7 +1643,7 @@ function App() {
           // Fallback: browser reproduz mas não permite captura
           setTtsSuccess(
             lang === 'en'
-              ? '🔊 Playing narration. Note: your browser doesn't support audio capture — use ElevenLabs or Google to embed the audio in the timeline.'
+              ? "🔊 Playing narration. Note: your browser doesn't support audio capture — use ElevenLabs or Google to embed the audio in the timeline."
               : '🔊 Narração reproduzida. Seu browser não suporta captura de áudio — use ElevenLabs ou Google para inserir na timeline.'
           );
         }
