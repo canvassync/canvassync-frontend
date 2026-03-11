@@ -758,7 +758,6 @@ function App() {
   const [ttsPitch,     setTtsPitch]           = useState(1.0);
   const [ttsElevenKey, setTtsElevenKey]       = useState(() => { try { return localStorage.getItem('cs_tts_eleven') || ''; } catch { return ''; } });
   const [ttsGoogleKey, setTtsGoogleKey]       = useState(() => { try { return localStorage.getItem('cs_tts_google') || ''; } catch { return ''; } });
-  const [ttsWebVoices, setTtsWebVoices]       = useState([]);
   const [ttsElevenVoices, setTtsElevenVoices] = useState([]);
   const [ttsLoading,   setTtsLoading]         = useState(false);
   const [ttsError,     setTtsError]           = useState('');
@@ -1459,21 +1458,24 @@ function App() {
   // TTS — Narração com IA (Web Speech + ElevenLabs + Google Cloud TTS)
   // ════════════════════════════════════════════════════════════════════
 
-  // Carrega vozes Web Speech disponíveis no browser
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+  // Vozes StreamElements (grátis, sem API key, retorna MP3 real via Amazon Polly)
+  const STREAM_ELEMENTS_VOICES = [
+    { id: 'Vitoria',  label: 'Vitória — pt-BR Feminino' },
+    { id: 'Camila',   label: 'Camila — pt-BR Feminino' },
+    { id: 'Ricardo',  label: 'Ricardo — pt-BR Masculino' },
+    { id: 'Amy',      label: 'Amy — en-GB Feminino' },
+    { id: 'Brian',    label: 'Brian — en-GB Masculino' },
+    { id: 'Emma',     label: 'Emma — en-GB Feminino' },
+    { id: 'Joanna',   label: 'Joanna — en-US Feminino' },
+    { id: 'Joey',     label: 'Joey — en-US Masculino' },
+    { id: 'Matthew',  label: 'Matthew — en-US Masculino' },
+    { id: 'Kendra',   label: 'Kendra — en-US Feminino' },
+  ];
+
+  // Inicializa voz padrão do StreamElements
   useEffect(() => {
-    const load = () => {
-      const voices = window.speechSynthesis?.getVoices() || [];
-      setTtsWebVoices(voices);
-      if (!ttsVoice && voices.length) {
-        const ptBr = voices.find(v => v.lang === 'pt-BR');
-        const enUs = voices.find(v => v.lang === 'en-US');
-        setTtsVoice((ptBr || enUs || voices[0])?.name || '');
-      }
-    };
-    load();
-    window.speechSynthesis?.addEventListener('voiceschanged', load);
-    return () => window.speechSynthesis?.removeEventListener('voiceschanged', load);
+    if (!ttsVoice) setTtsVoice('Vitoria');
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Busca lista de vozes ElevenLabs via API
@@ -1524,42 +1526,18 @@ function App() {
     } catch { /* ignora falhas de decodificação */ }
   };
 
-  // Web Speech API — captura via MediaRecorder quando possível
-  const generateWebSpeech = () =>
-    new Promise((resolve, reject) => {
-      if (!window.speechSynthesis) {
-        reject(new Error('Seu browser não suporta Web Speech API'));
-        return;
-      }
-      const utterance = new SpeechSynthesisUtterance(ttsText);
-      utterance.rate  = ttsSpeed;
-      utterance.pitch = ttsPitch;
-      const chosenVoice = ttsWebVoices.find(v => v.name === ttsVoice);
-      if (chosenVoice) utterance.voice = chosenVoice;
-
-      // Tenta capturar áudio via AudioContext + MediaRecorder
-      let captured = false;
-      let mr;
-      const chunks = [];
-      try {
-        const ac   = new (window.AudioContext || window.webkitAudioContext)();
-        const dest = ac.createMediaStreamDestination();
-        mr = new MediaRecorder(dest.stream, { mimeType: 'audio/webm;codecs=opus' });
-        mr.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
-        mr.onstop = async () => {
-          const blob = new Blob(chunks, { type: 'audio/webm' });
-          resolve(await blob.arrayBuffer());
-        };
-        mr.start(100);
-        captured = true;
-      } catch { captured = false; }
-
-      utterance.onend  = () => { if (captured && mr) mr.stop(); else resolve(null); };
-      utterance.onerror = e => reject(new Error(e.error));
-      window.speechSynthesis.cancel();
-      window.speechSynthesis.speak(utterance);
-      if (!captured) resolve(null);
-    });
+  // StreamElements TTS — grátis, sem API key, retorna MP3 real (Amazon Polly)
+  const generateStreamElements = async () => {
+    const voice = ttsVoice || 'Vitoria';
+    // Ajusta velocidade: StreamElements aceita ?speed= de 0.1 a 3.0 (padrão 1)
+    const speed = Math.max(0.1, Math.min(3.0, ttsSpeed));
+    const url = `https://api.streamelements.com/kappa/v2/speech?voice=${encodeURIComponent(voice)}&text=${encodeURIComponent(ttsText)}&speed=${speed}`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`StreamElements erro ${res.status} — tente novamente.`);
+    const ab = await res.arrayBuffer();
+    if (ab.byteLength < 1000) throw new Error('Resposta vazia. Verifique o texto ou tente outra voz.');
+    return ab;
+  };
 
   // ElevenLabs TTS
   const generateElevenLabs = async () => {
@@ -1635,18 +1613,9 @@ function App() {
     setTtsError(''); setTtsSuccess(''); setTtsLoading(true);
     try {
       if (ttsEngine === 'webspeech') {
-        const result = await generateWebSpeech();
-        if (result) {
-          await applyTtsAudio(result, 'audio/webm');
-          setTtsSuccess(lang === 'en' ? '✅ Narration added to the timeline!' : '✅ Narração adicionada à timeline!');
-        } else {
-          // Fallback: browser reproduz mas não permite captura
-          setTtsSuccess(
-            lang === 'en'
-              ? "🔊 Playing narration. Note: your browser doesn't support audio capture — use ElevenLabs or Google to embed the audio in the timeline."
-              : '🔊 Narração reproduzida. Seu browser não suporta captura de áudio — use ElevenLabs ou Google para inserir na timeline.'
-          );
-        }
+        const ab = await generateStreamElements();
+        await applyTtsAudio(ab, 'audio/mpeg');
+        setTtsSuccess(lang === 'en' ? '✅ Narration added to the timeline!' : '✅ Narração adicionada à timeline!');
       } else if (ttsEngine === 'elevenlabs') {
         if (!ttsElevenKey) throw new Error(lang === 'en' ? 'Enter your ElevenLabs API key.' : 'Insira sua API Key do ElevenLabs.');
         const ab = await generateElevenLabs();
@@ -4339,7 +4308,7 @@ function App() {
                   {/* ── Seletor de engine ── */}
                   <div style={{ display: 'flex', gap: 6 }}>
                     {[
-                      { id: 'webspeech',  icon: '🌐', label: 'Browser',     sub: lang === 'en' ? 'Free · No key' : 'Grátis · Sem chave' },
+                      { id: 'webspeech',  icon: '🆓', label: 'StreamElem.', sub: lang === 'en' ? 'Free · No key' : 'Grátis · Sem chave' },
                       { id: 'elevenlabs', icon: '⚡', label: 'ElevenLabs',  sub: lang === 'en' ? 'API Key · Premium' : 'API Key · Premium' },
                       { id: 'google',     icon: '🔵', label: 'Google TTS',  sub: lang === 'en' ? 'API Key · Neural' : 'API Key · Neural' },
                     ].map(eng => (
@@ -4420,11 +4389,17 @@ function App() {
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
                     <label style={{ fontSize: 10, color: '#94a3b8', fontWeight: 700 }}>🗣️ {lang === 'en' ? 'Voice' : 'Voz'}</label>
                     {ttsEngine === 'webspeech' && (
-                      <select value={ttsVoice} onChange={e => setTtsVoice(e.target.value)}
-                        style={{ background: '#0d1117', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10, padding: '7px 10px', color: '#f0f0f0', fontSize: 11 }}>
-                        {ttsWebVoices.length === 0 && <option value="">{lang === 'en' ? '-- No voices found (Chrome recommended) --' : '-- Nenhuma voz encontrada (use Chrome) --'}</option>}
-                        {ttsWebVoices.map(v => <option key={v.name} value={v.name}>{v.name} ({v.lang})</option>)}
-                      </select>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                        <select value={ttsVoice} onChange={e => setTtsVoice(e.target.value)}
+                          style={{ background: '#0d1117', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10, padding: '7px 10px', color: '#f0f0f0', fontSize: 11 }}>
+                          {STREAM_ELEMENTS_VOICES.map(v => <option key={v.id} value={v.id}>{v.label}</option>)}
+                        </select>
+                        <span style={{ fontSize: 10, color: '#334155' }}>
+                          {lang === 'en'
+                            ? '🆓 Powered by StreamElements · Amazon Polly · No account needed.'
+                            : '🆓 Powered by StreamElements · Amazon Polly · Sem cadastro necessário.'}
+                        </span>
+                      </div>
                     )}
                     {ttsEngine === 'elevenlabs' && (
                       <select value={ttsVoice} onChange={e => setTtsVoice(e.target.value)}
