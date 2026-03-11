@@ -4007,7 +4007,7 @@ function App() {
                   <span style={{ fontSize:10, color:'#555' }}>{t('sfx_hint')}</span>
                 </div>
                 {/* Grid of SFX */}
-                <div style={{ padding: '10px 12px', maxHeight: 220, overflowY:'auto', display:'flex', flexWrap:'wrap', gap:6 }}>
+                <div style={{ padding: '10px 12px', maxHeight: 220, overflowY:'auto', display:'grid', gridTemplateColumns:'repeat(6, 1fr)', gap:6 }}>
                   {SFX_LIST.map(sfx => (
                     <button key={sfx.key}
                       title={sfx.name}
@@ -4016,12 +4016,12 @@ function App() {
                         const t = audio ? audio.currentTime : 0;
                         setSoundEffects(prev => [...prev, { id: Date.now() + Math.random(), key: sfx.key, name: sfx.name, emoji: sfx.emoji, startTime: parseFloat(t.toFixed(2)), volume: 1 }]);
                       }}
-                      style={{ background:'rgba(255,255,255,0.04)', border:'1px solid rgba(16,185,129,0.15)', borderRadius:10, padding:'6px 8px', cursor:'pointer', display:'flex', flexDirection:'column', alignItems:'center', gap:3, minWidth:60 }}
+                      style={{ background:'rgba(255,255,255,0.04)', border:'1px solid rgba(16,185,129,0.15)', borderRadius:10, padding:'8px 4px', cursor:'pointer', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:3, width:'100%', boxSizing:'border-box' }}
                       onMouseEnter={e => e.currentTarget.style.background='rgba(16,185,129,0.15)'}
                       onMouseLeave={e => e.currentTarget.style.background='rgba(255,255,255,0.04)'}
                     >
-                      <span style={{ fontSize:20 }}>{sfx.emoji}</span>
-                      <span style={{ fontSize:9, color:'#aaa', fontWeight:600 }}>{sfx.name}</span>
+                      <span style={{ fontSize:20, lineHeight:1 }}>{sfx.emoji}</span>
+                      <span style={{ fontSize:9, color:'#aaa', fontWeight:600, textAlign:'center', lineHeight:1.2, wordBreak:'break-word' }}>{sfx.name}</span>
                     </button>
                   ))}
                 </div>
