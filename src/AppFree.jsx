@@ -1104,10 +1104,6 @@ function AppFree() {
               const setF = (prop, val) => setImages(prev => prev.map(i => i.id === sel.id ? { ...i, filters: { ...(i.filters||{}), [prop]: val } } : i));
               const resetF  = () => setImages(prev => prev.map(i => i.id === sel.id ? { ...i, filters: {} } : i));
               const setPreset = (f) => setImages(prev => prev.map(i => i.id === sel.id ? { ...i, filters: f } : i));
-              const trIn  = sel.transitionIn  || 'none';
-              const trOut = sel.transitionOut || 'none';
-              const durIn  = sel.transitionInDur  ?? 0.35;
-              const durOut = sel.transitionOutDur ?? 0.35;
               const updTr  = (patch) => setImages(prev => prev.map(i => i.id === sel.id ? { ...i, ...patch } : i));
               const PRESETS = [
                 { label: t('prs_original'), f: {} },
@@ -1131,40 +1127,7 @@ function AppFree() {
                 { key: 'grayscale',  label: t('flt_bw'),         min: 0,   max: 100, def: 0,   unit: '%' },
                 { key: 'opacity',    label: t('flt_opacity'),    min: 0,   max: 100, def: 100, unit: '%' },
               ];
-              const TRANSITIONS = [
-                { value: 'none', label: '—' }, { value: 'fade', label: 'Fade' },
-                { value: 'slide-up', label: 'Slide ↑' }, { value: 'slide-down', label: 'Slide ↓' },
-                { value: 'slide-left', label: 'Slide ←' }, { value: 'slide-right', label: 'Slide →' },
-                { value: 'zoom', label: 'Zoom +' }, { value: 'zoom-out', label: 'Zoom −' },
-                { value: 'blur-in', label: 'Blur' }, { value: 'rotate', label: 'Girar' },
-                { value: 'flip-h', label: 'Flip ↔' }, { value: 'flip-v', label: 'Flip ↕' },
-                { value: 'bounce', label: 'Bounce' }, { value: 'elastic', label: t('tr_elastic') },
-                { value: 'swing', label: 'Swing' }, { value: 'drop', label: 'Drop' },
-                { value: 'roll', label: 'Rolar' }, { value: 'scale-pulse', label: 'Pulsar' },
-              ];
               const isPreset = (pf) => JSON.stringify(flt) === JSON.stringify(pf);
-              const TrGrid = ({ current, onSelect }) => (
-                <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                  {TRANSITIONS.map(({ value, label }) => (
-                    <button key={value} onClick={() => onSelect(value)} style={{
-                      padding: '3px 8px', fontSize: 10, borderRadius: 7, cursor: 'pointer', fontWeight: 600,
-                      background: current === value ? `${accentBg}0.25)` : 'rgba(255,255,255,0.04)',
-                      border: `1px solid ${current === value ? `${accentBg}0.65)` : 'rgba(255,255,255,0.07)'}`,
-                      color: current === value ? accent : '#555',
-                    }}>{label}</button>
-                  ))}
-                </div>
-              );
-              const DurSlider = ({ value, onChange }) => (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginTop: 2 }}>
-                  <span style={{ fontSize: 10, color: '#444', minWidth: 54 }}>{t('ed_duration')}</span>
-                  <input type="range" min={0.05} max={2} step={0.05} value={value}
-                    onChange={e => onChange(+e.target.value)}
-                    onMouseDown={e => e.stopPropagation()} onPointerDown={e => e.stopPropagation()}
-                    style={{ flex: 1, accentColor: accent }} />
-                  <span style={{ fontSize: 10, color: accent, minWidth: 34, textAlign: 'right' }}>{value.toFixed(2)}s</span>
-                </div>
-              );
               return (
                 <div style={{ padding: '12px 18px', borderBottom: '1px solid rgba(255,255,255,0.07)', display: 'flex', flexDirection: 'column', gap: 8 }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -1225,38 +1188,6 @@ function AppFree() {
                           </div>
                         );
                       })}
-                    </div>
-                  </div>
-
-                  {/* Transições */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10, background: `${accentBg}0.04)`, border: `1px solid ${accentBg}0.18)`, borderRadius: 12, padding: '10px 12px' }}>
-                    <span style={{ fontSize: 11, color: accent, fontWeight: 700 }}>✨ {t('ed_transitions')}</span>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 5, background: 'rgba(255,255,255,0.02)', borderRadius: 8, padding: '8px 10px', border: '1px solid rgba(255,255,255,0.05)' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
-                        <span style={{ fontSize: 10, color: accent, fontWeight: 700 }}>▶ {t('tr_in')}</span>
-                        {trIn !== 'none' && <button onClick={() => updTr({ transitionIn: 'none' })} style={{ background: 'none', border: 'none', color: '#444', cursor: 'pointer', fontSize: 11, padding: 0 }}>✕</button>}
-                      </div>
-                      <TrGrid current={trIn} onSelect={v => updTr({ transitionIn: v })} />
-                      {trIn !== 'none' && <DurSlider value={durIn} onChange={v => updTr({ transitionInDur: v })} />}
-                    </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 5, background: 'rgba(255,255,255,0.02)', borderRadius: 8, padding: '8px 10px', border: '1px solid rgba(255,255,255,0.05)' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
-                        <span style={{ fontSize: 10, color: accent, fontWeight: 700 }}>◀ {t('tr_out')}</span>
-                        {trOut !== 'none' && <button onClick={() => updTr({ transitionOut: 'none' })} style={{ background: 'none', border: 'none', color: '#444', cursor: 'pointer', fontSize: 11, padding: 0 }}>✕</button>}
-                      </div>
-                      <TrGrid current={trOut} onSelect={v => updTr({ transitionOut: v })} />
-                      {trOut !== 'none' && <DurSlider value={durOut} onChange={v => updTr({ transitionOutDur: v })} />}
-                    </div>
-                    <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', alignItems: 'center' }}>
-                      <span style={{ fontSize: 10, color: '#444' }}>{t('tr_both')}:</span>
-                      {['fade','slide-up','zoom','blur-in','bounce','roll'].map(v => (
-                        <button key={v} onClick={() => updTr({ transitionIn: v, transitionOut: v })} style={{
-                          padding: '3px 9px', fontSize: 10, borderRadius: 7, cursor: 'pointer', fontWeight: 600,
-                          background: (trIn===v&&trOut===v) ? `${accentBg}0.2)` : 'rgba(255,255,255,0.03)',
-                          border: `1px solid ${(trIn===v&&trOut===v) ? `${accentBg}0.5)` : 'rgba(255,255,255,0.06)'}`,
-                          color: (trIn===v&&trOut===v) ? accent : '#555',
-                        }}>{TRANSITIONS.find(tr=>tr.value===v)?.label}</button>
-                      ))}
                     </div>
                   </div>
                 </div>
