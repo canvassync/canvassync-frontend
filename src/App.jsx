@@ -4,6 +4,102 @@ import { createPortal } from 'react-dom';
 import { useAuth } from './hooks/useAuth.jsx';
 import { useLanguage, LangToggle } from './hooks/useLanguage.jsx';
 
+// ── Chat de Suporte IA — Editor Pro ──────────────────────────────────────────
+function SupportChat({ chatTopic, setChatTopic, setChatOpen }) {
+  const faqs = [
+    {
+      q: '🎵 Como sincronizar a letra?',
+      a: 'Cole a letra no painel esquerdo (uma frase por linha) e clique em ▶ Play. No ritmo de cada frase, pressione ⚡ MARCAR AGORA. A frase entra na timeline. Você pode arrastar ou redimensionar cada bloco depois.',
+    },
+    {
+      q: '🖼️ Como adicionar e editar imagens?',
+      a: 'Clique em "Imagens" no header para fazer upload. A imagem aparece no canvas — clique para selecionar, arraste para mover e use as alças dos cantos para redimensionar. No painel lateral: Rotação e Filtros (Brilho, Contraste, Neon, P&B…).',
+    },
+    {
+      q: '🎬 Como adicionar e editar vídeos?',
+      a: 'Clique em "Vídeos" no header e escolha o arquivo. O vídeo entra no canvas e na timeline. Clique para selecionar → arraste para mover → alças para redimensionar. No painel lateral: Rotação, Filtros e Transições. Na timeline arraste as bordas para cortar.',
+    },
+    {
+      q: '🎨 Como usar Filtros e Transições?',
+      a: 'Selecione uma imagem ou vídeo no canvas. No painel lateral surgem 10 presets de filtro (Cinema, Neon, Vintage…) e 8 sliders finos. Abaixo ficam as Transições — escolha Entrada e Saída independentes (Fade, Zoom, Bounce, Elástico…) e ajuste a duração.',
+    },
+    {
+      q: '✨ Como usar Templates?',
+      a: 'Clique em 🎨 Templates no header. Filtre por formato (9:16, 16:9, 1:1, 4:3) e clique em "Usar template". Fontes, cores, textos e layout são aplicados automaticamente — suas mídias (fundo, áudio, vídeos) não são alteradas.',
+    },
+    {
+      q: '🔊 Como adicionar Efeitos Sonoros?',
+      a: 'Clique em 🔊 Efeitos no header. Pause o vídeo na posição desejada e clique num dos 24 efeitos. Ele aparece na lista "Colocados no Vídeo" com slider de volume. Os efeitos são incluídos no export final.',
+    },
+    {
+      q: '✨ Como usar Stickers e Emojis?',
+      a: 'Clique em ✨ Stickers no header. Aba Emojis: 120 opções. Aba Animados: 32 stickers (bounce, pulse, spin…). Clique no sticker no canvas para selecionar — barra de tamanho aparece na base. Arraste para mover, botão direito para remover.',
+    },
+    {
+      q: '💾 Como exportar o vídeo?',
+      a: 'Escolha o formato: WEBM + Áudio (recomendado), MP4 + Áudio, HD 1080p WEBM ou HD 1080p MP4. Clique em 💾 Salvar Vídeo. A barra de progresso mostra o andamento — não feche a aba. O arquivo é baixado automaticamente.',
+    },
+    {
+      q: '✏️ Como adicionar Textos Extras?',
+      a: 'No painel lateral em "✏️ TEXTOS EXTRAS", digite e clique +. Escolha cor, fonte e tamanho. Ative Sombra ou Gradiente para efeitos. No canvas: arraste para mover, círculo roxo para girar, botão direito para remover.',
+    },
+    {
+      q: '📦 Como salvar e carregar o projeto?',
+      a: 'Use 📦 Exportar Projeto para salvar um JSON com todo o estado (mídias, letras, stickers, efeitos). Use 📂 Importar Projeto para recarregar. O projeto também é auto-salvo no navegador a cada 500ms.',
+    },
+  ];
+
+  return (
+    <div style={{ position: 'fixed', bottom: 88, right: 24, zIndex: 9998, width: 360, borderRadius: 18, background: '#111', border: '1px solid rgba(0,191,255,0.2)', boxShadow: '0 16px 48px rgba(0,0,0,0.7)', overflow: 'hidden', display: 'flex', flexDirection: 'column', maxHeight: '75vh' }}>
+      {/* Header */}
+      <div style={{ padding: '12px 16px', background: 'linear-gradient(135deg,rgba(0,191,255,0.15),rgba(0,112,255,0.1))', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+        <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'linear-gradient(135deg,#00BFFF,#0070ff)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 15 }}>🤖</div>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: '#f0f0f0' }}>Suporte CanvasSync Pro</div>
+          <div style={{ fontSize: 11, color: '#00BFFF' }}>Selecione um tópico para ajuda</div>
+        </div>
+        {chatTopic !== null && (
+          <button onClick={() => setChatTopic(null)} style={{ background: 'none', border: 'none', color: '#666', cursor: 'pointer', fontSize: 18, lineHeight: 1, padding: '0 4px' }}>←</button>
+        )}
+        <button onClick={() => setChatOpen(false)} style={{ background: 'none', border: 'none', color: '#444', cursor: 'pointer', fontSize: 18, lineHeight: 1, padding: '0 4px' }}>✕</button>
+      </div>
+      {/* Body */}
+      <div style={{ padding: 12, overflowY: 'auto', flex: 1 }}>
+        {chatTopic === null ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <p style={{ fontSize: 11, color: '#555', marginBottom: 4 }}>Como posso ajudar?</p>
+            {faqs.map((item, i) => (
+              <button key={i} onClick={() => setChatTopic(i)}
+                style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, padding: '9px 13px', color: '#ccc', fontSize: 12, cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit', width: '100%', transition: 'all 0.15s' }}
+                onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(0,191,255,0.35)'; e.currentTarget.style.color = '#fff'; e.currentTarget.style.background = 'rgba(0,191,255,0.06)'; }}
+                onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'; e.currentTarget.style.color = '#ccc'; e.currentTarget.style.background = 'rgba(255,255,255,0.04)'; }}>
+                {item.q}
+              </button>
+            ))}
+            <a href="mailto:canvassynclyrics@gmail.com" style={{ marginTop: 6, background: 'rgba(0,191,255,0.08)', border: '1px solid rgba(0,191,255,0.2)', borderRadius: 12, padding: '9px 13px', color: '#00BFFF', fontSize: 12, textAlign: 'center', textDecoration: 'none', display: 'block' }}>
+              ✉️ Enviar e-mail para o suporte
+            </a>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div style={{ background: 'rgba(0,191,255,0.07)', border: '1px solid rgba(0,191,255,0.18)', borderRadius: 14, padding: '14px' }}>
+              <p style={{ fontSize: 12, color: '#00BFFF', fontWeight: 700, marginBottom: 10 }}>{faqs[chatTopic].q}</p>
+              <p style={{ fontSize: 13, color: '#ccc', lineHeight: 1.65 }}>{faqs[chatTopic].a}</p>
+            </div>
+            <button onClick={() => setChatTopic(null)}
+              style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, padding: '8px 0', fontSize: 12, color: '#888', cursor: 'pointer', fontFamily: 'inherit' }}>
+              ← Ver todos os tópicos
+            </button>
+            <a href="mailto:canvassynclyrics@gmail.com" style={{ background: 'rgba(0,191,255,0.08)', border: '1px solid rgba(0,191,255,0.2)', borderRadius: 12, padding: '9px 13px', color: '#00BFFF', fontSize: 12, textAlign: 'center', textDecoration: 'none', display: 'block' }}>
+              ✉️ canvassynclyrics@gmail.com
+            </a>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ── Dados de Stickers / Emojis / GIFs ────────────────────────────────────────
 const EMOJI_LIST = [
   ['❤️','🧡','💛','💚','💙','💜','🖤','🤍','💕','💞','💓','💗'],
@@ -843,6 +939,8 @@ function App() {
   useEffect(() => { animTypeRef.current = animType; }, [animType]);
   useEffect(() => { twSpeedRef.current  = twSpeed;  }, [twSpeed]);
   const [dragging, setDragging] = useState(null);
+  const [chatOpen,  setChatOpen]  = useState(false);
+  const [chatTopic, setChatTopic] = useState(null);
   const [isScrubbing, setIsScrubbing] = useState(false);
   const [editingLyricId, setEditingLyricId] = useState(null);
   const [editingExtraTextId, setEditingExtraTextId] = useState(null);
@@ -5019,6 +5117,27 @@ function App() {
           onEnded={() => setIsPlaying(false)}
         />
       )}
+
+      {/* ── Botão flutuante de suporte IA ── */}
+      <button
+        onClick={() => { setChatOpen(o => !o); setChatTopic(null); }}
+        title="Suporte CanvasSync Pro"
+        style={{
+          position: 'fixed', bottom: 24, right: 24, zIndex: 9999,
+          width: 52, height: 52, borderRadius: '50%',
+          background: 'linear-gradient(135deg,#00BFFF,#0070ff)',
+          border: 'none', cursor: 'pointer',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          boxShadow: '0 4px 20px rgba(0,191,255,0.45)',
+          fontSize: 22,
+          transition: 'transform 0.2s',
+        }}
+        onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.1)'}
+        onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
+      >
+        {chatOpen ? '✕' : '🤖'}
+      </button>
+      {chatOpen && <SupportChat chatTopic={chatTopic} setChatTopic={setChatTopic} setChatOpen={setChatOpen} />}
 
     </div>
   );
