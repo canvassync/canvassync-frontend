@@ -637,7 +637,7 @@ function App() {
     '1:1':  { width: 1080, height: 1080, label: '1:1 — Instagram' },
     '4:3':  { width: 1024, height: 768,  label: '4:3 — Clássico' },
   };
-  const [canvasFormat, setCanvasFormat] = useState('16:9');
+  const [canvasFormat, setCanvasFormat] = useState('9:16');
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [stickers, setStickers] = useState([]);           // [{id,type,content,animStyle,x,y,size,rotation}]
   const [soundEffects, setSoundEffects] = useState([]);     // [{id,key,name,emoji,startTime,volume}]
@@ -655,7 +655,7 @@ function App() {
   // ── Templates ─────────────────────────────────────────────────────────────
   const [showTemplatePanel, setShowTemplatePanel] = useState(false);
   const [templatePanelPos, setTemplatePanelPos]   = useState({ top: 80, left: 0 });
-  const [templateFormatTab, setTemplateFormatTab] = useState('16:9');
+  const [templateFormatTab, setTemplateFormatTab] = useState('9:16');
   const templateBtnRef    = useRef(null);
   const templatePortalRef = useRef(null);
   const sfxLastTimeRef  = useRef(0);                        // último t conhecido para detecção de cruzamento
