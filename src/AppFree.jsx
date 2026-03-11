@@ -689,7 +689,7 @@ function AppFree() {
     const canvas = canvasRef.current;
     if (!canvas) return;
     setActiveImageId(null); setActiveExtraTextId(null); activeStickerRef.current = null; setActiveStickerId(null);
-    setTimeout(() => {
+    setTimeout(async () => {
       const isPng = exportFormat === 'png';
       const dataUrl = isPng ? canvas.toDataURL('image/png') : canvas.toDataURL('image/jpeg', 0.92);
       const mime = isPng ? 'image/png' : 'image/jpeg';
