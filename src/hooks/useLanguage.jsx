@@ -260,6 +260,7 @@ export function LangProvider({ children }) {
 // Alias para compatibilidade com main.jsx existente
 export { LangProvider as LanguageProvider };
 
+export function useLanguage() {
   const ctx = useContext(LangContext);
   if (!ctx) throw new Error('useLanguage must be used inside LangProvider');
   return ctx;
