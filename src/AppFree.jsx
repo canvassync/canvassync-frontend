@@ -617,7 +617,6 @@ function AppFree() {
     // ── Marca d'água ─────────────────────────────────────────────────────────
     ctx.save();
     ctx.globalAlpha = 0.55;
-    // Fonte proporcional ao lado menor do canvas (evita overflow no 16:9)
     const wFontSize = Math.max(14, Math.round(Math.min(canvas.width, canvas.height) * 0.038));
     const wText = '⚡ CanvasSync Free';
     ctx.font = `bold ${wFontSize}px DM Sans, Poppins, sans-serif`;
@@ -813,7 +812,7 @@ function AppFree() {
         background: 'rgba(8,8,8,0.97)', borderBottom: '1px solid rgba(0,191,255,0.12)',
         width: '100%', boxSizing: 'border-box', backdropFilter: 'blur(12px)',
       }}>
-        {/* ── Linha 1 ── Logo, mídia, formato, salvar, stickers, upgrade ───── */}
+        {/* ── Linha 1 ─────────────────────────────────────────────────────────── */}
         <div className="free-header-scroll" style={{
           display: 'flex', flexWrap: 'wrap', gap: '10px', padding: '10px 16px',
           fontSize: '12px', alignItems: 'center', width: '100%', boxSizing: 'border-box',
@@ -867,7 +866,7 @@ function AppFree() {
             {t('free_save')}
           </button>
 
-        {/* Banner upgrade — à direita */}
+          {/* Banner upgrade */}
           <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 10, background: 'rgba(0,191,255,0.05)', border: '1px solid rgba(0,191,255,0.15)', borderRadius: 12, padding: '6px 14px', flexShrink: 0 }}>
             <span style={{ fontSize: 11, color: '#888' }}>{t('free_upgrade_msg')}</span>
             <button onClick={() => window.location.href = '/planos'}
@@ -877,28 +876,25 @@ function AppFree() {
           </div>
         </div>{/* fim linha 1 */}
 
-        {/* ── Linha 2 — Exportar, Importar, Limpar ─────────────────────────── */}
+        {/* ── Linha 2 ─────────────────────────────────────────────────────────── */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 16px 8px', flexWrap: 'wrap' }}>
-          {/* Exportar projeto */}
           <button onClick={exportProject}
             style={{ background: 'rgba(0,191,255,0.08)', border: '1px solid rgba(0,191,255,0.2)', padding: '6px 14px', borderRadius: 12, cursor: 'pointer', fontWeight: 'bold', fontSize: '11px', color: '#00BFFF', whiteSpace: 'nowrap' }}>
             {t('ed_export_project')}
           </button>
 
-          {/* Importar projeto */}
           <input ref={importInputRef} type="file" accept="application/json" style={{ display: 'none' }} onChange={e => importProjectFromFile(e.target.files[0])} />
           <button onClick={() => importInputRef.current?.click()}
             style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', padding: '6px 14px', borderRadius: 12, cursor: 'pointer', fontWeight: 'bold', fontSize: '11px', color: '#888', whiteSpace: 'nowrap' }}>
             {t('ed_import_project')}
           </button>
 
-          {/* Limpar */}
           <button onClick={handleClearProject}
             style={{ background: 'rgba(239,68,68,0.07)', border: '1px solid rgba(239,68,68,0.18)', padding: '6px 14px', borderRadius: 12, cursor: 'pointer', fontWeight: 'bold', fontSize: '11px', color: '#f87171', whiteSpace: 'nowrap' }}>
             {t('ed_clear_project')}
           </button>
 
-          {/* ── Stickers — direita da linha 2 ──────────────────────────────── */}
+          {/* Stickers */}
           <div style={{ marginLeft: 'auto', position: 'relative' }}>
             <button ref={stickerBtnRef}
               onClick={() => {
@@ -988,7 +984,7 @@ function AppFree() {
 
         {/* ── PAINEL ESQUERDO ────────────────────────────────────────────────── */}
         <div className="free-panel free-scrollbar" style={{
-          width: '380px', minWidth: '380px',
+          width: '430px', minWidth: '430px',
           borderRight: '1px solid rgba(255,255,255,0.07)',
           display: 'flex', flexDirection: 'column',
           background: '#0d0d0d', overflowY: 'auto',
@@ -1036,25 +1032,24 @@ function AppFree() {
               </div>
             </div>
 
-            {/* Sombra + Gradiente — sempre visível */}
+            {/* ── Sombra + Gradiente na mesma linha ── */}
             {(() => {
               const tid = activeExtraTextId || (extraTexts.length ? extraTexts[extraTexts.length - 1]?.id : null);
               const sel = extraTexts.find(t => t.id === tid);
-              // Valores: usa per-item se existe, senão usa globais
               const shadowEnabled   = sel ? (sel.shadowEnabled   ?? extraTextShadowEnabled)  : extraTextShadowEnabled;
               const shadowColor     = sel ? (sel.shadowColor     || extraTextShadowColor)     : extraTextShadowColor;
               const shadowBlur      = sel ? (sel.shadowBlur      ?? extraTextShadowBlur)      : extraTextShadowBlur;
               const gradientEnabled = sel ? (sel.gradientEnabled ?? extraTextGradientEnabled) : extraTextGradientEnabled;
               const gradientColor1  = sel ? (sel.gradientColor1  || extraTextGradientColor1)  : extraTextGradientColor1;
               const gradientColor2  = sel ? (sel.gradientColor2  || extraTextGradientColor2)  : extraTextGradientColor2;
-              // Setter: atualiza item E global
               const set = (prop, val, setter) => {
                 setter(val);
                 if (sel) setExtraTexts(prev => prev.map(t => t.id === tid ? { ...t, [prop]: val } : t));
               };
               return (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', background: 'rgba(0,191,255,0.03)', border: '1px solid rgba(0,191,255,0.08)', borderRadius: 10, padding: '8px 10px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'nowrap', background: 'rgba(0,191,255,0.03)', border: '1px solid rgba(0,191,255,0.08)', borderRadius: 10, padding: '8px 10px', overflowX: 'auto' }}>
+                  {/* Sombra */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0 }}>
                     <span style={{ fontSize: 10, color: '#64748b', fontWeight: 700 }}>{t('ed_shadow')}</span>
                     <input type="checkbox" checked={shadowEnabled}
                       onChange={e => set('shadowEnabled', e.target.checked, setExtraTextShadowEnabled)}
@@ -1069,7 +1064,10 @@ function AppFree() {
                       <span style={{ fontSize: 10, color: '#64748b', minWidth: 22 }}>{shadowBlur}px</span>
                     </>}
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                  {/* Divisor */}
+                  <div style={{ width: 1, height: 18, background: 'rgba(255,255,255,0.08)', flexShrink: 0 }} />
+                  {/* Gradiente */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0 }}>
                     <span style={{ fontSize: 10, color: '#64748b', fontWeight: 700 }}>{t('ed_gradient')}</span>
                     <input type="checkbox" checked={gradientEnabled}
                       onChange={e => set('gradientEnabled', e.target.checked, setExtraTextGradientEnabled)}
@@ -1131,7 +1129,6 @@ function AppFree() {
               {t('free_images_comp')} <span style={{ marginLeft: 6, color: '#555', fontWeight: 400 }}>({images.length})</span>
             </label>
 
-            {/* Barra de controle da imagem selecionada */}
             {activeImageId && (() => {
               const sel = images.find(i => i.id === activeImageId);
               if (!sel) return null;
@@ -1143,7 +1140,6 @@ function AppFree() {
               const setF = (prop, val) => setImages(prev => prev.map(i => i.id === sel.id ? { ...i, filters: { ...(i.filters||{}), [prop]: val } } : i));
               const resetF  = () => setImages(prev => prev.map(i => i.id === sel.id ? { ...i, filters: {} } : i));
               const setPreset = (f) => setImages(prev => prev.map(i => i.id === sel.id ? { ...i, filters: f } : i));
-              const updTr  = (patch) => setImages(prev => prev.map(i => i.id === sel.id ? { ...i, ...patch } : i));
               const PRESETS = [
                 { label: t('prs_original'), f: {} },
                 { label: t('prs_bw'),      f: { grayscale: 100 } },
@@ -1168,13 +1164,11 @@ function AppFree() {
               ];
               const isPreset = (pf) => JSON.stringify(flt) === JSON.stringify(pf);
               return (
-                <div style={{ padding: '12px 18px', borderBottom: '1px solid rgba(255,255,255,0.07)', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <div style={{ padding: '12px 0', display: 'flex', flexDirection: 'column', gap: 8 }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     <label style={{ fontSize: '11px', color: accent, fontWeight: 700, letterSpacing: '0.6px' }}>{t('sel_image')}</label>
                     <button onClick={() => setActiveImageId(null)} style={{ background: 'none', border: 'none', color: '#555', cursor: 'pointer', fontSize: 14 }}>✕</button>
                   </div>
-
-                  {/* Rotação */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                     <span style={{ fontSize: 11, color: '#888', minWidth: 52 }}>{t('ed_rotation')}</span>
                     <input type="range" min="-180" max="180" value={rot}
@@ -1194,8 +1188,6 @@ function AppFree() {
                       }}>{d}°</button>
                     ))}
                   </div>
-
-                  {/* Filtros */}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 8, background: `${accentBg}0.04)`, border: `1px solid ${accentBg}0.18)`, borderRadius: 12, padding: '10px 12px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                       <span style={{ fontSize: 11, color: accent, fontWeight: 700 }}>🎨 {t('ed_filters')}</span>
@@ -1269,13 +1261,11 @@ function AppFree() {
         <div className="free-canvas-area" ref={canvasContainerRef}
           style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg,#141b34 0%,#0b1024 100%)', position: 'relative' }}>
 
-          {/* Botão tela cheia */}
           <button onClick={() => setIsFullscreen(true)}
             style={{ position: 'absolute', top: 12, right: 12, zIndex: 10, background: 'rgba(0,191,255,0.12)', border: '1px solid rgba(0,191,255,0.3)', borderRadius: 10, padding: '6px 12px', cursor: 'pointer', fontSize: 13, color: '#00BFFF', fontWeight: 700, backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', gap: 6 }}>
             ⛶ {t('ed_fullscreen')}
           </button>
 
-          {/* Badge de formato */}
           <div style={{ position: 'absolute', top: 12, left: 12, zIndex: 10, background: 'rgba(167,139,250,0.15)', border: '1px solid rgba(167,139,250,0.3)', borderRadius: 8, padding: '4px 10px', fontSize: 11, color: '#a78bfa', fontWeight: 700, backdropFilter: 'blur(8px)' }}>
             {canvasFormat} · {canvasW}×{canvasH}
           </div>
@@ -1293,7 +1283,6 @@ function AppFree() {
               const mx = (e.clientX - rect.left) * (canvas.width / rect.width);
               const my = (e.clientY - rect.top)  * (canvas.height / rect.height);
               const ctx = canvas.getContext('2d');
-              // Right-click sticker
               for (let i = stickersRef.current.length - 1; i >= 0; i--) {
                 const stk = stickersRef.current[i];
                 if (Math.abs(mx - stk.x) <= (stk.size || 80) / 2 + 8 && Math.abs(my - stk.y) <= (stk.size || 80) / 2 + 8) {
@@ -1302,7 +1291,6 @@ function AppFree() {
                   return;
                 }
               }
-              // Right-click extra text
               extraTexts.forEach(txt => {
                 const rot = (txt.rotation || 0) * Math.PI / 180;
                 const { halfW, halfH } = getExtraTextBounds(txt, ctx);
@@ -1313,7 +1301,7 @@ function AppFree() {
             style={{ border: '1px solid rgba(0,191,255,0.15)', borderRadius: 14, maxHeight: '88%', maxWidth: '92%', cursor: 'move', boxShadow: '0 24px 50px rgba(0,0,0,0.55)' }}
           />
 
-          {/* ── Barra flutuante: tamanho do sticker selecionado ── */}
+          {/* Barra flutuante: tamanho do sticker */}
           {stickers.filter(s => s.id === activeStickerId).map(sel => (
             <div key={sel.id} style={{
               position: 'absolute', bottom: 48, left: '50%', transform: 'translateX(-50%)',
@@ -1334,7 +1322,7 @@ function AppFree() {
             </div>
           ))}
 
-          {/* ── Barra flutuante: tamanho W/H da imagem selecionada ── */}
+          {/* Barra flutuante: tamanho W/H da imagem */}
           {(() => {
             const selImg = activeImageId ? images.find(i => i.id === activeImageId) : null;
             if (!selImg || activeStickerId) return null;
@@ -1372,7 +1360,6 @@ function AppFree() {
             );
           })()}
 
-          {/* Dica de marca d'água */}
           <div style={{ position: 'absolute', bottom: 14, left: '50%', transform: 'translateX(-50%)', background: 'rgba(0,0,0,0.65)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 10, padding: '5px 14px', fontSize: 11, color: '#555', whiteSpace: 'nowrap', pointerEvents: 'none' }}>
             {t('free_watermark_msg')}
           </div>
