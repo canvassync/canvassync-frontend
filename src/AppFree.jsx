@@ -82,6 +82,12 @@ function AppFree() {
   const [extraTextColor, setExtraTextColor]         = useState('#ffffff');
   const [extraTextFontFamily, setExtraTextFontFamily] = useState('Poppins');
   const [extraTextFontSize, setExtraTextFontSize]   = useState(28);
+  const [extraTextShadowEnabled,  setExtraTextShadowEnabled]  = useState(true);
+  const [extraTextShadowColor,    setExtraTextShadowColor]    = useState('#000000');
+  const [extraTextShadowBlur,     setExtraTextShadowBlur]     = useState(10);
+  const [extraTextGradientEnabled, setExtraTextGradientEnabled] = useState(false);
+  const [extraTextGradientColor1,  setExtraTextGradientColor1]  = useState('#ffffff');
+  const [extraTextGradientColor2,  setExtraTextGradientColor2]  = useState('#00BFFF');
 
   // ── Fontes customizadas ────────────────────────────────────────────────────────
   const [customFonts, setCustomFonts] = useState([]);
@@ -326,7 +332,11 @@ function AppFree() {
       return;
     }
     const cx = Math.round(canvasW / 2), cy = Math.round(canvasH * 0.18);
-    setExtraTexts([{ id: Date.now(), text: newExtraInput, x: cx, y: cy, rotation: 0, color: extraTextColor, fontFamily: extraTextFontFamily, fontSize: extraTextFontSize }]);
+    setExtraTexts([{ id: Date.now(), text: newExtraInput, x: cx, y: cy, rotation: 0,
+      color: extraTextColor, fontFamily: extraTextFontFamily, fontSize: extraTextFontSize,
+      shadowEnabled: extraTextShadowEnabled, shadowColor: extraTextShadowColor, shadowBlur: extraTextShadowBlur,
+      gradientEnabled: extraTextGradientEnabled, gradientColor1: extraTextGradientColor1, gradientColor2: extraTextGradientColor2,
+    }]);
     setNewExtraInput('');
   };
 
@@ -608,7 +618,7 @@ function AppFree() {
     ctx.save();
     ctx.globalAlpha = 0.55;
     // Fonte proporcional ao lado menor do canvas (evita overflow no 16:9)
-    const wFontSize = Math.max(10, Math.round(Math.min(canvas.width, canvas.height) * 0.016));
+    const wFontSize = Math.max(14, Math.round(Math.min(canvas.width, canvas.height) * 0.038));
     const wText = '⚡ CanvasSync Free';
     ctx.font = `bold ${wFontSize}px DM Sans, Poppins, sans-serif`;
     const textW  = ctx.measureText(wText).width;
@@ -625,6 +635,8 @@ function AppFree() {
     ctx.fillText(wText, bx + 10, by + badgeH / 2);
     ctx.restore();
   }, [image, images, extraTexts, extraTextColor, extraTextFontFamily, extraTextFontSize,
+      extraTextShadowEnabled, extraTextShadowColor, extraTextShadowBlur,
+      extraTextGradientEnabled, extraTextGradientColor1, extraTextGradientColor2,
       activeImageId, activeExtraTextId, drawRoundedImage, drawRoundedRect, drawResizeHandles]);
 
   // ── RAF loop ─────────────────────────────────────────────────────────────────
@@ -1020,28 +1032,51 @@ function AppFree() {
               </div>
             </div>
 
-            {/* Sombra + Gradiente */}
+            {/* Sombra + Gradiente — sempre visível */}
             {(() => {
               const tid = activeExtraTextId || (extraTexts.length ? extraTexts[extraTexts.length - 1]?.id : null);
               const sel = extraTexts.find(t => t.id === tid);
-              if (!sel) return null;
-              const setP = (prop, val) => setExtraTexts(prev => prev.map(t => t.id === tid ? { ...t, [prop]: val } : t));
+              // Valores: usa per-item se existe, senão usa globais
+              const shadowEnabled   = sel ? (sel.shadowEnabled   ?? extraTextShadowEnabled)  : extraTextShadowEnabled;
+              const shadowColor     = sel ? (sel.shadowColor     || extraTextShadowColor)     : extraTextShadowColor;
+              const shadowBlur      = sel ? (sel.shadowBlur      ?? extraTextShadowBlur)      : extraTextShadowBlur;
+              const gradientEnabled = sel ? (sel.gradientEnabled ?? extraTextGradientEnabled) : extraTextGradientEnabled;
+              const gradientColor1  = sel ? (sel.gradientColor1  || extraTextGradientColor1)  : extraTextGradientColor1;
+              const gradientColor2  = sel ? (sel.gradientColor2  || extraTextGradientColor2)  : extraTextGradientColor2;
+              // Setter: atualiza item E global
+              const set = (prop, val, setter) => {
+                setter(val);
+                if (sel) setExtraTexts(prev => prev.map(t => t.id === tid ? { ...t, [prop]: val } : t));
+              };
               return (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', background: 'rgba(0,191,255,0.03)', border: '1px solid rgba(0,191,255,0.08)', borderRadius: 10, padding: '8px 10px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
                     <span style={{ fontSize: 10, color: '#64748b', fontWeight: 700 }}>{t('ed_shadow')}</span>
-                    <input type="checkbox" checked={sel.shadowEnabled ?? true} onChange={e => setP('shadowEnabled', e.target.checked)} style={{ accentColor: '#00BFFF' }} />
-                    {(sel.shadowEnabled ?? true) && <>
-                      <input type="color" value={(sel.shadowColor || '#000000').replace(/rgba?\([^)]+\)/, '#000000')} onChange={e => setP('shadowColor', e.target.value)} style={{ width: 22, height: 22, padding: 0, border: 'none', background: 'none', cursor: 'pointer' }} />
-                      <input type="range" min="0" max="30" value={sel.shadowBlur ?? 10} onChange={e => setP('shadowBlur', +e.target.value)} style={{ width: 60, accentColor: '#00BFFF' }} />
+                    <input type="checkbox" checked={shadowEnabled}
+                      onChange={e => set('shadowEnabled', e.target.checked, setExtraTextShadowEnabled)}
+                      style={{ accentColor: '#00BFFF' }} />
+                    {shadowEnabled && <>
+                      <input type="color" value={shadowColor.replace(/rgba?\([^)]+\)/, '#000000')}
+                        onChange={e => set('shadowColor', e.target.value, setExtraTextShadowColor)}
+                        style={{ width: 22, height: 22, padding: 0, border: 'none', background: 'none', cursor: 'pointer' }} />
+                      <input type="range" min="0" max="30" value={shadowBlur}
+                        onChange={e => set('shadowBlur', +e.target.value, setExtraTextShadowBlur)}
+                        style={{ width: 60, accentColor: '#00BFFF' }} />
+                      <span style={{ fontSize: 10, color: '#64748b', minWidth: 22 }}>{shadowBlur}px</span>
                     </>}
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
                     <span style={{ fontSize: 10, color: '#64748b', fontWeight: 700 }}>{t('ed_gradient')}</span>
-                    <input type="checkbox" checked={sel.gradientEnabled ?? false} onChange={e => setP('gradientEnabled', e.target.checked)} style={{ accentColor: '#00BFFF' }} />
-                    {(sel.gradientEnabled ?? false) && <>
-                      <input type="color" value={sel.gradientColor1 || '#ffffff'} onChange={e => setP('gradientColor1', e.target.value)} style={{ width: 22, height: 22, padding: 0, border: 'none', background: 'none', cursor: 'pointer' }} />
-                      <input type="color" value={sel.gradientColor2 || '#00BFFF'} onChange={e => setP('gradientColor2', e.target.value)} style={{ width: 22, height: 22, padding: 0, border: 'none', background: 'none', cursor: 'pointer' }} />
+                    <input type="checkbox" checked={gradientEnabled}
+                      onChange={e => set('gradientEnabled', e.target.checked, setExtraTextGradientEnabled)}
+                      style={{ accentColor: '#00BFFF' }} />
+                    {gradientEnabled && <>
+                      <input type="color" value={gradientColor1}
+                        onChange={e => set('gradientColor1', e.target.value, setExtraTextGradientColor1)}
+                        style={{ width: 22, height: 22, padding: 0, border: 'none', background: 'none', cursor: 'pointer' }} />
+                      <input type="color" value={gradientColor2}
+                        onChange={e => set('gradientColor2', e.target.value, setExtraTextGradientColor2)}
+                        style={{ width: 22, height: 22, padding: 0, border: 'none', background: 'none', cursor: 'pointer' }} />
                     </>}
                   </div>
                 </div>
