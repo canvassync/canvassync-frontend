@@ -748,6 +748,22 @@ function App() {
   const sfxBtnRef       = useRef(null);
   const sfxLiveAcRef    = useRef(null);                     // AudioContext para preview de SFX
   const sfxPlayedRef    = useRef(new Set());                // IDs de SFX já disparados nesta sessão
+  // ── TTS (Narração com IA) ─────────────────────────────────────────────────
+  const [showTtsPanel, setShowTtsPanel]       = useState(false);
+  const [ttsPanelPos,  setTtsPanelPos]        = useState({ top: 80, left: 0 });
+  const [ttsText,      setTtsText]            = useState('');
+  const [ttsEngine,    setTtsEngine]          = useState('webspeech');
+  const [ttsVoice,     setTtsVoice]           = useState('');
+  const [ttsSpeed,     setTtsSpeed]           = useState(1.0);
+  const [ttsPitch,     setTtsPitch]           = useState(1.0);
+  const [ttsElevenKey, setTtsElevenKey]       = useState(() => { try { return localStorage.getItem('cs_tts_eleven') || ''; } catch { return ''; } });
+  const [ttsGoogleKey, setTtsGoogleKey]       = useState(() => { try { return localStorage.getItem('cs_tts_google') || ''; } catch { return ''; } });
+  const [ttsWebVoices, setTtsWebVoices]       = useState([]);
+  const [ttsElevenVoices, setTtsElevenVoices] = useState([]);
+  const [ttsLoading,   setTtsLoading]         = useState(false);
+  const [ttsError,     setTtsError]           = useState('');
+  const [ttsSuccess,   setTtsSuccess]         = useState('');
+  const ttsBtnRef = useRef(null);
   // ── Templates ─────────────────────────────────────────────────────────────
   const [showTemplatePanel, setShowTemplatePanel] = useState(false);
   const [templatePanelPos, setTemplatePanelPos]   = useState({ top: 80, left: 0 });
@@ -956,7 +972,7 @@ function App() {
   // Fecha tela cheia com ESC; fecha painel sticker com ESC ou clique fora
   useEffect(() => {
     const onKey = (e) => {
-      if (e.key === 'Escape') { setIsFullscreen(false); setShowStickerPanel(false); setShowTemplatePanel(false); }
+      if (e.key === 'Escape') { setIsFullscreen(false); setShowStickerPanel(false); setShowTemplatePanel(false); setShowTtsPanel(false); }
     };
     const onClickOut = (e) => {
       if (showStickerPanel && stickerBtnRef.current && !stickerBtnRef.current.contains(e.target) &&
@@ -967,6 +983,10 @@ function App() {
           !e.target.closest('[data-sfx-portal]')) {
         setShowSfxPanel(false);
       }
+      if (showTtsPanel && ttsBtnRef.current && !ttsBtnRef.current.contains(e.target) &&
+          !e.target.closest('[data-tts-portal]')) {
+        setShowTtsPanel(false);
+      }
       if (showTemplatePanel && templateBtnRef.current && !templateBtnRef.current.contains(e.target) &&
           !(templatePortalRef.current && templatePortalRef.current.contains(e.target))) {
         // handled by overlay
@@ -975,7 +995,7 @@ function App() {
     window.addEventListener('keydown', onKey);
     document.addEventListener('mousedown', onClickOut);
     return () => { window.removeEventListener('keydown', onKey); document.removeEventListener('mousedown', onClickOut); };
-  }, [showStickerPanel, showSfxPanel, showTemplatePanel]);
+  }, [showStickerPanel, showSfxPanel, showTemplatePanel, showTtsPanel]);
 
   const handleImageChange = (e) => {
     const file = e.target.files[0];
@@ -1433,6 +1453,216 @@ function App() {
     virtualTimeRef.current = 0;
     setIsPlaying(false);
     setCurrentTime(0);
+  };
+
+  // ════════════════════════════════════════════════════════════════════
+  // TTS — Narração com IA (Web Speech + ElevenLabs + Google Cloud TTS)
+  // ════════════════════════════════════════════════════════════════════
+
+  // Carrega vozes Web Speech disponíveis no browser
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    const load = () => {
+      const voices = window.speechSynthesis?.getVoices() || [];
+      setTtsWebVoices(voices);
+      if (!ttsVoice && voices.length) {
+        const ptBr = voices.find(v => v.lang === 'pt-BR');
+        const enUs = voices.find(v => v.lang === 'en-US');
+        setTtsVoice((ptBr || enUs || voices[0])?.name || '');
+      }
+    };
+    load();
+    window.speechSynthesis?.addEventListener('voiceschanged', load);
+    return () => window.speechSynthesis?.removeEventListener('voiceschanged', load);
+  }, []);
+
+  // Busca lista de vozes ElevenLabs via API
+  const fetchElevenVoices = async (key) => {
+    if (!key) return;
+    try {
+      const res = await fetch('https://api.elevenlabs.io/v1/voices', {
+        headers: { 'xi-api-key': key },
+      });
+      if (!res.ok) throw new Error('Chave inválida');
+      const data = await res.json();
+      setTtsElevenVoices(data.voices || []);
+      if (data.voices?.length) setTtsVoice(data.voices[0].voice_id);
+    } catch (err) {
+      setTtsError(err.message);
+      setTtsElevenVoices([]);
+    }
+  };
+
+  // Converte ArrayBuffer em data-URL para uso como src do <audio>
+  const arrayBufferToDataUrl = (buffer, mime) =>
+    new Promise(resolve => {
+      const blob = new Blob([buffer], { type: mime });
+      const reader = new FileReader();
+      reader.onload = e => resolve(e.target.result);
+      reader.readAsDataURL(blob);
+    });
+
+  // Injeta o áudio gerado na timeline (substitui faixa atual)
+  const applyTtsAudio = async (audioData, mime) => {
+    const dataUrl = await arrayBufferToDataUrl(audioData, mime);
+    setAudioSrc(dataUrl);
+    setAudioBase64(dataUrl);
+    setAudioMimeType(mime);
+    // Decodifica peaks para waveform
+    try {
+      const ac = new (window.AudioContext || window.webkitAudioContext)();
+      const buf = await ac.decodeAudioData(audioData.slice(0));
+      const raw = buf.getChannelData(0);
+      const peaks = [];
+      const step = Math.max(1, Math.floor(raw.length / 1200));
+      for (let i = 0; i < 1200; i++) {
+        let max = 0;
+        for (let j = 0; j < step; j++) max = Math.max(max, Math.abs(raw[i * step + j] || 0));
+        peaks.push(max);
+      }
+      setWaveformPeaks(peaks);
+    } catch { /* ignora falhas de decodificação */ }
+  };
+
+  // Web Speech API — captura via MediaRecorder quando possível
+  const generateWebSpeech = () =>
+    new Promise((resolve, reject) => {
+      if (!window.speechSynthesis) {
+        reject(new Error('Seu browser não suporta Web Speech API'));
+        return;
+      }
+      const utterance = new SpeechSynthesisUtterance(ttsText);
+      utterance.rate  = ttsSpeed;
+      utterance.pitch = ttsPitch;
+      const chosenVoice = ttsWebVoices.find(v => v.name === ttsVoice);
+      if (chosenVoice) utterance.voice = chosenVoice;
+
+      // Tenta capturar áudio via AudioContext + MediaRecorder
+      let captured = false;
+      let mr;
+      const chunks = [];
+      try {
+        const ac   = new (window.AudioContext || window.webkitAudioContext)();
+        const dest = ac.createMediaStreamDestination();
+        mr = new MediaRecorder(dest.stream, { mimeType: 'audio/webm;codecs=opus' });
+        mr.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
+        mr.onstop = async () => {
+          const blob = new Blob(chunks, { type: 'audio/webm' });
+          resolve(await blob.arrayBuffer());
+        };
+        mr.start(100);
+        captured = true;
+      } catch { captured = false; }
+
+      utterance.onend  = () => { if (captured && mr) mr.stop(); else resolve(null); };
+      utterance.onerror = e => reject(new Error(e.error));
+      window.speechSynthesis.cancel();
+      window.speechSynthesis.speak(utterance);
+      if (!captured) resolve(null);
+    });
+
+  // ElevenLabs TTS
+  const generateElevenLabs = async () => {
+    const voiceId = ttsVoice || ttsElevenVoices[0]?.voice_id;
+    if (!voiceId) throw new Error('Selecione uma voz ElevenLabs.');
+    const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
+      method: 'POST',
+      headers: { 'xi-api-key': ttsElevenKey, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        text: ttsText,
+        model_id: 'eleven_multilingual_v2',
+        voice_settings: { stability: 0.5, similarity_boost: 0.75, speed: ttsSpeed },
+      }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err?.detail?.message || `Erro ElevenLabs: ${res.status}`);
+    }
+    return res.arrayBuffer();
+  };
+
+  // Google Cloud Text-to-Speech
+  const generateGoogleTts = async () => {
+    const voiceName = ttsVoice || 'pt-BR-Neural2-A';
+    const langCode  = voiceName.slice(0, 5); // 'pt-BR' ou 'en-US'
+    const res = await fetch(
+      `https://texttospeech.googleapis.com/v1/text:synthesize?key=${ttsGoogleKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          input: { text: ttsText },
+          voice: { languageCode: langCode, name: voiceName },
+          audioConfig: {
+            audioEncoding: 'MP3',
+            speakingRate: ttsSpeed,
+            pitch: (ttsPitch - 1) * 10,
+          },
+        }),
+      }
+    );
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err?.error?.message || `Erro Google TTS: ${res.status}`);
+    }
+    const data   = await res.json();
+    const binary = atob(data.audioContent);
+    const bytes  = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    return bytes.buffer;
+  };
+
+  const GOOGLE_TTS_VOICES = [
+    { code: 'pt-BR-Neural2-A', label: 'pt-BR Neural2-A — Feminino' },
+    { code: 'pt-BR-Neural2-B', label: 'pt-BR Neural2-B — Masculino' },
+    { code: 'pt-BR-Neural2-C', label: 'pt-BR Neural2-C — Feminino' },
+    { code: 'pt-BR-Standard-A', label: 'pt-BR Standard-A — Feminino' },
+    { code: 'pt-BR-Standard-B', label: 'pt-BR Standard-B — Masculino' },
+    { code: 'en-US-Neural2-A', label: 'en-US Neural2-A — Masculino' },
+    { code: 'en-US-Neural2-C', label: 'en-US Neural2-C — Feminino' },
+    { code: 'en-US-Neural2-D', label: 'en-US Neural2-D — Masculino' },
+    { code: 'en-US-Neural2-E', label: 'en-US Neural2-E — Feminino' },
+    { code: 'en-US-Neural2-F', label: 'en-US Neural2-F — Feminino' },
+  ];
+
+  // Dispatcher principal
+  const handleGenerateTts = async () => {
+    const txt = ttsText.trim();
+    if (!txt) {
+      setTtsError(lang === 'en' ? 'Type the narration text first.' : 'Digite o texto da narração primeiro.');
+      return;
+    }
+    setTtsError(''); setTtsSuccess(''); setTtsLoading(true);
+    try {
+      if (ttsEngine === 'webspeech') {
+        const result = await generateWebSpeech();
+        if (result) {
+          await applyTtsAudio(result, 'audio/webm');
+          setTtsSuccess(lang === 'en' ? '✅ Narration added to the timeline!' : '✅ Narração adicionada à timeline!');
+        } else {
+          // Fallback: browser reproduz mas não permite captura
+          setTtsSuccess(
+            lang === 'en'
+              ? '🔊 Playing narration. Note: your browser doesn't support audio capture — use ElevenLabs or Google to embed the audio in the timeline.'
+              : '🔊 Narração reproduzida. Seu browser não suporta captura de áudio — use ElevenLabs ou Google para inserir na timeline.'
+          );
+        }
+      } else if (ttsEngine === 'elevenlabs') {
+        if (!ttsElevenKey) throw new Error(lang === 'en' ? 'Enter your ElevenLabs API key.' : 'Insira sua API Key do ElevenLabs.');
+        const ab = await generateElevenLabs();
+        await applyTtsAudio(ab, 'audio/mpeg');
+        setTtsSuccess(lang === 'en' ? '✅ Narration added to the timeline!' : '✅ Narração adicionada à timeline!');
+      } else if (ttsEngine === 'google') {
+        if (!ttsGoogleKey) throw new Error(lang === 'en' ? 'Enter your Google Cloud API key.' : 'Insira sua API Key do Google Cloud.');
+        const ab = await generateGoogleTts();
+        await applyTtsAudio(ab, 'audio/mpeg');
+        setTtsSuccess(lang === 'en' ? '✅ Narration added to the timeline!' : '✅ Narração adicionada à timeline!');
+      }
+    } catch (err) {
+      setTtsError(err.message || (lang === 'en' ? 'Error generating narration.' : 'Erro ao gerar narração.'));
+    } finally {
+      setTtsLoading(false);
+    }
   };
 
   const handleClearProject = () => {
@@ -4064,6 +4294,213 @@ function App() {
                     {t('sfx_empty')}
                   </div>
                 )}
+              </div>
+            , document.body)}
+          </div>
+
+          {/* ── Narração IA (TTS) ── */}
+          <div style={{ position: 'relative' }}>
+            <button
+              ref={ttsBtnRef}
+              onClick={() => {
+                const rect = ttsBtnRef.current?.getBoundingClientRect();
+                if (rect) setTtsPanelPos({ top: rect.bottom + 8, left: Math.min(rect.left, window.innerWidth - 430) });
+                setShowTtsPanel(v => !v);
+              }}
+              style={{
+                background: showTtsPanel ? 'rgba(167,139,250,0.22)' : 'rgba(167,139,250,0.08)',
+                border: `1px solid ${showTtsPanel ? 'rgba(167,139,250,0.7)' : 'rgba(167,139,250,0.25)'}`,
+                borderRadius: 14, padding: '7px 14px', cursor: 'pointer',
+                fontWeight: 700, fontSize: 13, color: '#a78bfa',
+                display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap',
+              }}
+            >🎙️ {lang === 'en' ? 'AI Narration' : 'Narração IA'}</button>
+
+            {showTtsPanel && createPortal(
+              <div
+                data-tts-portal
+                onClick={e => e.stopPropagation()}
+                style={{
+                  position: 'fixed', top: ttsPanelPos.top, left: ttsPanelPos.left,
+                  zIndex: 99999, background: '#111827',
+                  border: '1px solid rgba(167,139,250,0.3)', borderRadius: 18,
+                  width: 430, boxShadow: '0 16px 48px rgba(0,0,0,0.88)',
+                  display: 'flex', flexDirection: 'column', overflow: 'hidden',
+                }}
+              >
+                {/* ── Header ── */}
+                <div style={{ padding: '12px 16px 10px', borderBottom: '1px solid rgba(255,255,255,0.07)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontWeight: 800, fontSize: 14, color: '#a78bfa' }}>🎙️ {lang === 'en' ? 'AI Narration' : 'Narração com IA'}</span>
+                  <button onClick={() => setShowTtsPanel(false)} style={{ background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 8, padding: '4px 10px', color: '#f87171', fontWeight: 700, fontSize: 12, cursor: 'pointer' }}>✕</button>
+                </div>
+
+                <div style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 13, maxHeight: 530, overflowY: 'auto' }}>
+
+                  {/* ── Seletor de engine ── */}
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    {[
+                      { id: 'webspeech',  icon: '🌐', label: 'Browser',     sub: lang === 'en' ? 'Free · No key' : 'Grátis · Sem chave' },
+                      { id: 'elevenlabs', icon: '⚡', label: 'ElevenLabs',  sub: lang === 'en' ? 'API Key · Premium' : 'API Key · Premium' },
+                      { id: 'google',     icon: '🔵', label: 'Google TTS',  sub: lang === 'en' ? 'API Key · Neural' : 'API Key · Neural' },
+                    ].map(eng => (
+                      <button key={eng.id}
+                        onClick={() => { setTtsEngine(eng.id); setTtsVoice(''); setTtsError(''); setTtsSuccess(''); }}
+                        style={{
+                          flex: 1, padding: '9px 4px', borderRadius: 12,
+                          background: ttsEngine === eng.id ? 'rgba(167,139,250,0.18)' : 'rgba(255,255,255,0.04)',
+                          border: `1px solid ${ttsEngine === eng.id ? 'rgba(167,139,250,0.55)' : 'rgba(255,255,255,0.08)'}`,
+                          color: ttsEngine === eng.id ? '#c4b5fd' : '#666',
+                          cursor: 'pointer', fontWeight: 700, fontSize: 11,
+                          display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
+                          transition: 'all 0.15s',
+                        }}>
+                        <span style={{ fontSize: 16 }}>{eng.icon}</span>
+                        <span>{eng.label}</span>
+                        <span style={{ fontSize: 9, fontWeight: 400, color: ttsEngine === eng.id ? '#a78bfa' : '#444' }}>{eng.sub}</span>
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* ── API Key ElevenLabs ── */}
+                  {ttsEngine === 'elevenlabs' && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+                      <label style={{ fontSize: 10, color: '#a78bfa', fontWeight: 700 }}>🔑 ElevenLabs API Key</label>
+                      <div style={{ display: 'flex', gap: 6 }}>
+                        <input type="password" placeholder="sk-..."
+                          value={ttsElevenKey}
+                          onChange={e => { setTtsElevenKey(e.target.value); try { localStorage.setItem('cs_tts_eleven', e.target.value); } catch {} }}
+                          style={{ flex: 1, background: '#0d1117', border: '1px solid rgba(167,139,250,0.2)', borderRadius: 10, padding: '7px 10px', color: '#f0f0f0', fontSize: 11 }}
+                        />
+                        <button onClick={() => fetchElevenVoices(ttsElevenKey)}
+                          style={{ background: 'rgba(167,139,250,0.14)', border: '1px solid rgba(167,139,250,0.3)', borderRadius: 10, padding: '7px 12px', color: '#a78bfa', fontSize: 11, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                          {lang === 'en' ? 'Load Voices' : 'Carregar Vozes'}
+                        </button>
+                      </div>
+                      <span style={{ fontSize: 10, color: '#475569' }}>
+                        {lang === 'en' ? 'Free key at ' : 'Chave grátis em '}
+                        <a href="https://elevenlabs.io" target="_blank" rel="noreferrer" style={{ color: '#a78bfa' }}>elevenlabs.io</a>
+                        {lang === 'en' ? ' — 10,000 chars/month included.' : ' — 10.000 chars/mês incluídos.'}
+                      </span>
+                    </div>
+                  )}
+
+                  {/* ── API Key Google ── */}
+                  {ttsEngine === 'google' && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+                      <label style={{ fontSize: 10, color: '#a78bfa', fontWeight: 700 }}>🔑 Google Cloud API Key</label>
+                      <input type="password" placeholder="AIza..."
+                        value={ttsGoogleKey}
+                        onChange={e => { setTtsGoogleKey(e.target.value); try { localStorage.setItem('cs_tts_google', e.target.value); } catch {} }}
+                        style={{ background: '#0d1117', border: '1px solid rgba(167,139,250,0.2)', borderRadius: 10, padding: '7px 10px', color: '#f0f0f0', fontSize: 11 }}
+                      />
+                      <span style={{ fontSize: 10, color: '#475569' }}>
+                        {lang === 'en' ? 'Enable Text-to-Speech API at ' : 'Ative a API Text-to-Speech em '}
+                        <a href="https://console.cloud.google.com" target="_blank" rel="noreferrer" style={{ color: '#a78bfa' }}>console.cloud.google.com</a>
+                        {lang === 'en' ? ' — 1M chars/month free.' : ' — 1M chars/mês grátis.'}
+                      </span>
+                    </div>
+                  )}
+
+                  {/* ── Texto da narração ── */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                    <label style={{ fontSize: 10, color: '#94a3b8', fontWeight: 700, display: 'flex', justifyContent: 'space-between' }}>
+                      <span>📝 {lang === 'en' ? 'Narration text' : 'Texto da narração'}</span>
+                      <span style={{ color: '#334155', fontWeight: 400 }}>{ttsText.length} chars</span>
+                    </label>
+                    <textarea
+                      value={ttsText}
+                      onChange={e => setTtsText(e.target.value)}
+                      placeholder={lang === 'en' ? 'Type or paste the narration text here...' : 'Digite ou cole o texto da narração aqui...'}
+                      rows={4}
+                      style={{ background: '#0d1117', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, padding: '10px 12px', color: '#f0f0f0', fontSize: 12, resize: 'vertical', lineHeight: 1.6, fontFamily: 'inherit', outline: 'none' }}
+                    />
+                  </div>
+
+                  {/* ── Seletor de voz ── */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                    <label style={{ fontSize: 10, color: '#94a3b8', fontWeight: 700 }}>🗣️ {lang === 'en' ? 'Voice' : 'Voz'}</label>
+                    {ttsEngine === 'webspeech' && (
+                      <select value={ttsVoice} onChange={e => setTtsVoice(e.target.value)}
+                        style={{ background: '#0d1117', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10, padding: '7px 10px', color: '#f0f0f0', fontSize: 11 }}>
+                        {ttsWebVoices.length === 0 && <option value="">{lang === 'en' ? '-- No voices found (Chrome recommended) --' : '-- Nenhuma voz encontrada (use Chrome) --'}</option>}
+                        {ttsWebVoices.map(v => <option key={v.name} value={v.name}>{v.name} ({v.lang})</option>)}
+                      </select>
+                    )}
+                    {ttsEngine === 'elevenlabs' && (
+                      <select value={ttsVoice} onChange={e => setTtsVoice(e.target.value)}
+                        style={{ background: '#0d1117', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10, padding: '7px 10px', color: '#f0f0f0', fontSize: 11 }}>
+                        {ttsElevenVoices.length === 0
+                          ? <option value="">{lang === 'en' ? '← Load voices first' : '← Carregue as vozes primeiro'}</option>
+                          : ttsElevenVoices.map(v => <option key={v.voice_id} value={v.voice_id}>{v.name}</option>)
+                        }
+                      </select>
+                    )}
+                    {ttsEngine === 'google' && (
+                      <select value={ttsVoice} onChange={e => setTtsVoice(e.target.value)}
+                        style={{ background: '#0d1117', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10, padding: '7px 10px', color: '#f0f0f0', fontSize: 11 }}>
+                        {GOOGLE_TTS_VOICES.map(v => <option key={v.code} value={v.code}>{v.label}</option>)}
+                      </select>
+                    )}
+                  </div>
+
+                  {/* ── Velocidade e Tom ── */}
+                  <div style={{ display: 'flex', gap: 12 }}>
+                    <div style={{ flex: 1 }}>
+                      <label style={{ fontSize: 10, color: '#94a3b8', fontWeight: 700, display: 'block', marginBottom: 5 }}>
+                        ⏩ {lang === 'en' ? 'Speed' : 'Velocidade'} — {ttsSpeed.toFixed(1)}x
+                      </label>
+                      <input type="range" min="0.5" max="2.0" step="0.1" value={ttsSpeed}
+                        onChange={e => setTtsSpeed(parseFloat(e.target.value))}
+                        style={{ width: '100%', accentColor: '#a78bfa' }} />
+                    </div>
+                    {ttsEngine !== 'elevenlabs' && (
+                      <div style={{ flex: 1 }}>
+                        <label style={{ fontSize: 10, color: '#94a3b8', fontWeight: 700, display: 'block', marginBottom: 5 }}>
+                          🎵 {lang === 'en' ? 'Pitch' : 'Tom'} — {ttsPitch.toFixed(1)}
+                        </label>
+                        <input type="range" min="0.5" max="2.0" step="0.1" value={ttsPitch}
+                          onChange={e => setTtsPitch(parseFloat(e.target.value))}
+                          style={{ width: '100%', accentColor: '#a78bfa' }} />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* ── Feedback ── */}
+                  {ttsError && (
+                    <div style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: 10, padding: '8px 12px', fontSize: 11, color: '#f87171', lineHeight: 1.5 }}>
+                      ⚠️ {ttsError}
+                    </div>
+                  )}
+                  {ttsSuccess && (
+                    <div style={{ background: 'rgba(167,139,250,0.08)', border: '1px solid rgba(167,139,250,0.25)', borderRadius: 10, padding: '8px 12px', fontSize: 11, color: '#c4b5fd', lineHeight: 1.5 }}>
+                      {ttsSuccess}
+                    </div>
+                  )}
+
+                  {/* ── Botão Gerar ── */}
+                  <button
+                    onClick={handleGenerateTts}
+                    disabled={ttsLoading || !ttsText.trim()}
+                    style={{
+                      background: (ttsLoading || !ttsText.trim()) ? 'rgba(255,255,255,0.04)' : 'linear-gradient(135deg, #6d28d9, #a78bfa)',
+                      border: 'none', borderRadius: 14, padding: '12px 0',
+                      color: (ttsLoading || !ttsText.trim()) ? '#444' : '#fff',
+                      fontWeight: 800, fontSize: 13, cursor: (ttsLoading || !ttsText.trim()) ? 'not-allowed' : 'pointer',
+                      boxShadow: (ttsLoading || !ttsText.trim()) ? 'none' : '0 6px 20px rgba(109,40,217,0.4)',
+                      transition: 'all 0.2s', letterSpacing: '0.3px',
+                    }}
+                  >
+                    {ttsLoading
+                      ? (lang === 'en' ? '⏳ Generating narration...' : '⏳ Gerando narração...')
+                      : (lang === 'en' ? '🎙️ Generate Narration' : '🎙️ Gerar Narração')}
+                  </button>
+
+                  <p style={{ fontSize: 10, color: '#1e293b', lineHeight: 1.5, margin: 0, textAlign: 'center' }}>
+                    🔒 {lang === 'en'
+                      ? 'API keys are saved only in your browser and never sent to any server.'
+                      : 'As chaves de API ficam salvas apenas no seu browser e nunca são enviadas a nenhum servidor.'}
+                  </p>
+                </div>
               </div>
             , document.body)}
           </div>
