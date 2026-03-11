@@ -4904,7 +4904,7 @@ function App() {
 
       {/* TIMELINE INFERIOR */}
       <div style={{ 
-        height: '280px', 
+        height: '210px', 
         background: '#080808', 
         borderTop: '1px solid rgba(255,255,255,0.07)', 
         width: '100%',
@@ -4913,7 +4913,7 @@ function App() {
       }}>
         
         {/* CONTROLES E ZOOM */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '15px', padding: '12px 20px', background: 'rgba(0,0,0,0.6)', borderBottom: '1px solid rgba(255,255,255,0.07)', width: '100%', boxSizing: 'border-box' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '6px 16px', background: 'rgba(0,0,0,0.6)', borderBottom: '1px solid rgba(255,255,255,0.07)', width: '100%', boxSizing: 'border-box' }}>
             <button onClick={() => {
               const audio = audioRef.current;
               if (isPlaying) {
@@ -4951,10 +4951,10 @@ function App() {
                 }
                 setIsPlaying(true);
               }
-            }} style={{ background: isPlaying ? '#00BFFF' : 'rgba(255,255,255,0.06)', border: '1px solid rgba(0,191,255,0.25)', padding: '9px 22px', borderRadius: '18px', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px', color: isPlaying ? '#000' : '#f0f0f0', boxShadow: isPlaying ? '0 8px 20px rgba(0,191,255,0.3)' : 'none' }}>
+            }} style={{ background: isPlaying ? '#00BFFF' : 'rgba(255,255,255,0.06)', border: '1px solid rgba(0,191,255,0.25)', padding: '6px 16px', borderRadius: '14px', cursor: 'pointer', fontWeight: 'bold', fontSize: '11px', color: isPlaying ? '#000' : '#f0f0f0', boxShadow: isPlaying ? '0 8px 20px rgba(0,191,255,0.3)' : 'none' }}>
               {isPlaying ? t('ed_pause') : t('ed_play')}
             </button>
-            <button onClick={handleStopPlayback} style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', padding: '9px 22px', borderRadius: '18px', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px', color: '#f87171', boxShadow: 'none' }}>
+            <button onClick={handleStopPlayback} style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', padding: '6px 16px', borderRadius: '14px', cursor: 'pointer', fontWeight: 'bold', fontSize: '11px', color: '#f87171', boxShadow: 'none' }}>
               {t('ed_stop')}
             </button>
             <span style={{ fontSize: '12px', color: '#00BFFF', fontWeight: 'bold', minWidth: '85px' }}>{formatTime(currentTime)} / {formatTime(duration)}</span>
@@ -4991,10 +4991,10 @@ function App() {
             }
           }}
         >
-          <div id="track-bg" style={{ position: 'relative', height: '200px', width: timelineWidth + 'px', background: '#0d0d0d', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.06)', boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.02)', overflow: 'hidden' }}>
+          <div id="track-bg" style={{ position: 'relative', height: '155px', width: timelineWidth + 'px', background: '#0d0d0d', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.06)', boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.02)', overflow: 'hidden' }}>
 
             {/* RÉGUA DE TEMPO */}
-            <div style={{ position: 'absolute', top: 0, left: 0, width: audioPxWidth + 'px', height: '18px', pointerEvents: 'none', zIndex: 5 }}>
+            <div style={{ position: 'absolute', top: 0, left: 0, width: audioPxWidth + 'px', height: '14px', pointerEvents: 'none', zIndex: 5 }}>
               {rulerMarkers.map((t) => (
                 <div key={t} style={{ position: 'absolute', left: t * zoom + 'px', top: 0, height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                   <div style={{ width: '1px', height: '8px', backgroundColor: 'rgba(0,191,255,0.35)' }} />
@@ -5011,7 +5011,7 @@ function App() {
               ref={waveformCanvasRef}
               width={Math.ceil(audioPxWidth)}
               height={24}
-              style={{ position: 'absolute', top: '162px', left: 0, opacity: 0.65, pointerEvents: 'none' }}
+              style={{ position: 'absolute', top: '118px', left: 0, opacity: 0.65, pointerEvents: 'none' }}
             />
 
             {/* BARRA FINA QUE MARCA O FIM DA MÚSICA */}
@@ -5030,13 +5030,13 @@ function App() {
               </div>
             </div>
 
-            <div style={{ position: 'absolute', top: '54px', left: 0, right: 0, height: '1px', backgroundColor: 'rgba(255,255,255,0.05)' }} />
-            <div style={{ position: 'absolute', top: '104px', left: 0, right: 0, height: '1px', backgroundColor: 'rgba(255,255,255,0.05)' }} />
-            <div style={{ position: 'absolute', top: '148px', left: 0, right: 0, height: '1px', backgroundColor: 'rgba(255,255,255,0.05)' }} />
+            <div style={{ position: 'absolute', top: '42px', left: 0, right: 0, height: '1px', backgroundColor: 'rgba(255,255,255,0.05)' }} />
+            <div style={{ position: 'absolute', top: '80px', left: 0, right: 0, height: '1px', backgroundColor: 'rgba(255,255,255,0.05)' }} />
+            <div style={{ position: 'absolute', top: '114px', left: 0, right: 0, height: '1px', backgroundColor: 'rgba(255,255,255,0.05)' }} />
             {/* Labels das faixas */}
-            <div style={{ position: 'absolute', right: 6, top: 20, fontSize: 9, color: 'rgba(0,191,255,0.4)', pointerEvents: 'none' }}>LETRA</div>
-            <div style={{ position: 'absolute', right: 6, top: 72, fontSize: 9, color: 'rgba(251,191,36,0.4)', pointerEvents: 'none' }}>IMG</div>
-            <div style={{ position: 'absolute', right: 6, top: 116, fontSize: 9, color: 'rgba(167,139,250,0.4)', pointerEvents: 'none' }}>VID</div>
+            <div style={{ position: 'absolute', right: 6, top: 16, fontSize: 9, color: 'rgba(0,191,255,0.4)', pointerEvents: 'none' }}>LETRA</div>
+            <div style={{ position: 'absolute', right: 6, top: 54, fontSize: 9, color: 'rgba(251,191,36,0.4)', pointerEvents: 'none' }}>IMG</div>
+            <div style={{ position: 'absolute', right: 6, top: 88, fontSize: 9, color: 'rgba(167,139,250,0.4)', pointerEvents: 'none' }}>VID</div>
             
             {lyrics.map((l) => (
               <div 
@@ -5047,8 +5047,8 @@ function App() {
                   position: 'absolute',
                   left: l.start * zoom + 'px',
                   width: (l.end - l.start) * zoom + 'px',
-                  height: '40px',
-                  top: '12px',
+                  height: '28px',
+                  top: '9px',
                   background: activeLyricId === l.id ? '#00BFFF' : 'rgba(0,191,255,0.55)',
                   borderRadius: '18px',
                   display: 'flex',
@@ -5077,8 +5077,8 @@ function App() {
                   position: 'absolute',
                   left: v.start * zoom + 'px',
                   width: (v.end - v.start) * zoom + 'px',
-                  height: '34px',
-                  top: '108px',
+                  height: '26px',
+                  top: '84px',
                   background: activeVideoId === v.id ? 'rgba(167,139,250,1)' : 'rgba(167,139,250,0.55)',
                   borderRadius: '18px',
                   display: 'flex',
@@ -5132,8 +5132,8 @@ function App() {
                   position: 'absolute',
                   left: item.start * zoom + 'px',
                   width: (item.end - item.start) * zoom + 'px',
-                  height: '36px',
-                  top: '64px',
+                  height: '26px',
+                  top: '48px',
                   background: activeImageId === item.id ? 'rgba(251,191,36,0.9)' : 'rgba(251,191,36,0.5)',
                   borderRadius: '18px',
                   display: 'flex',
