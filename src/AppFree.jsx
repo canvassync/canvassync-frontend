@@ -497,17 +497,22 @@ function AppFree() {
     // ── Marca d'água ─────────────────────────────────────────────────────────
     ctx.save();
     ctx.globalAlpha = 0.55;
-    const badgeW = 140, badgeH = 24;
-    const bx = canvas.width - badgeW - 10;
+    // Fonte proporcional ao lado menor do canvas (evita overflow no 16:9)
+    const wFontSize = Math.max(10, Math.round(Math.min(canvas.width, canvas.height) * 0.016));
+    const wText = '⚡ CanvasSync Free';
+    ctx.font = `bold ${wFontSize}px DM Sans, Poppins, sans-serif`;
+    const textW  = ctx.measureText(wText).width;
+    const badgeW = textW + 20;
+    const badgeH = wFontSize + 10;
+    const bx = canvas.width  - badgeW - 10;
     const by = canvas.height - badgeH - 10;
     ctx.fillStyle = 'rgba(0,0,0,0.55)';
     ctx.beginPath();
     ctx.roundRect(bx, by, badgeW, badgeH, 7);
     ctx.fill();
-    ctx.font = `bold ${Math.max(10, Math.round(canvas.width * 0.012))}px DM Sans, Poppins, sans-serif`;
     ctx.fillStyle = '#00BFFF';
     ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.shadowBlur = 0;
-    ctx.fillText('⚡ CanvasSync Free', bx + 9, by + 12);
+    ctx.fillText(wText, bx + 10, by + badgeH / 2);
     ctx.restore();
   }, [image, images, extraTexts, extraTextColor, extraTextFontFamily, extraTextFontSize,
       activeImageId, activeExtraTextId, drawRoundedImage, drawRoundedRect, drawResizeHandles]);
@@ -681,96 +686,82 @@ function AppFree() {
       `}</style>
 
       {/* ══ HEADER ══════════════════════════════════════════════════════════════ */}
-      <div className="free-header-scroll" style={{
-        display: 'flex', flexWrap: 'wrap', gap: '10px', padding: '10px 16px',
+      <div style={{
+        display: 'flex', flexDirection: 'column',
         background: 'rgba(8,8,8,0.97)', borderBottom: '1px solid rgba(0,191,255,0.12)',
-        fontSize: '12px', alignItems: 'center', width: '100%', boxSizing: 'border-box',
-        backdropFilter: 'blur(12px)',
+        width: '100%', boxSizing: 'border-box', backdropFilter: 'blur(12px)',
       }}>
-        {/* Logo */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginRight: 4 }}>
-          <div style={{ width: 26, height: 26, borderRadius: 8, background: 'linear-gradient(135deg,#00BFFF,#0070ff)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 900 }}>⚡</div>
-          <span style={{ fontWeight: 800, fontSize: 15, background: 'linear-gradient(135deg,#fff 30%,#00BFFF 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>CanvasSync</span>
-          <span style={{ background: 'rgba(0,191,255,0.1)', border: '1px solid rgba(0,191,255,0.25)', borderRadius: 999, padding: '2px 8px', fontSize: 10, color: '#00BFFF', fontWeight: 700, letterSpacing: 1 }}>FREE</span>
-        </div>
+        {/* ── Linha 1 ── Logo, mídia, formato, salvar, stickers, upgrade ───── */}
+        <div className="free-header-scroll" style={{
+          display: 'flex', flexWrap: 'wrap', gap: '10px', padding: '10px 16px',
+          fontSize: '12px', alignItems: 'center', width: '100%', boxSizing: 'border-box',
+          borderBottom: '1px solid rgba(255,255,255,0.05)',
+        }}>
+          {/* Logo */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginRight: 4 }}>
+            <div style={{ width: 26, height: 26, borderRadius: 8, background: 'linear-gradient(135deg,#00BFFF,#0070ff)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 900 }}>⚡</div>
+            <span style={{ fontWeight: 800, fontSize: 15, background: 'linear-gradient(135deg,#fff 30%,#00BFFF 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>CanvasSync</span>
+            <span style={{ background: 'rgba(0,191,255,0.1)', border: '1px solid rgba(0,191,255,0.25)', borderRadius: 999, padding: '2px 8px', fontSize: 10, color: '#00BFFF', fontWeight: 700, letterSpacing: 1 }}>FREE</span>
+          </div>
 
-        <LangToggle />
-        <div style={{ width: 1, height: 24, background: 'rgba(255,255,255,0.07)' }} />
+          <LangToggle />
+          <div style={{ width: 1, height: 24, background: 'rgba(255,255,255,0.07)' }} />
 
-        {/* Fundo */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-          <label style={{ fontSize: '11px', color: '#00BFFF', fontWeight: 600, letterSpacing: '0.5px' }}>{t('ed_background')}</label>
-          <input ref={bgInputRef} type="file" onChange={handleImageChange} accept="image/*" style={{ color: '#aaa', fontSize: '11px' }} />
-        </div>
+          {/* Fundo */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+            <label style={{ fontSize: '11px', color: '#00BFFF', fontWeight: 600, letterSpacing: '0.5px' }}>{t('ed_background')}</label>
+            <input ref={bgInputRef} type="file" onChange={handleImageChange} accept="image/*" style={{ color: '#aaa', fontSize: '11px' }} />
+          </div>
 
-        {/* Imagens */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-          <label style={{ fontSize: '11px', color: '#00BFFF', fontWeight: 600, letterSpacing: '0.5px' }}>{t('ed_images')}</label>
-          <input ref={imgInputRef} type="file" onChange={handleImagesChange} accept="image/*" multiple style={{ color: '#aaa', fontSize: '11px' }} />
-        </div>
+          {/* Imagens */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+            <label style={{ fontSize: '11px', color: '#00BFFF', fontWeight: 600, letterSpacing: '0.5px' }}>{t('ed_images')}</label>
+            <input ref={imgInputRef} type="file" onChange={handleImagesChange} accept="image/*" multiple style={{ color: '#aaa', fontSize: '11px' }} />
+          </div>
 
-        <div style={{ width: 1, height: 24, background: 'rgba(255,255,255,0.07)' }} />
+          <div style={{ width: 1, height: 24, background: 'rgba(255,255,255,0.07)' }} />
 
-        {/* Formato de canvas */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-          <label style={{ fontSize: '10px', color: '#a78bfa', fontWeight: 700, letterSpacing: '0.5px' }}>📐 {t('ed_canvas_label')}</label>
-          <select value={canvasFormat} onChange={e => setCanvasFormat(e.target.value)}
-            style={{ backgroundColor: '#111', color: '#f0f0f0', border: '1px solid rgba(167,139,250,0.3)', borderRadius: 12, padding: '6px 10px', fontSize: '12px' }}>
-            {Object.entries(CANVAS_FORMATS).map(([key, val]) => (
-              <option key={key} value={key}>{key} — {val.width}×{val.height}</option>
-            ))}
+          {/* Formato de canvas */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+            <label style={{ fontSize: '10px', color: '#a78bfa', fontWeight: 700, letterSpacing: '0.5px' }}>📐 {t('ed_canvas_label')}</label>
+            <select value={canvasFormat} onChange={e => setCanvasFormat(e.target.value)}
+              style={{ backgroundColor: '#111', color: '#f0f0f0', border: '1px solid rgba(167,139,250,0.3)', borderRadius: 12, padding: '6px 10px', fontSize: '12px' }}>
+              {Object.entries(CANVAS_FORMATS).map(([key, val]) => (
+                <option key={key} value={key}>{key} — {val.width}×{val.height}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Formato de exportação */}
+          <select value={exportFormat} onChange={e => setExportFormat(e.target.value)}
+            style={{ backgroundColor: '#111', color: '#f0f0f0', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, padding: '7px 10px', fontSize: '12px' }}>
+            <option value="png">🖼️ PNG</option>
+            <option value="jpg">🖼️ JPG</option>
           </select>
-        </div>
 
-        {/* Formato de exportação */}
-        <select value={exportFormat} onChange={e => setExportFormat(e.target.value)}
-          style={{ backgroundColor: '#111', color: '#f0f0f0', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, padding: '7px 10px', fontSize: '12px' }}>
-          <option value="png">🖼️ PNG</option>
-          <option value="jpg">🖼️ JPG</option>
-        </select>
-
-        {/* Salvar */}
-        <button onClick={handleSave}
-          style={{ background: '#00BFFF', border: 'none', padding: '8px 18px', borderRadius: 14, cursor: 'pointer', fontWeight: 'bold', fontSize: '12px', color: '#000', boxShadow: '0 4px 16px rgba(0,191,255,0.3)', whiteSpace: 'nowrap' }}>
-          {t('free_save')}
-        </button>
-
-        {/* Exportar projeto */}
-        <button onClick={exportProject}
-          style={{ background: 'rgba(0,191,255,0.08)', border: '1px solid rgba(0,191,255,0.2)', padding: '7px 12px', borderRadius: 14, cursor: 'pointer', fontWeight: 'bold', fontSize: '11px', color: '#00BFFF', whiteSpace: 'nowrap' }}>
-          {t('ed_export_project')}
-        </button>
-
-        {/* Importar projeto */}
-        <input ref={importInputRef} type="file" accept="application/json" style={{ display: 'none' }} onChange={e => importProjectFromFile(e.target.files[0])} />
-        <button onClick={() => importInputRef.current?.click()}
-          style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', padding: '7px 12px', borderRadius: 14, cursor: 'pointer', fontWeight: 'bold', fontSize: '11px', color: '#888', whiteSpace: 'nowrap' }}>
-          {t('ed_import_project')}
-        </button>
-
-        {/* Limpar */}
-        <button onClick={handleClearProject}
-          style={{ background: 'rgba(239,68,68,0.07)', border: '1px solid rgba(239,68,68,0.18)', padding: '7px 12px', borderRadius: 14, cursor: 'pointer', fontWeight: 'bold', fontSize: '11px', color: '#f87171', whiteSpace: 'nowrap' }}>
-          {t('ed_clear_project')}
-        </button>
-
-        {/* Stickers */}
-        <div style={{ position: 'relative' }}>
-          <button ref={stickerBtnRef}
-            onClick={() => {
-              const rect = stickerBtnRef.current?.getBoundingClientRect();
-              if (rect) setStickerPanelPos({ top: rect.bottom + 8, left: Math.min(rect.left, window.innerWidth - 372) });
-              setShowStickerPanel(v => !v);
-            }}
-            style={{
-              background: showStickerPanel ? 'rgba(251,191,36,0.2)' : 'rgba(251,191,36,0.07)',
-              border: `1px solid ${showStickerPanel ? 'rgba(251,191,36,0.6)' : 'rgba(251,191,36,0.2)'}`,
-              borderRadius: 14, padding: '7px 14px', cursor: 'pointer',
-              fontWeight: 700, fontSize: 13, color: '#fbbf24',
-              display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap',
-            }}>
-            ✨ Stickers {stickers.length > 0 && <span style={{ background: '#fbbf24', color: '#000', borderRadius: 8, padding: '1px 6px', fontSize: 10, fontWeight: 900 }}>{stickers.length}</span>}
+          {/* Salvar */}
+          <button onClick={handleSave}
+            style={{ background: '#00BFFF', border: 'none', padding: '8px 18px', borderRadius: 14, cursor: 'pointer', fontWeight: 'bold', fontSize: '12px', color: '#000', boxShadow: '0 4px 16px rgba(0,191,255,0.3)', whiteSpace: 'nowrap' }}>
+            {t('free_save')}
           </button>
+
+          {/* Stickers */}
+          <div style={{ position: 'relative' }}>
+            <button ref={stickerBtnRef}
+              onClick={() => {
+                const rect = stickerBtnRef.current?.getBoundingClientRect();
+                if (rect) setStickerPanelPos({ top: rect.bottom + 8, left: Math.min(rect.left, window.innerWidth - 372) });
+                setShowStickerPanel(v => !v);
+              }}
+              style={{
+                background: showStickerPanel ? 'rgba(251,191,36,0.2)' : 'rgba(251,191,36,0.07)',
+                border: `1px solid ${showStickerPanel ? 'rgba(251,191,36,0.6)' : 'rgba(251,191,36,0.2)'}`,
+                borderRadius: 14, padding: '7px 14px', cursor: 'pointer',
+                fontWeight: 700, fontSize: 13, color: '#fbbf24',
+                display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap',
+              }}>
+              ✨ Stickers {stickers.length > 0 && <span style={{ background: '#fbbf24', color: '#000', borderRadius: 8, padding: '1px 6px', fontSize: 10, fontWeight: 900 }}>{stickers.length}</span>}
+            </button>
 
           {showStickerPanel && createPortal(
             <div onClick={e => e.stopPropagation()} style={{
@@ -834,14 +825,37 @@ function AppFree() {
         </div>
 
         {/* Banner upgrade — à direita */}
-        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 10, background: 'rgba(0,191,255,0.05)', border: '1px solid rgba(0,191,255,0.15)', borderRadius: 12, padding: '6px 14px', flexShrink: 0 }}>
-          <span style={{ fontSize: 11, color: '#888' }}>{t('free_upgrade_msg')}</span>
-          <button onClick={() => window.location.href = '/planos'}
-            style={{ background: '#00BFFF', border: 'none', borderRadius: 999, padding: '5px 14px', fontSize: 11, fontWeight: 700, color: '#000', cursor: 'pointer', whiteSpace: 'nowrap' }}>
-            {t('free_upgrade_btn')}
+          <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 10, background: 'rgba(0,191,255,0.05)', border: '1px solid rgba(0,191,255,0.15)', borderRadius: 12, padding: '6px 14px', flexShrink: 0 }}>
+            <span style={{ fontSize: 11, color: '#888' }}>{t('free_upgrade_msg')}</span>
+            <button onClick={() => window.location.href = '/planos'}
+              style={{ background: '#00BFFF', border: 'none', borderRadius: 999, padding: '5px 14px', fontSize: 11, fontWeight: 700, color: '#000', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+              {t('free_upgrade_btn')}
+            </button>
+          </div>
+        </div>{/* fim linha 1 */}
+
+        {/* ── Linha 2 — Exportar, Importar, Limpar ─────────────────────────── */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 16px 8px', flexWrap: 'wrap' }}>
+          {/* Exportar projeto */}
+          <button onClick={exportProject}
+            style={{ background: 'rgba(0,191,255,0.08)', border: '1px solid rgba(0,191,255,0.2)', padding: '6px 14px', borderRadius: 12, cursor: 'pointer', fontWeight: 'bold', fontSize: '11px', color: '#00BFFF', whiteSpace: 'nowrap' }}>
+            {t('ed_export_project')}
           </button>
-        </div>
-      </div>
+
+          {/* Importar projeto */}
+          <input ref={importInputRef} type="file" accept="application/json" style={{ display: 'none' }} onChange={e => importProjectFromFile(e.target.files[0])} />
+          <button onClick={() => importInputRef.current?.click()}
+            style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', padding: '6px 14px', borderRadius: 12, cursor: 'pointer', fontWeight: 'bold', fontSize: '11px', color: '#888', whiteSpace: 'nowrap' }}>
+            {t('ed_import_project')}
+          </button>
+
+          {/* Limpar */}
+          <button onClick={handleClearProject}
+            style={{ background: 'rgba(239,68,68,0.07)', border: '1px solid rgba(239,68,68,0.18)', padding: '6px 14px', borderRadius: 12, cursor: 'pointer', fontWeight: 'bold', fontSize: '11px', color: '#f87171', whiteSpace: 'nowrap' }}>
+            {t('ed_clear_project')}
+          </button>
+        </div>{/* fim linha 2 */}
+      </div>{/* fim header */}
 
       {/* ══ BODY ════════════════════════════════════════════════════════════════ */}
       <div className="free-body free-scrollbar" style={{ display: 'flex', flex: 1, width: '100%', overflow: 'hidden' }}>
