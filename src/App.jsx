@@ -4234,15 +4234,30 @@ function App() {
                       ))}
                     </div>
                   );
-                  const DurSlider = ({ value, onChange }) => (
+                  const DurSliderIn = () => (
                     <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginTop: 2 }}>
                       <span style={{ fontSize: 10, color: '#444', minWidth: 54 }}>{t('ed_duration')}</span>
-                      <input type="range" min={0.05} max={2} step={0.05} value={value}
-                        onChange={e => onChange(+e.target.value)}
+                      <input type="range" min={0.05} max={2} step={0.05}
+                        defaultValue={durIn}
                         onMouseDown={e => e.stopPropagation()}
                         onPointerDown={e => e.stopPropagation()}
+                        onTouchStart={e => e.stopPropagation()}
+                        onInput={e => upd({ transitionInDur: +e.target.value })}
                         style={{ flex: 1, accentColor: accent }} />
-                      <span style={{ fontSize: 10, color: accent, minWidth: 34, textAlign: 'right' }}>{value.toFixed(2)}s</span>
+                      <span style={{ fontSize: 10, color: accent, minWidth: 34, textAlign: 'right' }}>{durIn.toFixed(2)}s</span>
+                    </div>
+                  );
+                  const DurSliderOut = () => (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginTop: 2 }}>
+                      <span style={{ fontSize: 10, color: '#444', minWidth: 54 }}>{t('ed_duration')}</span>
+                      <input type="range" min={0.05} max={2} step={0.05}
+                        defaultValue={durOut}
+                        onMouseDown={e => e.stopPropagation()}
+                        onPointerDown={e => e.stopPropagation()}
+                        onTouchStart={e => e.stopPropagation()}
+                        onInput={e => upd({ transitionOutDur: +e.target.value })}
+                        style={{ flex: 1, accentColor: accent }} />
+                      <span style={{ fontSize: 10, color: accent, minWidth: 34, textAlign: 'right' }}>{durOut.toFixed(2)}s</span>
                     </div>
                   );
                   return (
@@ -4254,7 +4269,7 @@ function App() {
                           {trIn !== 'none' && <button onClick={() => upd({ transitionIn: 'none' })} style={{ background: 'none', border: 'none', color: '#444', cursor: 'pointer', fontSize: 11, padding: 0, lineHeight: 1 }}>✕</button>}
                         </div>
                         <TrGrid current={trIn} onSelect={v => upd({ transitionIn: v })} />
-                        {trIn !== 'none' && <DurSlider value={durIn} onChange={v => upd({ transitionInDur: v })} />}
+                        {trIn !== 'none' && <DurSliderIn />}
                       </div>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 5, background: 'rgba(255,255,255,0.02)', borderRadius: 8, padding: '8px 10px', border: '1px solid rgba(255,255,255,0.05)' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
@@ -4262,7 +4277,7 @@ function App() {
                           {trOut !== 'none' && <button onClick={() => upd({ transitionOut: 'none' })} style={{ background: 'none', border: 'none', color: '#444', cursor: 'pointer', fontSize: 11, padding: 0, lineHeight: 1 }}>✕</button>}
                         </div>
                         <TrGrid current={trOut} onSelect={v => upd({ transitionOut: v })} />
-                        {trOut !== 'none' && <DurSlider value={durOut} onChange={v => upd({ transitionOutDur: v })} />}
+                        {trOut !== 'none' && <DurSliderOut />}
                       </div>
                       <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', alignItems: 'center' }}>
                         <span style={{ fontSize: 10, color: '#444' }}>{t('tr_both')}:</span>
