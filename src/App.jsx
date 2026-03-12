@@ -2535,7 +2535,7 @@ function App() {
       ctx.fillStyle = '#000';
       ctx.fillRect(0, 0, logicalW, logicalH);
     }
-    // Renderiza TODOS os vídeos ativos no instante t (seek assíncrono robusto)
+    // Renderiza TODOS os vídeos ativos no instante t (seek frame-accurate)
     // Usa ref para evitar closure stale durante export
     const activeVids = (videosRef.current || []).filter(v => v.videoEl && t >= v.start && t <= v.end);
     await Promise.all(activeVids.map(v => new Promise(resolve => {
@@ -2546,16 +2546,19 @@ function App() {
 
       let settled = false;
       const finish = () => { if (settled) return; settled = true; clearTimeout(hard); resolve(); };
-      const hard = setTimeout(finish, 4000); // timeout de segurança
+      const hard = setTimeout(finish, 5000); // timeout de segurança
 
-      // requestVideoFrameCallback: dispara quando o frame está PINTADO e pronto para drawImage
-      // Muito mais confiável que 'seeked' + readyState para todos os formatos (webm, mp4, mkv)
-      if (v.videoEl.requestVideoFrameCallback) {
-        v.videoEl.requestVideoFrameCallback(finish);
-      } else {
-        // Fallback para browsers sem rVFC: seeked + 80ms para o decoder ter tempo
-        v.videoEl.addEventListener('seeked', () => setTimeout(finish, 80), { once: true });
-      }
+      // ORDEM CORRETA: setar currentTime PRIMEIRO, só então aguardar
+      // seeked dispara quando o frame no novo currentTime está decodificado e pronto
+      v.videoEl.addEventListener('seeked', () => {
+        // Após seeked o frame está disponível — rVFC confirma que está pintado na GPU
+        if (v.videoEl.requestVideoFrameCallback) {
+          v.videoEl.requestVideoFrameCallback(finish);
+        } else {
+          finish(); // Frame disponível direto após seeked em browsers sem rVFC
+        }
+      }, { once: true });
+
       v.videoEl.currentTime = relTime;
     })));
     activeVids.forEach(v => {
