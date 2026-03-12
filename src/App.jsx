@@ -1694,36 +1694,7 @@ function App() {
     setActiveLyricId(null);
     const hs = 10;
 
-    // ── Vídeos verificados PRIMEIRO (permitem seleção mesmo sob imagens) ────
-    const s = 14;
-    const clickedVideo = videos.slice().reverse().find(v => {
-      if (!v.videoEl) return false;
-      return time >= v.start && time <= v.end &&
-        mouseX >= v.x - s && mouseX <= v.x + v.width + s &&
-        mouseY >= v.y - s && mouseY <= v.y + v.height + s;
-    });
-    if (clickedVideo) {
-      setActiveVideoId(clickedVideo.id);
-      setActiveImageId(null);
-      const nL = Math.abs(mouseX - clickedVideo.x) <= s;
-      const nR = Math.abs(mouseX - (clickedVideo.x + clickedVideo.width)) <= s;
-      const nT = Math.abs(mouseY - clickedVideo.y) <= s;
-      const nB = Math.abs(mouseY - (clickedVideo.y + clickedVideo.height)) <= s;
-      const corner = `${nT?'n':''}${nB?'s':''}${nL?'w':''}${nR?'e':''}`;
-      if (corner.length >= 2) {
-        setDragging({ itemKind: 'canvas-video', type: 'resize', id: clickedVideo.id, corner,
-          startX: mouseX, startY: mouseY,
-          startWidth: clickedVideo.width, startHeight: clickedVideo.height,
-          startXPos: clickedVideo.x, startYPos: clickedVideo.y });
-      } else {
-        setDragging({ itemKind: 'canvas-video', type: 'move', id: clickedVideo.id,
-          offsetX: mouseX - clickedVideo.x, offsetY: mouseY - clickedVideo.y });
-      }
-      return;
-    }
-    setActiveVideoId(null);
-
-    // ── Imagens (verificadas após vídeos) ────────────────────────────────────
+    // ── Imagens verificadas PRIMEIRO (ficam visualmente acima dos vídeos) ────
     const clickedItem = images.slice().reverse().find((item) => {
       if (!item || !item.img) return false;
       return time >= item.start && time <= item.end &&
@@ -1732,6 +1703,7 @@ function App() {
     });
     if (clickedItem) {
       setActiveImageId(clickedItem.id);
+      setActiveVideoId(null);
       const handleSize = 12;
       const nearLeft   = Math.abs(mouseX - clickedItem.x) <= handleSize;
       const nearRight  = Math.abs(mouseX - (clickedItem.x + clickedItem.width)) <= handleSize;
@@ -1750,6 +1722,34 @@ function App() {
       return;
     }
     setActiveImageId(null);
+
+    // ── Vídeos verificados após imagens ──────────────────────────────────────
+    const s = 14;
+    const clickedVideo = videos.slice().reverse().find(v => {
+      if (!v.videoEl) return false;
+      return time >= v.start && time <= v.end &&
+        mouseX >= v.x - s && mouseX <= v.x + v.width + s &&
+        mouseY >= v.y - s && mouseY <= v.y + v.height + s;
+    });
+    if (clickedVideo) {
+      setActiveVideoId(clickedVideo.id);
+      const nL = Math.abs(mouseX - clickedVideo.x) <= s;
+      const nR = Math.abs(mouseX - (clickedVideo.x + clickedVideo.width)) <= s;
+      const nT = Math.abs(mouseY - clickedVideo.y) <= s;
+      const nB = Math.abs(mouseY - (clickedVideo.y + clickedVideo.height)) <= s;
+      const corner = `${nT?'n':''}${nB?'s':''}${nL?'w':''}${nR?'e':''}`;
+      if (corner.length >= 2) {
+        setDragging({ itemKind: 'canvas-video', type: 'resize', id: clickedVideo.id, corner,
+          startX: mouseX, startY: mouseY,
+          startWidth: clickedVideo.width, startHeight: clickedVideo.height,
+          startXPos: clickedVideo.x, startYPos: clickedVideo.y });
+      } else {
+        setDragging({ itemKind: 'canvas-video', type: 'move', id: clickedVideo.id,
+          offsetX: mouseX - clickedVideo.x, offsetY: mouseY - clickedVideo.y });
+      }
+      return;
+    }
+    setActiveVideoId(null);
   };
 
   const handleGlobalMouseMove = useCallback((e) => {
