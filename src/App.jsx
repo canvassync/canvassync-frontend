@@ -2544,21 +2544,18 @@ function App() {
       const relTime = Math.max(0, Math.min(t - v.start, vidDur));
       v.videoEl.pause();
 
+      // Se já está no frame certo, resolve imediatamente
+      if (Math.abs(v.videoEl.currentTime - relTime) < 0.05 && v.videoEl.readyState >= 2) {
+        return resolve();
+      }
+
       let settled = false;
       const finish = () => { if (settled) return; settled = true; clearTimeout(hard); resolve(); };
-      const hard = setTimeout(finish, 5000); // timeout de segurança
+      const hard = setTimeout(finish, 4000);
 
-      // ORDEM CORRETA: setar currentTime PRIMEIRO, só então aguardar
-      // seeked dispara quando o frame no novo currentTime está decodificado e pronto
-      v.videoEl.addEventListener('seeked', () => {
-        // Após seeked o frame está disponível — rVFC confirma que está pintado na GPU
-        if (v.videoEl.requestVideoFrameCallback) {
-          v.videoEl.requestVideoFrameCallback(finish);
-        } else {
-          finish(); // Frame disponível direto após seeked em browsers sem rVFC
-        }
-      }, { once: true });
-
+      // 'seeked' num vídeo PAUSADO garante que o frame está decodificado e pronto p/ drawImage
+      // NÃO usar requestVideoFrameCallback aqui — só funciona durante playback ativo
+      v.videoEl.addEventListener('seeked', finish, { once: true });
       v.videoEl.currentTime = relTime;
     })));
     activeVids.forEach(v => {
@@ -2931,12 +2928,9 @@ function App() {
   };
 
   const handleSaveWebmOfflineWithAudio = async () => {
-    if (!window.VideoEncoder || !window.AudioEncoder) {
-      alert('Recurso disponível apenas em Chrome/Edge (WebCodecs).');
-      return;
-    }
     const baseCanvas = canvasRef.current;
     if (!baseCanvas) return;
+
     const effectiveDuration = (() => {
       if (duration && duration > 0) return duration;
       if (lyrics && lyrics.length) return Math.max(...lyrics.map(l => l.end || 0));
@@ -2945,103 +2939,137 @@ function App() {
       return 3;
     })();
     if (!effectiveDuration || effectiveDuration <= 0) return;
+
     const _spd1 = Math.max(0.25, Math.min(4, projectSpeedRef.current));
     const _vol1 = Math.max(0, Math.min(1, projectVolumeRef.current));
     const outputDuration1 = effectiveDuration / _spd1;
-    // Pausa todos os vídeos antes de exportar
-    videosRef.current.forEach(v => { if (v.videoEl && !v.videoEl.paused) v.videoEl.pause(); });
+
     setIsExporting(true);
     setExportProgress(0);
+
+    // ── Abordagem real-time: captura canvas + áudio enquanto tudo toca ─────────
+    // Muito mais rápida e confiável que seek frame-a-frame para projetos com vídeo
     try {
-      const { Muxer, ArrayBufferTarget } = await import('webm-muxer');
-      const offCanvas = document.createElement('canvas');
-      offCanvas.width = baseCanvas.width;
-      offCanvas.height = baseCanvas.height;
-      const fps = 30;
-      const totalFrames = Math.ceil(outputDuration1 * fps);
-      const target = new ArrayBufferTarget();
-      const muxer = new Muxer({
-        target,
-        video: { codec: 'V_VP8', width: offCanvas.width, height: offCanvas.height, frameRate: fps },
-        audio: (audioFile || audioBase64 || videosRef.current.some(v => !v.muted)) ? { codec: 'A_OPUS', sampleRate: 48000, numberOfChannels: 2 } : undefined
-      });
-      const vEncoder = new VideoEncoder({
-        output: (chunk, meta) => muxer.addVideoChunk(chunk, meta),
-        error: () => {}
-      });
-      vEncoder.configure({ codec: 'vp8', width: offCanvas.width, height: offCanvas.height, bitrate: 2_000_000 });
-      let aEncoder = null;
-      const _hasAudio1 = audioFile || audioBase64 || videosRef.current.some(v => !v.muted);
-      if (_hasAudio1) {
+      // 1. AudioContext para mixar todas as fontes de áudio
+      const ac = new (window.AudioContext || window.webkitAudioContext)();
+      const dest = ac.createMediaStreamDestination();
+      const gainNode = ac.createGain();
+      gainNode.gain.value = _vol1;
+      gainNode.connect(dest);
+
+      // 2. Música de fundo
+      let bgSource = null;
+      if (audioFile || audioBase64) {
         try {
-          aEncoder = new AudioEncoder({
-            output: (chunk, meta) => muxer.addAudioChunk(chunk, meta),
-            error: () => {}
-          });
-          aEncoder.configure({ codec: 'opus', sampleRate: 48000, numberOfChannels: 2, bitrate: 192000 });
-          let _out01, _out11;
-          if (audioFile || audioBase64) {
-            let audioBufferData;
-            if (audioFile) {
-              audioBufferData = await audioFile.arrayBuffer();
-            } else {
-              const b64 = audioBase64.split(',')[1];
-              const binary = atob(b64);
-              const bytes = new Uint8Array(binary.length);
-              for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-              audioBufferData = bytes.buffer;
-            }
-            const _tmpAc1 = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 48000 });
-            const _rawBuf1 = await _tmpAc1.decodeAudioData(audioBufferData);
-            _tmpAc1.close();
-            [_out01, _out11] = await _renderAudioStretched(_rawBuf1, _spd1, _vol1, 48000);
-          } else {
-            // Apenas áudio de vídeos — cria buffer silencioso do tamanho do export
-            const _silLen = Math.ceil(outputDuration1 * 48000);
-            _out01 = new Float32Array(_silLen);
-            _out11 = new Float32Array(_silLen);
+          let buf;
+          if (audioFile) { buf = await audioFile.arrayBuffer(); }
+          else {
+            const b64 = audioBase64.split(',')[1];
+            const bin = atob(b64); const bytes = new Uint8Array(bin.length);
+            for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+            buf = bytes.buffer;
           }
-          await _mixSfxIntoBuffers(_out01, _out11, soundEffects, 48000);
-          await _mixVideoAudioIntoBuffers(_out01, _out11, videosRef.current, _spd1, _vol1, 48000);
-          const _blk1 = 4096;
-          for (let _op1 = 0; _op1 < _out01.length; _op1 += _blk1) {
-            const _bl1 = Math.min(_blk1, _out01.length - _op1);
-            const _pl1 = new Float32Array(_bl1 * 2);
-            for (let _i = 0; _i < _bl1; _i++) {
-              _pl1[_i]              = _out01[_op1+_i] || 0;
-              _pl1[_bl1+_i]    = _out11[_op1+_i] || 0;
-            }
-            const _ad1 = new AudioData({ format:'f32-planar', sampleRate:48000, numberOfChannels:2,
-              numberOfFrames:_bl1, timestamp:Math.round((_op1/48000)*1_000_000), data:_pl1.buffer });
-            aEncoder.encode(_ad1); _ad1.close();
+          const decoded = await ac.decodeAudioData(buf);
+          bgSource = ac.createBufferSource();
+          bgSource.buffer = decoded;
+          bgSource.playbackRate.value = _spd1;
+          bgSource.connect(gainNode);
+        } catch(e) { console.warn('[WEBM RT] bg audio error', e); }
+      }
+
+      // 3. Áudio dos vídeos overlay via MediaElementSource
+      const vidSources = [];
+      for (const v of videosRef.current) {
+        if (v.muted || !v.videoEl) continue;
+        try {
+          const s = ac.createMediaElementSource(v.videoEl);
+          s.connect(gainNode);
+          vidSources.push(s);
+        } catch(e) { /* já conectado ou sem áudio — ignora */ }
+      }
+
+      // 4. Captura canvas em 30fps
+      const canvasStream = baseCanvas.captureStream(30);
+      const combined = new MediaStream([
+        ...canvasStream.getVideoTracks(),
+        ...dest.stream.getAudioTracks(),
+      ]);
+
+      const chunks = [];
+      const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp8,opus')
+        ? 'video/webm;codecs=vp8,opus' : 'video/webm';
+      const recorder = new MediaRecorder(combined, { mimeType, videoBitsPerSecond: 4_000_000 });
+      recorder.ondataavailable = e => { if (e.data?.size > 0) chunks.push(e.data); };
+
+      // 5. Posiciona vídeos overlay no tempo correto e prepara playback
+      const vidsToPlay = videosRef.current.filter(v => v.videoEl);
+      for (const v of vidsToPlay) {
+        v.videoEl.playbackRate = _spd1;
+        v.videoEl.currentTime = 0;
+      }
+
+      // 6. Inicia gravação
+      recorder.start(100); // chunks a cada 100ms
+
+      // 7. Começa a tocar tudo em sincronia
+      if (bgSource) bgSource.start(0);
+      for (const v of vidsToPlay) {
+        if (0 >= v.start && 0 <= v.end) v.videoEl.play().catch(() => {});
+      }
+
+      // 8. Sincroniza o relógio virtual para o draw loop funcionar
+      const startWall = Date.now();
+      virtualTimeRef.current = 0;
+      setIsPlaying(true);
+      if (clockIntervalRef.current) clearInterval(clockIntervalRef.current);
+      clockIntervalRef.current = setInterval(() => {
+        const elapsed = (Date.now() - startWall) / 1000;
+        const vt = elapsed * _spd1;
+        virtualTimeRef.current = vt;
+        setCurrentTime(vt);
+        setExportProgress(Math.min(elapsed / outputDuration1, 1));
+
+        // Inicia/para vídeos overlay conforme o tempo
+        for (const v of vidsToPlay) {
+          if (!v.videoEl) continue;
+          if (vt >= v.start && vt <= v.end && v.videoEl.paused) {
+            const rel = Math.max(0, vt - v.start);
+            v.videoEl.currentTime = rel;
+            v.videoEl.play().catch(() => {});
+          } else if ((vt < v.start || vt > v.end) && !v.videoEl.paused) {
+            v.videoEl.pause();
           }
-          await aEncoder.flush();
-        } catch(e) {
-          console.error('[WEBM SD Audio]', e);
-          aEncoder = null;
         }
-      }
-      for (let i = 0; i < totalFrames; i++) {
-        const t = i / fps * _spd1;
-        await renderAtTimeToCanvas(offCanvas, t);
-        const bitmap = await createImageBitmap(offCanvas);
-        const videoFrame = new VideoFrame(bitmap, { timestamp: Math.round((i / fps) * 1_000_000) });
-        vEncoder.encode(videoFrame);
-        videoFrame.close();
-        bitmap.close();
-        setExportProgress((i + 1) / totalFrames);
-        await new Promise(r => setTimeout(r, 0));
-      }
-      await vEncoder.flush();
-      muxer.finalize();
-      const blob = new Blob([target.buffer], { type: 'video/webm' });
-      await saveWithPicker(blob, `canvas.webm`, 'video/webm', ['.webm']);
+      }, 100);
+
+      // 9. Aguarda o tempo de exportação
+      await new Promise(resolve => setTimeout(resolve, Math.ceil(outputDuration1 * 1000) + 500));
+
+      // 10. Para tudo
+      clearInterval(clockIntervalRef.current); clockIntervalRef.current = null;
+      setIsPlaying(false);
+      for (const v of vidsToPlay) { if (!v.videoEl.paused) v.videoEl.pause(); }
+      if (bgSource) { try { bgSource.stop(); } catch {} }
+
+      // 11. Para o recorder e aguarda finalização
+      await new Promise(resolve => {
+        recorder.onstop = resolve;
+        recorder.stop();
+      });
+
+      // 12. Limpa WebAudio
+      for (const s of vidSources) { try { s.disconnect(); } catch {} }
+      ac.close();
+
+      const blob = new Blob(chunks, { type: 'video/webm' });
+      if (!blob.size) throw new Error('Arquivo vazio — tente novamente.');
+      await saveWithPicker(blob, 'canvas.webm', 'video/webm', ['.webm']);
+
     } finally {
       setIsExporting(false);
       setExportProgress(0);
     }
-  };
-
+  }
   const handleSaveVideo = async () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
