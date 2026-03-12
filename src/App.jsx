@@ -3382,7 +3382,7 @@ function App() {
 
   // ── Exportação HD 1080×1920 — WebCodecs, VP8, 8 Mbps ──────────────────────
   const handleSaveHD = async () => {
-    if (!window.VideoEncoder || !window.AudioEncoder) {
+    if (!window.VideoEncoder) {
       alert('Exportação HD disponível apenas em Chrome/Edge.');
       return;
     }
@@ -3400,22 +3400,37 @@ function App() {
     const _vol4 = Math.max(0, Math.min(1, projectVolumeRef.current));
     const outputDuration4 = effectiveDuration / _spd4;
 
-    const SCALE = 4; // 270×480 → 1080×1920
-    const hdW   = baseCanvas.width  * SCALE;
-    const hdH   = baseCanvas.height * SCALE;
+    // ── Dimensões fixas 1080p mantendo aspect ratio do canvas ──────────────────
+    const srcW = baseCanvas.width;
+    const srcH = baseCanvas.height;
+    const MAX_SIDE = 1920;
+    const scaleFactor = Math.min(MAX_SIDE / srcW, MAX_SIDE / srcH, 4);
+    // VP8/VP9 exige dimensões pares
+    const hdW = Math.round(srcW * scaleFactor / 2) * 2;
+    const hdH = Math.round(srcH * scaleFactor / 2) * 2;
+    const SCALE = hdW / srcW;
 
-    // Pausa todos os vídeos antes de exportar HD
-    videosRef.current.forEach(v => { if (v.videoEl && !v.videoEl.paused) v.videoEl.pause(); });
+    // Pausa e salva posição atual dos vídeos para restaurar depois
+    const videoSnapshots = videosRef.current.map(v => ({
+      v,
+      time: v.videoEl ? v.videoEl.currentTime : 0,
+    }));
+    videoSnapshots.forEach(({ v }) => { if (v.videoEl && !v.videoEl.paused) v.videoEl.pause(); });
+
     setIsExporting(true);
     setExportProgress(0);
+    let encoderError = null;
     try {
       const { Muxer, ArrayBufferTarget } = await import('webm-muxer');
-      const offCanvas    = document.createElement('canvas');
-      offCanvas.width    = hdW;
-      offCanvas.height   = hdH;
-      const fps          = 30;
-      const totalFrames  = Math.ceil(outputDuration4 * fps);
-      const target       = new ArrayBufferTarget();
+      const offCanvas = document.createElement('canvas');
+      offCanvas.width  = hdW;
+      offCanvas.height = hdH;
+      // willReadFrequently melhora performance de readback em GPUs integradas
+      offCanvas.getContext('2d', { willReadFrequently: true });
+
+      const fps         = 30;
+      const totalFrames = Math.ceil(outputDuration4 * fps);
+      const target      = new ArrayBufferTarget();
 
       const muxer = new Muxer({
         target,
@@ -3427,17 +3442,17 @@ function App() {
 
       const vEncoder = new VideoEncoder({
         output: (chunk, meta) => muxer.addVideoChunk(chunk, meta),
-        error:  () => {},
+        error: (e) => { encoderError = e; console.error('[HD WebM VideoEncoder]', e); },
       });
-      vEncoder.configure({ codec: 'vp8', width: hdW, height: hdH, bitrate: 8_000_000 });
+      vEncoder.configure({ codec: 'vp8', width: hdW, height: hdH, bitrate: 8_000_000, latencyMode: 'quality' });
 
-      // Áudio
+      // ── Áudio ──────────────────────────────────────────────────────────────
       let aEncoder = null;
       if (audioFile || audioBase64) {
         try {
           aEncoder = new AudioEncoder({
             output: (chunk, meta) => muxer.addAudioChunk(chunk, meta),
-            error:  () => {},
+            error: (e) => { console.error('[HD WebM AudioEncoder]', e); },
           });
           aEncoder.configure({ codec: 'opus', sampleRate: 48000, numberOfChannels: 2, bitrate: 192000 });
 
@@ -3462,41 +3477,61 @@ function App() {
             const _bl4 = Math.min(_blk4, _out04.length - _op4);
             const _pl4 = new Float32Array(_bl4 * 2);
             for (let _i = 0; _i < _bl4; _i++) {
-              _pl4[_i]              = _out04[_op4+_i] || 0;
-              _pl4[_bl4+_i]    = _out14[_op4+_i] || 0;
+              _pl4[_i]       = _out04[_op4 + _i] || 0;
+              _pl4[_bl4 + _i] = _out14[_op4 + _i] || 0;
             }
-            const _ad4 = new AudioData({ format:'f32-planar', sampleRate:48000, numberOfChannels:2,
-              numberOfFrames:_bl4, timestamp:Math.round((_op4/48000)*1_000_000), data:_pl4.buffer });
+            const _ad4 = new AudioData({ format: 'f32-planar', sampleRate: 48000, numberOfChannels: 2,
+              numberOfFrames: _bl4, timestamp: Math.round((_op4 / 48000) * 1_000_000), data: _pl4.buffer });
             aEncoder.encode(_ad4); _ad4.close();
           }
           await aEncoder.flush();
-        } catch(e) {
+        } catch (e) {
           console.error('[WEBM HD Audio]', e);
           aEncoder = null;
         }
       }
 
-      // Frames HD
+      // ── Frames HD ──────────────────────────────────────────────────────────
       for (let i = 0; i < totalFrames; i++) {
-        const t = i / fps * _spd4;
+        if (encoderError) throw encoderError;
+        const t = (i / fps) * _spd4;
         await renderAtTimeToCanvas(offCanvas, t, SCALE);
-        const bitmap     = await createImageBitmap(offCanvas);
-        const videoFrame = new VideoFrame(bitmap, { timestamp: Math.round((i / fps) * 1_000_000) });
-        vEncoder.encode(videoFrame);
+
+        // Usa o canvas diretamente como fonte do VideoFrame (sem createImageBitmap)
+        // Evita cópias extras de memória que causam tela branca em vídeos longos
+        const videoFrame = new VideoFrame(offCanvas, {
+          timestamp: Math.round((i / fps) * 1_000_000),
+          duration:  Math.round((1 / fps) * 1_000_000),
+        });
+        vEncoder.encode(videoFrame, { keyFrame: i % (fps * 2) === 0 });
         videoFrame.close();
-        bitmap.close();
+
         setExportProgress((i + 1) / totalFrames);
-        await new Promise(r => setTimeout(r, 0));
+        // Yield a cada 5 frames para não travar o browser
+        if (i % 5 === 0) await new Promise(r => setTimeout(r, 0));
       }
 
       await vEncoder.flush();
+      if (encoderError) throw encoderError;
       muxer.finalize();
 
       const blob = new Blob([target.buffer], { type: 'video/webm' });
+      if (!blob.size) throw new Error('Arquivo gerado está vazio — verifique o console.');
       await saveWithPicker(blob, `canvas_hd.webm`, 'video/webm', ['.webm']);
+    } catch (err) {
+      console.error('[handleSaveHD]', err);
+      alert(`Erro ao exportar HD WebM: ${err?.message || err}\nTente um vídeo mais curto ou use o formato MP4 HD.`);
     } finally {
       setIsExporting(false);
       setExportProgress(0);
+      // Restaura vídeos ao estado anterior (evita ficarem pretos)
+      videoSnapshots.forEach(({ v, time }) => {
+        if (!v.videoEl) return;
+        try {
+          v.videoEl.currentTime = time;
+          v.videoEl.load();
+        } catch { /* ignora */ }
+      });
     }
   };
 
