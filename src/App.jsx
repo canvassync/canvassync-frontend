@@ -4067,9 +4067,8 @@ function App() {
               </div>
             , document.body)}
           </div>
-
-
-
+        </div>{/* fim Linha 2 */}
+      </div>{/* fim HEADER CONTROLS */}
 
       <div style={{ display: 'flex', flex: 1, width: '100%', overflow: 'hidden' }}>
         
