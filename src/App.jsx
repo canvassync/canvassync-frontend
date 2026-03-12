@@ -1158,37 +1158,52 @@ function App() {
       const src = URL.createObjectURL(file);
       const videoEl = document.createElement('video');
       videoEl.src = src;
-      videoEl.muted = false;        // áudio ativo por padrão
+      videoEl.muted = false;
       videoEl.playsInline = true;
       videoEl.preload = 'auto';
-      // Precisa estar no DOM para o browser liberar reprodução de áudio
+      videoEl.crossOrigin = 'anonymous';
       videoEl.style.cssText = 'position:fixed;width:1px;height:1px;opacity:0;pointer-events:none;top:-9999px';
       document.body.appendChild(videoEl);
       const id = Date.now() + index;
-      videoEl.onloadedmetadata = () => {
-        const vidDuration = videoEl.duration || 3;
-        const audioDuration = audioRef.current?.duration || duration;
-        // Posiciona após o último item existente
+
+      const addVideo = () => {
+        const vidDuration = isFinite(videoEl.duration) && videoEl.duration > 0 ? videoEl.duration : 3;
         const lastEnd = videos.reduce((max, v) => Math.max(max, v.end || 0), 0);
         const start = lastEnd;
         const end   = start + vidDuration;
-        // Tamanho inicial: ocupa ~70% do canvas mantendo aspect ratio
         const canvas = canvasRef.current;
-        const cW = canvas?.width || 270;
-        const cH = canvas?.height || 480;
-        const aspectRatio = videoEl.videoWidth / videoEl.videoHeight || 1;
+        const cW = canvas?.width  || 720;
+        const cH = canvas?.height || 1280;
+        // Lê dimensões reais — alguns formatos (webm, mkv) só disponibilizam após canplay
+        const vW = videoEl.videoWidth  || 640;
+        const vH = videoEl.videoHeight || 360;
         const maxW = cW * 0.72;
         const maxH = cH * 0.72;
-        const scale = Math.min(maxW / videoEl.videoWidth, maxH / videoEl.videoHeight, 1);
-        const w = Math.max(40, videoEl.videoWidth * scale);
-        const h = Math.max(40, videoEl.videoHeight * scale);
-        const x = (cW - w) / 2;
-        const y = (cH - h) / 2;
-        setVideos(prev => [...prev, {
-          id, src, videoEl, start, end,
-          x, y, width: w, height: h, radius: 12, muted: false,
-        }]);
+        const scale = Math.min(maxW / vW, maxH / vH, 1);
+        const w = Math.round(vW * scale);
+        const h = Math.round(vH * scale);
+        const x = Math.round((cW - w) / 2);
+        const y = Math.round((cH - h) / 2);
+        setVideos(prev => {
+          // Evita duplicata se ambos os eventos dispararem
+          if (prev.find(v => v.id === id)) return prev;
+          return [...prev, { id, src, videoEl, start, end, x, y, width: w, height: h, radius: 12, muted: false }];
+        });
       };
+
+      // canplay é mais confiável que loadedmetadata para webm/mkv (já tem primeiro frame)
+      videoEl.addEventListener('canplay', addVideo, { once: true });
+      // Fallback: se canplay demorar, loadedmetadata também tenta
+      videoEl.addEventListener('loadedmetadata', () => {
+        setTimeout(() => {
+          if (!videos.find(v => v.id === id)) addVideo();
+        }, 300);
+      }, { once: true });
+      videoEl.onerror = () => {
+        console.warn('Erro ao carregar vídeo:', file.name, file.type);
+        URL.revokeObjectURL(src);
+      };
+      videoEl.load();
     });
     e.target.value = '';
   };
@@ -2104,7 +2119,7 @@ function App() {
 
     // Desenha TODOS os vídeos ativos (abaixo das imagens)
     getVideosForTime(time).forEach(v => {
-      if (!v.videoEl || v.videoEl.readyState < 1) return;
+      if (!v.videoEl || v.videoEl.readyState < 1 || v.videoEl.videoWidth === 0) return;
       const vRot = (v.rotation || 0) * Math.PI / 180;
       const _vf  = buildFilterString(v.filters);
       const _vtr = getTransitionTransform(v, time);
@@ -2537,7 +2552,7 @@ function App() {
       v.videoEl.currentTime = relTime;
     })));
     activeVids.forEach(v => {
-      if (!v.videoEl || v.videoEl.readyState < 1) return;
+      if (!v.videoEl || v.videoEl.readyState < 1 || v.videoEl.videoWidth === 0) return;
       const _evf = buildFilterString(v.filters);
       const _etr = getTransitionTransform(v, t);
       ctx.save();
