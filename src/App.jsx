@@ -725,6 +725,9 @@ function App() {
   const [textColor, setTextColor] = useState('#ffffff');
   const [fontFamily, setFontFamily] = useState('Poppins');
   const [exportFormat, setExportFormat] = useState('webm_offline_audio');
+  const [saveFileName, setSaveFileName] = useState('canvas');
+  const saveFileNameRef = useRef('canvas');
+  useEffect(() => { saveFileNameRef.current = saveFileName; }, [saveFileName]);
 
   // ── Formato do canvas ─────────────────────────────────────────────────────
   const CANVAS_FORMATS = {
@@ -2846,7 +2849,7 @@ function App() {
         await new Promise(r => setTimeout(r, 0));
       }
       const blob = await writer.complete();
-      await saveWithPicker(blob, 'canvas.webm', 'video/webm', ['.webm']);
+      await saveWithPicker(blob, `${saveFileNameRef.current.trim() || 'canvas'}.webm`, 'video/webm', ['.webm']);
     } finally {
       setIsExporting(false);
       setExportProgress(0);
@@ -2950,7 +2953,7 @@ function App() {
       await vEncoder.flush();
       muxer.finalize();
       const blob = new Blob([target.buffer], { type: 'video/webm' });
-      await saveWithPicker(blob, 'canvas.webm', 'video/webm', ['.webm']);
+      await saveWithPicker(blob, `${saveFileNameRef.current.trim() || 'canvas'}.webm`, 'video/webm', ['.webm']);
     } finally {
       setIsExporting(false);
       setExportProgress(0);
@@ -2976,7 +2979,7 @@ function App() {
     recorder.ondataavailable = (e) => { if (e.data && e.data.size > 0) chunks.push(e.data); };
     recorder.onstop = () => {
       const blob = new Blob(chunks, { type: 'video/webm' });
-      saveWithPicker(blob, 'canvas.webm', 'video/webm', ['.webm']);
+      saveWithPicker(blob, `${saveFileNameRef.current.trim() || 'canvas'}.webm`, 'video/webm', ['.webm']);
     };
     recorder.start();
     if (audio) {
@@ -3264,7 +3267,7 @@ function App() {
       muxer.finalize();
       setExportProgress(1);
       const blob = new Blob([target.buffer], { type: 'video/mp4' });
-      await saveWithPicker(blob, 'canvas.mp4', 'video/mp4', ['.mp4']);
+      await saveWithPicker(blob, `${saveFileNameRef.current.trim() || 'canvas'}.mp4`, 'video/mp4', ['.mp4']);
     } catch(err) {
       console.error('[MP4 Export]', err);
       alert('Erro ao exportar MP4: ' + err.message);
@@ -3360,7 +3363,7 @@ function App() {
       setExportProgress(1);
       const blob = new Blob([target.buffer], { type: 'video/mp4' });
       const url = URL.createObjectURL(blob);
-      await saveWithPicker(new Blob([target.buffer], { type: 'video/mp4' }), 'canvas_hd_1080.mp4', 'video/mp4', ['.mp4']);
+      await saveWithPicker(new Blob([target.buffer], { type: 'video/mp4' }), `${saveFileNameRef.current.trim() || 'canvas'}_hd.mp4`, 'video/mp4', ['.mp4']);
       setTimeout(() => URL.revokeObjectURL(url), 5000);
     } catch(err) {
       console.error('[MP4 HD Export]', err);
@@ -3482,7 +3485,7 @@ function App() {
       muxer.finalize();
 
       const blob = new Blob([target.buffer], { type: 'video/webm' });
-      await saveWithPicker(blob, 'canvas_hd_1080.webm', 'video/webm', ['.webm']);
+      await saveWithPicker(blob, `${saveFileNameRef.current.trim() || 'canvas'}_hd.webm`, 'video/webm', ['.webm']);
     } finally {
       setIsExporting(false);
       setExportProgress(0);
@@ -3511,7 +3514,8 @@ function App() {
     const isPng = exportFormat === 'png';
     const dataUrl = isPng ? canvas.toDataURL('image/png') : canvas.toDataURL('image/jpeg', 0.92);
     const mime = isPng ? 'image/png' : 'image/jpeg';
-    await saveWithPicker(dataUrl, isPng ? 'canvas.png' : 'canvas.jpg', mime, isPng ? ['.png'] : ['.jpg', '.jpeg']);
+    const baseName = saveFileName.trim() || 'canvas';
+    await saveWithPicker(dataUrl, isPng ? `${baseName}.png` : `${baseName}.jpg`, mime, isPng ? ['.png'] : ['.jpg', '.jpeg']);
   };
 
 
@@ -3637,14 +3641,6 @@ function App() {
             <input ref={videoInputRef} type="file" onChange={handleVideoUpload} accept="video/*" multiple style={{ color: '#aaa', fontSize: '11px' }} />
           </div>
           <input ref={fontInputRef} type="file" accept=".ttf,.otf,.woff,.woff2" style={{ display: 'none' }} onChange={handleFontUpload} />
-          <select value={exportFormat} onChange={(e) => setExportFormat(e.target.value)} style={{ backgroundColor: '#111', color: '#f0f0f0', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '14px', padding: '7px 10px', fontSize: '12px' }}>
-            <option value="webm_offline_audio">🎬 {t('fmt_webm')}</option>
-            <option value="mp4">🎬 {t('fmt_mp4')}</option>
-            <option value="webm_hd">✨ {t('fmt_webm_hd')}</option>
-            <option value="mp4_hd">✨ {t('fmt_mp4_hd')}</option>
-            <option value="png">🖼️ PNG</option>
-            <option value="jpg">🖼️ JPG</option>
-          </select>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
             <label style={{ fontSize: '10px', color: '#a78bfa', fontWeight: 700, letterSpacing: '0.5px' }}>📐 {t('ed_canvas_label')}</label>
             <select value={canvasFormat} onChange={(e) => setCanvasFormat(e.target.value)} style={{ backgroundColor: '#111', color: '#f0f0f0', border: '1px solid rgba(167,139,250,0.3)', borderRadius: '14px', padding: '7px 10px', fontSize: '12px' }}>
@@ -3657,6 +3653,22 @@ function App() {
         </div>
         {/* Linha 2: salvar · exportar projeto · importar projeto · limpar projeto */}
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', alignItems: 'center' }}>
+          {/* Formato + nome do arquivo + Salvar */}
+          <select value={exportFormat} onChange={(e) => setExportFormat(e.target.value)} style={{ backgroundColor: '#111', color: '#f0f0f0', border: '1px solid rgba(0,191,255,0.2)', borderRadius: '14px', padding: '7px 10px', fontSize: '12px' }}>
+            <option value="webm_offline_audio">🎬 {t('fmt_webm')}</option>
+            <option value="mp4">🎬 {t('fmt_mp4')}</option>
+            <option value="webm_hd">✨ {t('fmt_webm_hd')}</option>
+            <option value="mp4_hd">✨ {t('fmt_mp4_hd')}</option>
+            <option value="png">🖼️ PNG</option>
+            <option value="jpg">🖼️ JPG</option>
+          </select>
+          <input
+            type="text"
+            value={saveFileName}
+            onChange={e => setSaveFileName(e.target.value)}
+            placeholder="nome-do-arquivo"
+            style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(0,191,255,0.2)', borderRadius: '14px', padding: '7px 12px', fontSize: '12px', color: '#f0f0f0', width: 160, outline: 'none' }}
+          />
           {/* Salvar + indicador de progresso */}
           <button onClick={handleSave} disabled={isExporting} style={{ background: isExporting ? '#0a1a1a' : '#00BFFF', border: 'none', padding: '8px 18px', borderRadius: '14px', cursor: isExporting ? 'not-allowed' : 'pointer', fontWeight: 'bold', fontSize: '12px', color: isExporting ? '#555' : '#000', boxShadow: isExporting ? 'none' : '0 4px 16px rgba(0,191,255,0.3)', whiteSpace: 'nowrap' }}>
             {t('ed_save')}
@@ -3681,33 +3693,6 @@ function App() {
           <button onClick={handleClearProject} style={{ background: 'rgba(239,68,68,0.07)', border: '1px solid rgba(239,68,68,0.25)', padding: '7px 14px', borderRadius: '14px', cursor: 'pointer', fontWeight: 'bold', fontSize: '11px', color: '#f87171' }}>
             {t('ed_clear_project')}
           </button>
-
-          {/* ── Separador vertical ── */}
-          <div style={{ width: 1, height: 36, background: 'rgba(255,255,255,0.07)', margin: '0 4px' }} />
-
-          {/* Volume do projeto */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ fontSize: 11, color: '#00BFFF', fontWeight: 700, whiteSpace: 'nowrap' }}>
-              {projectVolume === 0 ? '🔇' : projectVolume < 0.5 ? '🔉' : '🔊'} {t('ed_vol')}
-            </span>
-            <input type="range" min={0} max={1} step={0.01} value={projectVolume}
-              onChange={e => setVolume(+e.target.value)}
-              onMouseDown={e => e.stopPropagation()}
-              onPointerDown={e => e.stopPropagation()}
-              style={{ width: 90, accentColor: '#00BFFF' }} />
-            <span style={{ fontSize: 10, color: projectVolume !== 1 ? '#00BFFF' : '#555', minWidth: 30, fontWeight: 700 }}>{Math.round(projectVolume * 100)}%</span>
-          </div>
-
-          {/* Velocidade do projeto */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ fontSize: 11, color: '#00BFFF', fontWeight: 700, whiteSpace: 'nowrap' }}>⚡ {t('ed_speed')}</span>
-            <input type="range" min={0.25} max={4} step={0.05} value={projectSpeed}
-              onChange={e => setSpeed(+e.target.value)}
-              onMouseDown={e => e.stopPropagation()}
-              onPointerDown={e => e.stopPropagation()}
-              style={{ width: 90, accentColor: '#00BFFF' }} />
-            <span style={{ fontSize: 10, color: projectSpeed !== 1 ? '#00BFFF' : '#555', minWidth: 28, fontWeight: 700 }}>{projectSpeed}×</span>
-          </div>
 
           {/* ── Botão Templates ── */}
           <div style={{ position: 'relative' }}>
@@ -5009,6 +4994,36 @@ function App() {
               {t('ed_stop')}
             </button>
             <span style={{ fontSize: '12px', color: '#00BFFF', fontWeight: 'bold', minWidth: '85px' }}>{formatTime(currentTime)} / {formatTime(duration)}</span>
+
+            {/* ── Separador ── */}
+            <div style={{ width: 1, height: 28, background: 'rgba(255,255,255,0.07)', margin: '0 2px' }} />
+
+            {/* Volume na timeline */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ fontSize: 11, color: '#00BFFF', fontWeight: 700, whiteSpace: 'nowrap' }}>
+                {projectVolume === 0 ? '🔇' : projectVolume < 0.5 ? '🔉' : '🔊'}
+              </span>
+              <input type="range" min={0} max={1} step={0.01} value={projectVolume}
+                onChange={e => setVolume(+e.target.value)}
+                onMouseDown={e => e.stopPropagation()}
+                onPointerDown={e => e.stopPropagation()}
+                style={{ width: 80, accentColor: '#00BFFF', cursor: 'pointer' }} />
+              <span style={{ fontSize: 10, color: projectVolume !== 1 ? '#00BFFF' : '#555', minWidth: 28, fontWeight: 700 }}>{Math.round(projectVolume * 100)}%</span>
+            </div>
+
+            {/* ── Separador ── */}
+            <div style={{ width: 1, height: 28, background: 'rgba(255,255,255,0.07)', margin: '0 2px' }} />
+
+            {/* Velocidade na timeline */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ fontSize: 11, color: '#00BFFF', fontWeight: 700, whiteSpace: 'nowrap' }}>⚡</span>
+              <input type="range" min={0.25} max={4} step={0.05} value={projectSpeed}
+                onChange={e => setSpeed(+e.target.value)}
+                onMouseDown={e => e.stopPropagation()}
+                onPointerDown={e => e.stopPropagation()}
+                style={{ width: 80, accentColor: '#00BFFF', cursor: 'pointer' }} />
+              <span style={{ fontSize: 10, color: projectSpeed !== 1 ? '#00BFFF' : '#555', minWidth: 28, fontWeight: 700 }}>{projectSpeed}×</span>
+            </div>
             
             <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '10px' }}>
               <span style={{ fontSize: '11px', color: '#555' }}>{t('ed_zoom')}</span>
