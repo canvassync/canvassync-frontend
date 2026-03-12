@@ -725,9 +725,7 @@ function App() {
   const [textColor, setTextColor] = useState('#ffffff');
   const [fontFamily, setFontFamily] = useState('Poppins');
   const [exportFormat, setExportFormat] = useState('webm_offline_audio');
-  const [saveFileName, setSaveFileName] = useState('canvas');
-  const saveFileNameRef = useRef('canvas');
-  useEffect(() => { saveFileNameRef.current = saveFileName; }, [saveFileName]);
+
 
   // ── Formato do canvas ─────────────────────────────────────────────────────
   const CANVAS_FORMATS = {
@@ -2849,7 +2847,7 @@ function App() {
         await new Promise(r => setTimeout(r, 0));
       }
       const blob = await writer.complete();
-      await saveWithPicker(blob, `${saveFileNameRef.current.trim() || 'canvas'}.webm`, 'video/webm', ['.webm']);
+      await saveWithPicker(blob, `canvas.webm`, 'video/webm', ['.webm']);
     } finally {
       setIsExporting(false);
       setExportProgress(0);
@@ -2953,7 +2951,7 @@ function App() {
       await vEncoder.flush();
       muxer.finalize();
       const blob = new Blob([target.buffer], { type: 'video/webm' });
-      await saveWithPicker(blob, `${saveFileNameRef.current.trim() || 'canvas'}.webm`, 'video/webm', ['.webm']);
+      await saveWithPicker(blob, `canvas.webm`, 'video/webm', ['.webm']);
     } finally {
       setIsExporting(false);
       setExportProgress(0);
@@ -2979,7 +2977,7 @@ function App() {
     recorder.ondataavailable = (e) => { if (e.data && e.data.size > 0) chunks.push(e.data); };
     recorder.onstop = () => {
       const blob = new Blob(chunks, { type: 'video/webm' });
-      saveWithPicker(blob, `${saveFileNameRef.current.trim() || 'canvas'}.webm`, 'video/webm', ['.webm']);
+      saveWithPicker(blob, `canvas.webm`, 'video/webm', ['.webm']);
     };
     recorder.start();
     if (audio) {
@@ -3267,7 +3265,7 @@ function App() {
       muxer.finalize();
       setExportProgress(1);
       const blob = new Blob([target.buffer], { type: 'video/mp4' });
-      await saveWithPicker(blob, `${saveFileNameRef.current.trim() || 'canvas'}.mp4`, 'video/mp4', ['.mp4']);
+      await saveWithPicker(blob, `canvas.mp4`, 'video/mp4', ['.mp4']);
     } catch(err) {
       console.error('[MP4 Export]', err);
       alert('Erro ao exportar MP4: ' + err.message);
@@ -3363,7 +3361,7 @@ function App() {
       setExportProgress(1);
       const blob = new Blob([target.buffer], { type: 'video/mp4' });
       const url = URL.createObjectURL(blob);
-      await saveWithPicker(new Blob([target.buffer], { type: 'video/mp4' }), `${saveFileNameRef.current.trim() || 'canvas'}_hd.mp4`, 'video/mp4', ['.mp4']);
+      await saveWithPicker(new Blob([target.buffer], { type: 'video/mp4' }), `canvas_hd.mp4`, 'video/mp4', ['.mp4']);
       setTimeout(() => URL.revokeObjectURL(url), 5000);
     } catch(err) {
       console.error('[MP4 HD Export]', err);
@@ -3485,7 +3483,7 @@ function App() {
       muxer.finalize();
 
       const blob = new Blob([target.buffer], { type: 'video/webm' });
-      await saveWithPicker(blob, `${saveFileNameRef.current.trim() || 'canvas'}_hd.webm`, 'video/webm', ['.webm']);
+      await saveWithPicker(blob, `canvas_hd.webm`, 'video/webm', ['.webm']);
     } finally {
       setIsExporting(false);
       setExportProgress(0);
@@ -3514,8 +3512,7 @@ function App() {
     const isPng = exportFormat === 'png';
     const dataUrl = isPng ? canvas.toDataURL('image/png') : canvas.toDataURL('image/jpeg', 0.92);
     const mime = isPng ? 'image/png' : 'image/jpeg';
-    const baseName = saveFileName.trim() || 'canvas';
-    await saveWithPicker(dataUrl, isPng ? `${baseName}.png` : `${baseName}.jpg`, mime, isPng ? ['.png'] : ['.jpg', '.jpeg']);
+    await saveWithPicker(dataUrl, isPng ? 'canvas.png' : 'canvas.jpg', mime, isPng ? ['.png'] : ['.jpg', '.jpeg']);
   };
 
 
@@ -3662,13 +3659,7 @@ function App() {
             <option value="png">🖼️ PNG</option>
             <option value="jpg">🖼️ JPG</option>
           </select>
-          <input
-            type="text"
-            value={saveFileName}
-            onChange={e => setSaveFileName(e.target.value)}
-            placeholder="nome-do-arquivo"
-            style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(0,191,255,0.2)', borderRadius: '14px', padding: '7px 12px', fontSize: '12px', color: '#f0f0f0', width: 160, outline: 'none' }}
-          />
+
           {/* Salvar + indicador de progresso */}
           <button onClick={handleSave} disabled={isExporting} style={{ background: isExporting ? '#0a1a1a' : '#00BFFF', border: 'none', padding: '8px 18px', borderRadius: '14px', cursor: isExporting ? 'not-allowed' : 'pointer', fontWeight: 'bold', fontSize: '12px', color: isExporting ? '#555' : '#000', boxShadow: isExporting ? 'none' : '0 4px 16px rgba(0,191,255,0.3)', whiteSpace: 'nowrap' }}>
             {t('ed_save')}
