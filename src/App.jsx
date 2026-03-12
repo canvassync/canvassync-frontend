@@ -2425,6 +2425,8 @@ function App() {
   useEffect(() => { lyricsRef.current = lyrics; }, [lyrics]);
   const imagesRef = useRef(images);
   useEffect(() => { imagesRef.current = images; }, [images]);
+  const extraTextsRef = useRef(extraTexts);
+  useEffect(() => { extraTextsRef.current = extraTexts; }, [extraTexts]);
 
   // ── Waveform estático em canvas (sem re-renders do React) ─────────────────
   useEffect(() => {
@@ -2532,7 +2534,8 @@ function App() {
       ctx.fillRect(0, 0, logicalW, logicalH);
     }
     // Renderiza TODOS os vídeos ativos no instante t (seek assíncrono robusto)
-    const activeVids = getVideosForTime(t);
+    // Usa ref para evitar closure stale durante export
+    const activeVids = (videosRef.current || []).filter(v => v.videoEl && t >= v.start && t <= v.end);
     await Promise.all(activeVids.map(v => new Promise(resolve => {
       if (!v.videoEl) return resolve();
       const relTime = Math.max(0, Math.min(t - v.start, v.videoEl.duration || 0));
@@ -2560,8 +2563,9 @@ function App() {
       drawRotatedElement(ctx, () => drawRoundedImage(ctx, v.videoEl, v.x, v.y, v.width, v.height, v.radius ?? 12), v.x, v.y, v.width, v.height, v.rotation);
       ctx.filter='none'; ctx.restore();
     });
-    // Renderiza TODAS as imagens ativas no instante t
-    getImagesForTime(t).forEach(overlayImage => {
+    // Renderiza TODAS as imagens ativas no instante t (usa ref para evitar closure stale)
+    const activeImgs = (imagesRef.current || []).filter(item => item?.img && t >= item.start && t <= item.end);
+    activeImgs.forEach(overlayImage => {
       const _eif = buildFilterString(overlayImage.filters);
       const _eit = getTransitionTransform(overlayImage, t);
       ctx.save();
@@ -2574,7 +2578,7 @@ function App() {
     ctx.textBaseline = 'middle';
     ctx.shadowBlur = 10;
     ctx.shadowColor = "rgba(0,0,0,0.8)";
-    extraTexts.forEach((txt) => {
+    (extraTextsRef.current || extraTexts).forEach((txt) => {
       const tColor = txt.color || extraTextColor;
       const tFont  = txt.fontFamily || extraTextFontFamily;
       const tSize  = txt.fontSize || extraTextFontSize;
@@ -2610,7 +2614,7 @@ function App() {
       ctx.shadowBlur = 0; ctx.shadowOffsetX = 0; ctx.shadowOffsetY = 0;
       ctx.restore();
     });
-    const activeLine = lyrics.find(l => t >= l.start && t <= l.end);
+    const activeLine = (lyricsRef.current || lyrics).find(l => t >= l.start && t <= l.end);
     if (activeLine) {
       const lx = activeLine.x ?? logicalW / 2;
       const ly = activeLine.y ?? logicalH * 0.75;
