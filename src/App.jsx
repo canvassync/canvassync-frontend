@@ -725,6 +725,7 @@ function App() {
   const [textColor, setTextColor] = useState('#ffffff');
   const [fontFamily, setFontFamily] = useState('Poppins');
   const [exportFormat, setExportFormat] = useState('webm_offline_audio');
+  const fileHandleRef = useRef(null); // armazena o handle do picker para uso nos sub-handlers
 
 
   // ── Formato do canvas ─────────────────────────────────────────────────────
@@ -2790,21 +2791,15 @@ function App() {
       blob = blobOrDataUrl instanceof Blob ? blobOrDataUrl : new Blob([blobOrDataUrl], { type: mimeType });
     }
 
-    // Tenta File System Access API (Chrome 86+, Edge 86+)
-    if (window.showSaveFilePicker) {
+    // Usa handle pré-adquirido (picker já foi aberto no click do usuário)
+    if (fileHandleRef.current) {
       try {
-        const handle = await window.showSaveFilePicker({
-          suggestedName,
-          types: [{ description: mimeType, accept: { [mimeType]: extensions } }],
-        });
-        const writable = await handle.createWritable();
+        const writable = await fileHandleRef.current.createWritable();
         await writable.write(blob);
         await writable.close();
+        fileHandleRef.current = null;
         return;
-      } catch (err) {
-        if (err.name === 'AbortError') return; // usuário cancelou — não faz nada
-        // Outro erro: cai no fallback abaixo
-      }
+      } catch { fileHandleRef.current = null; /* cai no fallback */ }
     }
 
     // Fallback: download clássico via <a>
@@ -3493,6 +3488,32 @@ function App() {
   const handleSave = async () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
+
+    // Mapeamento de formato → mime, extensão e nome sugerido
+    const fmtMap = {
+      webm_offline_audio: { mime: 'video/webm',  ext: ['.webm'], name: 'canvas.webm' },
+      mp4:                { mime: 'video/mp4',   ext: ['.mp4'],  name: 'canvas.mp4'  },
+      webm_hd:            { mime: 'video/webm',  ext: ['.webm'], name: 'canvas_hd.webm' },
+      mp4_hd:             { mime: 'video/mp4',   ext: ['.mp4'],  name: 'canvas_hd.mp4'  },
+      png:                { mime: 'image/png',   ext: ['.png'],  name: 'canvas.png'  },
+      jpg:                { mime: 'image/jpeg',  ext: ['.jpg', '.jpeg'], name: 'canvas.jpg' },
+    };
+    const fmt = fmtMap[exportFormat] || fmtMap['webm_offline_audio'];
+
+    // Abre o diálogo AGORA — ainda no contexto do clique do usuário
+    if (window.showSaveFilePicker) {
+      try {
+        fileHandleRef.current = await window.showSaveFilePicker({
+          suggestedName: fmt.name,
+          types: [{ description: fmt.mime, accept: { [fmt.mime]: fmt.ext } }],
+        });
+      } catch (err) {
+        if (err.name === 'AbortError') return; // usuário cancelou
+        fileHandleRef.current = null; // erro inesperado — usa fallback
+      }
+    }
+
+    // Agora chama o processamento (pode demorar, não importa mais)
     if (exportFormat === 'webm_offline_audio') {
       handleSaveWebmOfflineWithAudio();
       return;
