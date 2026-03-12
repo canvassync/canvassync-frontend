@@ -492,7 +492,7 @@ export default function CanvasSyncLanding() {
               {/* YouTube embed */}
               <div style={{ position: "relative", paddingBottom: "56.25%", height: 0, overflow: "hidden" }}>
                 <iframe
-                  src="https://www.youtube.com/embed/W2oW7kLTSAE?rel=0&modestbranding=1&color=white"
+                  src="https://www.youtube.com/embed/a5ZmRz9gVRA?rel=0&modestbranding=1&color=white"
                   title="CanvasSync Demo"
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                   allowFullScreen
