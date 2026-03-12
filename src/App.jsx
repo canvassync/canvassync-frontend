@@ -752,7 +752,7 @@ function App() {
   const [showTtsPanel, setShowTtsPanel]       = useState(false);
   const [ttsPanelPos,  setTtsPanelPos]        = useState({ top: 80, left: 0 });
   const [ttsText,      setTtsText]            = useState('');
-  const [ttsEngine,    setTtsEngine]          = useState('webspeech');
+  const [ttsEngine,    setTtsEngine]          = useState('elevenlabs');
   const [ttsVoice,     setTtsVoice]           = useState('');
   const [ttsSpeed,     setTtsSpeed]           = useState(1.0);
   const [ttsPitch,     setTtsPitch]           = useState(1.0);
@@ -1459,34 +1459,15 @@ function App() {
   // ════════════════════════════════════════════════════════════════════
 
   // Vozes StreamElements (grátis, sem API key, retorna MP3 real via Amazon Polly)
-  // Vozes disponíveis para Web Speech API (browser nativo)
-  const [ttsWebVoices, setTtsWebVoices] = useState([]);
-  useEffect(() => {
-    const load = () => {
-      const voices = window.speechSynthesis?.getVoices() || [];
-      setTtsWebVoices(voices);
-      if (!ttsVoice && voices.length) {
-        const ptBr = voices.find(v => v.lang === 'pt-BR');
-        const enUs = voices.find(v => v.lang === 'en-US');
-        setTtsVoice((ptBr || enUs || voices[0])?.name || '');
-      }
-    };
-    load();
-    window.speechSynthesis?.addEventListener('voiceschanged', load);
-    return () => window.speechSynthesis?.removeEventListener('voiceschanged', load);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   // Busca lista de vozes ElevenLabs via API
   const fetchElevenVoices = async (key) => {
     if (!key) { setTtsError(lang === 'en' ? 'Enter your ElevenLabs API key first.' : 'Insira sua chave ElevenLabs primeiro.'); return; }
     setTtsError(''); setTtsLoading(true);
     try {
-      // ElevenLabs aceita xi-api-key (keys antigas) ou Authorization: Bearer (keys sk_...)
-      const headers = key.startsWith('sk_')
-        ? { 'Authorization': `Bearer ${key}` }
-        : { 'xi-api-key': key };
-      const res = await fetch('https://api.elevenlabs.io/v1/voices', { headers });
+      // ElevenLabs usa xi-api-key para todos os formatos de chave (inclusive sk_...)
+      const res = await fetch('https://api.elevenlabs.io/v1/voices', {
+        headers: { 'xi-api-key': key },
+      });
       if (!res.ok) {
         let msg = `HTTP ${res.status}`;
         try { const body = await res.json(); msg = body?.detail?.message || body?.detail || msg; } catch {}
@@ -1501,7 +1482,14 @@ function App() {
       setTtsVoice(voices[0].voice_id);
       setTtsSuccess(lang === 'en' ? `✅ ${voices.length} voices loaded!` : `✅ ${voices.length} vozes carregadas!`);
     } catch (err) {
-      setTtsError(err.message);
+      if (err instanceof TypeError) {
+        // Failed to fetch = erro de rede antes da API responder
+        setTtsError(lang === 'en'
+          ? 'Network error. Check if an ad blocker is blocking api.elevenlabs.io, or try disabling browser extensions.'
+          : 'Erro de rede. Verifique se uma extensão (bloqueador de anúncios) está bloqueando api.elevenlabs.io, ou tente desativar extensões do browser.');
+      } else {
+        setTtsError(err.message);
+      }
       setTtsElevenVoices([]);
     } finally {
       setTtsLoading(false);
@@ -1539,33 +1527,13 @@ function App() {
     } catch { /* ignora falhas de decodificação */ }
   };
 
-  // Web Speech API — preview local (não gera arquivo, só toca no browser)
-  const generateWebSpeechPreview = () => new Promise((resolve, reject) => {
-    if (!window.speechSynthesis) {
-      reject(new Error('Seu browser não suporta Web Speech API. Use Chrome ou Edge.'));
-      return;
-    }
-    const utterance = new SpeechSynthesisUtterance(ttsText);
-    utterance.rate  = Math.max(0.1, Math.min(10, ttsSpeed));
-    utterance.pitch = Math.max(0, Math.min(2, ttsPitch));
-    const chosen = ttsWebVoices.find(v => v.name === ttsVoice);
-    if (chosen) utterance.voice = chosen;
-    utterance.onend   = () => resolve('preview');
-    utterance.onerror = e  => reject(new Error(`Erro ao reproduzir: ${e.error}`));
-    window.speechSynthesis.cancel();
-    window.speechSynthesis.speak(utterance);
-  });
-
   // ElevenLabs TTS
   const generateElevenLabs = async () => {
     const voiceId = ttsVoice || ttsElevenVoices[0]?.voice_id;
     if (!voiceId) throw new Error(lang === 'en' ? 'Load voices first and select one.' : 'Carregue as vozes primeiro e selecione uma.');
-    const authHeaders = ttsElevenKey.startsWith('sk_')
-      ? { 'Authorization': `Bearer ${ttsElevenKey}` }
-      : { 'xi-api-key': ttsElevenKey };
     const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
       method: 'POST',
-      headers: { ...authHeaders, 'Content-Type': 'application/json' },
+      headers: { 'xi-api-key': ttsElevenKey, 'Content-Type': 'application/json' },
       body: JSON.stringify({
         text: ttsText,
         model_id: 'eleven_multilingual_v2',
@@ -1634,16 +1602,17 @@ function App() {
     }
     setTtsError(''); setTtsSuccess(''); setTtsLoading(true);
     try {
-      if (ttsEngine === 'webspeech') {
-        await generateWebSpeechPreview();
-        setTtsSuccess(
-          lang === 'en'
-            ? '🔊 Narration played! Note: browser preview cannot be added to the timeline. Use ElevenLabs (free at elevenlabs.io) or Google TTS for full integration.'
-            : '🔊 Narração reproduzida! O preview do browser não pode ser adicionado à timeline. Use ElevenLabs (grátis em elevenlabs.io) ou Google TTS para integrar ao vídeo.'
-        );
-      } else if (ttsEngine === 'elevenlabs') {
+      if (ttsEngine === 'elevenlabs') {
         if (!ttsElevenKey) throw new Error(lang === 'en' ? 'Enter your ElevenLabs API key.' : 'Insira sua API Key do ElevenLabs.');
-        const ab = await generateElevenLabs();
+        let ab;
+        try {
+          ab = await generateElevenLabs();
+        } catch (e) {
+          if (e instanceof TypeError) throw new Error(lang === 'en'
+            ? 'Network error (Failed to fetch). Possible causes: ad blocker blocking api.elevenlabs.io, or browser extension interference. Try disabling extensions and reload.'
+            : 'Erro de rede (Failed to fetch). Possíveis causas: extensão de bloqueio bloqueando api.elevenlabs.io, ou conflito de extensão do browser. Tente desativar extensões e recarregar a página.');
+          throw e;
+        }
         await applyTtsAudio(ab, 'audio/mpeg');
         setTtsSuccess(lang === 'en' ? '✅ Narration added to the timeline!' : '✅ Narração adicionada à timeline!');
       } else if (ttsEngine === 'google') {
@@ -4332,8 +4301,7 @@ function App() {
                   {/* ── Seletor de engine ── */}
                   <div style={{ display: 'flex', gap: 6 }}>
                     {[
-                      { id: 'webspeech',  icon: '🔈', label: 'Preview',     sub: lang === 'en' ? 'Browser only' : 'Só browser' },
-                      { id: 'elevenlabs', icon: '⚡', label: 'ElevenLabs',  sub: lang === 'en' ? 'API Key · Premium' : 'API Key · Premium' },
+                      { id: 'elevenlabs', icon: '⚡', label: 'ElevenLabs',  sub: lang === 'en' ? 'Free plan available' : 'Plano grátis disponível' },
                       { id: 'google',     icon: '🔵', label: 'Google TTS',  sub: lang === 'en' ? 'API Key · Neural' : 'API Key · Neural' },
                     ].map(eng => (
                       <button key={eng.id}
@@ -4412,20 +4380,6 @@ function App() {
                   {/* ── Seletor de voz ── */}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
                     <label style={{ fontSize: 10, color: '#94a3b8', fontWeight: 700 }}>🗣️ {lang === 'en' ? 'Voice' : 'Voz'}</label>
-                    {ttsEngine === 'webspeech' && (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                        <select value={ttsVoice} onChange={e => setTtsVoice(e.target.value)}
-                          style={{ background: '#0d1117', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10, padding: '7px 10px', color: '#f0f0f0', fontSize: 11 }}>
-                          {ttsWebVoices.length === 0 && <option value="">{lang === 'en' ? '-- No voices found (use Chrome/Edge) --' : '-- Nenhuma voz encontrada (use Chrome/Edge) --'}</option>}
-                          {ttsWebVoices.map(v => <option key={v.name} value={v.name}>{v.name} ({v.lang})</option>)}
-                        </select>
-                        <div style={{ background: 'rgba(234,179,8,0.07)', border: '1px solid rgba(234,179,8,0.2)', borderRadius: 8, padding: '7px 10px', fontSize: 10, color: '#ca8a04', lineHeight: 1.5 }}>
-                          ⚠️ {lang === 'en'
-                            ? 'Browser preview only — audio plays locally but cannot be added to the timeline. For timeline integration use ElevenLabs (free account at elevenlabs.io).'
-                            : 'Preview local apenas — o áudio toca no browser mas não é adicionado à timeline. Para integrar ao vídeo use ElevenLabs (conta grátis em elevenlabs.io).'}
-                        </div>
-                      </div>
-                    )}
                     {ttsEngine === 'elevenlabs' && (
                       <select value={ttsVoice} onChange={e => setTtsVoice(e.target.value)}
                         style={{ background: '#0d1117', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10, padding: '7px 10px', color: '#f0f0f0', fontSize: 11 }}>
