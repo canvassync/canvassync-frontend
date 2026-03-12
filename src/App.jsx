@@ -1162,7 +1162,9 @@ function App() {
       videoEl.playsInline = true;
       videoEl.preload = 'auto';
       videoEl.crossOrigin = 'anonymous';
-      videoEl.style.cssText = 'position:fixed;width:1px;height:1px;opacity:0;pointer-events:none;top:-9999px';
+      // NÃO usar opacity:0 — Chrome throttle decodificação de vídeos invisíveis
+      // visibility:hidden mantém o decode ativo sem mostrar na tela
+      videoEl.style.cssText = 'position:fixed;width:1px;height:1px;visibility:hidden;pointer-events:none;top:-9999px;left:-9999px';
       document.body.appendChild(videoEl);
       const id = Date.now() + index;
 
@@ -2541,23 +2543,19 @@ function App() {
       const vidDur = isFinite(v.videoEl.duration) && v.videoEl.duration > 0 ? v.videoEl.duration : (v.end - v.start);
       const relTime = Math.max(0, Math.min(t - v.start, vidDur));
       v.videoEl.pause();
-      // Já está no lugar certo com dados — sem seek
-      if (Math.abs(v.videoEl.currentTime - relTime) < 0.05 && v.videoEl.readyState >= 2) return resolve();
+
       let settled = false;
-      const finish = () => {
-        if (settled) return; settled = true;
-        clearTimeout(hardTimeout); resolve();
-      };
-      // Timeout generoso: formatos lentos (webm, mkv) precisam de mais tempo
-      const hardTimeout = setTimeout(finish, 3000);
-      const onSeeked = () => {
-        if (v.videoEl.readyState >= 2) { finish(); return; }
-        // Ainda sem frame — aguarda canplay/canplaythrough ou 800ms
-        const dataWait = setTimeout(finish, 800);
-        v.videoEl.addEventListener('canplaythrough', () => { clearTimeout(dataWait); finish(); }, { once: true });
-        v.videoEl.addEventListener('canplay',        () => { clearTimeout(dataWait); finish(); }, { once: true });
-      };
-      v.videoEl.addEventListener('seeked', onSeeked, { once: true });
+      const finish = () => { if (settled) return; settled = true; clearTimeout(hard); resolve(); };
+      const hard = setTimeout(finish, 4000); // timeout de segurança
+
+      // requestVideoFrameCallback: dispara quando o frame está PINTADO e pronto para drawImage
+      // Muito mais confiável que 'seeked' + readyState para todos os formatos (webm, mp4, mkv)
+      if (v.videoEl.requestVideoFrameCallback) {
+        v.videoEl.requestVideoFrameCallback(finish);
+      } else {
+        // Fallback para browsers sem rVFC: seeked + 80ms para o decoder ter tempo
+        v.videoEl.addEventListener('seeked', () => setTimeout(finish, 80), { once: true });
+      }
       v.videoEl.currentTime = relTime;
     })));
     activeVids.forEach(v => {
@@ -2840,6 +2838,15 @@ function App() {
   // saveWithPicker — diálogo nativo para nome e pasta do arquivo
   // Usa File System Access API (Chrome/Edge); fallback automático.
   // ════════════════════════════════════════════════════════════════
+  // Mostra toast de sucesso após salvar
+  const showSaveToast = (name) => {
+    const toast = document.createElement('div');
+    toast.textContent = `✅ Salvo: ${name}`;
+    toast.style.cssText = 'position:fixed;bottom:24px;right:24px;z-index:99999;background:#10b981;color:#fff;padding:12px 20px;border-radius:14px;font-size:14px;font-weight:700;box-shadow:0 4px 20px rgba(0,0,0,0.4);pointer-events:none;transition:opacity 0.4s';
+    document.body.appendChild(toast);
+    setTimeout(() => { toast.style.opacity = '0'; setTimeout(() => toast.remove(), 400); }, 3500);
+  };
+
   const saveWithPicker = async (blobOrDataUrl, suggestedName, mimeType, extensions) => {
     // Normaliza para Blob
     let blob;
@@ -2850,13 +2857,24 @@ function App() {
       blob = blobOrDataUrl instanceof Blob ? blobOrDataUrl : new Blob([blobOrDataUrl], { type: mimeType });
     }
 
-    // Usa handle pré-adquirido (picker já foi aberto no click do usuário)
+    // Usa handle pré-adquirido (picker já foi aberto no click do usuário — File System Access API)
     if (fileHandleRef.current) {
       try {
         const writable = await fileHandleRef.current.createWritable();
         await writable.write(blob);
         await writable.close();
+        const savedName = fileHandleRef.current.name || suggestedName;
         fileHandleRef.current = null;
+        showSaveToast(savedName);
+        // Também dispara download clássico para aparecer na barra de downloads
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = savedName;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(url), 8000);
         return;
       } catch { fileHandleRef.current = null; /* cai no fallback */ }
     }
@@ -2869,7 +2887,8 @@ function App() {
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
-    setTimeout(() => URL.revokeObjectURL(url), 5000);
+    setTimeout(() => URL.revokeObjectURL(url), 8000);
+    showSaveToast(suggestedName);
   };
 
   const handleSaveWebmOffline = async () => {
@@ -3193,7 +3212,7 @@ function App() {
               videoEl.muted = vData.muted || false;
               videoEl.playsInline = true;
               videoEl.preload = 'auto';
-              videoEl.style.cssText = 'position:fixed;width:1px;height:1px;opacity:0;pointer-events:none;top:-9999px';
+              videoEl.style.cssText = 'position:fixed;width:1px;height:1px;visibility:hidden;pointer-events:none;top:-9999px;left:-9999px';
               document.body.appendChild(videoEl);
               await new Promise(res2 => {
                 videoEl.onloadedmetadata = res2;
