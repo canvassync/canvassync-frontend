@@ -2538,23 +2538,30 @@ function App() {
     const activeVids = (videosRef.current || []).filter(v => v.videoEl && t >= v.start && t <= v.end);
     await Promise.all(activeVids.map(v => new Promise(resolve => {
       if (!v.videoEl) return resolve();
-      const relTime = Math.max(0, Math.min(t - v.start, v.videoEl.duration || 0));
+      const vidDur = isFinite(v.videoEl.duration) && v.videoEl.duration > 0 ? v.videoEl.duration : (v.end - v.start);
+      const relTime = Math.max(0, Math.min(t - v.start, vidDur));
       v.videoEl.pause();
-      // Se já está próximo o suficiente E tem dados, desenha direto
-      if (Math.abs(v.videoEl.currentTime - relTime) < 0.1 && v.videoEl.readyState >= 2) return resolve();
-      // Aguarda seeked + readyState >= 2
-      const done = () => { v.videoEl.removeEventListener('seeked', onSeeked); clearTimeout(timeout); resolve(); };
-      const onSeeked = () => {
-        if (v.videoEl.readyState >= 2) { done(); return; }
-        // readyState ainda baixo: aguarda mais um pouco
-        const wait = setTimeout(() => done(), 200);
-        v.videoEl.addEventListener('canplay', () => { clearTimeout(wait); done(); }, { once: true });
+      // Já está no lugar certo com dados — sem seek
+      if (Math.abs(v.videoEl.currentTime - relTime) < 0.05 && v.videoEl.readyState >= 2) return resolve();
+      let settled = false;
+      const finish = () => {
+        if (settled) return; settled = true;
+        clearTimeout(hardTimeout); resolve();
       };
-      const timeout = setTimeout(() => done(), 600);
+      // Timeout generoso: formatos lentos (webm, mkv) precisam de mais tempo
+      const hardTimeout = setTimeout(finish, 3000);
+      const onSeeked = () => {
+        if (v.videoEl.readyState >= 2) { finish(); return; }
+        // Ainda sem frame — aguarda canplay/canplaythrough ou 800ms
+        const dataWait = setTimeout(finish, 800);
+        v.videoEl.addEventListener('canplaythrough', () => { clearTimeout(dataWait); finish(); }, { once: true });
+        v.videoEl.addEventListener('canplay',        () => { clearTimeout(dataWait); finish(); }, { once: true });
+      };
       v.videoEl.addEventListener('seeked', onSeeked, { once: true });
       v.videoEl.currentTime = relTime;
     })));
     activeVids.forEach(v => {
+      // Tenta desenhar mesmo se readyState < 2 (mostra último frame disponível)
       if (!v.videoEl || v.videoEl.readyState < 1 || v.videoEl.videoWidth === 0) return;
       const _evf = buildFilterString(v.filters);
       const _etr = getTransitionTransform(v, t);
@@ -2796,6 +2803,39 @@ function App() {
     }
   };
 
+  // ── _mixVideoAudioIntoBuffers: mistura áudio dos vídeos do canvas ───────────
+  const _mixVideoAudioIntoBuffers = async (outL, outR, videosArr, speed, volume, sampleRate) => {
+    if (!videosArr || videosArr.length === 0) return;
+    for (const v of videosArr) {
+      if (v.muted) continue;
+      try {
+        // Busca o arquivo de vídeo pelo object URL
+        const resp = await fetch(v.src);
+        const ab = await resp.arrayBuffer();
+        const ac = new (window.AudioContext || window.webkitAudioContext)({ sampleRate });
+        let decoded;
+        try { decoded = await ac.decodeAudioData(ab); }
+        catch { ac.close(); continue; } // vídeo sem faixa de áudio — ignora
+        ac.close();
+        const chL = decoded.getChannelData(0);
+        const chR = decoded.numberOfChannels > 1 ? decoded.getChannelData(1) : chL;
+        const vol = Math.max(0, Math.min(1, volume));
+        // Posição de início no buffer de saída (ajustada pela velocidade do projeto)
+        const outOffset   = Math.round((v.start / speed) * sampleRate);
+        const clipOutDur  = (v.end - v.start) / speed;
+        const clipOutSamples = Math.round(clipOutDur * sampleRate);
+        for (let i = 0; i < clipOutSamples; i++) {
+          const oi = outOffset + i;
+          if (oi >= outL.length) break;
+          // Reamostrar pela velocidade (simples — qualidade aceitável para export)
+          const si = Math.min(Math.round(i * speed), decoded.length - 1);
+          outL[oi] = Math.max(-1, Math.min(1, outL[oi] + (chL[si] || 0) * vol));
+          outR[oi] = Math.max(-1, Math.min(1, outR[oi] + (chR[si] || 0) * vol));
+        }
+      } catch (e) { console.warn('[VideoAudio mix]', v.id, e); }
+    }
+  };
+
   // ════════════════════════════════════════════════════════════════
   // saveWithPicker — diálogo nativo para nome e pasta do arquivo
   // Usa File System Access API (Chrome/Edge); fallback automático.
@@ -2901,7 +2941,7 @@ function App() {
       const muxer = new Muxer({
         target,
         video: { codec: 'V_VP8', width: offCanvas.width, height: offCanvas.height, frameRate: fps },
-        audio: (audioFile || audioBase64) ? { codec: 'A_OPUS', sampleRate: 48000, numberOfChannels: 2 } : undefined
+        audio: (audioFile || audioBase64 || videosRef.current.some(v => !v.muted)) ? { codec: 'A_OPUS', sampleRate: 48000, numberOfChannels: 2 } : undefined
       });
       const vEncoder = new VideoEncoder({
         output: (chunk, meta) => muxer.addVideoChunk(chunk, meta),
@@ -2909,30 +2949,38 @@ function App() {
       });
       vEncoder.configure({ codec: 'vp8', width: offCanvas.width, height: offCanvas.height, bitrate: 2_000_000 });
       let aEncoder = null;
-      if (audioFile || audioBase64) {
+      const _hasAudio1 = audioFile || audioBase64 || videosRef.current.some(v => !v.muted);
+      if (_hasAudio1) {
         try {
           aEncoder = new AudioEncoder({
             output: (chunk, meta) => muxer.addAudioChunk(chunk, meta),
             error: () => {}
           });
           aEncoder.configure({ codec: 'opus', sampleRate: 48000, numberOfChannels: 2, bitrate: 192000 });
-          let audioBufferData;
-          if (audioFile) {
-            audioBufferData = await audioFile.arrayBuffer();
+          let _out01, _out11;
+          if (audioFile || audioBase64) {
+            let audioBufferData;
+            if (audioFile) {
+              audioBufferData = await audioFile.arrayBuffer();
+            } else {
+              const b64 = audioBase64.split(',')[1];
+              const binary = atob(b64);
+              const bytes = new Uint8Array(binary.length);
+              for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+              audioBufferData = bytes.buffer;
+            }
+            const _tmpAc1 = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 48000 });
+            const _rawBuf1 = await _tmpAc1.decodeAudioData(audioBufferData);
+            _tmpAc1.close();
+            [_out01, _out11] = await _renderAudioStretched(_rawBuf1, _spd1, _vol1, 48000);
           } else {
-            // Reconstrói do base64 (projeto importado)
-            const b64 = audioBase64.split(',')[1];
-            const binary = atob(b64);
-            const bytes = new Uint8Array(binary.length);
-            for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-            audioBufferData = bytes.buffer;
+            // Apenas áudio de vídeos — cria buffer silencioso do tamanho do export
+            const _silLen = Math.ceil(outputDuration1 * 48000);
+            _out01 = new Float32Array(_silLen);
+            _out11 = new Float32Array(_silLen);
           }
-          // Decodifica audio
-          const _tmpAc1 = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 48000 });
-          const _rawBuf1 = await _tmpAc1.decodeAudioData(audioBufferData);
-          _tmpAc1.close();
-          const [_out01, _out11] = await _renderAudioStretched(_rawBuf1, _spd1, _vol1, 48000);
           await _mixSfxIntoBuffers(_out01, _out11, soundEffects, 48000);
+          await _mixVideoAudioIntoBuffers(_out01, _out11, videosRef.current, _spd1, _vol1, 48000);
           const _blk1 = 4096;
           for (let _op1 = 0; _op1 < _out01.length; _op1 += _blk1) {
             const _bl1 = Math.min(_blk1, _out01.length - _op1);
@@ -3218,6 +3266,9 @@ function App() {
       const W = baseCanvas.width, H = baseCanvas.height;
       const FPS = 30, TOTAL = Math.ceil(outputDuration2 * FPS);
       // Pré-decodifica áudio (suporta audioFile e audioBase64)
+      const _sdRate = 44100;
+      const _outSampSD = Math.floor(_sdRate * outputDuration2);
+      const _hasAudio2 = (audioFile || audioBase64 || videosRef.current.some(v => !v.muted)) && window.AudioEncoder;
       let _abSD = null;
       if ((audioFile || audioBase64) && window.AudioEncoder) {
         try {
@@ -3230,24 +3281,29 @@ function App() {
             for (let _i = 0; _i < _b.length; _i++) _by[_i] = _b.charCodeAt(_i);
             _buf = _by.buffer;
           }
-          const _ac2 = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 44100 });
+          const _ac2 = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: _sdRate });
           _abSD = await _ac2.decodeAudioData(_buf);
           _ac2.close();
         } catch(_e) { console.error('[MP4 SD decode]', _e); }
       }
-      const _sdRate = 44100;
-      const _outSampSD = Math.floor(_sdRate * outputDuration2);
       const target = new ArrayBufferTarget();
       const muxer = new Muxer({ target, video: { codec: 'avc', width: W, height: H },
-        audio: _abSD ? { codec: 'aac', sampleRate: _sdRate, numberOfChannels: 2 } : undefined,
+        audio: _hasAudio2 ? { codec: 'aac', sampleRate: _sdRate, numberOfChannels: 2 } : undefined,
         fastStart: 'in-memory' });
       // ── Áudio PRIMEIRO (igual ao WEBM) → mp4-muxer recebe chunks em ordem ──
-      if (_abSD) {
+      if (_hasAudio2) {
         try {
           const aenc = new AudioEncoder({ output: (chunk, meta) => muxer.addAudioChunk(chunk, meta), error: console.error });
           aenc.configure({ codec: 'mp4a.40.2', sampleRate: _sdRate, numberOfChannels: 2, bitrate: 192000 });
-          const [_out02, _out12] = await _renderAudioStretched(_abSD, _spd2, _vol2, _sdRate);
+          let _out02, _out12;
+          if (_abSD) {
+            [_out02, _out12] = await _renderAudioStretched(_abSD, _spd2, _vol2, _sdRate);
+          } else {
+            _out02 = new Float32Array(_outSampSD);
+            _out12 = new Float32Array(_outSampSD);
+          }
           await _mixSfxIntoBuffers(_out02, _out12, soundEffects, _sdRate);
+          await _mixVideoAudioIntoBuffers(_out02, _out12, videosRef.current, _spd2, _vol2, _sdRate);
           const _blk2 = 4096;
           for (let _op2 = 0; _op2 < _out02.length; _op2 += _blk2) {
             const _bl2 = Math.min(_blk2, _out02.length - _op2);
@@ -3312,6 +3368,9 @@ function App() {
       const W = 1080, H = Math.round(baseCanvas.height * SCALE);
       const FPS = 30, TOTAL = Math.ceil(outputDuration3 * FPS);
       // Pré-decodifica áudio (suporta audioFile e audioBase64)
+      const _hdRate = 44100;
+      const _outSampHD = Math.floor(_hdRate * outputDuration3);
+      const _hasAudio3 = (audioFile || audioBase64 || videosRef.current.some(v => !v.muted)) && window.AudioEncoder;
       let _abHD = null;
       if ((audioFile || audioBase64) && window.AudioEncoder) {
         try {
@@ -3324,24 +3383,29 @@ function App() {
             for (let _i = 0; _i < _b.length; _i++) _by[_i] = _b.charCodeAt(_i);
             _buf = _by.buffer;
           }
-          const _ac3 = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 44100 });
+          const _ac3 = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: _hdRate });
           _abHD = await _ac3.decodeAudioData(_buf);
           _ac3.close();
         } catch(_e) { console.error('[MP4 HD decode]', _e); }
       }
-      const _hdRate = 44100;
-      const _outSampHD = Math.floor(_hdRate * outputDuration3);
       const target = new ArrayBufferTarget();
       const muxer = new Muxer({ target, video: { codec: 'avc', width: W, height: H },
-        audio: _abHD ? { codec: 'aac', sampleRate: _hdRate, numberOfChannels: 2 } : undefined,
+        audio: _hasAudio3 ? { codec: 'aac', sampleRate: _hdRate, numberOfChannels: 2 } : undefined,
         fastStart: 'in-memory' });
       // ── Áudio PRIMEIRO (igual ao WEBM) → mp4-muxer recebe chunks em ordem ──
-      if (_abHD) {
+      if (_hasAudio3) {
         try {
           const aenc = new AudioEncoder({ output: (chunk, meta) => muxer.addAudioChunk(chunk, meta), error: console.error });
           aenc.configure({ codec: 'mp4a.40.2', sampleRate: _hdRate, numberOfChannels: 2, bitrate: 192000 });
-          const [_out03, _out13] = await _renderAudioStretched(_abHD, _spd3, _vol3, _hdRate);
+          let _out03, _out13;
+          if (_abHD) {
+            [_out03, _out13] = await _renderAudioStretched(_abHD, _spd3, _vol3, _hdRate);
+          } else {
+            _out03 = new Float32Array(_outSampHD);
+            _out13 = new Float32Array(_outSampHD);
+          }
           await _mixSfxIntoBuffers(_out03, _out13, soundEffects, _hdRate);
+          await _mixVideoAudioIntoBuffers(_out03, _out13, videosRef.current, _spd3, _vol3, _hdRate);
           const _blk3 = 4096;
           for (let _op3 = 0; _op3 < _out03.length; _op3 += _blk3) {
             const _bl3 = Math.min(_blk3, _out03.length - _op3);
@@ -3436,10 +3500,11 @@ function App() {
       const totalFrames = Math.ceil(outputDuration4 * fps);
       const target      = new ArrayBufferTarget();
 
+      const _hasAudio4 = audioFile || audioBase64 || videosRef.current.some(v => !v.muted);
       const muxer = new Muxer({
         target,
         video: { codec: 'V_VP8', width: hdW, height: hdH, frameRate: fps },
-        audio: (audioFile || audioBase64)
+        audio: _hasAudio4
           ? { codec: 'A_OPUS', sampleRate: 48000, numberOfChannels: 2 }
           : undefined,
       });
@@ -3452,7 +3517,7 @@ function App() {
 
       // ── Áudio ──────────────────────────────────────────────────────────────
       let aEncoder = null;
-      if (audioFile || audioBase64) {
+      if (_hasAudio4) {
         try {
           aEncoder = new AudioEncoder({
             output: (chunk, meta) => muxer.addAudioChunk(chunk, meta),
@@ -3460,22 +3525,29 @@ function App() {
           });
           aEncoder.configure({ codec: 'opus', sampleRate: 48000, numberOfChannels: 2, bitrate: 192000 });
 
-          let audioBufferData;
-          if (audioFile) {
-            audioBufferData = await audioFile.arrayBuffer();
+          let _out04, _out14;
+          if (audioFile || audioBase64) {
+            let audioBufferData;
+            if (audioFile) {
+              audioBufferData = await audioFile.arrayBuffer();
+            } else {
+              const b64    = audioBase64.split(',')[1];
+              const binary = atob(b64);
+              const bytes  = new Uint8Array(binary.length);
+              for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+              audioBufferData = bytes.buffer;
+            }
+            const ac     = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 48000 });
+            const buffer = await ac.decodeAudioData(audioBufferData);
+            ac.close();
+            [_out04, _out14] = await _renderAudioStretched(buffer, _spd4, _vol4, 48000);
           } else {
-            const b64    = audioBase64.split(',')[1];
-            const binary = atob(b64);
-            const bytes  = new Uint8Array(binary.length);
-            for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-            audioBufferData = bytes.buffer;
+            const _silLen4 = Math.ceil(outputDuration4 * 48000);
+            _out04 = new Float32Array(_silLen4);
+            _out14 = new Float32Array(_silLen4);
           }
-
-          const ac     = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 48000 });
-          const buffer = await ac.decodeAudioData(audioBufferData);
-          ac.close();
-          const [_out04, _out14] = await _renderAudioStretched(buffer, _spd4, _vol4, 48000);
           await _mixSfxIntoBuffers(_out04, _out14, soundEffects, 48000);
+          await _mixVideoAudioIntoBuffers(_out04, _out14, videosRef.current, _spd4, _vol4, 48000);
           const _blk4 = 4096;
           for (let _op4 = 0; _op4 < _out04.length; _op4 += _blk4) {
             const _bl4 = Math.min(_blk4, _out04.length - _op4);
