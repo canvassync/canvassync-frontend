@@ -3686,7 +3686,7 @@ function App() {
     }
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     if (exportFormat === 'webm_offline_audio') {
