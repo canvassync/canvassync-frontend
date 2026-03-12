@@ -2551,22 +2551,28 @@ function App() {
 
       let settled = false;
       const finish = () => { if (settled) return; settled = true; clearTimeout(hard); resolve(); };
-      const hard = setTimeout(finish, 4000);
+      // 800ms de timeout por seek (vídeos lentos/grandes podem precisar de mais, mas 4s travava o export)
+      const hard = setTimeout(finish, 800);
 
-      // 'seeked' num vídeo PAUSADO garante que o frame está decodificado e pronto p/ drawImage
-      // NÃO usar requestVideoFrameCallback aqui — só funciona durante playback ativo
       v.videoEl.addEventListener('seeked', finish, { once: true });
       v.videoEl.currentTime = relTime;
     })));
-    activeVids.forEach(v => {
-      // Tenta desenhar mesmo se readyState < 2 (mostra último frame disponível)
-      if (!v.videoEl || v.videoEl.readyState < 1 || v.videoEl.videoWidth === 0) return;
+    // Captura bitmap de cada vídeo APÓS o seek (createImageBitmap garante frame
+    // decodificado tanto em HTMLCanvasElement quanto em OffscreenCanvas)
+    const vidBitmaps = await Promise.all(activeVids.map(async v => {
+      if (!v.videoEl || v.videoEl.readyState < 2 || v.videoEl.videoWidth === 0) return null;
+      try { return await createImageBitmap(v.videoEl); } catch { return null; }
+    }));
+    activeVids.forEach((v, i) => {
+      const bmp = vidBitmaps[i];
+      if (!bmp) return;
       const _evf = buildFilterString(v.filters);
       const _etr = getTransitionTransform(v, t);
       ctx.save();
       if (_etr) { _applyTr(ctx, _etr, _evf, v); } else if(_evf!=='none'){ctx.filter=_evf;}
-      drawRotatedElement(ctx, () => drawRoundedImage(ctx, v.videoEl, v.x, v.y, v.width, v.height, v.radius ?? 12), v.x, v.y, v.width, v.height, v.rotation);
+      drawRotatedElement(ctx, () => drawRoundedImage(ctx, bmp, v.x, v.y, v.width, v.height, v.radius ?? 12), v.x, v.y, v.width, v.height, v.rotation);
       ctx.filter='none'; ctx.restore();
+      bmp.close();
     });
     // Renderiza TODAS as imagens ativas no instante t (usa ref para evitar closure stale)
     const activeImgs = (imagesRef.current || []).filter(item => item?.img && t >= item.start && t <= item.end);
@@ -3091,6 +3097,13 @@ function App() {
       const blob = new Blob(chunks, { type: 'video/webm' });
       saveWithPicker(blob, `canvas.webm`, 'video/webm', ['.webm']);
     };
+    // Ativa flag de playback para que syncVideosInRAF inicie os vídeos overlay
+    isPlayingRef.current = true;
+    videosRef.current.forEach(v => {
+      if (!v.videoEl) return;
+      v.videoEl.currentTime = Math.max(0, 0 - v.start); // reseta para o início relativo
+      if (0 >= v.start && 0 <= v.end) v.videoEl.play().catch(() => {});
+    });
     recorder.start();
     if (audio) {
       audio.currentTime = 0;
@@ -3098,10 +3111,22 @@ function App() {
       const onAudioEnded = () => {
         recorder.stop();
         audio.removeEventListener('ended', onAudioEnded);
+        isPlayingRef.current = false;
+        videosRef.current.forEach(v => { if (v.videoEl && !v.videoEl.paused) v.videoEl.pause(); });
       };
       audio.addEventListener('ended', onAudioEnded);
     } else {
-      setTimeout(() => recorder.stop(), 3000);
+      // Calcula duração pelo conteúdo quando não há áudio
+      const contentDur = Math.max(
+        ...(videosRef.current.map(v => v.end || 0)),
+        ...(lyricsRef.current.map(l => l.end || 0)),
+        3
+      ) * 1000;
+      setTimeout(() => {
+        recorder.stop();
+        isPlayingRef.current = false;
+        videosRef.current.forEach(v => { if (v.videoEl && !v.videoEl.paused) v.videoEl.pause(); });
+      }, contentDur);
     }
   };
 
