@@ -3047,6 +3047,7 @@ function App() {
           x: v.x, y: v.y, width: v.width, height: v.height,
           radius: v.radius ?? 12, rotation: v.rotation ?? 0,
           muted: v.muted || false,
+          videoBase64: b64result?.data || null,
           videoMime: b64result?.mime || 'video/mp4',
           filters: v.filters || {},
           transitionIn:     v.transitionIn     || 'none',
