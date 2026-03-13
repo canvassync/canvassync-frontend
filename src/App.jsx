@@ -930,6 +930,7 @@ function App() {
   const virtualTimeRef    = useRef(0);   // relógio virtual quando não há áudio
   const clockIntervalRef  = useRef(null);
   const rtExportRef       = useRef(false); // true durante WebM+Áudio RT — força draw() a ignorar audioRef
+  const offlineExportRef  = useRef(false); // true durante exports frame-a-frame — suspende syncVideosInRAF
   // Refs para capturar valores atuais dentro de callbacks estáveis
   const fontSizeRef = useRef(fontSize);
   const fontFamilyRef = useRef(fontFamily);
@@ -2380,8 +2381,13 @@ function App() {
   // ── Sync de vídeos via função chamada pelo loop RAF ──────────────────────
   // Não usa useEffect reativo — evita closure stale de isPlaying
   const syncVideosInRAF = useCallback(() => {
+    // Durante exports offline (frame-a-frame) o renderAtTimeToCanvas controla
+    // os vídeos diretamente — interferir aqui corrompe os frames exportados
+    if (offlineExportRef.current) return;
     const audio = audioRef.current;
-    const t = audio ? audio.currentTime : virtualTimeRef.current;
+    // Durante RT export (WebM+Áudio) usa sempre virtualTimeRef — o audioRef
+    // não é tocado, então audio.currentTime estaria congelado no último valor
+    const t = (rtExportRef.current || !audio) ? virtualTimeRef.current : audio.currentTime;
     const playing = isPlayingRef.current;
     const spd = Math.max(0.25, Math.min(4, projectSpeedRef.current));
     videosRef.current.forEach(v => {
@@ -2919,18 +2925,22 @@ function App() {
       return 3;
     })();
     if (!effectiveDuration || effectiveDuration <= 0) return;
+    const _spdW = Math.max(0.25, Math.min(4, projectSpeedRef.current));
+    const outputDurationW = effectiveDuration / _spdW;
     setIsExporting(true);
     setExportProgress(0);
+    offlineExportRef.current = true;
     try {
       const { default: WebMWriter } = await import('webm-writer');
       const offCanvas = document.createElement('canvas');
       offCanvas.width = baseCanvas.width;
       offCanvas.height = baseCanvas.height;
       const fps = 30;
-      const totalFrames = Math.ceil(effectiveDuration * fps);
+      const totalFrames = Math.ceil(outputDurationW * fps);
       const writer = new WebMWriter({ frameRate: fps, quality: 0.95 });
       for (let i = 0; i < totalFrames; i++) {
-        const t = i / fps;
+        // t = tempo no espaço do projeto: cada frame de saída avança spd× o projeto
+        const t = (i / fps) * _spdW;
         await renderAtTimeToCanvas(offCanvas, t);
         writer.addFrame(offCanvas);
         setExportProgress(((i + 1) / totalFrames));
@@ -2939,6 +2949,7 @@ function App() {
       const blob = await writer.complete();
       await saveWithPicker(blob, `canvas.webm`, 'video/webm', ['.webm']);
     } finally {
+      offlineExportRef.current = false;
       setIsExporting(false);
       setExportProgress(0);
     }
@@ -3349,6 +3360,7 @@ function App() {
     const _vol2 = Math.max(0, Math.min(1, projectVolumeRef.current));
     const outputDuration2 = effectiveDuration / _spd2;
     setIsExporting(true); setExportProgress(0);
+    offlineExportRef.current = true;
     try {
       const { Muxer, ArrayBufferTarget } = await import('mp4-muxer');
       const W = baseCanvas.width, H = baseCanvas.height;
@@ -3427,7 +3439,7 @@ function App() {
     } catch(err) {
       console.error('[MP4 Export]', err);
       alert('Erro ao exportar MP4: ' + err.message);
-    } finally { setIsExporting(false); setExportProgress(0); }
+    } finally { offlineExportRef.current = false; setIsExporting(false); setExportProgress(0); }
   };
 
   // ── Exportação MP4 HD 1080×1920 ─────────────────────────────────────────────
@@ -3450,6 +3462,7 @@ function App() {
     const _vol3 = Math.max(0, Math.min(1, projectVolumeRef.current));
     const outputDuration3 = effectiveDuration / _spd3;
     setIsExporting(true); setExportProgress(0);
+    offlineExportRef.current = true;
     try {
       const { Muxer, ArrayBufferTarget } = await import('mp4-muxer');
       const SCALE = 1080 / baseCanvas.width;
@@ -3532,7 +3545,7 @@ function App() {
     } catch(err) {
       console.error('[MP4 HD Export]', err);
       alert('Erro ao exportar MP4 HD: ' + err.message);
-    } finally { setIsExporting(false); setExportProgress(0); }
+    } finally { offlineExportRef.current = false; setIsExporting(false); setExportProgress(0); }
   };
 
 
@@ -3555,6 +3568,7 @@ function App() {
     const _spd4 = Math.max(0.25, Math.min(4, projectSpeedRef.current));
     const _vol4 = Math.max(0, Math.min(1, projectVolumeRef.current));
     const outputDuration4 = effectiveDuration / _spd4;
+    offlineExportRef.current = true;
 
     // ── Dimensões fixas 1080p mantendo aspect ratio do canvas ──────────────────
     const srcW = baseCanvas.width;
@@ -3686,6 +3700,7 @@ function App() {
       console.error('[handleSaveHD]', err);
       alert(`Erro ao exportar HD WebM: ${err?.message || err}\nTente um vídeo mais curto ou use o formato MP4 HD.`);
     } finally {
+      offlineExportRef.current = false;
       setIsExporting(false);
       setExportProgress(0);
       // Restaura vídeos ao estado anterior (evita ficarem pretos)
@@ -5011,7 +5026,7 @@ function App() {
                   style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 10, padding: '6px 18px', color: '#f87171', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}
                 >⏹ Stop</button>
                 <span style={{ fontSize: 13, color: '#00BFFF', fontWeight: 700, minWidth: 100 }}>
-                  {formatTime(currentTime)} / {formatTime(duration)}
+                  {formatTime(currentTime / projectSpeed)} / {formatTime(duration / projectSpeed)}
                 </span>
                 <button
                   onClick={() => setIsFullscreen(false)}
@@ -5225,7 +5240,7 @@ function App() {
             <button onClick={handleStopPlayback} style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', padding: '6px 16px', borderRadius: '14px', cursor: 'pointer', fontWeight: 'bold', fontSize: '11px', color: '#f87171', boxShadow: 'none' }}>
               {t('ed_stop')}
             </button>
-            <span style={{ fontSize: '12px', color: '#00BFFF', fontWeight: 'bold', minWidth: '85px' }}>{formatTime(currentTime)} / {formatTime(duration)}</span>
+            <span style={{ fontSize: '12px', color: '#00BFFF', fontWeight: 'bold', minWidth: '85px' }}>{formatTime(currentTime / projectSpeed)} / {formatTime(duration / projectSpeed)}</span>
 
             {/* ── Separador ── */}
             <div style={{ width: 1, height: 28, background: 'rgba(255,255,255,0.07)', margin: '0 2px' }} />
