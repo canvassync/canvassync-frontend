@@ -2134,9 +2134,7 @@ function App() {
     // Desenha TODOS os vídeos ativos (abaixo das imagens)
     getVideosForTime(time).forEach(v => {
       if (!v.videoEl || v.videoEl.readyState < 1 || v.videoEl.videoWidth === 0) return;
-      // Pausa se atingiu o fim real do vídeo (rawDuration / vidSpeed)
-      const effDur = (v.rawDuration ?? v.videoEl.duration ?? (v.end - v.start)) / Math.max(0.25, v.vidSpeed ?? 1);
-      if (!v.videoEl.paused && (time - v.start) >= effDur - 0.05) v.videoEl.pause();
+      // Pausa se atingiu o fim real do vídeo — já gerenciado pelo sync loop RAF
       const vRot = (v.rotation || 0) * Math.PI / 180;
       const _vf  = buildFilterString(v.filters);
       const _vtr = getTransitionTransform(v, time);
@@ -2406,26 +2404,35 @@ function App() {
     videosRef.current.forEach(v => {
       if (!v.videoEl) return;
       const active = t >= v.start && t <= v.end;
-      const relTime = Math.max(0, Math.min(t - v.start, v.videoEl.duration || 0));
-      if (active) {
-        // Aplica velocidade do projeto no elemento de vídeo
-        const vSpd = Math.max(0.25, Math.min(4, (v.vidSpeed ?? 1) * spd));
+      const vidSpdFactor = v.vidSpeed ?? 1;
+      const vSpd = Math.max(0.25, Math.min(4, vidSpdFactor * spd));
+      // currentTime no elemento de vídeo = tempo decorrido × vidSpeed
+      const relTime = Math.max(0, Math.min((t - v.start) * vidSpdFactor, v.videoEl.duration || 0));
+      // Duração efetiva em tempo de projeto: rawDuration / vidSpeed
+      const rawDur  = v.rawDuration ?? v.videoEl.duration ?? (v.end - v.start);
+      const effEnd  = v.start + rawDur / vidSpdFactor;
+      const activeNow = t >= v.start && t < effEnd;
+
+      if (activeNow) {
         if (Math.abs(v.videoEl.playbackRate - vSpd) > 0.01) v.videoEl.playbackRate = vSpd;
-        // Só faz seek quando pausado ou com desvio grande (>1s)
-        // Fazer seek enquanto tocando interrompe o áudio
-        if (v.videoEl.paused && Math.abs(v.videoEl.currentTime - relTime) > 0.1) {
+        // Seek só quando: pausado com desvio >0.1s, ou tocando com desvio >1s×vidSpeed
+        const drift = Math.abs(v.videoEl.currentTime - relTime);
+        if (v.videoEl.paused && drift > 0.1) {
           v.videoEl.currentTime = relTime;
-        } else if (!v.videoEl.paused && Math.abs(v.videoEl.currentTime - relTime) > 1.0) {
+        } else if (!v.videoEl.paused && drift > Math.max(1.0, vSpd)) {
           v.videoEl.currentTime = relTime;
         }
         if (playing && v.videoEl.paused) {
           v.videoEl.muted = v.muted || false;
+          v.videoEl.volume = Math.max(0, Math.min(1, projectVolumeRef.current * vidSpdFactor > 0 ? (v.vidVolume ?? 1) * projectVolumeRef.current : 0));
           v.videoEl.play().catch(() => {});
         } else if (!playing && !v.videoEl.paused) {
           v.videoEl.pause();
         }
       } else {
         if (!v.videoEl.paused) v.videoEl.pause();
+        // Quando inativo mas antes do início, posiciona no frame 0
+        if (t < v.start && Math.abs(v.videoEl.currentTime) > 0.1) v.videoEl.currentTime = 0;
       }
     });
   }, []);
@@ -2579,7 +2586,8 @@ function App() {
       const vidDur = isFinite(v.videoEl.duration) && v.videoEl.duration > 0 ? v.videoEl.duration : (v.end - v.start);
       // Clamp a vidDur-0.033 (1 frame antes do fim) — alguns browsers retornam
       // frame preto ao seekar para exatamente duration
-      const relTime = Math.max(0, Math.min(t - v.start, Math.max(0, vidDur - 0.033)));
+      // relTime no elemento = tempo de projeto × vidSpeed (vídeo acelerado avança mais rápido)
+      const relTime = Math.max(0, Math.min((t - v.start) * (v.vidSpeed ?? 1), Math.max(0, vidDur - 0.033)));
       v.videoEl.pause();
 
       // Se já está no frame certo, resolve imediatamente
@@ -5341,14 +5349,28 @@ function App() {
                     onChange={e => {
                       const val = +e.target.value;
                       if (isPerVid) {
-                        setVideos(prev => prev.map(v => {
-                          if (v.id !== activeVideoId) return v;
-                          if (v.videoEl) v.videoEl.playbackRate = Math.max(0.25, Math.min(4, val * projectSpeedRef.current));
-                          // Recalcula end com base na duração original e nova velocidade
-                          const raw = v.rawDuration ?? (v.end - v.start);
-                          const newEnd = v.start + raw / val;
-                          return { ...v, vidSpeed: val, rawDuration: raw, end: newEnd };
-                        }));
+                        setVideos(prev => {
+                          // Calcula o novo end do vídeo alterado
+                          const changedIdx = prev.findIndex(v => v.id === activeVideoId);
+                          if (changedIdx < 0) return prev;
+                          const changed = prev[changedIdx];
+                          if (changed.videoEl) changed.videoEl.playbackRate = Math.max(0.25, Math.min(4, val * projectSpeedRef.current));
+                          const raw = changed.rawDuration ?? (changed.end - changed.start);
+                          const oldEnd = changed.end;
+                          const newEnd = changed.start + raw / val;
+                          const delta = newEnd - oldEnd; // negativo se acelerou, positivo se desacelerou
+
+                          return prev.map((v, idx) => {
+                            if (v.id === activeVideoId) {
+                              return { ...v, vidSpeed: val, rawDuration: raw, end: newEnd };
+                            }
+                            // Vídeos APÓS o alterado: deslocam de acordo com o delta
+                            if (idx > changedIdx) {
+                              return { ...v, start: v.start + delta, end: v.end + delta };
+                            }
+                            return v;
+                          });
+                        });
                       } else {
                         setSpeed(val);
                         // Velocidade global: recalcula end de todos os vídeos
