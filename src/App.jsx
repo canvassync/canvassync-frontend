@@ -943,6 +943,8 @@ function App() {
   useEffect(() => { animTypeRef.current = animType; }, [animType]);
   useEffect(() => { twSpeedRef.current  = twSpeed;  }, [twSpeed]);
   const [dragging, setDragging] = useState(null);
+  const draggingRef = useRef(null);  // ref síncrono — mousemove não espera re-render
+  const _setDragging = (val) => { draggingRef.current = val; setDragging(val); };
   const [chatOpen,  setChatOpen]  = useState(false);
   const [chatTopic, setChatTopic] = useState(null);
   const [isScrubbing, setIsScrubbing] = useState(false);
@@ -1527,7 +1529,7 @@ function App() {
       }
     }
     // Snapshot the lyric state at drag start to prevent stale-closure duplication
-    setDragging({ id, type, initialX: e.clientX, itemKind: 'lyric',
+    __setDragging({ id, type, initialX: e.clientX, itemKind: 'lyric',
       initialStart: lyric?.start ?? 0, initialEnd: lyric?.end ?? 3 });
   };
 
@@ -1545,25 +1547,30 @@ function App() {
         playheadRef.current.style.transform = `translateX(${seekTo * zoom}px)`;
       }
     }
-    setDragging({ id, type, initialX: e.clientX, itemKind: 'image', initialStart: item?.start ?? 0, initialEnd: item?.end ?? 3 });
+    __setDragging({ id, type, initialX: e.clientX, itemKind: 'image', initialStart: item?.start ?? 0, initialEnd: item?.end ?? 3 });
   };
 
   const handleVideoTimelineMouseDown = (id, type, e) => {
     e.stopPropagation();
-    setActiveVideoId(id);
-    const item = videos.find(v => v.id === id);
-    if (item) {
-      const seekTo = item.start + 0.05;
+    // NÃO chamar setActiveVideoId aqui — causaria re-render que mata o drag
+    // Definimos o ativo via ref imediatamente, e sincronizamos state no mouseup
+    const item = videosRef.current.find(v => v.id === id);
+
+    // Move playhead para o início do vídeo só quando for arrastar o bloco (não resize)
+    if (type === 'move' && item) {
+      const seekTo = item.start;
       if (audioRef.current) audioRef.current.currentTime = seekTo;
       virtualTimeRef.current = seekTo;
       setCurrentTime(seekTo);
       if (playheadRef.current) playheadRef.current.style.transform = `translateX(${seekTo * zoom}px)`;
     }
-    setDragging({
+
+    setActiveVideoId(id);  // OK chamar depois de setup do drag
+    __setDragging({
       id, type, initialX: e.clientX, itemKind: 'video',
       initialStart: item?.start ?? 0,
       initialEnd: item?.end ?? 3,
-      initialTrimStart: item?.trimStart ?? 0,  // offset do ponto de entrada no vídeo original
+      initialTrimStart: item?.trimStart ?? 0,
       initialRawDuration: item?.rawDuration ?? (item ? (item.end - item.start) : 3),
     });
   };
@@ -1576,7 +1583,9 @@ function App() {
     const rawX = clientX - rect.left + container.scrollLeft;
     const lyricMax = lyrics.reduce((max, l) => Math.max(max, l.end || 0), 0);
     const imageMax = images.reduce((max, item) => Math.max(max, item.end || 0), 0);
-    const maxTime = Math.max(duration, lyricMax, imageMax);
+    const videoMax = videosRef.current.reduce((max, v) => Math.max(max, v.end || 0), 0);
+    // Usa o maior entre: duração do áudio, letras, imagens e vídeos
+    const maxTime = Math.max(duration || 0, lyricMax, imageMax, videoMax, 1);
     const nextTime = Math.max(0, Math.min(maxTime, rawX / zoom));
     if (audio) audio.currentTime = nextTime;
     virtualTimeRef.current = nextTime;
@@ -1626,7 +1635,7 @@ function App() {
       if (Math.abs(mouseX - stk.x) <= half && Math.abs(mouseY - stk.y) <= half) {
         activeStickerRef.current = stk.id;
         setActiveStickerId(stk.id);
-        setDragging({ type: 'sticker', id: stk.id, offsetX: mouseX - stk.x, offsetY: mouseY - stk.y });
+        __setDragging({ type: 'sticker', id: stk.id, offsetX: mouseX - stk.x, offsetY: mouseY - stk.y });
         return;
       }
     }
@@ -1648,7 +1657,7 @@ function App() {
       const distHandle = Math.hypot(mouseX - hx, mouseY - hy);
       if (distHandle <= 10) {
         setActiveExtraTextId(txt.id);
-        setDragging({
+        _setDragging({
           type: 'extra-rotate',
           id: txt.id,
           cx: txt.x,
@@ -1668,7 +1677,7 @@ function App() {
           return;
         }
         setDraggingExtraIndex(i);
-        setDragging({ type: 'extra', id: txt.id, offsetX: mouseX - txt.x, offsetY: mouseY - txt.y });
+        __setDragging({ type: 'extra', id: txt.id, offsetX: mouseX - txt.x, offsetY: mouseY - txt.y });
         return;
       }
     }
@@ -1700,7 +1709,7 @@ function App() {
         const rhy = ly - Math.cos(lRot) * handleDist;
         if (Math.hypot(mouseX - rhx, mouseY - rhy) <= 11) {
           setActiveLyricId(visibleLyric.id);
-          setDragging({ type: 'lyric-rotate', id: visibleLyric.id, cx: lx, cy: ly,
+          __setDragging({ type: 'lyric-rotate', id: visibleLyric.id, cx: lx, cy: ly,
             startAngle: Math.atan2(mouseY - ly, mouseX - lx),
             startRotation: visibleLyric.rotation || 0 });
           return;
@@ -1715,7 +1724,7 @@ function App() {
           setEditingLyricId(visibleLyric.id);
           return;
         }
-        setDragging({ type: 'lyric-canvas', id: visibleLyric.id, offsetX: mouseX - lx, offsetY: mouseY - ly });
+        _setDragging({ type: 'lyric-canvas', id: visibleLyric.id, offsetX: mouseX - lx, offsetY: mouseY - ly });
         return;
       }
     }
@@ -1740,12 +1749,12 @@ function App() {
       const nearBottom = Math.abs(mouseY - (clickedItem.y + clickedItem.height)) <= handleSize;
       const corner = `${nearTop?'n':''}${nearBottom?'s':''}${nearLeft?'w':''}${nearRight?'e':''}`;
       if (corner.length >= 2) {
-        setDragging({ itemKind: 'canvas-image', type: 'resize', id: clickedItem.id, corner,
+        __setDragging({ itemKind: 'canvas-image', type: 'resize', id: clickedItem.id, corner,
           startX: mouseX, startY: mouseY,
           startWidth: clickedItem.width, startHeight: clickedItem.height,
           startXPos: clickedItem.x, startYPos: clickedItem.y });
       } else {
-        setDragging({ itemKind: 'canvas-image', type: 'move', id: clickedItem.id,
+        _setDragging({ itemKind: 'canvas-image', type: 'move', id: clickedItem.id,
           offsetX: mouseX - clickedItem.x, offsetY: mouseY - clickedItem.y });
       }
       return;
@@ -1768,12 +1777,12 @@ function App() {
       const nB = Math.abs(mouseY - (clickedVideo.y + clickedVideo.height)) <= s;
       const corner = `${nT?'n':''}${nB?'s':''}${nL?'w':''}${nR?'e':''}`;
       if (corner.length >= 2) {
-        setDragging({ itemKind: 'canvas-video', type: 'resize', id: clickedVideo.id, corner,
+        _setDragging({ itemKind: 'canvas-video', type: 'resize', id: clickedVideo.id, corner,
           startX: mouseX, startY: mouseY,
           startWidth: clickedVideo.width, startHeight: clickedVideo.height,
           startXPos: clickedVideo.x, startYPos: clickedVideo.y });
       } else {
-        setDragging({ itemKind: 'canvas-video', type: 'move', id: clickedVideo.id,
+        __setDragging({ itemKind: 'canvas-video', type: 'move', id: clickedVideo.id,
           offsetX: mouseX - clickedVideo.x, offsetY: mouseY - clickedVideo.y });
       }
       return;
@@ -1786,6 +1795,8 @@ function App() {
       scrubToClientX(e.clientX);
       return;
     }
+    // Usa ref síncrono para não perder o drag em re-renders
+    const dragging = draggingRef.current;
 
     // Timeline lyric drag/resize
     if (dragging && dragging.itemKind === 'lyric') {
@@ -2024,7 +2035,7 @@ function App() {
 
 
   const handleGlobalMouseUp = useCallback(() => {
-    setDragging(null);
+_setDragging(null);
     setDraggingExtraIndex(null);
     setIsScrubbing(false);
   }, []);
