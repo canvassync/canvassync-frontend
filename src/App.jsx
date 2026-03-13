@@ -1563,6 +1563,11 @@ function App() {
       virtualTimeRef.current = seekTo;
       setCurrentTime(seekTo);
       if (playheadRef.current) playheadRef.current.style.transform = `translateX(${seekTo * zoom}px)`;
+      // Pré-posiciona o videoEl no trimStart para não ter delay ao dar play
+      if (item.videoEl) {
+        const ts = item.trimStart ?? 0;
+        if (Math.abs(item.videoEl.currentTime - ts) > 0.05) item.videoEl.currentTime = ts;
+      }
     }
 
     setActiveVideoId(id);  // OK chamar depois de setup do drag
@@ -1826,12 +1831,17 @@ function App() {
       } else if (dragging.type === 'resize-start') {
         // Trim do início: avança start + avança trimStart (ponto de entrada no vídeo)
         const rawDur   = dragging.initialRawDuration;
+        const trimSt0  = dragging.initialTrimStart ?? 0;
         const vidSpeed = (videosRef.current.find(v => v.id === dragging.id)?.vidSpeed) ?? 1;
-        const maxTrim  = rawDur / Math.max(0.25, vidSpeed) - 0.2; // não pode trimar além da duração
-        const newStart = Math.max(0, Math.min(dragging.initialStart + dx, dragging.initialEnd - 0.2));
-        const trimDelta = newStart - dragging.initialStart;          // quanto avançou em tempo de projeto
+        // Limite máximo para puxar para a direita: o início não pode ultrapassar o fim do arquivo
+        const maxDxRight = (rawDur - trimSt0) / vidSpeed - 0.2;
+        // Limite máximo para puxar para a esquerda: só volta até onde trimStart chegaria a 0
+        const maxDxLeft  = -(trimSt0 / vidSpeed);
+        const clampedDx  = Math.max(maxDxLeft, Math.min(maxDxRight, dx));
+        const newStart   = Math.max(0, dragging.initialStart + clampedDx);
+        const trimDelta  = newStart - dragging.initialStart;
         const newTrimStart = Math.max(0, Math.min(
-          (dragging.initialTrimStart ?? 0) + trimDelta * vidSpeed,   // converte p/ tempo do vídeo
+          trimSt0 + trimDelta * vidSpeed,
           rawDur - 0.1
         ));
         setVideos(prev => prev.map(v =>
@@ -2449,24 +2459,36 @@ _setDragging(null);
 
       if (activeNow) {
         if (Math.abs(v.videoEl.playbackRate - vSpd) > 0.01) v.videoEl.playbackRate = vSpd;
-        // Seek só quando: pausado com desvio >0.1s, ou tocando com desvio >1s×vidSpeed
         const drift = Math.abs(v.videoEl.currentTime - relTime);
-        if (v.videoEl.paused && drift > 0.1) {
-          v.videoEl.currentTime = relTime;
-        } else if (!v.videoEl.paused && drift > Math.max(1.0, vSpd)) {
-          v.videoEl.currentTime = relTime;
-        }
+        const vol = Math.max(0, Math.min(1, (v.vidVolume ?? 1) * projectVolumeRef.current));
         if (playing && v.videoEl.paused) {
-          v.videoEl.muted = v.muted || false;
-          v.videoEl.volume = Math.max(0, Math.min(1, projectVolumeRef.current * vidSpdFactor > 0 ? (v.vidVolume ?? 1) * projectVolumeRef.current : 0));
-          v.videoEl.play().catch(() => {});
+          // SEMPRE seek antes de play() quando há trimStart ou drift significativo
+          if (drift > 0.05) {
+            v.videoEl.currentTime = relTime;
+            // Aguarda seeked para evitar iniciar do frame errado
+            v.videoEl.addEventListener('seeked', () => {
+              v.videoEl.muted = v.muted || false;
+              v.videoEl.volume = vol;
+              v.videoEl.play().catch(() => {});
+            }, { once: true });
+          } else {
+            v.videoEl.muted = v.muted || false;
+            v.videoEl.volume = vol;
+            v.videoEl.play().catch(() => {});
+          }
         } else if (!playing && !v.videoEl.paused) {
           v.videoEl.pause();
+        } else if (!v.videoEl.paused && drift > Math.max(1.0, vSpd)) {
+          // Correção de drift durante playback
+          v.videoEl.currentTime = relTime;
         }
       } else {
         if (!v.videoEl.paused) v.videoEl.pause();
-        // Quando inativo mas antes do início, posiciona no frame 0
-        if (t < v.start && Math.abs(v.videoEl.currentTime) > 0.1) v.videoEl.currentTime = 0;
+        // Quando inativo antes do início, pré-posiciona no trimStart
+        if (t < v.start) {
+          const targetTime = v.trimStart ?? 0;
+          if (Math.abs(v.videoEl.currentTime - targetTime) > 0.1) v.videoEl.currentTime = targetTime;
+        }
       }
     });
   }, []);
