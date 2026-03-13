@@ -2481,26 +2481,21 @@ _setDragging(null);
       const activeNow = t >= v.start && t < effEnd;
 
       if (activeNow) {
+        // Ajusta playbackRate se necessário
         if (Math.abs(v.videoEl.playbackRate - vSpd) > 0.01) v.videoEl.playbackRate = vSpd;
-        const drift = Math.abs(v.videoEl.currentTime - relTime);
-        const vol = Math.max(0, Math.min(1, (v.vidVolume ?? 1) * projectVolumeRef.current));
-        if (playing && v.videoEl.paused) {
-          v.videoEl.muted = v.muted || false;
-          v.videoEl.volume = vol;
-          // play() direto — browser enfileira após seek pendente automaticamente
-          v.videoEl.play().catch(() => {});
-        } else if (!playing && !v.videoEl.paused) {
+        if (!playing && !v.videoEl.paused) {
+          // Usuário pausou: para o vídeo
           v.videoEl.pause();
-        } else if (!v.videoEl.paused && drift > Math.max(1.0, vSpd)) {
-          v.videoEl.currentTime = relTime;
         }
+        // NUNCA chamar play() aqui — o play button é o único responsável por iniciar.
+        // Chamar play() no RAF a cada 16ms aborta seeks em andamento (HD MP4) → áudio mudo.
+        // O browser retoma automaticamente após buffer stall sem precisar de play() externo.
       } else {
         if (!v.videoEl.paused) v.videoEl.pause();
-        // Pré-posiciona no trimStart apenas quando NÃO está em playback
-        // Durante play, o botão Play já fez o seek correto — não interferir
-        if (!playing) {
+        // Pré-posiciona apenas quando NÃO está em playback e não está seekando
+        if (!playing && !v.videoEl.seeking) {
           const targetTime = t < v.start ? (v.trimStart ?? 0) : relTime;
-          if (!v.videoEl.seeking && Math.abs(v.videoEl.currentTime - targetTime) > 0.08) {
+          if (Math.abs(v.videoEl.currentTime - targetTime) > 0.1) {
             v.videoEl.currentTime = targetTime;
           }
         }
@@ -2608,7 +2603,26 @@ _setDragging(null);
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
-    const onTime = () => setCurrentTime(audio.currentTime);
+    const onTime = () => {
+      setCurrentTime(audio.currentTime);
+      // Ativa vídeos que entram no range durante playback com áudio
+      if (!isPlayingRef.current) return;
+      const t = audio.currentTime;
+      videosRef.current.forEach(v => {
+        if (!v.videoEl || v.muted) return;
+        const ts = v.trimStart ?? 0;
+        const vs = v.vidSpeed ?? 1;
+        const rd = v.rawDuration ?? v.videoEl.duration ?? (v.end - v.start);
+        const ee = v.start + (rd - ts) / Math.max(0.25, vs);
+        if (t >= v.start && t < ee && v.videoEl.paused) {
+          const rel = Math.max(0, Math.min(ts + (t - v.start) * vs, (v.videoEl.duration || 0) - 0.033));
+          if (Math.abs(v.videoEl.currentTime - rel) > 0.1) v.videoEl.currentTime = rel;
+          v.videoEl.volume = Math.max(0, Math.min(1, projectVolumeRef.current * (v.vidVolume ?? 1)));
+          v.videoEl.playbackRate = Math.max(0.25, Math.min(4, projectSpeedRef.current * vs));
+          v.videoEl.play().catch(() => {});
+        }
+      });
+    };
     audio.addEventListener('timeupdate', onTime);
     return () => audio.removeEventListener('timeupdate', onTime);
   }, [audioSrc]);
@@ -5355,40 +5369,12 @@ _setDragging(null);
                   v.videoEl.volume = Math.max(0, Math.min(1, projectVolumeRef.current * (v.vidVolume ?? 1)));
                   v.videoEl.playbackRate = Math.max(0.25, Math.min(4, projectSpeedRef.current * vidSpd));
 
-                  // Verifica se a posição alvo está dentro do buffer carregado
-                  const isBuffered = (() => {
-                    const buf = v.videoEl.buffered;
-                    for (let i = 0; i < buf.length; i++) {
-                      if (rel >= buf.start(i) && rel <= buf.end(i)) return true;
-                    }
-                    return false;
-                  })();
-
-                  const doPlay = () => {
-                    if (!isPlayingRef.current) return; // usuário pausou enquanto aguardava
-                    v.videoEl.play().catch(() => {});
-                  };
-
+                  // Seek para posição correta e play() — uma única chamada limpa
+                  // O browser enfileira o play após qualquer seek pendente automaticamente
                   if (Math.abs(v.videoEl.currentTime - rel) > 0.05) {
                     v.videoEl.currentTime = rel;
                   }
-
-                  if (isBuffered && v.videoEl.readyState >= 3) {
-                    // Dados disponíveis: play imediato
-                    doPlay();
-                  } else {
-                    // Posição não está no buffer (vídeo HD/grande): aguarda dados chegarem
-                    // sem este wait, o áudio começa mudo até o buffer ser preenchido
-                    const onReady = () => {
-                      v.videoEl.removeEventListener('canplay', onReady);
-                      v.videoEl.removeEventListener('canplaythrough', onReady);
-                      doPlay();
-                    };
-                    v.videoEl.addEventListener('canplay', onReady, { once: true });
-                    v.videoEl.addEventListener('canplaythrough', onReady, { once: true });
-                    // Timeout de segurança: 3s — se dados não chegaram, tenta assim mesmo
-                    setTimeout(() => { onReady(); }, 3000);
-                  }
+                  v.videoEl.play().catch(() => {});
                 });
                 if (audio) {
                   audio.volume       = Math.max(0, Math.min(1, projectVolumeRef.current));
@@ -5403,6 +5389,21 @@ _setDragging(null);
                   clockIntervalRef.current = setInterval(() => {
                     const elapsed = (Date.now() - startWall) / 1000;
                     const newTime = startVirt + elapsed * clockSpd2;
+                    // Ativa vídeos que entram no range durante playback (sem áudio de fundo)
+                    videosRef.current.forEach(v => {
+                      if (!v.videoEl || v.muted) return;
+                      const ts = v.trimStart ?? 0;
+                      const vs = v.vidSpeed ?? 1;
+                      const rd = v.rawDuration ?? v.videoEl.duration ?? (v.end - v.start);
+                      const ee = v.start + (rd - ts) / Math.max(0.25, vs);
+                      if (newTime >= v.start && newTime < ee && v.videoEl.paused) {
+                        const rel = Math.max(0, Math.min(ts + (newTime - v.start) * vs, (v.videoEl.duration || 0) - 0.033));
+                        if (Math.abs(v.videoEl.currentTime - rel) > 0.1) v.videoEl.currentTime = rel;
+                        v.videoEl.volume = Math.max(0, Math.min(1, projectVolumeRef.current * (v.vidVolume ?? 1)));
+                        v.videoEl.playbackRate = Math.max(0.25, Math.min(4, projectSpeedRef.current * vs));
+                        v.videoEl.play().catch(() => {});
+                      }
+                    });
                     // Para automaticamente ao final do conteúdo (sem áudio)
                     const contentEnd = Math.max(
                       lyricsRef.current.reduce((m, l) => Math.max(m, l.end || 0), 0),
