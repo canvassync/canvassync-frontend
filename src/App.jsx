@@ -2383,11 +2383,14 @@ function App() {
     const audio = audioRef.current;
     const t = audio ? audio.currentTime : virtualTimeRef.current;
     const playing = isPlayingRef.current;
+    const spd = Math.max(0.25, Math.min(4, projectSpeedRef.current));
     videosRef.current.forEach(v => {
       if (!v.videoEl) return;
       const active = t >= v.start && t <= v.end;
       const relTime = Math.max(0, Math.min(t - v.start, v.videoEl.duration || 0));
       if (active) {
+        // Aplica velocidade do projeto no elemento de vídeo
+        if (v.videoEl.playbackRate !== spd) v.videoEl.playbackRate = spd;
         // Só faz seek quando pausado ou com desvio grande (>1s)
         // Fazer seek enquanto tocando interrompe o áudio
         if (v.videoEl.paused && Math.abs(v.videoEl.currentTime - relTime) > 0.1) {
@@ -2518,7 +2521,12 @@ function App() {
   }, [projectVolume]);
 
   useEffect(() => {
-    if (audioRef.current) audioRef.current.playbackRate = Math.max(0.25, Math.min(4, projectSpeed));
+    const spd = Math.max(0.25, Math.min(4, projectSpeed));
+    if (audioRef.current) audioRef.current.playbackRate = spd;
+    // Atualiza velocidade em todos os vídeos overlay em tempo real
+    videosRef.current.forEach(v => {
+      if (v.videoEl) v.videoEl.playbackRate = spd;
+    });
   }, [projectSpeed]);
 
   const renderAtTimeToCanvas = async (targetCanvas, t, scale = 1) => {
