@@ -2112,6 +2112,14 @@ function App() {
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     const time = (!rtExportRef.current && audioRef.current) ? audioRef.current.currentTime : virtualTimeRef.current;
+    // Reset completo do estado ctx para evitar vazamento entre frames
+    // (shadowBlur, filter, globalAlpha definidos fora de save/restore contaminam o próximo frame)
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.globalAlpha = 1;
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.filter = 'none';
+    ctx.shadowBlur = 0;
+    ctx.shadowColor = 'transparent';
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     
     if (image) {
@@ -2537,8 +2545,14 @@ function App() {
 
   const renderAtTimeToCanvas = async (targetCanvas, t, scale = 1) => {
     const ctx = targetCanvas.getContext('2d');
-    // ⚠️ Reseta transform antes de cada frame para não acumular ctx.scale entre chamadas
+    // Reset completo de TODOS os estados relevantes do ctx a cada frame
+    // setTransform reseta só a matriz; globalAlpha/filter/shadow podem vazar de frames anteriores
     ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.globalAlpha = 1;
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.filter = 'none';
+    ctx.shadowBlur = 0;
+    ctx.shadowColor = 'transparent';
     ctx.clearRect(0, 0, targetCanvas.width, targetCanvas.height);
     // Aplica escala HD: coordenadas lógicas (270×480) × scale = resolução final
     ctx.scale(scale, scale);
@@ -2556,7 +2570,9 @@ function App() {
     await Promise.all(activeVids.map(v => new Promise(resolve => {
       if (!v.videoEl) return resolve();
       const vidDur = isFinite(v.videoEl.duration) && v.videoEl.duration > 0 ? v.videoEl.duration : (v.end - v.start);
-      const relTime = Math.max(0, Math.min(t - v.start, vidDur));
+      // Clamp a vidDur-0.033 (1 frame antes do fim) — alguns browsers retornam
+      // frame preto ao seekar para exatamente duration
+      const relTime = Math.max(0, Math.min(t - v.start, Math.max(0, vidDur - 0.033)));
       v.videoEl.pause();
 
       // Se já está no frame certo, resolve imediatamente
@@ -2565,11 +2581,18 @@ function App() {
       }
 
       let settled = false;
-      const finish = () => { if (settled) return; settled = true; clearTimeout(hard); resolve(); };
-      // 800ms de timeout por seek (vídeos lentos/grandes podem precisar de mais, mas 4s travava o export)
-      const hard = setTimeout(finish, 800);
+      // Timeout: 800ms — se estourar, prossegue sem o frame (sem grace period extra)
+      const hard = setTimeout(() => { if (settled) return; settled = true; resolve(); }, 800);
 
-      v.videoEl.addEventListener('seeked', finish, { once: true });
+      v.videoEl.addEventListener('seeked', () => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(hard);
+        // Grace period: browsers disparam seeked antes do frame estar decodificado.
+        // Sem esse delay, createImageBitmap captura um frame preto intermediário.
+        // 30ms é suficiente para o decode finalizar sem impactar muito a performance.
+        setTimeout(resolve, 30);
+      }, { once: true });
       v.videoEl.currentTime = relTime;
     })));
     // Captura bitmap de cada vídeo APÓS o seek (createImageBitmap garante frame
