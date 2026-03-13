@@ -2692,14 +2692,16 @@ function App() {
     }
 
     // ── Stickers / Emojis / GIFs (export) ───────────────────────────────────
+    // Coordenadas já estão em espaço lógico (ctx.scale(scale,scale) foi aplicado no topo)
+    // NÃO usar scaleX/scaleY do RAF loop — essas variáveis não existem aqui
     stickersRef.current.forEach(stk => {
       const sz = stk.size || 80;
       const { dy, s, r, a } = getStickerAnimTransform(stk.animStyle, t, sz);
       ctx.save();
       ctx.globalAlpha = a;
-      ctx.translate(stk.x * scaleX, (stk.y + dy) * scaleY);
+      ctx.translate(stk.x, stk.y + dy);
       ctx.rotate((stk.rotation || 0) * Math.PI / 180 + r);
-      ctx.scale(s * scaleX, s * scaleY);
+      ctx.scale(s, s);
       ctx.font = `${sz}px serif`;
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.fillText(stk.content, 0, 0);
