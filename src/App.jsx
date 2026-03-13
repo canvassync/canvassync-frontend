@@ -1529,7 +1529,7 @@ function App() {
       }
     }
     // Snapshot the lyric state at drag start to prevent stale-closure duplication
-    __setDragging({ id, type, initialX: e.clientX, itemKind: 'lyric',
+    _setDragging({ id, type, initialX: e.clientX, itemKind: 'lyric',
       initialStart: lyric?.start ?? 0, initialEnd: lyric?.end ?? 3 });
   };
 
@@ -1547,7 +1547,7 @@ function App() {
         playheadRef.current.style.transform = `translateX(${seekTo * zoom}px)`;
       }
     }
-    __setDragging({ id, type, initialX: e.clientX, itemKind: 'image', initialStart: item?.start ?? 0, initialEnd: item?.end ?? 3 });
+    _setDragging({ id, type, initialX: e.clientX, itemKind: 'image', initialStart: item?.start ?? 0, initialEnd: item?.end ?? 3 });
   };
 
   const handleVideoTimelineMouseDown = (id, type, e) => {
@@ -1566,7 +1566,7 @@ function App() {
     }
 
     setActiveVideoId(id);  // OK chamar depois de setup do drag
-    __setDragging({
+    _setDragging({
       id, type, initialX: e.clientX, itemKind: 'video',
       initialStart: item?.start ?? 0,
       initialEnd: item?.end ?? 3,
@@ -1635,7 +1635,7 @@ function App() {
       if (Math.abs(mouseX - stk.x) <= half && Math.abs(mouseY - stk.y) <= half) {
         activeStickerRef.current = stk.id;
         setActiveStickerId(stk.id);
-        __setDragging({ type: 'sticker', id: stk.id, offsetX: mouseX - stk.x, offsetY: mouseY - stk.y });
+        _setDragging({ type: 'sticker', id: stk.id, offsetX: mouseX - stk.x, offsetY: mouseY - stk.y });
         return;
       }
     }
@@ -1677,7 +1677,7 @@ function App() {
           return;
         }
         setDraggingExtraIndex(i);
-        __setDragging({ type: 'extra', id: txt.id, offsetX: mouseX - txt.x, offsetY: mouseY - txt.y });
+        _setDragging({ type: 'extra', id: txt.id, offsetX: mouseX - txt.x, offsetY: mouseY - txt.y });
         return;
       }
     }
@@ -1709,7 +1709,7 @@ function App() {
         const rhy = ly - Math.cos(lRot) * handleDist;
         if (Math.hypot(mouseX - rhx, mouseY - rhy) <= 11) {
           setActiveLyricId(visibleLyric.id);
-          __setDragging({ type: 'lyric-rotate', id: visibleLyric.id, cx: lx, cy: ly,
+          _setDragging({ type: 'lyric-rotate', id: visibleLyric.id, cx: lx, cy: ly,
             startAngle: Math.atan2(mouseY - ly, mouseX - lx),
             startRotation: visibleLyric.rotation || 0 });
           return;
@@ -1749,7 +1749,7 @@ function App() {
       const nearBottom = Math.abs(mouseY - (clickedItem.y + clickedItem.height)) <= handleSize;
       const corner = `${nearTop?'n':''}${nearBottom?'s':''}${nearLeft?'w':''}${nearRight?'e':''}`;
       if (corner.length >= 2) {
-        __setDragging({ itemKind: 'canvas-image', type: 'resize', id: clickedItem.id, corner,
+        _setDragging({ itemKind: 'canvas-image', type: 'resize', id: clickedItem.id, corner,
           startX: mouseX, startY: mouseY,
           startWidth: clickedItem.width, startHeight: clickedItem.height,
           startXPos: clickedItem.x, startYPos: clickedItem.y });
@@ -1782,7 +1782,7 @@ function App() {
           startWidth: clickedVideo.width, startHeight: clickedVideo.height,
           startXPos: clickedVideo.x, startYPos: clickedVideo.y });
       } else {
-        __setDragging({ itemKind: 'canvas-video', type: 'move', id: clickedVideo.id,
+        _setDragging({ itemKind: 'canvas-video', type: 'move', id: clickedVideo.id,
           offsetX: mouseX - clickedVideo.x, offsetY: mouseY - clickedVideo.y });
       }
       return;
@@ -3079,14 +3079,22 @@ _setDragging(null);
       }
 
       // 3. Áudio dos vídeos overlay via MediaElementSource
+      // IMPORTANTE: muta o videoEl antes de conectar ao WebAudio
+      // sem isso o audio sai duplo (HTML5 nativo + WebAudio) causando eco
       const vidSources = [];
+      const vidVolumesBackup = [];
       for (const v of videosRef.current) {
         if (v.muted || !v.videoEl) continue;
         try {
+          vidVolumesBackup.push({ el: v.videoEl, vol: v.videoEl.volume });
+          v.videoEl.volume = 0; // silencia a saída HTML5 nativa
           const s = ac.createMediaElementSource(v.videoEl);
           s.connect(gainNode);
           vidSources.push(s);
-        } catch(e) { /* já conectado ou sem áudio — ignora */ }
+        } catch(e) {
+          // já conectado a outro contexto — tenta reutilizar sem recriar
+          console.warn('[WEBM RT] MediaElementSource já existe:', e.message);
+        }
       }
 
       // 4. Captura canvas em 30fps
@@ -3164,6 +3172,18 @@ _setDragging(null);
       rtExportRef.current = false; // restaura draw() para usar audioRef.current
       // 12. Limpa WebAudio
       for (const s of vidSources) { try { s.disconnect(); } catch {} }
+      // Restaura volume original dos vídeos após export
+      // Também reconecta o audio nativo recarregando a src (desfaz o MediaElementSource hijack)
+      for (const { el, vol } of vidVolumesBackup) {
+        try {
+          const savedSrc = el.src;
+          const savedTime = el.currentTime;
+          el.src = savedSrc;          // reload desanexa o MediaElementSource
+          el.load();
+          el.volume = vol;
+          el.currentTime = savedTime;
+        } catch { try { el.volume = vol; } catch {} }
+      }
       ac.close();
 
       const blob = new Blob(chunks, { type: 'video/webm' });
