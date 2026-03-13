@@ -1605,18 +1605,20 @@ function App() {
     if (playheadRef.current) {
       playheadRef.current.style.transform = `translateX(${nextTime * zoom}px)`;
     }
-    // Pré-posiciona vídeos no ponto correto para play() imediato sem delay
+    // Pré-posiciona vídeos no ponto correto — throttle para não sobrecarregar buffer em HDs
     videosRef.current.forEach(v => {
       if (!v.videoEl || v.videoEl.readyState < 1) return;
       const trimSt = v.trimStart ?? 0;
       const vidSpd = v.vidSpeed ?? 1;
+      let target;
       if (nextTime < v.start) {
-        // Antes do vídeo: posiciona no trimStart
-        if (Math.abs(v.videoEl.currentTime - trimSt) > 0.05) v.videoEl.currentTime = trimSt;
+        target = trimSt;
       } else if (nextTime <= v.end) {
-        // Dentro do vídeo: posiciona no ponto exato
-        const target = Math.max(0, trimSt + (nextTime - v.start) * vidSpd);
-        if (Math.abs(v.videoEl.currentTime - target) > 0.05) v.videoEl.currentTime = target;
+        target = Math.max(0, trimSt + (nextTime - v.start) * vidSpd);
+      } else return;
+      // Só faz seek se não está já seekando (evita seek-storm em vídeos HD grandes)
+      if (!v.videoEl.seeking && Math.abs(v.videoEl.currentTime - target) > 0.05) {
+        v.videoEl.currentTime = target;
       }
     });
   };
@@ -5352,13 +5354,41 @@ _setDragging(null);
                   v.videoEl.muted = v.muted || false;
                   v.videoEl.volume = Math.max(0, Math.min(1, projectVolumeRef.current * (v.vidVolume ?? 1)));
                   v.videoEl.playbackRate = Math.max(0.25, Math.min(4, projectSpeedRef.current * vidSpd));
-                  // Seek para a posição correta e play() imediato
-                  // O browser enfileira o play após o seek — não precisa de listener 'seeked'
-                  // (listeners 'seeked' causam race conditions quando há múltiplos seeks do scrub)
+
+                  // Verifica se a posição alvo está dentro do buffer carregado
+                  const isBuffered = (() => {
+                    const buf = v.videoEl.buffered;
+                    for (let i = 0; i < buf.length; i++) {
+                      if (rel >= buf.start(i) && rel <= buf.end(i)) return true;
+                    }
+                    return false;
+                  })();
+
+                  const doPlay = () => {
+                    if (!isPlayingRef.current) return; // usuário pausou enquanto aguardava
+                    v.videoEl.play().catch(() => {});
+                  };
+
                   if (Math.abs(v.videoEl.currentTime - rel) > 0.05) {
                     v.videoEl.currentTime = rel;
                   }
-                  v.videoEl.play().catch(() => {});
+
+                  if (isBuffered && v.videoEl.readyState >= 3) {
+                    // Dados disponíveis: play imediato
+                    doPlay();
+                  } else {
+                    // Posição não está no buffer (vídeo HD/grande): aguarda dados chegarem
+                    // sem este wait, o áudio começa mudo até o buffer ser preenchido
+                    const onReady = () => {
+                      v.videoEl.removeEventListener('canplay', onReady);
+                      v.videoEl.removeEventListener('canplaythrough', onReady);
+                      doPlay();
+                    };
+                    v.videoEl.addEventListener('canplay', onReady, { once: true });
+                    v.videoEl.addEventListener('canplaythrough', onReady, { once: true });
+                    // Timeout de segurança: 3s — se dados não chegaram, tenta assim mesmo
+                    setTimeout(() => { onReady(); }, 3000);
+                  }
                 });
                 if (audio) {
                   audio.volume       = Math.max(0, Math.min(1, projectVolumeRef.current));
