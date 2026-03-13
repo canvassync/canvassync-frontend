@@ -5358,12 +5358,16 @@ _setDragging(null);
                   v.videoEl.volume = Math.max(0, Math.min(1, projectVolumeRef.current * (v.vidVolume ?? 1)));
                   v.videoEl.playbackRate = Math.max(0.25, Math.min(4, projectSpeedRef.current * vidSpd));
                   const startVideo = () => v.videoEl.play().catch(() => {});
-                  if (Math.abs(v.videoEl.currentTime - rel) > 0.05) {
-                    // Seek necessário: aguarda seeked para garantir áudio sem delay
+                  const drift = Math.abs(v.videoEl.currentTime - rel);
+                  if (v.videoEl.seeking || drift > 0.05) {
+                    // Se está seekando (ex: vindo de scrub) OU posição errada:
+                    // sempre espera seeked antes de play() — evita áudio sumindo no meio do vídeo
                     v.videoEl.addEventListener('seeked', startVideo, { once: true });
-                    v.videoEl.currentTime = rel;
+                    if (!v.videoEl.seeking) v.videoEl.currentTime = rel;
+                    // Se já está seekando para o lugar certo, só aguarda — não cancela o seek atual
+                    else if (drift > 0.05) v.videoEl.currentTime = rel;
                   } else {
-                    // Já está no lugar certo: play imediato
+                    // Posição certa e sem seek pendente: play imediato
                     startVideo();
                   }
                 });
