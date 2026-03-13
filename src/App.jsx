@@ -4975,10 +4975,15 @@ function App() {
                         audio.play().catch(() => {});
                       } else {
                         const startWall = Date.now(); const startVirt = virtualTimeRef.current;
+                        const clockSpd = Math.max(0.25, Math.min(4, projectSpeedRef.current));
                         if (clockIntervalRef.current) clearInterval(clockIntervalRef.current);
                         clockIntervalRef.current = setInterval(() => {
                           const elapsed = (Date.now() - startWall) / 1000;
-                          const newTime = startVirt + elapsed;
+                          // Multiplica pelo speed para que o tempo virtual avance na mesma
+                          // taxa que o audio.currentTime avançaria — sem isso o vídeo overlay
+                          // recebe playbackRate=2× mas o relTime avança em 1×, causando
+                          // desvio constante e seeks repetidos (pausa-acelera-pausa-acelera)
+                          const newTime = startVirt + elapsed * clockSpd;
                           const contentEnd = Math.max(
                             lyricsRef.current.reduce((m, l) => Math.max(m, l.end || 0), 0),
                             imagesRef.current.reduce((m, i) => Math.max(m, i.end || 0), 0),
@@ -5189,10 +5194,11 @@ function App() {
                   // Sem áudio: clock virtual baseado em Date.now()
                   const startWall = Date.now();
                   const startVirt = virtualTimeRef.current;
+                  const clockSpd2 = Math.max(0.25, Math.min(4, projectSpeedRef.current));
                   if (clockIntervalRef.current) clearInterval(clockIntervalRef.current);
                   clockIntervalRef.current = setInterval(() => {
                     const elapsed = (Date.now() - startWall) / 1000;
-                    const newTime = startVirt + elapsed;
+                    const newTime = startVirt + elapsed * clockSpd2;
                     // Para automaticamente ao final do conteúdo (sem áudio)
                     const contentEnd = Math.max(
                       lyricsRef.current.reduce((m, l) => Math.max(m, l.end || 0), 0),
