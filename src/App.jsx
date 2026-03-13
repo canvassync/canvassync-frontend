@@ -929,6 +929,7 @@ function App() {
   const waveformCanvasRef = useRef(null);
   const virtualTimeRef    = useRef(0);   // relógio virtual quando não há áudio
   const clockIntervalRef  = useRef(null);
+  const rtExportRef       = useRef(false); // true durante WebM+Áudio RT — força draw() a ignorar audioRef
   // Refs para capturar valores atuais dentro de callbacks estáveis
   const fontSizeRef = useRef(fontSize);
   const fontFamilyRef = useRef(fontFamily);
@@ -2109,7 +2110,7 @@ function App() {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
-    const time = audioRef.current ? audioRef.current.currentTime : virtualTimeRef.current;
+    const time = (!rtExportRef.current && audioRef.current) ? audioRef.current.currentTime : virtualTimeRef.current;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     
     if (image) {
@@ -3017,6 +3018,7 @@ function App() {
       }
 
       // 6. Inicia gravação
+      rtExportRef.current = true; // draw() ignora audioRef.current durante captura
       recorder.start(100); // chunks a cada 100ms
 
       // 7. Começa a tocar tudo em sincronia
@@ -3065,6 +3067,7 @@ function App() {
         recorder.stop();
       });
 
+      rtExportRef.current = false; // restaura draw() para usar audioRef.current
       // 12. Limpa WebAudio
       for (const s of vidSources) { try { s.disconnect(); } catch {} }
       ac.close();
