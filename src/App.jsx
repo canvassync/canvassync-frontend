@@ -2483,17 +2483,10 @@ _setDragging(null);
         const drift = Math.abs(v.videoEl.currentTime - relTime);
         const vol = Math.max(0, Math.min(1, (v.vidVolume ?? 1) * projectVolumeRef.current));
         if (playing && v.videoEl.paused) {
-          // O play button já fez seek correto antes de setIsPlaying(true)
-          // Aqui só precisamos de play() — sem seek adicional
           v.videoEl.muted = v.muted || false;
           v.videoEl.volume = vol;
-          if (v.videoEl.seeking) {
-            v.videoEl.addEventListener('seeked', () => {
-              if (isPlayingRef.current) v.videoEl.play().catch(() => {});
-            }, { once: true });
-          } else {
-            v.videoEl.play().catch(() => {});
-          }
+          // play() direto — browser enfileira após seek pendente automaticamente
+          v.videoEl.play().catch(() => {});
         } else if (!playing && !v.videoEl.paused) {
           v.videoEl.pause();
         } else if (!v.videoEl.paused && drift > Math.max(1.0, vSpd)) {
@@ -5357,19 +5350,13 @@ _setDragging(null);
                   v.videoEl.muted = v.muted || false;
                   v.videoEl.volume = Math.max(0, Math.min(1, projectVolumeRef.current * (v.vidVolume ?? 1)));
                   v.videoEl.playbackRate = Math.max(0.25, Math.min(4, projectSpeedRef.current * vidSpd));
-                  const startVideo = () => v.videoEl.play().catch(() => {});
-                  const drift = Math.abs(v.videoEl.currentTime - rel);
-                  if (v.videoEl.seeking || drift > 0.05) {
-                    // Se está seekando (ex: vindo de scrub) OU posição errada:
-                    // sempre espera seeked antes de play() — evita áudio sumindo no meio do vídeo
-                    v.videoEl.addEventListener('seeked', startVideo, { once: true });
-                    if (!v.videoEl.seeking) v.videoEl.currentTime = rel;
-                    // Se já está seekando para o lugar certo, só aguarda — não cancela o seek atual
-                    else if (drift > 0.05) v.videoEl.currentTime = rel;
-                  } else {
-                    // Posição certa e sem seek pendente: play imediato
-                    startVideo();
+                  // Seek para a posição correta e play() imediato
+                  // O browser enfileira o play após o seek — não precisa de listener 'seeked'
+                  // (listeners 'seeked' causam race conditions quando há múltiplos seeks do scrub)
+                  if (Math.abs(v.videoEl.currentTime - rel) > 0.05) {
+                    v.videoEl.currentTime = rel;
                   }
+                  v.videoEl.play().catch(() => {});
                 });
                 if (audio) {
                   audio.volume       = Math.max(0, Math.min(1, projectVolumeRef.current));
