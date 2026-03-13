@@ -2483,16 +2483,15 @@ _setDragging(null);
         const drift = Math.abs(v.videoEl.currentTime - relTime);
         const vol = Math.max(0, Math.min(1, (v.vidVolume ?? 1) * projectVolumeRef.current));
         if (playing && v.videoEl.paused) {
-          // Se já está no lugar certo (seek foi feito antes do play): inicia direto sem delay
           v.videoEl.muted = v.muted || false;
           v.videoEl.volume = vol;
-          v.videoEl.play().catch(() => {});
-          // Corrige drift leve logo após iniciar (não bloqueia o play)
-          if (drift > 0.2) {
-            setTimeout(() => {
-              const d2 = Math.abs(v.videoEl.currentTime - relTime);
-              if (d2 > 0.2 && !v.videoEl.paused) v.videoEl.currentTime = relTime;
-            }, 80);
+          if (v.videoEl.seeking) {
+            // Seek ainda em andamento: aguarda terminar antes de play() para áudio sem delay
+            v.videoEl.addEventListener('seeked', () => {
+              if (isPlayingRef.current) v.videoEl.play().catch(() => {});
+            }, { once: true });
+          } else {
+            v.videoEl.play().catch(() => {});
           }
         } else if (!playing && !v.videoEl.paused) {
           v.videoEl.pause();
@@ -2501,10 +2500,10 @@ _setDragging(null);
         }
       } else {
         if (!v.videoEl.paused) v.videoEl.pause();
-        // Pré-posiciona no trimStart enquanto inativo — seek acontece ANTES do play
-        // Isso elimina o delay: quando play() for chamado, vídeo já está no ponto certo
+        // Pré-posiciona no trimStart enquanto inativo — mas SÓ se não está já seekando
+        // (o RAF roda a ~60fps; sem essa guarda cada frame cancela o seek anterior → delay)
         const targetTime = t < v.start ? (v.trimStart ?? 0) : relTime;
-        if (Math.abs(v.videoEl.currentTime - targetTime) > 0.08) {
+        if (!v.videoEl.seeking && Math.abs(v.videoEl.currentTime - targetTime) > 0.08) {
           v.videoEl.currentTime = targetTime;
         }
       }
