@@ -1161,6 +1161,7 @@ function App() {
       const videoEl = document.createElement('video');
       videoEl.src = src;
       videoEl.muted = false;
+      videoEl.loop = false; // nunca faz loop — end é controlado pelo timeline
       videoEl.playsInline = true;
       videoEl.preload = 'auto';
       videoEl.crossOrigin = 'anonymous';
@@ -1191,7 +1192,8 @@ function App() {
         setVideos(prev => {
           // Evita duplicata se ambos os eventos dispararem
           if (prev.find(v => v.id === id)) return prev;
-          return [...prev, { id, src, videoEl, start, end, x, y, width: w, height: h, radius: 12, muted: false, vidVolume: projectVolumeRef.current ?? 1, vidSpeed: projectSpeedRef.current ?? 1 }];
+          const initSpeed = projectSpeedRef.current ?? 1;
+          return [...prev, { id, src, videoEl, start, end, x, y, width: w, height: h, radius: 12, muted: false, vidVolume: projectVolumeRef.current ?? 1, vidSpeed: initSpeed, rawDuration: vidDuration }];
         });
       };
 
@@ -2132,6 +2134,9 @@ function App() {
     // Desenha TODOS os vídeos ativos (abaixo das imagens)
     getVideosForTime(time).forEach(v => {
       if (!v.videoEl || v.videoEl.readyState < 1 || v.videoEl.videoWidth === 0) return;
+      // Pausa se atingiu o fim real do vídeo (rawDuration / vidSpeed)
+      const effDur = (v.rawDuration ?? v.videoEl.duration ?? (v.end - v.start)) / Math.max(0.25, v.vidSpeed ?? 1);
+      if (!v.videoEl.paused && (time - v.start) >= effDur - 0.05) v.videoEl.pause();
       const vRot = (v.rotation || 0) * Math.PI / 180;
       const _vf  = buildFilterString(v.filters);
       const _vtr = getTransitionTransform(v, time);
@@ -2860,23 +2865,26 @@ function App() {
         const ac = new (window.AudioContext || window.webkitAudioContext)({ sampleRate });
         let decoded;
         try { decoded = await ac.decodeAudioData(ab); }
-        catch { ac.close(); continue; }
+        catch { ac.close(); continue; } // vídeo sem faixa de áudio — ignora
         ac.close();
-        const chL = decoded.getChannelData(0);
-        const chR = decoded.numberOfChannels > 1 ? decoded.getChannelData(1) : chL;
-        // Volume: combina volume global do projeto × volume individual do vídeo
-        const vol = Math.max(0, Math.min(1, volume * (v.vidVolume ?? 1)));
-        // Velocidade: combina speed global × speed individual do vídeo
+
+        // Velocidade efetiva = speed do projeto × speed individual do vídeo
         const effSpeed = Math.max(0.25, Math.min(4, speed * (v.vidSpeed ?? 1)));
-        const outOffset      = Math.round((v.start / speed) * sampleRate);
-        const clipOutDur     = (v.end - v.start) / speed;
-        const clipOutSamples = Math.round(clipOutDur * sampleRate);
-        for (let i = 0; i < clipOutSamples; i++) {
+        // Volume efetivo = volume do projeto × volume individual do vídeo
+        const vol = Math.max(0, Math.min(1, volume * (v.vidVolume ?? 1)));
+
+        // Usa WOLA para preservar o tom ao alterar velocidade (sem voz fina)
+        const [strL, strR] = await _renderAudioStretched(decoded, effSpeed, vol, sampleRate);
+
+        // Posição de início no buffer de saída (em tempo de projeto, ajustado pelo speed global)
+        const outOffset = Math.round((v.start / speed) * sampleRate);
+        const copyLen   = Math.min(strL.length, outL.length - outOffset);
+        if (copyLen <= 0) continue;
+
+        for (let i = 0; i < copyLen; i++) {
           const oi = outOffset + i;
-          if (oi >= outL.length) break;
-          const si = Math.min(Math.round(i * effSpeed), decoded.length - 1);
-          outL[oi] = Math.max(-1, Math.min(1, outL[oi] + (chL[si] || 0) * vol));
-          outR[oi] = Math.max(-1, Math.min(1, outR[oi] + (chR[si] || 0) * vol));
+          outL[oi] = Math.max(-1, Math.min(1, outL[oi] + strL[i]));
+          outR[oi] = Math.max(-1, Math.min(1, outR[oi] + strR[i]));
         }
       } catch (e) { console.warn('[VideoAudio mix]', v.id, e); }
     }
@@ -3238,6 +3246,7 @@ function App() {
           muted: v.muted || false,
           vidVolume: v.vidVolume ?? 1,
           vidSpeed: v.vidSpeed ?? 1,
+          rawDuration: v.rawDuration ?? (v.end - v.start),
           videoBase64: b64result?.data || null,
           videoMime: b64result?.mime || 'video/mp4',
           filters: v.filters || {},
@@ -3338,6 +3347,7 @@ function App() {
                 muted: vData.muted || false,
                 vidVolume: vData.vidVolume ?? 1,
                 vidSpeed: vData.vidSpeed ?? 1,
+                rawDuration: vData.rawDuration ?? (vData.end - vData.start),
                 transitionIn:     vData.transitionIn     || 'none',
                 transitionOut:    vData.transitionOut    || 'none',
                 transitionInDur:  vData.transitionInDur  ?? 0.35,
@@ -5334,11 +5344,18 @@ function App() {
                         setVideos(prev => prev.map(v => {
                           if (v.id !== activeVideoId) return v;
                           if (v.videoEl) v.videoEl.playbackRate = Math.max(0.25, Math.min(4, val * projectSpeedRef.current));
-                          return { ...v, vidSpeed: val };
+                          // Recalcula end com base na duração original e nova velocidade
+                          const raw = v.rawDuration ?? (v.end - v.start);
+                          const newEnd = v.start + raw / val;
+                          return { ...v, vidSpeed: val, rawDuration: raw, end: newEnd };
                         }));
                       } else {
                         setSpeed(val);
-                        videosRef.current.forEach(v => { if (v.videoEl) v.videoEl.playbackRate = Math.max(0.25, Math.min(4, val * (v.vidSpeed ?? 1))); });
+                        // Velocidade global: recalcula end de todos os vídeos
+                        setVideos(prev => prev.map(v => {
+                          if (v.videoEl) v.videoEl.playbackRate = Math.max(0.25, Math.min(4, val * (v.vidSpeed ?? 1)));
+                          return v; // end global não muda (projectSpeed afeta só playback, não layout)
+                        }));
                       }
                     }}
                     onMouseDown={e => e.stopPropagation()}
