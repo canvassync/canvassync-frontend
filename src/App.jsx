@@ -1559,7 +1559,13 @@ function App() {
       setCurrentTime(seekTo);
       if (playheadRef.current) playheadRef.current.style.transform = `translateX(${seekTo * zoom}px)`;
     }
-    setDragging({ id, type, initialX: e.clientX, itemKind: 'video', initialStart: item?.start ?? 0, initialEnd: item?.end ?? 3 });
+    setDragging({
+      id, type, initialX: e.clientX, itemKind: 'video',
+      initialStart: item?.start ?? 0,
+      initialEnd: item?.end ?? 3,
+      initialTrimStart: item?.trimStart ?? 0,  // offset do ponto de entrada no vídeo original
+      initialRawDuration: item?.rawDuration ?? (item ? (item.end - item.start) : 3),
+    });
   };
 
   const scrubToClientX = (clientX) => {
@@ -1807,10 +1813,26 @@ function App() {
         const newStart = Math.max(0, dragging.initialStart + dx);
         setVideos(prev => prev.map(v => v.id === dragging.id ? { ...v, start: newStart, end: newStart + dur } : v));
       } else if (dragging.type === 'resize-start') {
-        const newStart = Math.max(0, Math.min(dragging.initialStart + dx, dragging.initialEnd - 0.1));
-        setVideos(prev => prev.map(v => v.id === dragging.id ? { ...v, start: newStart } : v));
+        // Trim do início: avança start + avança trimStart (ponto de entrada no vídeo)
+        const rawDur   = dragging.initialRawDuration;
+        const vidSpeed = (videosRef.current.find(v => v.id === dragging.id)?.vidSpeed) ?? 1;
+        const maxTrim  = rawDur / Math.max(0.25, vidSpeed) - 0.2; // não pode trimar além da duração
+        const newStart = Math.max(0, Math.min(dragging.initialStart + dx, dragging.initialEnd - 0.2));
+        const trimDelta = newStart - dragging.initialStart;          // quanto avançou em tempo de projeto
+        const newTrimStart = Math.max(0, Math.min(
+          (dragging.initialTrimStart ?? 0) + trimDelta * vidSpeed,   // converte p/ tempo do vídeo
+          rawDur - 0.1
+        ));
+        setVideos(prev => prev.map(v =>
+          v.id === dragging.id ? { ...v, start: newStart, trimStart: newTrimStart } : v
+        ));
       } else if (dragging.type === 'resize-end') {
-        const newEnd = Math.max(dragging.initialStart + 0.1, dragging.initialEnd + dx);
+        // Trim do fim: limita ao rawDuration disponível após trimStart
+        const rawDur   = dragging.initialRawDuration;
+        const vidSpeed = (videosRef.current.find(v => v.id === dragging.id)?.vidSpeed) ?? 1;
+        const trimSt   = dragging.initialTrimStart ?? 0;
+        const maxEnd   = dragging.initialStart + (rawDur - trimSt) / Math.max(0.25, vidSpeed);
+        const newEnd   = Math.max(dragging.initialStart + 0.1, Math.min(dragging.initialEnd + dx, maxEnd));
         setVideos(prev => prev.map(v => v.id === dragging.id ? { ...v, end: newEnd } : v));
       }
       return;
@@ -2406,11 +2428,12 @@ function App() {
       const active = t >= v.start && t <= v.end;
       const vidSpdFactor = v.vidSpeed ?? 1;
       const vSpd = Math.max(0.25, Math.min(4, vidSpdFactor * spd));
-      // currentTime no elemento de vídeo = tempo decorrido × vidSpeed
-      const relTime = Math.max(0, Math.min((t - v.start) * vidSpdFactor, v.videoEl.duration || 0));
-      // Duração efetiva em tempo de projeto: rawDuration / vidSpeed
+      const trimSt = v.trimStart ?? 0;
+      // currentTime = trimStart (offset) + tempo decorrido × vidSpeed
+      const relTime = Math.max(0, Math.min(trimSt + (t - v.start) * vidSpdFactor, v.videoEl.duration || 0));
+      // Duração efetiva em tempo de projeto: (rawDuration - trimStart) / vidSpeed
       const rawDur  = v.rawDuration ?? v.videoEl.duration ?? (v.end - v.start);
-      const effEnd  = v.start + rawDur / vidSpdFactor;
+      const effEnd  = v.start + (rawDur - trimSt) / Math.max(0.25, vidSpdFactor);
       const activeNow = t >= v.start && t < effEnd;
 
       if (activeNow) {
@@ -2584,10 +2607,8 @@ function App() {
     await Promise.all(activeVids.map(v => new Promise(resolve => {
       if (!v.videoEl) return resolve();
       const vidDur = isFinite(v.videoEl.duration) && v.videoEl.duration > 0 ? v.videoEl.duration : (v.end - v.start);
-      // Clamp a vidDur-0.033 (1 frame antes do fim) — alguns browsers retornam
-      // frame preto ao seekar para exatamente duration
-      // relTime no elemento = tempo de projeto × vidSpeed (vídeo acelerado avança mais rápido)
-      const relTime = Math.max(0, Math.min((t - v.start) * (v.vidSpeed ?? 1), Math.max(0, vidDur - 0.033)));
+      // relTime = trimStart + tempo decorrido × vidSpeed
+      const relTime = Math.max(0, Math.min((v.trimStart ?? 0) + (t - v.start) * (v.vidSpeed ?? 1), Math.max(0, vidDur - 0.033)));
       v.videoEl.pause();
 
       // Se já está no frame certo, resolve imediatamente
@@ -3255,6 +3276,7 @@ function App() {
           vidVolume: v.vidVolume ?? 1,
           vidSpeed: v.vidSpeed ?? 1,
           rawDuration: v.rawDuration ?? (v.end - v.start),
+          trimStart: v.trimStart ?? 0,
           videoBase64: b64result?.data || null,
           videoMime: b64result?.mime || 'video/mp4',
           filters: v.filters || {},
@@ -3356,6 +3378,7 @@ function App() {
                 vidVolume: vData.vidVolume ?? 1,
                 vidSpeed: vData.vidSpeed ?? 1,
                 rawDuration: vData.rawDuration ?? (vData.end - vData.start),
+                trimStart: vData.trimStart ?? 0,
                 transitionIn:     vData.transitionIn     || 'none',
                 transitionOut:    vData.transitionOut    || 'none',
                 transitionInDur:  vData.transitionInDur  ?? 0.35,
@@ -5400,24 +5423,22 @@ function App() {
           style={{ flex: 1, overflowX: 'auto', overflowY: 'hidden', padding: '10px', position: 'relative' }}
           onMouseDown={(e) => {
             if (e.button !== 0) return;
-            if (e.target === e.currentTarget || e.target.id === 'track-bg' || e.target.id === 'wave-container') {
-              setIsScrubbing(true);
-              scrubToClientX(e.clientX);
+            {
+              const isScrubTarget = e.target === e.currentTarget || ['track-bg','wave-container','video-track-row','image-track-row'].includes(e.target.id);
+              if (isScrubTarget) { setIsScrubbing(true); scrubToClientX(e.clientX); }
             }
           }}
           onDoubleClick={(e) => {
-            if (e.target === e.currentTarget || e.target.id === 'track-bg' || e.target.id === 'wave-container') {
+            const isScrubTarget = e.target === e.currentTarget || ['track-bg','wave-container','video-track-row','image-track-row'].includes(e.target.id);
+            if (isScrubTarget) {
               scrubToClientX(e.clientX);
               const audio = audioRef.current;
-              if (audio) {
-                audio.play().then(() => setIsPlaying(true)).catch(() => {});
-              }
+              if (audio) { audio.play().then(() => setIsPlaying(true)).catch(() => {}); }
             }
           }}
           onClick={(e) => {
-            if (e.target === e.currentTarget || e.target.id === 'track-bg' || e.target.id === 'wave-container') {
-              scrubToClientX(e.clientX);
-            }
+            const isScrubTarget = e.target === e.currentTarget || ['track-bg','wave-container','video-track-row','image-track-row'].includes(e.target.id);
+            if (isScrubTarget) { scrubToClientX(e.clientX); }
           }}
         >
           <div id="track-bg" style={{ position: 'relative', height: '155px', width: timelineWidth + 'px', background: '#0d0d0d', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.06)', boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.02)', overflow: 'hidden' }}>
@@ -5496,6 +5517,9 @@ function App() {
                 <div onMouseDown={(e) => handleTimelineMouseDown(l.id, 'resize-end', e)} style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: '12px', cursor: 'ew-resize', backgroundColor: 'rgba(0,0,0,0.25)', borderTopRightRadius: '18px', borderBottomRightRadius: '18px' }} />
               </div>
             ))}
+
+            {/* Área de scrub para a faixa de vídeo (clique aqui move o playhead) */}
+            <div id="video-track-row" style={{ position: 'absolute', left: 0, right: 0, top: '76px', height: '42px', zIndex: 1, cursor: 'crosshair' }} />
 
             {videos.map((v) => (
               <div
