@@ -5322,13 +5322,15 @@ _setDragging(null);
             <button onClick={() => {
               const audio = audioRef.current;
               if (isPlaying) {
-                // Pausar
+                // Pausar — atualiza ref sincronamente para o RAF não tentar resumir
+                isPlayingRef.current = false;
                 if (audio) audio.pause();
-                // Para o clock virtual
                 if (clockIntervalRef.current) { clearInterval(clockIntervalRef.current); clockIntervalRef.current = null; }
                 setIsPlaying(false);
               } else {
-                // Iniciar — busca vídeos ativos, faz seek correto (com trimStart) e inicia
+                // Iniciar — atualiza isPlayingRef SINCRONAMENTE antes de qualquer play()
+                // Sem isso, o RAF (60fps) vê playing=false enquanto vídeo está tocando e pausa tudo
+                isPlayingRef.current = true;
                 const tNow = virtualTimeRef.current;
                 // Pré-posiciona vídeos ainda não ativos no trimStart (evita delay quando chegarem)
                 videosRef.current.forEach(v => {
