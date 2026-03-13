@@ -1457,6 +1457,13 @@ function App() {
     if (clockIntervalRef.current) { clearInterval(clockIntervalRef.current); clockIntervalRef.current = null; }
     virtualTimeRef.current = 0;
     setIsPlaying(false);
+    // Pré-posiciona todos os vídeos no trimStart para que play() inicie sem delay
+    videosRef.current.forEach(v => {
+      if (!v.videoEl) return;
+      v.videoEl.pause();
+      const ts = v.trimStart ?? 0;
+      if (Math.abs(v.videoEl.currentTime - ts) > 0.05) v.videoEl.currentTime = ts;
+    });
     setCurrentTime(0);
   };
 
@@ -1598,6 +1605,20 @@ function App() {
     if (playheadRef.current) {
       playheadRef.current.style.transform = `translateX(${nextTime * zoom}px)`;
     }
+    // Pré-posiciona vídeos no ponto correto para play() imediato sem delay
+    videosRef.current.forEach(v => {
+      if (!v.videoEl || v.videoEl.readyState < 1) return;
+      const trimSt = v.trimStart ?? 0;
+      const vidSpd = v.vidSpeed ?? 1;
+      if (nextTime < v.start) {
+        // Antes do vídeo: posiciona no trimStart
+        if (Math.abs(v.videoEl.currentTime - trimSt) > 0.05) v.videoEl.currentTime = trimSt;
+      } else if (nextTime <= v.end) {
+        // Dentro do vídeo: posiciona no ponto exato
+        const target = Math.max(0, trimSt + (nextTime - v.start) * vidSpd);
+        if (Math.abs(v.videoEl.currentTime - target) > 0.05) v.videoEl.currentTime = target;
+      }
+    });
   };
 
   // Helper: retorna bounding box do texto extra (considerando multiline)
@@ -2462,32 +2483,29 @@ _setDragging(null);
         const drift = Math.abs(v.videoEl.currentTime - relTime);
         const vol = Math.max(0, Math.min(1, (v.vidVolume ?? 1) * projectVolumeRef.current));
         if (playing && v.videoEl.paused) {
-          // SEMPRE seek antes de play() quando há trimStart ou drift significativo
-          if (drift > 0.05) {
-            v.videoEl.currentTime = relTime;
-            // Aguarda seeked para evitar iniciar do frame errado
-            v.videoEl.addEventListener('seeked', () => {
-              v.videoEl.muted = v.muted || false;
-              v.videoEl.volume = vol;
-              v.videoEl.play().catch(() => {});
-            }, { once: true });
-          } else {
-            v.videoEl.muted = v.muted || false;
-            v.videoEl.volume = vol;
-            v.videoEl.play().catch(() => {});
+          // Se já está no lugar certo (seek foi feito antes do play): inicia direto sem delay
+          v.videoEl.muted = v.muted || false;
+          v.videoEl.volume = vol;
+          v.videoEl.play().catch(() => {});
+          // Corrige drift leve logo após iniciar (não bloqueia o play)
+          if (drift > 0.2) {
+            setTimeout(() => {
+              const d2 = Math.abs(v.videoEl.currentTime - relTime);
+              if (d2 > 0.2 && !v.videoEl.paused) v.videoEl.currentTime = relTime;
+            }, 80);
           }
         } else if (!playing && !v.videoEl.paused) {
           v.videoEl.pause();
         } else if (!v.videoEl.paused && drift > Math.max(1.0, vSpd)) {
-          // Correção de drift durante playback
           v.videoEl.currentTime = relTime;
         }
       } else {
         if (!v.videoEl.paused) v.videoEl.pause();
-        // Quando inativo antes do início, pré-posiciona no trimStart
-        if (t < v.start) {
-          const targetTime = v.trimStart ?? 0;
-          if (Math.abs(v.videoEl.currentTime - targetTime) > 0.1) v.videoEl.currentTime = targetTime;
+        // Pré-posiciona no trimStart enquanto inativo — seek acontece ANTES do play
+        // Isso elimina o delay: quando play() for chamado, vídeo já está no ponto certo
+        const targetTime = t < v.start ? (v.trimStart ?? 0) : relTime;
+        if (Math.abs(v.videoEl.currentTime - targetTime) > 0.08) {
+          v.videoEl.currentTime = targetTime;
         }
       }
     });
