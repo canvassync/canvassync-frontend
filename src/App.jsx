@@ -1191,7 +1191,7 @@ function App() {
         setVideos(prev => {
           // Evita duplicata se ambos os eventos dispararem
           if (prev.find(v => v.id === id)) return prev;
-          return [...prev, { id, src, videoEl, start, end, x, y, width: w, height: h, radius: 12, muted: false }];
+          return [...prev, { id, src, videoEl, start, end, x, y, width: w, height: h, radius: 12, muted: false, vidVolume: projectVolumeRef.current ?? 1, vidSpeed: projectSpeedRef.current ?? 1 }];
         });
       };
 
@@ -2404,7 +2404,8 @@ function App() {
       const relTime = Math.max(0, Math.min(t - v.start, v.videoEl.duration || 0));
       if (active) {
         // Aplica velocidade do projeto no elemento de vídeo
-        if (v.videoEl.playbackRate !== spd) v.videoEl.playbackRate = spd;
+        const vSpd = Math.max(0.25, Math.min(4, (v.vidSpeed ?? 1) * spd));
+        if (Math.abs(v.videoEl.playbackRate - vSpd) > 0.01) v.videoEl.playbackRate = vSpd;
         // Só faz seek quando pausado ou com desvio grande (>1s)
         // Fazer seek enquanto tocando interrompe o áudio
         if (v.videoEl.paused && Math.abs(v.videoEl.currentTime - relTime) > 0.1) {
@@ -2539,7 +2540,8 @@ function App() {
     if (audioRef.current) audioRef.current.playbackRate = spd;
     // Atualiza velocidade em todos os vídeos overlay em tempo real
     videosRef.current.forEach(v => {
-      if (v.videoEl) v.videoEl.playbackRate = spd;
+      // Velocidade por vídeo: usa vidSpeed do vídeo, multiplicado pelo speed global
+      if (v.videoEl) v.videoEl.playbackRate = Math.max(0.25, Math.min(4, (v.vidSpeed ?? 1) * spd));
     });
   }, [projectSpeed]);
 
@@ -2853,26 +2855,26 @@ function App() {
     for (const v of videosArr) {
       if (v.muted) continue;
       try {
-        // Busca o arquivo de vídeo pelo object URL
         const resp = await fetch(v.src);
         const ab = await resp.arrayBuffer();
         const ac = new (window.AudioContext || window.webkitAudioContext)({ sampleRate });
         let decoded;
         try { decoded = await ac.decodeAudioData(ab); }
-        catch { ac.close(); continue; } // vídeo sem faixa de áudio — ignora
+        catch { ac.close(); continue; }
         ac.close();
         const chL = decoded.getChannelData(0);
         const chR = decoded.numberOfChannels > 1 ? decoded.getChannelData(1) : chL;
-        const vol = Math.max(0, Math.min(1, volume));
-        // Posição de início no buffer de saída (ajustada pela velocidade do projeto)
-        const outOffset   = Math.round((v.start / speed) * sampleRate);
-        const clipOutDur  = (v.end - v.start) / speed;
+        // Volume: combina volume global do projeto × volume individual do vídeo
+        const vol = Math.max(0, Math.min(1, volume * (v.vidVolume ?? 1)));
+        // Velocidade: combina speed global × speed individual do vídeo
+        const effSpeed = Math.max(0.25, Math.min(4, speed * (v.vidSpeed ?? 1)));
+        const outOffset      = Math.round((v.start / speed) * sampleRate);
+        const clipOutDur     = (v.end - v.start) / speed;
         const clipOutSamples = Math.round(clipOutDur * sampleRate);
         for (let i = 0; i < clipOutSamples; i++) {
           const oi = outOffset + i;
           if (oi >= outL.length) break;
-          // Reamostrar pela velocidade (simples — qualidade aceitável para export)
-          const si = Math.min(Math.round(i * speed), decoded.length - 1);
+          const si = Math.min(Math.round(i * effSpeed), decoded.length - 1);
           outL[oi] = Math.max(-1, Math.min(1, outL[oi] + (chL[si] || 0) * vol));
           outR[oi] = Math.max(-1, Math.min(1, outR[oi] + (chR[si] || 0) * vol));
         }
@@ -3055,7 +3057,9 @@ function App() {
       // 5. Posiciona vídeos overlay no tempo correto e prepara playback
       const vidsToPlay = videosRef.current.filter(v => v.videoEl);
       for (const v of vidsToPlay) {
-        v.videoEl.playbackRate = _spd1;
+        // Velocidade e volume individuais por vídeo
+        v.videoEl.playbackRate = Math.max(0.25, Math.min(4, _spd1 * (v.vidSpeed ?? 1)));
+        v.videoEl.volume = Math.max(0, Math.min(1, _vol1 * (v.vidVolume ?? 1)));
         v.videoEl.currentTime = 0;
       }
 
@@ -3232,6 +3236,8 @@ function App() {
           x: v.x, y: v.y, width: v.width, height: v.height,
           radius: v.radius ?? 12, rotation: v.rotation ?? 0,
           muted: v.muted || false,
+          vidVolume: v.vidVolume ?? 1,
+          vidSpeed: v.vidSpeed ?? 1,
           videoBase64: b64result?.data || null,
           videoMime: b64result?.mime || 'video/mp4',
           filters: v.filters || {},
@@ -3330,6 +3336,8 @@ function App() {
                 width: vData.width ?? 200, height: vData.height ?? 200,
                 radius: vData.radius ?? 12, rotation: vData.rotation ?? 0,
                 muted: vData.muted || false,
+                vidVolume: vData.vidVolume ?? 1,
+                vidSpeed: vData.vidSpeed ?? 1,
                 transitionIn:     vData.transitionIn     || 'none',
                 transitionOut:    vData.transitionOut    || 'none',
                 transitionInDur:  vData.transitionInDur  ?? 0.35,
@@ -5221,6 +5229,8 @@ function App() {
                     const rel = Math.max(0, Math.min(tNow - v.start, v.videoEl.duration || 0));
                     v.videoEl.currentTime = rel;
                     v.videoEl.muted = v.muted || false;
+                    v.videoEl.volume = Math.max(0, Math.min(1, projectVolumeRef.current * (v.vidVolume ?? 1)));
+                    v.videoEl.playbackRate = Math.max(0.25, Math.min(4, projectSpeedRef.current * (v.vidSpeed ?? 1)));
                     v.videoEl.play().catch(() => {});
                   }
                 });
@@ -5268,32 +5278,76 @@ function App() {
             {/* ── Separador ── */}
             <div style={{ width: 1, height: 28, background: 'rgba(255,255,255,0.07)', margin: '0 2px' }} />
 
-            {/* Volume na timeline */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <span style={{ fontSize: 11, color: '#00BFFF', fontWeight: 700, whiteSpace: 'nowrap' }}>
-                {projectVolume === 0 ? '🔇' : projectVolume < 0.5 ? '🔉' : '🔊'}
-              </span>
-              <input type="range" min={0} max={1} step={0.01} value={projectVolume}
-                onChange={e => setVolume(+e.target.value)}
-                onMouseDown={e => e.stopPropagation()}
-                onPointerDown={e => e.stopPropagation()}
-                style={{ width: 80, accentColor: '#00BFFF', cursor: 'pointer' }} />
-              <span style={{ fontSize: 10, color: projectVolume !== 1 ? '#00BFFF' : '#555', minWidth: 28, fontWeight: 700 }}>{Math.round(projectVolume * 100)}%</span>
-            </div>
+            {/* Volume — por vídeo se selecionado, global se não */}
+            {(() => {
+              const selVid = activeVideoId ? videos.find(v => v.id === activeVideoId) : null;
+              const volVal = selVid ? (selVid.vidVolume ?? 1) : projectVolume;
+              const isPerVid = !!selVid;
+              const accentCol = isPerVid ? '#a78bfa' : '#00BFFF';
+              return (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span style={{ fontSize: 10, color: accentCol, fontWeight: 700, whiteSpace: 'nowrap', lineHeight: 1.2 }}>
+                    {volVal === 0 ? '🔇' : volVal < 0.5 ? '🔉' : '🔊'}
+                    {isPerVid && <span style={{ display: 'block', fontSize: 8, color: '#a78bfa' }}>vídeo</span>}
+                  </span>
+                  <input type="range" min={0} max={1} step={0.01} value={volVal}
+                    onChange={e => {
+                      const val = +e.target.value;
+                      if (isPerVid) {
+                        setVideos(prev => prev.map(v => {
+                          if (v.id !== activeVideoId) return v;
+                          if (v.videoEl) v.videoEl.volume = Math.max(0, Math.min(1, val * projectVolumeRef.current));
+                          return { ...v, vidVolume: val };
+                        }));
+                      } else {
+                        setVolume(val);
+                        // Aplica também aos vídeos sem volume individual customizado
+                        videosRef.current.forEach(v => { if (v.videoEl) v.videoEl.volume = Math.max(0, Math.min(1, val * (v.vidVolume ?? 1))); });
+                      }
+                    }}
+                    onMouseDown={e => e.stopPropagation()}
+                    onPointerDown={e => e.stopPropagation()}
+                    style={{ width: 80, accentColor: accentCol, cursor: 'pointer' }} />
+                  <span style={{ fontSize: 10, color: volVal !== 1 ? accentCol : '#555', minWidth: 28, fontWeight: 700 }}>{Math.round(volVal * 100)}%</span>
+                </div>
+              );
+            })()}
 
             {/* ── Separador ── */}
             <div style={{ width: 1, height: 28, background: 'rgba(255,255,255,0.07)', margin: '0 2px' }} />
 
-            {/* Velocidade na timeline */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <span style={{ fontSize: 11, color: '#00BFFF', fontWeight: 700, whiteSpace: 'nowrap' }}>⚡</span>
-              <input type="range" min={0.25} max={4} step={0.05} value={projectSpeed}
-                onChange={e => setSpeed(+e.target.value)}
-                onMouseDown={e => e.stopPropagation()}
-                onPointerDown={e => e.stopPropagation()}
-                style={{ width: 80, accentColor: '#00BFFF', cursor: 'pointer' }} />
-              <span style={{ fontSize: 10, color: projectSpeed !== 1 ? '#00BFFF' : '#555', minWidth: 28, fontWeight: 700 }}>{projectSpeed}×</span>
-            </div>
+            {/* Velocidade — por vídeo se selecionado, global se não */}
+            {(() => {
+              const selVid = activeVideoId ? videos.find(v => v.id === activeVideoId) : null;
+              const spdVal = selVid ? (selVid.vidSpeed ?? 1) : projectSpeed;
+              const isPerVid = !!selVid;
+              const accentCol = isPerVid ? '#a78bfa' : '#00BFFF';
+              return (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span style={{ fontSize: 10, color: accentCol, fontWeight: 700, whiteSpace: 'nowrap', lineHeight: 1.2 }}>
+                    ⚡{isPerVid && <span style={{ display: 'block', fontSize: 8, color: '#a78bfa' }}>vídeo</span>}
+                  </span>
+                  <input type="range" min={0.25} max={4} step={0.05} value={spdVal}
+                    onChange={e => {
+                      const val = +e.target.value;
+                      if (isPerVid) {
+                        setVideos(prev => prev.map(v => {
+                          if (v.id !== activeVideoId) return v;
+                          if (v.videoEl) v.videoEl.playbackRate = Math.max(0.25, Math.min(4, val * projectSpeedRef.current));
+                          return { ...v, vidSpeed: val };
+                        }));
+                      } else {
+                        setSpeed(val);
+                        videosRef.current.forEach(v => { if (v.videoEl) v.videoEl.playbackRate = Math.max(0.25, Math.min(4, val * (v.vidSpeed ?? 1))); });
+                      }
+                    }}
+                    onMouseDown={e => e.stopPropagation()}
+                    onPointerDown={e => e.stopPropagation()}
+                    style={{ width: 80, accentColor: accentCol, cursor: 'pointer' }} />
+                  <span style={{ fontSize: 10, color: spdVal !== 1 ? accentCol : '#555', minWidth: 28, fontWeight: 700 }}>{spdVal.toFixed(2)}×</span>
+                </div>
+              );
+            })()}
             
             <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '10px' }}>
               <span style={{ fontSize: '11px', color: '#555' }}>{t('ed_zoom')}</span>
