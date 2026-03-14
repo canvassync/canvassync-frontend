@@ -3363,7 +3363,13 @@ _setDragging(null);
 
     const _spd1 = Math.max(0.25, Math.min(4, projectSpeedRef.current));
     const _vol1 = Math.max(0, Math.min(1, projectVolumeRef.current));
-    const outputDuration1 = effectiveDuration / _spd1;
+    const _trimStart1 = audioTrimStart || 0;
+    const _trimEnd1   = audioTrimEnd !== null ? audioTrimEnd : null;
+    // Duração respeitando audioTrimEnd (corte no fim do áudio)
+    const _rawDur1 = effectiveDuration / _spd1;
+    const outputDuration1 = _trimEnd1 !== null
+      ? Math.min(_rawDur1, (_trimEnd1 - _trimStart1) / _spd1)
+      : _rawDur1;
 
     setIsExporting(true);
     setExportProgress(0);
@@ -3819,7 +3825,16 @@ _setDragging(null);
     const FPS = 30;
     const W   = targetWidth  || baseCanvas.width;
     const H   = targetHeight || baseCanvas.height;
-    const SCALE = scaleFactor || 1;
+    const SCALE = (W !== baseCanvas.width) ? W / baseCanvas.width : (scaleFactor || 1);
+    const isMP4 = outputMime === 'video/mp4';
+
+    // Respeita o corte de áudio
+    const trimStart = audioTrimStart || 0;
+    const trimEnd   = audioTrimEnd !== null ? audioTrimEnd : null;
+    // Duração real do projeto limitada pelo audioTrimEnd se houver corte
+    const audioDur  = trimEnd !== null
+      ? Math.min(outDur, (trimEnd - trimStart) / spd)
+      : outDur;
 
     stopAllVideoAudio();
     isPlayingRef.current = false;
@@ -3827,60 +3842,77 @@ _setDragging(null);
     setIsExporting(true);
     setExportProgress(0);
 
-    // Escala o canvas para HD se necessário
-    const offCanvas = (SCALE > 1 || W !== baseCanvas.width)
+    const offCanvas = (W !== baseCanvas.width || H !== baseCanvas.height)
       ? Object.assign(document.createElement('canvas'), { width: W, height: H })
-      : baseCanvas;
+      : null; // null = usa baseCanvas diretamente
 
     try {
-      const { Muxer, ArrayBufferTarget } = await muxerFactory();
+      const muxerMod = await muxerFactory();
+      const { Muxer, ArrayBufferTarget } = muxerMod;
       const target = new ArrayBufferTarget();
+
+      // mp4-muxer usa 'avc' e 'aac'; webm-muxer usa 'V_VP8' e 'A_OPUS'
+      const muxVideoCodec = isMP4 ? 'avc' : videoCodec;
+      const muxAudioCodec = isMP4 ? 'aac' : audioCodec;
+      const hasAudio = !!(audioFile || audioBase64 || videosRef.current.some(v => !v.muted));
 
       const muxer = new Muxer({
         target,
-        video: { codec: videoCodec, width: W, height: H, frameRate: FPS },
-        audio: (audioFile || audioBase64 || videosRef.current.some(v => !v.muted)) && audioCodec
-          ? { codec: audioCodec, sampleRate: 48000, numberOfChannels: 2 }
-          : undefined,
-        ...(outputMime === 'video/mp4' ? { fastStart: 'in-memory' } : {}),
+        video: { codec: muxVideoCodec, width: W, height: H, frameRate: FPS },
+        ...(hasAudio ? { audio: { codec: muxAudioCodec, sampleRate: 48000, numberOfChannels: 2 } } : {}),
+        ...(isMP4 ? { fastStart: 'in-memory' } : {}),
       });
 
       let encoderError = null;
+      const vEncCodec = isMP4 ? 'avc1.640034' : 'vp8';
       const vEnc = new VideoEncoder({
         output: (chunk, meta) => muxer.addVideoChunk(chunk, meta),
-        error: e => { encoderError = e; },
+        error: e => { encoderError = e; console.error('[RT VideoEncoder]', e); },
       });
-      vEnc.configure({ codec: videoCodec === 'V_VP8' ? 'vp8' : 'avc1.640034',
-        width: W, height: H, bitrate: bitrateVideo, framerate: FPS });
+      vEnc.configure({ codec: vEncCodec, width: W, height: H, bitrate: bitrateVideo, framerate: FPS });
 
-      // ── Áudio ──────────────────────────────────────────────────────────────
-      const hasAudio = (audioFile || audioBase64 || videosRef.current.some(v => !v.muted)) && audioCodec;
+      // ── Áudio (processado offline antes de iniciar captura) ─────────────────
       let aEnc = null;
       if (hasAudio) {
         try {
           aEnc = new AudioEncoder({
             output: (chunk, meta) => muxer.addAudioChunk(chunk, meta),
-            error: e => console.error('[RT Audio]', e),
+            error: e => console.error('[RT AudioEnc]', e),
           });
-          aEnc.configure({ codec: outputMime === 'video/mp4' ? 'mp4a.40.2' : 'opus',
-            sampleRate: 48000, numberOfChannels: 2, bitrate: bitrateAudio });
+          const aEncCodec = isMP4 ? 'mp4a.40.2' : 'opus';
+          aEnc.configure({ codec: aEncCodec, sampleRate: 48000, numberOfChannels: 2, bitrate: bitrateAudio });
 
-          // Mistura toda a faixa de áudio offline (rápido, não bloqueia RT)
-          const silLen = Math.ceil(48000 * outDur);
+          // Buffer de saída do tamanho correto (respeitando audioTrimEnd)
+          const silLen = Math.ceil(48000 * audioDur);
           const outL = new Float32Array(silLen);
           const outR = new Float32Array(silLen);
 
           if (audioFile || audioBase64) {
             let buf;
             if (audioFile) { buf = await audioFile.arrayBuffer(); }
-            else { const b64 = audioBase64.split(',')[1]; const bin = atob(b64);
+            else {
+              const b64 = audioBase64.split(',')[1]; const bin = atob(b64);
               const by = new Uint8Array(bin.length); for (let i=0;i<bin.length;i++) by[i]=bin.charCodeAt(i);
-              buf = by.buffer; }
+              buf = by.buffer;
+            }
             const ac = new (window.AudioContext||window.webkitAudioContext)({ sampleRate:48000 });
             const decoded = await ac.decodeAudioData(buf); ac.close();
-            const [sL, sR] = await _renderAudioStretched(decoded, spd, vol, 48000);
-            outL.set(sL.subarray(0, Math.min(sL.length, silLen)));
-            outR.set(sR.subarray(0, Math.min(sR.length, silLen)));
+            // Cria sub-buffer respeitando trimStart/trimEnd
+            const startSample = Math.round(trimStart * decoded.sampleRate);
+            const endSample   = trimEnd !== null
+              ? Math.round(trimEnd * decoded.sampleRate)
+              : decoded.length;
+            const nCh = decoded.numberOfChannels;
+            const tmpBuf = ac.createBuffer ? (() => {
+              const _ac2 = new (window.AudioContext||window.webkitAudioContext)();
+              const b = _ac2.createBuffer(nCh, endSample - startSample, decoded.sampleRate);
+              for (let ch=0;ch<nCh;ch++) b.getChannelData(ch).set(decoded.getChannelData(ch).subarray(startSample, endSample));
+              _ac2.close(); return b;
+            })() : decoded;
+            const [sL, sR] = await _renderAudioStretched(tmpBuf, spd, vol, 48000);
+            const copyLen = Math.min(sL.length, silLen);
+            outL.set(sL.subarray(0, copyLen));
+            outR.set(sR.subarray(0, copyLen));
           }
           await _mixSfxIntoBuffers(outL, outR, soundEffects, 48000);
           await _mixVideoAudioIntoBuffers(outL, outR, videosRef.current, spd, vol, 48000);
@@ -3895,17 +3927,15 @@ _setDragging(null);
             aEnc.encode(ad); ad.close();
           }
           await aEnc.flush();
-        } catch(e) { console.error('[RT AudioEnc]', e); aEnc = null; }
+        } catch(e) { console.error('[RT AudioEnc setup]', e); aEnc = null; }
       }
 
       // ── Captura de frames em tempo real ────────────────────────────────────
-      // Mesma abordagem do WEBM+Áudio: toca tudo e captura canvas a 30fps
       videosRef.current.forEach(v => {
         if (!v.videoEl) return;
         v.videoEl.muted = false;
         v.videoEl.playbackRate = Math.max(0.25, Math.min(4, spd * (v.vidSpeed ?? 1)));
-        const ts = v.trimStart ?? 0;
-        v.videoEl.currentTime = ts;
+        v.videoEl.currentTime = v.trimStart ?? 0;
       });
 
       const startWall = Date.now();
@@ -3914,42 +3944,42 @@ _setDragging(null);
       isPlayingRef.current = true;
       setIsPlaying(true);
 
-      // Inicia vídeos overlay no tempo 0
       for (const v of videosRef.current) {
         if (!v.videoEl) continue;
         if (0 >= v.start && 0 <= v.end) v.videoEl.play().catch(() => {});
       }
-      if (audioRef.current) {
-        audioRef.current.playbackRate = spd;
-        audioRef.current.currentTime = audioTrimStart || 0;
-        audioRef.current.play().catch(() => {});
-      }
 
-      // Intervalo de captura de frames (33ms ≈ 30fps)
+      const totalFrames = Math.ceil(audioDur * FPS);
       let frameCount = 0;
-      const totalFrames = Math.ceil(outDur * FPS);
+
       await new Promise(resolve => {
         let stopped = false;
-        const stop = () => { if (stopped) return; stopped = true; clearInterval(captureId); clearInterval(syncId); resolve(); };
+        const stop = () => {
+          if (stopped) return; stopped = true;
+          clearInterval(captureId); clearInterval(syncId); resolve();
+        };
 
         const captureId = setInterval(() => {
           if (stopped || encoderError) { stop(); return; }
           const elapsed = (Date.now() - startWall) / 1000;
-          if (elapsed >= outDur + 0.2) { stop(); return; }
+          if (elapsed >= audioDur + 0.2 || frameCount >= totalFrames + 3) { stop(); return; }
 
-          // Copia canvas principal para offCanvas (se escala HD necessária)
-          if (offCanvas !== baseCanvas) {
+          const srcCanvas = offCanvas || baseCanvas;
+          if (offCanvas) {
             const ctx = offCanvas.getContext('2d');
             ctx.clearRect(0, 0, W, H);
             ctx.drawImage(baseCanvas, 0, 0, W, H);
           }
 
-          const ts_frame = Math.round(frameCount * (1e6 / FPS));
           try {
-            const frame = new VideoFrame(offCanvas, { timestamp: ts_frame, duration: Math.round(1e6 / FPS) });
+            const frame = new VideoFrame(srcCanvas, {
+              timestamp: Math.round(frameCount * (1e6 / FPS)),
+              duration:  Math.round(1e6 / FPS),
+            });
             vEnc.encode(frame, { keyFrame: frameCount % 60 === 0 });
             frame.close();
           } catch(e) { console.warn('[RT frame]', e); }
+
           frameCount++;
           if (frameCount % 15 === 0) setExportProgress(Math.min(frameCount / totalFrames, 0.99));
         }, Math.round(1000 / FPS));
@@ -3972,7 +4002,7 @@ _setDragging(null);
       rtExportRef.current = false;
       setIsPlaying(false);
       if (audioRef.current && !audioRef.current.paused) audioRef.current.pause();
-      videosRef.current.forEach(v => { if (v.videoEl && !v.videoEl.paused) v.videoEl.pause(); v.videoEl && (v.videoEl.muted = true); });
+      videosRef.current.forEach(v => { if (v.videoEl) { if (!v.videoEl.paused) v.videoEl.pause(); v.videoEl.muted = true; } });
 
       await vEnc.flush();
       if (encoderError) throw encoderError;
@@ -3987,6 +4017,8 @@ _setDragging(null);
       setIsExporting(false);
       setExportProgress(0);
       offlineExportRef.current = false;
+      isPlayingRef.current = false;
+      rtExportRef.current = false;
       videosRef.current.forEach(v => { if (v.videoEl) v.videoEl.muted = true; });
     }
   };
