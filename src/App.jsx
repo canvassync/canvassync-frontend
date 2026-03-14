@@ -1525,28 +1525,42 @@ function App() {
         });
       };
 
-      videoEl.addEventListener('canplay', async () => {
-        // Carrega arquivo completo via MediaSource após obter metadata
+      // Garante duration válida antes de chamar addVideo.
+      // loadedmetadata é o evento correto para isso — canplay pode disparar antes
+      // de duration ser conhecida, causando fallback de 3s para qualquer vídeo.
+      const waitForDuration = () => new Promise(resolve => {
+        if (isFinite(videoEl.duration) && videoEl.duration > 0) {
+          resolve(videoEl.duration);
+          return;
+        }
+        // Ainda não temos duration — aguarda durationchange (até 3s de timeout)
+        let done = false;
+        const onDur = () => {
+          if (done) return; done = true;
+          clearTimeout(fallback);
+          resolve(isFinite(videoEl.duration) && videoEl.duration > 0 ? videoEl.duration : 3);
+        };
+        const fallback = setTimeout(onDur, 3000);
+        videoEl.addEventListener('durationchange', onDur, { once: true });
+      });
+
+      videoEl.addEventListener('loadedmetadata', async () => {
+        // Aguarda duration ser finalizada (durationchange pode vir depois)
+        await waitForDuration();
         try {
           const fullSrc = await tryMediaSource(mimeType);
           if (fullSrc !== src) {
-            // MediaSource criado: substitui src sem perder duration
             const savedTime = videoEl.currentTime;
             videoEl.src = fullSrc;
-            videoEl.addEventListener('canplay', () => {
+            videoEl.addEventListener('canplay', async () => {
               videoEl.currentTime = savedTime;
+              await waitForDuration();
               addVideo(fullSrc);
             }, { once: true });
           } else {
             addVideo(src);
           }
         } catch { addVideo(src); }
-      }, { once: true });
-
-      videoEl.addEventListener('loadedmetadata', () => {
-        setTimeout(() => {
-          if (!videos.find(v => v.id === id)) addVideo(src);
-        }, 300);
       }, { once: true });
       videoEl.onerror = () => {
         console.warn('Erro ao carregar vídeo:', file.name, file.type);
