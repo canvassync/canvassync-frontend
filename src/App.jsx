@@ -972,6 +972,7 @@ function App() {
   const [bgSearch, setBgSearch] = useState('');
   const [bgSearchResults, setBgSearchResults] = useState([]);
   const [bgSearchLoading, setBgSearchLoading] = useState(false);
+  const [bgTab, setBgTab] = useState('gradients');
   const [stickerPanelPos, setStickerPanelPos] = useState({ top: 80, left: 0 });
   const [stickerTab, setStickerTab] = useState('emoji');  // 'emoji'|'sticker'|'gif'
   const activeStickerRef = useRef(null);                  // id do sticker selecionado (sem re-render)
@@ -4494,7 +4495,6 @@ _setDragging(null);
 
                       {/* Tabs */}
                       {(() => {
-                        const [bgTab, setBgTab] = React.useState('gradients');
                         const GRADIENTS = [
                           { id:'g1', label:'Noite', css:'linear-gradient(160deg,#0a0a2e 0%,#1a0a3e 50%,#0d1b4b 100%)' },
                           { id:'g2', label:'Pôr do Sol', css:'linear-gradient(160deg,#ff6b6b 0%,#feca57 50%,#ff9ff3 100%)' },
@@ -5953,9 +5953,14 @@ _setDragging(null);
               const audio = audioRef.current;
               if (isPlaying) {
                 isPlayingRef.current = false;
-                if (audio) audio.pause();
+                if (audio) {
+                  audio.pause();
+                  // Salva posição atual em virtualTimeRef para que o play retome de onde parou
+                  virtualTimeRef.current = audioOffset + (audio.currentTime - audioTrimStart);
+                  setCurrentTime(virtualTimeRef.current);
+                }
                 if (clockIntervalRef.current) { clearInterval(clockIntervalRef.current); clockIntervalRef.current = null; }
-                stopAllVideoAudio();  // para o áudio Web Audio dos vídeos
+                stopAllVideoAudio();
                 setIsPlaying(false);
               } else {
                 // Iniciar — atualiza isPlayingRef SINCRONAMENTE antes de qualquer play()
