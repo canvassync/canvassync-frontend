@@ -1879,7 +1879,7 @@ function App() {
   const handleStopPlayback = () => {
     isPlayingRef.current = false;
     const audio = audioRef.current;
-    if (audio) { audio.pause(); audio.currentTime = 0; }
+    if (audio) { audio.pause(); audio.currentTime = audioTrimStartRef.current || 0; }
     if (clockIntervalRef.current) { clearInterval(clockIntervalRef.current); clockIntervalRef.current = null; }
     // Para o export RT se estiver rodando
     if (exportStopRef.current) { exportStopRef.current(); exportStopRef.current = null; }
@@ -2043,7 +2043,12 @@ function App() {
     // Usa o maior entre: duração do áudio, letras, imagens e vídeos
     const maxTime = Math.max(duration || 0, lyricMax, imageMax, videoMax, 1);
     const nextTime = Math.max(0, Math.min(maxTime, rawX / zoom));
-    if (audio) audio.currentTime = nextTime;
+    if (audio) {
+      // audio.currentTime é relativo ao arquivo, não à timeline
+      // nextTime é o tempo do projeto; o áudio começa em audioOffset
+      const relAudio = (audioTrimStartRef.current || 0) + (nextTime - audioOffsetRef.current);
+      audio.currentTime = Math.max(audioTrimStartRef.current || 0, relAudio);
+    }
     virtualTimeRef.current = nextTime;
     setCurrentTime(nextTime);
     if (playheadRef.current) {
@@ -2962,7 +2967,8 @@ _setDragging(null);
     // Durante RT export (WebM+Áudio) usa sempre virtualTimeRef — o audioRef
     // não é tocado, então audio.currentTime estaria congelado no último valor
     // Tempo do projeto = audioOffset + (audio.currentTime - audioTrimStart)
-    const t = (rtExportRef.current || !audio)
+    // Quando áudio pausado, virtualTimeRef tem a posição correta do playhead
+    const t = (rtExportRef.current || !audio || audio.paused)
       ? virtualTimeRef.current
       : audioOffsetRef.current + (audio.currentTime - (audioTrimStartRef.current || 0));
     const playing = isPlayingRef.current;
@@ -3059,7 +3065,7 @@ _setDragging(null);
     const loop = () => {
       // 1) Mover o playhead
       const audio = audioRef.current;
-      const t_now = audio
+      const t_now = (audio && !audio.paused)
         ? audioOffsetRef.current + (audio.currentTime - (audioTrimStartRef.current || 0))
         : virtualTimeRef.current;
       if (playheadRef.current) {
@@ -6258,6 +6264,7 @@ _setDragging(null);
             {(audioSrc || audioFile || audioBase64) && (
               <div
                 onMouseDown={(e) => handleAudioTimelineMouseDown('move', e)}
+                onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); if(audioRef.current){audioRef.current.pause();audioRef.current.currentTime=0;} setAudioSrc(null);setAudioFile(null);setAudioBase64(null);setDuration(0);setAudioOffset(0);setAudioTrimStart(0);setAudioTrimEnd(null); }}
                 style={{
                   position: 'absolute',
                   left: `${audioOffset * zoom}px`,
@@ -6290,6 +6297,13 @@ _setDragging(null);
                 />
                 {/* Label */}
                 <span style={{ position: 'absolute', left: 14, fontSize: 9, color: '#00BFFF', fontWeight: 700, pointerEvents: 'none', whiteSpace: 'nowrap', textShadow: '0 1px 4px #000' }}>🎵 ÁUDIO</span>
+                {/* Botão remover */}
+                <button
+                  onMouseDown={e => e.stopPropagation()}
+                  onClick={e => { e.stopPropagation(); if(audioRef.current){audioRef.current.pause();audioRef.current.currentTime=0;} setAudioSrc(null);setAudioFile(null);setAudioBase64(null);setDuration(0);setAudioOffset(0);setAudioTrimStart(0);setAudioTrimEnd(null); }}
+                  title="Remover áudio (Delete)"
+                  style={{ position:'absolute', right:16, top:'50%', transform:'translateY(-50%)', background:'rgba(239,68,68,0.85)', border:'none', borderRadius:4, color:'#fff', fontSize:10, fontWeight:700, cursor:'pointer', padding:'2px 6px', lineHeight:1, zIndex:4 }}
+                >✕</button>
                 {/* Alça trim direita */}
                 <div
                   onMouseDown={(e) => { e.stopPropagation(); handleAudioTimelineMouseDown('trim-end', e); }}
