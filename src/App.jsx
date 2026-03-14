@@ -1839,7 +1839,6 @@ function App() {
     if (!v.audioBuffer || v.muted) return;
     const ac = videoAudioACRef.current;
     if (!ac || ac.state === 'closed') return;
-    if (ac.state === 'suspended') ac.resume();
 
     // Para fonte anterior deste vídeo (se houver)
     const prev = videoAudioNodes.current[v.id];
@@ -1850,11 +1849,7 @@ function App() {
     const projSpd  = projectSpeedRef.current ?? 1;
     const effSpd   = vidSpd * projSpd;
 
-    // Posição no AudioBuffer = trimStart + tempo dentro do vídeo × vidSpeed
-    const bufOffset = Math.max(0, trimSt + (tProject - v.start) * vidSpd);
-
-    // Duração = tempo restante até v.end (tempo do projeto), convertido para segundos de wall clock
-    // v.end é o fim real do vídeo na timeline (respeitando qualquer corte no final)
+    const bufOffset    = Math.max(0, trimSt + (tProject - v.start) * vidSpd);
     const wallDuration = Math.max(0, (v.end - tProject) / projSpd);
     if (wallDuration < 0.05) return;
 
@@ -1866,14 +1861,33 @@ function App() {
     source.buffer = v.audioBuffer;
     source.playbackRate.value = effSpd;
     source.connect(gainNode);
-    // Terceiro argumento: duração — para exatamente no fim do vídeo
-    source.start(0, bufOffset, wallDuration);
 
+    // Registra o nó ANTES do resume para que chamadas concorrentes não iniciem
+    // uma segunda fonte enquanto o resume ainda está pendente
     videoAudioNodes.current[v.id] = { source, gainNode };
     source.onended = () => {
       delete videoAudioNodes.current[v.id];
       try { gainNode.disconnect(); } catch {}
     };
+
+    // source.start() DEVE ser chamado após o AC estar resumed.
+    // Se chamado com AC suspended, a fonte só começa quando o browser
+    // resolver o resume (pode ser ao chamar audio.play() segundos depois)
+    // → áudio do vídeo fica mudo até o áudio principal iniciar.
+    const doStart = () => {
+      // Recalcula bufOffset com o tempo atual caso tenha havido atraso no resume
+      const tNow = virtualTimeRef.current;
+      const bufOff2 = Math.max(0, trimSt + (tNow - v.start) * vidSpd);
+      const wallDur2 = Math.max(0, (v.end - tNow) / projSpd);
+      if (wallDur2 < 0.05) return;
+      try { source.start(0, bufOff2, wallDur2); } catch {}
+    };
+
+    if (ac.state === 'suspended') {
+      ac.resume().then(doStart).catch(doStart);
+    } else {
+      doStart();
+    }
   };
 
   const handleStopPlayback = () => {
