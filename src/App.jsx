@@ -3135,27 +3135,30 @@ _setDragging(null);
       setCurrentTime(projT);
       // Ativa vídeos que entram no range durante playback com áudio
       if (!isPlayingRef.current) return;
+      // IMPORTANTE: todas as comparações usam projT (tempo de projeto),
+      // não `t` (audio.currentTime bruto). Com audioOffset≠0, `t` começa
+      // em 0 mas o projeto já está em audioOffset — usar `t` causava seeks
+      // para o início do vídeo a cada timeupdate → flickering.
       videosRef.current.forEach(v => {
         if (!v.videoEl || v.muted) return;
         const ts = v.trimStart ?? 0;
         const vs = v.vidSpeed ?? 1;
         const rd = v.rawDuration ?? v.videoEl.duration ?? (v.end - v.start);
         const ee = v.start + (rd - ts) / Math.max(0.25, vs);
-        const pastEnd = t >= ee;
+        const pastEnd = projT >= ee;
         if (pastEnd && videoAudioNodes.current[v.id]) {
-          // Vídeo terminou: para o áudio Web Audio
           const node = videoAudioNodes.current[v.id];
           try { node.source.stop(); } catch {}
           try { node.gainNode.disconnect(); } catch {}
           delete videoAudioNodes.current[v.id];
           if (!v.videoEl.paused) v.videoEl.pause();
-        } else if (!pastEnd && t >= v.start && v.videoEl.paused) {
-          const rel = Math.max(0, Math.min(ts + (t - v.start) * vs, (v.videoEl.duration || 0) - 0.033));
+        } else if (!pastEnd && projT >= v.start && v.videoEl.paused) {
+          const rel = Math.max(0, Math.min(ts + (projT - v.start) * vs, (v.videoEl.duration || 0) - 0.033));
           v.videoEl.muted = true;
           v.videoEl.playbackRate = Math.max(0.25, Math.min(4, projectSpeedRef.current * vs));
           if (Math.abs(v.videoEl.currentTime - rel) > 0.1) v.videoEl.currentTime = rel;
           v.videoEl.play().catch(() => {});
-          if (!videoAudioNodes.current[v.id]) startVideoAudio(v, t);
+          if (!videoAudioNodes.current[v.id]) startVideoAudio(v, projT);
         }
       });
     };
