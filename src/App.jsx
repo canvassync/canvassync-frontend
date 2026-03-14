@@ -5842,7 +5842,6 @@ _setDragging(null);
                           if (Math.abs(audio.currentTime - relFs) > 0.1) audio.currentTime = relFs;
                           audio.play().catch(() => {});
                         } else {
-                          audio.currentTime = tNowFs;
                           const swFs = Date.now(); const svFs = tNowFs;
                           const csFs = Math.max(0.25, Math.min(4, projectSpeedRef.current));
                           if (clockIntervalRef.current) clearInterval(clockIntervalRef.current);
@@ -5850,7 +5849,6 @@ _setDragging(null);
                             if (!isPlayingRef.current) { clearInterval(clockIntervalRef.current); clockIntervalRef.current = null; return; }
                             const ntFs = svFs + (Date.now() - swFs) / 1000 * csFs;
                             virtualTimeRef.current = ntFs; setCurrentTime(ntFs);
-                            if (Math.abs(audio.currentTime - ntFs) > 0.1) audio.currentTime = ntFs;
                             if (ntFs >= offFs) {
                               clearInterval(clockIntervalRef.current); clockIntervalRef.current = null;
                               audio.currentTime = trimFs;
@@ -6099,9 +6097,10 @@ _setDragging(null);
                     if (Math.abs(audio.currentTime - relAudio) > 0.1) audio.currentTime = relAudio;
                     audio.play().catch(() => {});
                   } else {
-                    // Playhead antes do início do áudio — clock virtual silencioso até o offset
-                    // audio.currentTime = tNowAudio para que draw() mostre a posição correta
-                    audio.currentTime = tNowAudio;
+                    // Playhead antes do início do áudio — clock virtual puro até o offset.
+                    // NÃO tocar em audio.currentTime durante o pré-roll: isso dispara
+                    // timeupdate, que chama onTime, que seta virtualTimeRef = audioOffset+t
+                    // enquanto o setInterval seta virtualTimeRef = t → oscilação → flickering.
                     const startWallPre = Date.now();
                     const startVirtPre = tNowAudio;
                     const clockSpdPre = Math.max(0.25, Math.min(4, projectSpeedRef.current));
@@ -6111,11 +6110,10 @@ _setDragging(null);
                       const newTimePre = startVirtPre + (Date.now() - startWallPre) / 1000 * clockSpdPre;
                       virtualTimeRef.current = newTimePre;
                       setCurrentTime(newTimePre);
-                      // Mantém audio.currentTime sincronizado para draw() renderizar certo
-                      if (Math.abs(audio.currentTime - newTimePre) > 0.1) audio.currentTime = newTimePre;
-                      if (newTimePre >= audioOffset) {
+                      if (newTimePre >= audioOffsetRef.current) {
                         clearInterval(clockIntervalRef.current); clockIntervalRef.current = null;
-                        audio.currentTime = audioTrimStart;
+                        // Apenas agora posiciona e inicia o áudio
+                        audio.currentTime = audioTrimStartRef.current || 0;
                         audio.volume = Math.max(0, Math.min(1, projectVolumeRef.current));
                         audio.playbackRate = Math.max(0.25, Math.min(4, projectSpeedRef.current));
                         audio.play().catch(() => {});
