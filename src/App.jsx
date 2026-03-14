@@ -5290,7 +5290,12 @@ _setDragging(null);
           {/* Modal Tela Cheia */}
           {isFullscreen && (
             <div
-              onClick={() => setIsFullscreen(false)}
+              onClick={(e) => {
+                // Para o mirror RAF antes de fechar
+                const fsCanvas = e.currentTarget.querySelector('canvas');
+                if (fsCanvas?._stopMirror) fsCanvas._stopMirror();
+                setIsFullscreen(false);
+              }}
               style={{
                 position: 'fixed', inset: 0, zIndex: 9999,
                 background: 'rgba(0,0,0,0.92)',
@@ -5307,10 +5312,30 @@ _setDragging(null);
                   onClick={() => {
                     const audio = audioRef.current;
                     if (isPlaying) {
+                      isPlayingRef.current = false;
                       if (audio) audio.pause();
                       if (clockIntervalRef.current) { clearInterval(clockIntervalRef.current); clockIntervalRef.current = null; }
+                      stopAllVideoAudio();
+                      videosRef.current.forEach(v => { if (v.videoEl && !v.videoEl.paused) v.videoEl.pause(); });
                       setIsPlaying(false);
                     } else {
+                      isPlayingRef.current = true;
+                      const tNow = virtualTimeRef.current;
+                      // Inicia vídeos ativos
+                      videosRef.current.forEach(v => {
+                        if (!v.videoEl) return;
+                        const trimSt = v.trimStart ?? 0;
+                        const vidSpd = v.vidSpeed ?? 1;
+                        const rawDur = v.rawDuration ?? v.videoEl.duration ?? (v.end - v.start);
+                        const effEnd = v.start + (rawDur - trimSt) / Math.max(0.25, vidSpd);
+                        if (tNow < v.start || tNow >= effEnd) return;
+                        const rel = Math.max(0, Math.min(trimSt + (tNow - v.start) * vidSpd, (v.videoEl.duration || 0) - 0.2));
+                        v.videoEl.muted = true;
+                        v.videoEl.playbackRate = Math.max(0.25, Math.min(4, projectSpeedRef.current * vidSpd));
+                        if (Math.abs(v.videoEl.currentTime - rel) > 0.05) v.videoEl.currentTime = rel;
+                        v.videoEl.play().catch(() => {});
+                        startVideoAudio(v, tNow);
+                      });
                       if (audio) {
                         audio.volume = Math.max(0, Math.min(1, projectVolumeRef.current));
                         audio.playbackRate = Math.max(0.25, Math.min(4, projectSpeedRef.current));
@@ -5321,10 +5346,6 @@ _setDragging(null);
                         if (clockIntervalRef.current) clearInterval(clockIntervalRef.current);
                         clockIntervalRef.current = setInterval(() => {
                           const elapsed = (Date.now() - startWall) / 1000;
-                          // Multiplica pelo speed para que o tempo virtual avance na mesma
-                          // taxa que o audio.currentTime avançaria — sem isso o vídeo overlay
-                          // recebe playbackRate=2× mas o relTime avança em 1×, causando
-                          // desvio constante e seeks repetidos (pausa-acelera-pausa-acelera)
                           const newTime = startVirt + elapsed * clockSpd;
                           const contentEnd = Math.max(
                             lyricsRef.current.reduce((m, l) => Math.max(m, l.end || 0), 0),
@@ -5332,15 +5353,11 @@ _setDragging(null);
                             videosRef.current.reduce((m, v) => Math.max(m, v.end || 0), 0),
                           );
                           if (contentEnd > 0 && newTime >= contentEnd) {
-                            clearInterval(clockIntervalRef.current);
-                            clockIntervalRef.current = null;
-                            virtualTimeRef.current = contentEnd;
-                            setCurrentTime(contentEnd);
-                            setIsPlaying(false);
+                            clearInterval(clockIntervalRef.current); clockIntervalRef.current = null;
+                            virtualTimeRef.current = contentEnd; setCurrentTime(contentEnd); setIsPlaying(false);
                             return;
                           }
-                          virtualTimeRef.current = newTime;
-                          setCurrentTime(newTime);
+                          virtualTimeRef.current = newTime; setCurrentTime(newTime);
                         }, 30);
                       }
                       setIsPlaying(true);
@@ -5363,19 +5380,20 @@ _setDragging(null);
               <canvas
                 ref={node => {
                   if (!node || !canvasRef.current) return;
-                  // Espelha o conteúdo do canvas principal neste canvas de preview
                   const src = canvasRef.current;
                   node.width  = src.width;
                   node.height = src.height;
                   const ctx = node.getContext('2d');
+                  let rafId;
                   const draw = () => {
+                    if (!node.isConnected) { cancelAnimationFrame(rafId); return; }
                     ctx.clearRect(0, 0, node.width, node.height);
                     ctx.drawImage(src, 0, 0);
-                    node._rafId = requestAnimationFrame(draw);
+                    rafId = requestAnimationFrame(draw);
                   };
-                  if (node._rafId) cancelAnimationFrame(node._rafId);
                   draw();
-                  node._cleanup = () => cancelAnimationFrame(node._rafId);
+                  // Cleanup automático quando o canvas sai do DOM
+                  node._stopMirror = () => cancelAnimationFrame(rafId);
                 }}
                 onClick={e => e.stopPropagation()}
                 style={{
