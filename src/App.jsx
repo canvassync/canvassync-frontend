@@ -1492,7 +1492,41 @@ function App() {
 
       // addVideo recebe a duration já capturada — NÃO relê videoEl.duration,
       // que pode ter sido resetada para NaN/Infinity pelo MediaSource.
-      const addVideo = async (finalSrc, knownDuration) => {
+      // ── Lê a duration de forma INDEPENDENTE do videoEl ─────────────────────
+      // Problema: videoEl.duration é resetado para NaN pelo MediaSource,
+      // e em alguns MP4s loadedmetadata dispara antes da duration ser conhecida.
+      // Solução: elemento temporário dedicado SOMENTE à leitura de duration —
+      // nunca recebe MediaSource, garantindo que a duration seja lida corretamente.
+      const readDurationFromFile = () => new Promise(resolve => {
+        const probe = document.createElement('video');
+        probe.preload = 'metadata';
+        probe.muted = true;
+        probe.style.cssText = 'position:fixed;width:1px;height:1px;top:-9999px;left:-9999px;visibility:hidden';
+        document.body.appendChild(probe);
+        let resolved = false;
+        const finish = (dur) => {
+          if (resolved) return;
+          resolved = true;
+          clearTimeout(timeout);
+          probe.src = '';
+          try { document.body.removeChild(probe); } catch {}
+          resolve(isFinite(dur) && dur > 0 ? dur : 0);
+        };
+        // durationchange é mais confiável que loadedmetadata — pode disparar depois
+        probe.addEventListener('durationchange', () => {
+          if (isFinite(probe.duration) && probe.duration > 0) finish(probe.duration);
+        });
+        probe.addEventListener('loadedmetadata', () => {
+          if (isFinite(probe.duration) && probe.duration > 0) finish(probe.duration);
+        });
+        probe.addEventListener('error', () => finish(0));
+        // Timeout: se após 5s ainda não tiver duration, continua com 0 (fallback)
+        const timeout = setTimeout(() => finish(0), 5000);
+        probe.src = src; // objectURL original — nunca troca para MediaSource
+        probe.load();
+      });
+
+      const addVideo = async (finalSrc, vidDuration) => {
         // Decodifica o áudio do vídeo para Web Audio (permite seek instantâneo sem delay)
         let audioBuffer = null;
         try {
@@ -1504,17 +1538,16 @@ function App() {
         } catch (e) {
           console.warn('[VideoAudio] decodeAudioData falhou (vídeo pode não ter áudio):', e.message);
         }
-        // Prioridade: 1) knownDuration passado pelo caller (lido antes de qualquer troca de src)
-        //             2) audioBuffer.duration (decodificado do arquivo bruto — mais confiável)
-        //             3) videoEl.duration atual  4) fallback 3s
-        const vidDuration = (knownDuration > 0 && isFinite(knownDuration))
-          ? knownDuration
+        // vidDuration já vem validado do readDurationFromFile —
+        // audioBuffer.duration como fallback extra para vídeos onde o probe falhou
+        const finalDuration = (vidDuration > 0 && isFinite(vidDuration))
+          ? vidDuration
           : (audioBuffer && isFinite(audioBuffer.duration) && audioBuffer.duration > 0)
             ? audioBuffer.duration
-            : (isFinite(videoEl.duration) && videoEl.duration > 0 ? videoEl.duration : 3);
+            : 3;
         const lastEnd = videos.reduce((max, v) => Math.max(max, v.end || 0), 0);
         const start = lastEnd;
-        const end   = start + vidDuration;
+        const end   = start + finalDuration;
         const canvas = canvasRef.current;
         const cW = canvas?.width  || 720;
         const cH = canvas?.height || 1280;
@@ -1530,25 +1563,18 @@ function App() {
         setVideos(prev => {
           if (prev.find(v => v.id === id)) return prev;
           const initSpeed = projectSpeedRef.current ?? 1;
-          return [...prev, { id, src: finalSrc || src, videoEl, audioBuffer, start, end, x, y, width: w, height: h, radius: 12, muted: false, vidVolume: projectVolumeRef.current ?? 1, vidSpeed: initSpeed, rawDuration: vidDuration }];
+          return [...prev, { id, src: finalSrc || src, videoEl, audioBuffer, start, end, x, y, width: w, height: h, radius: 12, muted: false, vidVolume: projectVolumeRef.current ?? 1, vidSpeed: initSpeed, rawDuration: finalDuration }];
         });
       };
 
-      videoEl.addEventListener('loadedmetadata', async () => {
-        // Lê a duration AGORA, enquanto o src ainda é o objectURL original.
-        // tryMediaSource() vai substituir videoEl.src pelo MediaSource URL,
-        // o que reseta duration para NaN/Infinity — por isso capturamos antes.
-        const capturedDuration = isFinite(videoEl.duration) && videoEl.duration > 0
-          ? videoEl.duration : 0;
-        try {
-          const fullSrc = await tryMediaSource(mimeType);
-          addVideo(fullSrc !== src ? fullSrc : src, capturedDuration);
-        } catch { addVideo(src, capturedDuration); }
-      }, { once: true });
-      videoEl.onerror = () => {
-        console.warn('Erro ao carregar vídeo:', file.name, file.type);
-        URL.revokeObjectURL(src);
-      };
+      // Lê a duration e configura o MediaSource em paralelo para ganhar tempo
+      Promise.all([
+        readDurationFromFile(),
+        tryMediaSource(mimeType).catch(() => src),
+      ]).then(([dur, fullSrc]) => {
+        addVideo(fullSrc, dur);
+      });
+      videoEl.onerror = () => console.warn('Erro ao carregar vídeo:', file.name, file.type);
       videoEl.load();
     });
     e.target.value = '';
