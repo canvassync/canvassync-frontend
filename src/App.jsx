@@ -3794,13 +3794,16 @@ _setDragging(null);
 
 
   // ── Exportação MP4 SD (usando mp4-muxer + WebCodecs H.264) ─────────────────
-  const handleSaveMp4 = async () => {
-    if (!window.VideoEncoder) {
-      alert('Exportação MP4 disponível apenas em Chrome/Edge.');
-      return;
-    }
+
+  // ── Helper: exporta em tempo real usando WebCodecs + AudioContext ─────────
+  // Mesma abordagem do WEBM+Áudio — 40s de projeto = ~40s de export
+  const _exportRealtimeWebCodecs = async ({
+    outputMime, videoCodec, audioCodec, bitrateVideo, bitrateAudio,
+    scaleFactor, muxerFactory, targetWidth, targetHeight, suggestedName, mimeForPicker,
+  }) => {
     const baseCanvas = canvasRef.current;
     if (!baseCanvas) return;
+
     const effectiveDuration = (() => {
       if (duration && duration > 0) return duration;
       if (lyrics.length) return Math.max(...lyrics.map(l => l.end || 0));
@@ -3809,398 +3812,226 @@ _setDragging(null);
       return 3;
     })();
     if (!effectiveDuration || effectiveDuration <= 0) return;
-    const _spd2 = Math.max(0.25, Math.min(4, projectSpeedRef.current));
-    const _vol2 = Math.max(0, Math.min(1, projectVolumeRef.current));
-    const outputDuration2 = effectiveDuration / _spd2;
-    stopAllVideoAudio();
-    // Pre-posiciona vídeos no início do seu range para seeks serem sempre FORWARD (mais rápido)
-    await Promise.all(videosRef.current.map(v => new Promise(res => {
-      if (!v.videoEl) return res();
-      v.videoEl.muted = false;
-      const ts = v.trimStart ?? 0;
-      if (Math.abs(v.videoEl.currentTime - ts) < 0.05) return res();
-      v.videoEl.addEventListener('seeked', res, { once: true });
-      setTimeout(res, 500);
-      v.videoEl.currentTime = ts;
-    })));
-    setIsExporting(true); setExportProgress(0);
-    offlineExportRef.current = true;
-    try {
-      const { Muxer, ArrayBufferTarget } = await import('mp4-muxer');
-      const W = baseCanvas.width, H = baseCanvas.height;
-      const FPS = 30, TOTAL = Math.ceil(outputDuration2 * FPS);
-      // Pré-decodifica áudio (suporta audioFile e audioBase64)
-      const _sdRate = 44100;
-      const _outSampSD = Math.floor(_sdRate * outputDuration2);
-      const _hasAudio2 = (audioFile || audioBase64 || videosRef.current.some(v => !v.muted)) && window.AudioEncoder;
-      let _abSD = null;
-      if ((audioFile || audioBase64) && window.AudioEncoder) {
-        try {
-          let _buf;
-          if (audioFile) {
-            _buf = await audioFile.arrayBuffer();
-          } else {
-            const _b = atob(audioBase64.split(',')[1]);
-            const _by = new Uint8Array(_b.length);
-            for (let _i = 0; _i < _b.length; _i++) _by[_i] = _b.charCodeAt(_i);
-            _buf = _by.buffer;
-          }
-          const _ac2 = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: _sdRate });
-          _abSD = await _ac2.decodeAudioData(_buf);
-          _ac2.close();
-        } catch(_e) { console.error('[MP4 SD decode]', _e); }
-      }
-      const target = new ArrayBufferTarget();
-      const muxer = new Muxer({ target, video: { codec: 'avc', width: W, height: H },
-        audio: _hasAudio2 ? { codec: 'aac', sampleRate: _sdRate, numberOfChannels: 2 } : undefined,
-        fastStart: 'in-memory' });
-      // ── Áudio PRIMEIRO (igual ao WEBM) → mp4-muxer recebe chunks em ordem ──
-      if (_hasAudio2) {
-        try {
-          const aenc = new AudioEncoder({ output: (chunk, meta) => muxer.addAudioChunk(chunk, meta), error: console.error });
-          aenc.configure({ codec: 'mp4a.40.2', sampleRate: _sdRate, numberOfChannels: 2, bitrate: 192000 });
-          let _out02, _out12;
-          if (_abSD) {
-            [_out02, _out12] = await _renderAudioStretched(_abSD, _spd2, _vol2, _sdRate);
-          } else {
-            _out02 = new Float32Array(_outSampSD);
-            _out12 = new Float32Array(_outSampSD);
-          }
-          await _mixSfxIntoBuffers(_out02, _out12, soundEffects, _sdRate);
-          await _mixVideoAudioIntoBuffers(_out02, _out12, videosRef.current, _spd2, _vol2, _sdRate);
-          const _blk2 = 4096;
-          for (let _op2 = 0; _op2 < _out02.length; _op2 += _blk2) {
-            const _bl2 = Math.min(_blk2, _out02.length - _op2);
-            const _pl2 = new Float32Array(_bl2 * 2);
-            for (let _i = 0; _i < _bl2; _i++) {
-              _pl2[_i]         = _out02[_op2+_i] || 0;
-              _pl2[_bl2+_i]    = _out12[_op2+_i] || 0;
-            }
-            const _ad2 = new AudioData({ format:'f32-planar', sampleRate:_sdRate, numberOfChannels:2,
-              numberOfFrames:_bl2, timestamp:Math.round((_op2/_sdRate)*1_000_000), data:_pl2.buffer });
-            aenc.encode(_ad2); _ad2.close();
-          }
-          await aenc.flush();
-        } catch(e) { console.error('[MP4 SD Audio]', e); }
-      }
-      // ── Vídeo depois ──────────────────────────────────────────────────────
-      const venc = new VideoEncoder({ output: (chunk, meta) => muxer.addVideoChunk(chunk, meta), error: console.error });
-      venc.configure({ codec: 'avc1.42001f', width: W, height: H, bitrate: 4_000_000, framerate: FPS });
-      const offCanvas = new OffscreenCanvas(W, H);
-      for (let fi = 0; fi < TOTAL; fi++) {
-        const t = fi / FPS * _spd2;
-        await renderAtTimeToCanvas(offCanvas, t);
-        const frame = new VideoFrame(offCanvas, { timestamp: Math.round(fi * 1_000_000 / FPS), duration: Math.round(1_000_000 / FPS) });
-        venc.encode(frame, { keyFrame: fi % 60 === 0 });
-        frame.close();
-        if (fi % 15 === 0) { setExportProgress(fi / TOTAL); await new Promise(r => setTimeout(r, 0)); }
-      }
-      await venc.flush();
-      muxer.finalize();
-      setExportProgress(1);
-      const blob = new Blob([target.buffer], { type: 'video/mp4' });
-      await saveWithPicker(blob, `canvas.mp4`, 'video/mp4', ['.mp4']);
-    } catch(err) {
-      console.error('[MP4 Export]', err);
-      alert('Erro ao exportar MP4: ' + err.message);
-    } finally {
-      offlineExportRef.current = false; setIsExporting(false); setExportProgress(0);
-      videosRef.current.forEach(v => { if (v.videoEl) v.videoEl.muted = true; });
-    }
-  };
 
-  // ── Exportação MP4 HD 1080×1920 ─────────────────────────────────────────────
-  const handleSaveMp4HD = async () => {
-    if (!window.VideoEncoder) {
-      alert('Exportação MP4 HD disponível apenas em Chrome/Edge.');
-      return;
-    }
-    const baseCanvas = canvasRef.current;
-    if (!baseCanvas) return;
-    const effectiveDuration = (() => {
-      if (duration && duration > 0) return duration;
-      if (lyrics.length) return Math.max(...lyrics.map(l => l.end || 0));
-      if (images.length) return Math.max(...images.map(i => i.end || 0));
-      if (videos.length) return Math.max(...videos.map(v => v.end || 0));
-      return 3;
-    })();
-    if (!effectiveDuration || effectiveDuration <= 0) return;
-    const _spd3 = Math.max(0.25, Math.min(4, projectSpeedRef.current));
-    const _vol3 = Math.max(0, Math.min(1, projectVolumeRef.current));
-    const outputDuration3 = effectiveDuration / _spd3;
-    stopAllVideoAudio();
-    await Promise.all(videosRef.current.map(v => new Promise(res => {
-      if (!v.videoEl) return res();
-      v.videoEl.muted = false;
-      const ts = v.trimStart ?? 0;
-      if (Math.abs(v.videoEl.currentTime - ts) < 0.05) return res();
-      v.videoEl.addEventListener('seeked', res, { once: true });
-      setTimeout(res, 500);
-      v.videoEl.currentTime = ts;
-    })));
-    setIsExporting(true); setExportProgress(0);
-    offlineExportRef.current = true;
-    try {
-      const { Muxer, ArrayBufferTarget } = await import('mp4-muxer');
-      const SCALE = 1080 / baseCanvas.width;
-      const W = 1080, H = Math.round(baseCanvas.height * SCALE);
-      const FPS = 30, TOTAL = Math.ceil(outputDuration3 * FPS);
-      // Pré-decodifica áudio (suporta audioFile e audioBase64)
-      const _hdRate = 44100;
-      const _outSampHD = Math.floor(_hdRate * outputDuration3);
-      const _hasAudio3 = (audioFile || audioBase64 || videosRef.current.some(v => !v.muted)) && window.AudioEncoder;
-      let _abHD = null;
-      if ((audioFile || audioBase64) && window.AudioEncoder) {
-        try {
-          let _buf;
-          if (audioFile) {
-            _buf = await audioFile.arrayBuffer();
-          } else {
-            const _b = atob(audioBase64.split(',')[1]);
-            const _by = new Uint8Array(_b.length);
-            for (let _i = 0; _i < _b.length; _i++) _by[_i] = _b.charCodeAt(_i);
-            _buf = _by.buffer;
-          }
-          const _ac3 = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: _hdRate });
-          _abHD = await _ac3.decodeAudioData(_buf);
-          _ac3.close();
-        } catch(_e) { console.error('[MP4 HD decode]', _e); }
-      }
-      const target = new ArrayBufferTarget();
-      const muxer = new Muxer({ target, video: { codec: 'avc', width: W, height: H },
-        audio: _hasAudio3 ? { codec: 'aac', sampleRate: _hdRate, numberOfChannels: 2 } : undefined,
-        fastStart: 'in-memory' });
-      // ── Áudio PRIMEIRO (igual ao WEBM) → mp4-muxer recebe chunks em ordem ──
-      if (_hasAudio3) {
-        try {
-          const aenc = new AudioEncoder({ output: (chunk, meta) => muxer.addAudioChunk(chunk, meta), error: console.error });
-          aenc.configure({ codec: 'mp4a.40.2', sampleRate: _hdRate, numberOfChannels: 2, bitrate: 192000 });
-          let _out03, _out13;
-          if (_abHD) {
-            [_out03, _out13] = await _renderAudioStretched(_abHD, _spd3, _vol3, _hdRate);
-          } else {
-            _out03 = new Float32Array(_outSampHD);
-            _out13 = new Float32Array(_outSampHD);
-          }
-          await _mixSfxIntoBuffers(_out03, _out13, soundEffects, _hdRate);
-          await _mixVideoAudioIntoBuffers(_out03, _out13, videosRef.current, _spd3, _vol3, _hdRate);
-          const _blk3 = 4096;
-          for (let _op3 = 0; _op3 < _out03.length; _op3 += _blk3) {
-            const _bl3 = Math.min(_blk3, _out03.length - _op3);
-            const _pl3 = new Float32Array(_bl3 * 2);
-            for (let _i = 0; _i < _bl3; _i++) {
-              _pl3[_i]         = _out03[_op3+_i] || 0;
-              _pl3[_bl3+_i]    = _out13[_op3+_i] || 0;
-            }
-            const _ad3 = new AudioData({ format:'f32-planar', sampleRate:_hdRate, numberOfChannels:2,
-              numberOfFrames:_bl3, timestamp:Math.round((_op3/_hdRate)*1_000_000), data:_pl3.buffer });
-            aenc.encode(_ad3); _ad3.close();
-          }
-          await aenc.flush();
-        } catch(e) { console.error('[MP4 HD Audio]', e); }
-      }
-      // ── Vídeo depois ──────────────────────────────────────────────────────
-      const venc = new VideoEncoder({ output: (chunk, meta) => muxer.addVideoChunk(chunk, meta), error: console.error });
-      // avc1.640034 = H.264 High Profile Level 5.2 — suporta até 4K (resolve erro Level 3.1)
-      venc.configure({ codec: 'avc1.640034', width: W, height: H, bitrate: 8_000_000, framerate: FPS });
-      const offCanvas = new OffscreenCanvas(W, H);
-      for (let fi = 0; fi < TOTAL; fi++) {
-        const t = fi / FPS * _spd3;
-        await renderAtTimeToCanvas(offCanvas, t, SCALE);
-        const frame = new VideoFrame(offCanvas, { timestamp: Math.round(fi * 1_000_000 / FPS), duration: Math.round(1_000_000 / FPS) });
-        venc.encode(frame, { keyFrame: fi % 60 === 0 });
-        frame.close();
-        if (fi % 15 === 0) { setExportProgress(fi / TOTAL); await new Promise(r => setTimeout(r, 0)); }
-      }
-      await venc.flush();
-      muxer.finalize();
-      setExportProgress(1);
-      const blob = new Blob([target.buffer], { type: 'video/mp4' });
-      await saveWithPicker(blob, `canvas_hd.mp4`, 'video/mp4', ['.mp4']);
-    } catch(err) {
-      console.error('[MP4 HD Export]', err);
-      alert('Erro ao exportar MP4 HD: ' + err.message);
-    } finally {
-      offlineExportRef.current = false; setIsExporting(false); setExportProgress(0);
-      videosRef.current.forEach(v => { if (v.videoEl) v.videoEl.muted = true; });
-    }
-  };
+    const spd  = Math.max(0.25, Math.min(4, projectSpeedRef.current));
+    const vol  = Math.max(0, Math.min(1, projectVolumeRef.current));
+    const outDur = effectiveDuration / spd;
+    const FPS = 30;
+    const W   = targetWidth  || baseCanvas.width;
+    const H   = targetHeight || baseCanvas.height;
+    const SCALE = scaleFactor || 1;
 
-
-  // ── Exportação HD 1080×1920 — WebCodecs, VP8, 8 Mbps ──────────────────────
-  const handleSaveHD = async () => {
-    if (!window.VideoEncoder) {
-      alert('Exportação HD disponível apenas em Chrome/Edge.');
-      return;
-    }
-    const baseCanvas = canvasRef.current;
-    if (!baseCanvas) return;
-    const effectiveDuration = (() => {
-      if (duration && duration > 0) return duration;
-      if (lyrics && lyrics.length) return Math.max(...lyrics.map(l => l.end || 0));
-      if (images && images.length) return Math.max(...images.map(i => i.end || 0));
-      if (videos && videos.length) return Math.max(...videos.map(v => v.end || 0));
-      return 3;
-    })();
-    if (!effectiveDuration || effectiveDuration <= 0) return;
-    const _spd4 = Math.max(0.25, Math.min(4, projectSpeedRef.current));
-    const _vol4 = Math.max(0, Math.min(1, projectVolumeRef.current));
-    const outputDuration4 = effectiveDuration / _spd4;
-    offlineExportRef.current = true;
-
-    // ── Dimensões fixas 1080p mantendo aspect ratio do canvas ──────────────────
-    const srcW = baseCanvas.width;
-    const srcH = baseCanvas.height;
-    const MAX_SIDE = 1920;
-    const scaleFactor = Math.min(MAX_SIDE / srcW, MAX_SIDE / srcH, 4);
-    // VP8/VP9 exige dimensões pares
-    const hdW = Math.round(srcW * scaleFactor / 2) * 2;
-    const hdH = Math.round(srcH * scaleFactor / 2) * 2;
-    const SCALE = hdW / srcW;
-
-    // Para Web Audio e pausa vídeos antes de exportar HD
     stopAllVideoAudio();
     isPlayingRef.current = false;
     setIsPlaying(false);
-    const videoSnapshots = videosRef.current.map(v => ({
-      v, time: v.videoEl ? v.videoEl.currentTime : 0, wasMuted: v.videoEl ? v.videoEl.muted : false,
-    }));
-    // Para, desmuta e pre-seek para o início de cada vídeo
-    await Promise.all(videosRef.current.map(v => new Promise(res => {
-      if (!v.videoEl) return res();
-      if (!v.videoEl.paused) v.videoEl.pause();
-      v.videoEl.muted = false;
-      const ts = v.trimStart ?? 0;
-      if (Math.abs(v.videoEl.currentTime - ts) < 0.05) return res();
-      v.videoEl.addEventListener('seeked', res, { once: true });
-      setTimeout(res, 500);
-      v.videoEl.currentTime = ts;
-    })));
-
     setIsExporting(true);
     setExportProgress(0);
-    let encoderError = null;
+
+    // Escala o canvas para HD se necessário
+    const offCanvas = (SCALE > 1 || W !== baseCanvas.width)
+      ? Object.assign(document.createElement('canvas'), { width: W, height: H })
+      : baseCanvas;
+
     try {
-      const { Muxer, ArrayBufferTarget } = await import('webm-muxer');
-      const offCanvas = document.createElement('canvas');
-      offCanvas.width  = hdW;
-      offCanvas.height = hdH;
-      // willReadFrequently melhora performance de readback em GPUs integradas
-      offCanvas.getContext('2d', { willReadFrequently: true });
+      const { Muxer, ArrayBufferTarget } = await muxerFactory();
+      const target = new ArrayBufferTarget();
 
-      const fps         = 30;
-      const totalFrames = Math.ceil(outputDuration4 * fps);
-      const target      = new ArrayBufferTarget();
-
-      const _hasAudio4 = audioFile || audioBase64 || videosRef.current.some(v => !v.muted);
       const muxer = new Muxer({
         target,
-        video: { codec: 'V_VP8', width: hdW, height: hdH, frameRate: fps },
-        audio: _hasAudio4
-          ? { codec: 'A_OPUS', sampleRate: 48000, numberOfChannels: 2 }
+        video: { codec: videoCodec, width: W, height: H, frameRate: FPS },
+        audio: (audioFile || audioBase64 || videosRef.current.some(v => !v.muted)) && audioCodec
+          ? { codec: audioCodec, sampleRate: 48000, numberOfChannels: 2 }
           : undefined,
+        ...(outputMime === 'video/mp4' ? { fastStart: 'in-memory' } : {}),
       });
 
-      const vEncoder = new VideoEncoder({
+      let encoderError = null;
+      const vEnc = new VideoEncoder({
         output: (chunk, meta) => muxer.addVideoChunk(chunk, meta),
-        error: (e) => { encoderError = e; console.error('[HD WebM VideoEncoder]', e); },
+        error: e => { encoderError = e; },
       });
-      vEncoder.configure({ codec: 'vp8', width: hdW, height: hdH, bitrate: 8_000_000, latencyMode: 'quality' });
+      vEnc.configure({ codec: videoCodec === 'V_VP8' ? 'vp8' : 'avc1.640034',
+        width: W, height: H, bitrate: bitrateVideo, framerate: FPS });
 
       // ── Áudio ──────────────────────────────────────────────────────────────
-      let aEncoder = null;
-      if (_hasAudio4) {
+      const hasAudio = (audioFile || audioBase64 || videosRef.current.some(v => !v.muted)) && audioCodec;
+      let aEnc = null;
+      if (hasAudio) {
         try {
-          aEncoder = new AudioEncoder({
+          aEnc = new AudioEncoder({
             output: (chunk, meta) => muxer.addAudioChunk(chunk, meta),
-            error: (e) => { console.error('[HD WebM AudioEncoder]', e); },
+            error: e => console.error('[RT Audio]', e),
           });
-          aEncoder.configure({ codec: 'opus', sampleRate: 48000, numberOfChannels: 2, bitrate: 192000 });
+          aEnc.configure({ codec: outputMime === 'video/mp4' ? 'mp4a.40.2' : 'opus',
+            sampleRate: 48000, numberOfChannels: 2, bitrate: bitrateAudio });
 
-          let _out04, _out14;
+          // Mistura toda a faixa de áudio offline (rápido, não bloqueia RT)
+          const silLen = Math.ceil(48000 * outDur);
+          const outL = new Float32Array(silLen);
+          const outR = new Float32Array(silLen);
+
           if (audioFile || audioBase64) {
-            let audioBufferData;
-            if (audioFile) {
-              audioBufferData = await audioFile.arrayBuffer();
-            } else {
-              const b64    = audioBase64.split(',')[1];
-              const binary = atob(b64);
-              const bytes  = new Uint8Array(binary.length);
-              for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-              audioBufferData = bytes.buffer;
-            }
-            const ac     = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 48000 });
-            const buffer = await ac.decodeAudioData(audioBufferData);
-            ac.close();
-            [_out04, _out14] = await _renderAudioStretched(buffer, _spd4, _vol4, 48000);
-          } else {
-            const _silLen4 = Math.ceil(outputDuration4 * 48000);
-            _out04 = new Float32Array(_silLen4);
-            _out14 = new Float32Array(_silLen4);
+            let buf;
+            if (audioFile) { buf = await audioFile.arrayBuffer(); }
+            else { const b64 = audioBase64.split(',')[1]; const bin = atob(b64);
+              const by = new Uint8Array(bin.length); for (let i=0;i<bin.length;i++) by[i]=bin.charCodeAt(i);
+              buf = by.buffer; }
+            const ac = new (window.AudioContext||window.webkitAudioContext)({ sampleRate:48000 });
+            const decoded = await ac.decodeAudioData(buf); ac.close();
+            const [sL, sR] = await _renderAudioStretched(decoded, spd, vol, 48000);
+            outL.set(sL.subarray(0, Math.min(sL.length, silLen)));
+            outR.set(sR.subarray(0, Math.min(sR.length, silLen)));
           }
-          await _mixSfxIntoBuffers(_out04, _out14, soundEffects, 48000);
-          await _mixVideoAudioIntoBuffers(_out04, _out14, videosRef.current, _spd4, _vol4, 48000);
-          const _blk4 = 4096;
-          for (let _op4 = 0; _op4 < _out04.length; _op4 += _blk4) {
-            const _bl4 = Math.min(_blk4, _out04.length - _op4);
-            const _pl4 = new Float32Array(_bl4 * 2);
-            for (let _i = 0; _i < _bl4; _i++) {
-              _pl4[_i]       = _out04[_op4 + _i] || 0;
-              _pl4[_bl4 + _i] = _out14[_op4 + _i] || 0;
-            }
-            const _ad4 = new AudioData({ format: 'f32-planar', sampleRate: 48000, numberOfChannels: 2,
-              numberOfFrames: _bl4, timestamp: Math.round((_op4 / 48000) * 1_000_000), data: _pl4.buffer });
-            aEncoder.encode(_ad4); _ad4.close();
+          await _mixSfxIntoBuffers(outL, outR, soundEffects, 48000);
+          await _mixVideoAudioIntoBuffers(outL, outR, videosRef.current, spd, vol, 48000);
+
+          const BLK = 4096;
+          for (let op = 0; op < outL.length; op += BLK) {
+            const bl = Math.min(BLK, outL.length - op);
+            const pl = new Float32Array(bl * 2);
+            for (let i = 0; i < bl; i++) { pl[i] = outL[op+i]||0; pl[bl+i] = outR[op+i]||0; }
+            const ad = new AudioData({ format:'f32-planar', sampleRate:48000, numberOfChannels:2,
+              numberOfFrames:bl, timestamp:Math.round((op/48000)*1e6), data:pl.buffer });
+            aEnc.encode(ad); ad.close();
           }
-          await aEncoder.flush();
-        } catch (e) {
-          console.error('[WEBM HD Audio]', e);
-          aEncoder = null;
-        }
+          await aEnc.flush();
+        } catch(e) { console.error('[RT AudioEnc]', e); aEnc = null; }
       }
 
-      // ── Frames HD ──────────────────────────────────────────────────────────
-      for (let i = 0; i < totalFrames; i++) {
-        if (encoderError) throw encoderError;
-        const t = (i / fps) * _spd4;
-        await renderAtTimeToCanvas(offCanvas, t, SCALE);
+      // ── Captura de frames em tempo real ────────────────────────────────────
+      // Mesma abordagem do WEBM+Áudio: toca tudo e captura canvas a 30fps
+      videosRef.current.forEach(v => {
+        if (!v.videoEl) return;
+        v.videoEl.muted = false;
+        v.videoEl.playbackRate = Math.max(0.25, Math.min(4, spd * (v.vidSpeed ?? 1)));
+        const ts = v.trimStart ?? 0;
+        v.videoEl.currentTime = ts;
+      });
 
-        // Usa o canvas diretamente como fonte do VideoFrame (sem createImageBitmap)
-        // Evita cópias extras de memória que causam tela branca em vídeos longos
-        const videoFrame = new VideoFrame(offCanvas, {
-          timestamp: Math.round((i / fps) * 1_000_000),
-          duration:  Math.round((1 / fps) * 1_000_000),
-        });
-        vEncoder.encode(videoFrame, { keyFrame: i % (fps * 2) === 0 });
-        videoFrame.close();
+      const startWall = Date.now();
+      virtualTimeRef.current = 0;
+      rtExportRef.current = true;
+      isPlayingRef.current = true;
+      setIsPlaying(true);
 
-        if (i % 15 === 0) { setExportProgress((i + 1) / totalFrames); await new Promise(r => setTimeout(r, 0)); }
+      // Inicia vídeos overlay no tempo 0
+      for (const v of videosRef.current) {
+        if (!v.videoEl) continue;
+        if (0 >= v.start && 0 <= v.end) v.videoEl.play().catch(() => {});
+      }
+      if (audioRef.current) {
+        audioRef.current.playbackRate = spd;
+        audioRef.current.currentTime = audioTrimStart || 0;
+        audioRef.current.play().catch(() => {});
       }
 
-      await vEncoder.flush();
+      // Intervalo de captura de frames (33ms ≈ 30fps)
+      let frameCount = 0;
+      const totalFrames = Math.ceil(outDur * FPS);
+      await new Promise(resolve => {
+        let stopped = false;
+        const stop = () => { if (stopped) return; stopped = true; clearInterval(captureId); clearInterval(syncId); resolve(); };
+
+        const captureId = setInterval(() => {
+          if (stopped || encoderError) { stop(); return; }
+          const elapsed = (Date.now() - startWall) / 1000;
+          if (elapsed >= outDur + 0.2) { stop(); return; }
+
+          // Copia canvas principal para offCanvas (se escala HD necessária)
+          if (offCanvas !== baseCanvas) {
+            const ctx = offCanvas.getContext('2d');
+            ctx.clearRect(0, 0, W, H);
+            ctx.drawImage(baseCanvas, 0, 0, W, H);
+          }
+
+          const ts_frame = Math.round(frameCount * (1e6 / FPS));
+          try {
+            const frame = new VideoFrame(offCanvas, { timestamp: ts_frame, duration: Math.round(1e6 / FPS) });
+            vEnc.encode(frame, { keyFrame: frameCount % 60 === 0 });
+            frame.close();
+          } catch(e) { console.warn('[RT frame]', e); }
+          frameCount++;
+          if (frameCount % 15 === 0) setExportProgress(Math.min(frameCount / totalFrames, 0.99));
+        }, Math.round(1000 / FPS));
+
+        const syncId = setInterval(() => {
+          const elapsed = (Date.now() - startWall) / 1000;
+          const vt = elapsed * spd;
+          virtualTimeRef.current = vt;
+          setCurrentTime(vt);
+          for (const v of videosRef.current) {
+            if (!v.videoEl) continue;
+            if (vt >= v.start && vt <= v.end && v.videoEl.paused) v.videoEl.play().catch(() => {});
+            else if ((vt < v.start || vt > v.end) && !v.videoEl.paused) v.videoEl.pause();
+          }
+        }, 100);
+      });
+
+      // Para tudo
+      isPlayingRef.current = false;
+      rtExportRef.current = false;
+      setIsPlaying(false);
+      if (audioRef.current && !audioRef.current.paused) audioRef.current.pause();
+      videosRef.current.forEach(v => { if (v.videoEl && !v.videoEl.paused) v.videoEl.pause(); v.videoEl && (v.videoEl.muted = true); });
+
+      await vEnc.flush();
       if (encoderError) throw encoderError;
       muxer.finalize();
 
-      const blob = new Blob([target.buffer], { type: 'video/webm' });
-      if (!blob.size) throw new Error('Arquivo gerado está vazio — verifique o console.');
-      await saveWithPicker(blob, `canvas_hd.webm`, 'video/webm', ['.webm']);
-    } catch (err) {
-      console.error('[handleSaveHD]', err);
-      alert(`Erro ao exportar HD WebM: ${err?.message || err}\nTente um vídeo mais curto ou use o formato MP4 HD.`);
+      const blob = new Blob([target.buffer], { type: outputMime });
+      if (!blob.size) throw new Error('Arquivo gerado está vazio.');
+      setExportProgress(1);
+      await saveWithPicker(blob, suggestedName, mimeForPicker, [suggestedName.slice(suggestedName.lastIndexOf('.'))]);
+
     } finally {
-      offlineExportRef.current = false;
       setIsExporting(false);
       setExportProgress(0);
-      // Restaura vídeos ao estado anterior (evita ficarem pretos)
-      videoSnapshots.forEach(({ v, time, wasMuted }) => {
-        if (!v.videoEl) return;
-        try {
-          v.videoEl.muted = true; // restaura muted=true (Web Audio cuida do áudio)
-          v.videoEl.currentTime = time;
-        } catch { /* ignora */ }
-      });
+      offlineExportRef.current = false;
+      videosRef.current.forEach(v => { if (v.videoEl) v.videoEl.muted = true; });
     }
   };
+
+  const handleSaveMp4 = async () => {
+    if (!window.VideoEncoder) { alert('Exportação MP4 disponível apenas em Chrome/Edge.'); return; }
+    await _exportRealtimeWebCodecs({
+      outputMime: 'video/mp4', videoCodec: 'avc1.640034', audioCodec: 'mp4a.40.2',
+      bitrateVideo: 4_000_000, bitrateAudio: 192000,
+      scaleFactor: 1, muxerFactory: () => import('mp4-muxer'),
+      suggestedName: 'canvas.mp4', mimeForPicker: 'video/mp4',
+    });
+  };
+
+  const handleSaveMp4HD = async () => {
+    if (!window.VideoEncoder) { alert('Exportação MP4 HD disponível apenas em Chrome/Edge.'); return; }
+    const baseCanvas = canvasRef.current; if (!baseCanvas) return;
+    const SCALE = 1080 / baseCanvas.width;
+    const W = 1080, H = Math.round(baseCanvas.height * SCALE);
+    await _exportRealtimeWebCodecs({
+      outputMime: 'video/mp4', videoCodec: 'avc1.640034', audioCodec: 'mp4a.40.2',
+      bitrateVideo: 8_000_000, bitrateAudio: 192000,
+      scaleFactor: SCALE, targetWidth: W, targetHeight: H,
+      muxerFactory: () => import('mp4-muxer'),
+      suggestedName: 'canvas_hd.mp4', mimeForPicker: 'video/mp4',
+    });
+  };
+
+  const handleSaveHD = async () => {
+    if (!window.VideoEncoder) { alert('Exportação HD disponível apenas em Chrome/Edge.'); return; }
+    const baseCanvas = canvasRef.current; if (!baseCanvas) return;
+    const srcW = baseCanvas.width, srcH = baseCanvas.height;
+    const MAX_SIDE = 1920;
+    const sf = Math.min(MAX_SIDE / srcW, MAX_SIDE / srcH, 4);
+    const W = Math.round(srcW * sf / 2) * 2, H = Math.round(srcH * sf / 2) * 2;
+    await _exportRealtimeWebCodecs({
+      outputMime: 'video/webm', videoCodec: 'V_VP8', audioCodec: 'A_OPUS',
+      bitrateVideo: 8_000_000, bitrateAudio: 192000,
+      scaleFactor: sf, targetWidth: W, targetHeight: H,
+      muxerFactory: () => import('webm-muxer'),
+      suggestedName: 'canvas_hd.webm', mimeForPicker: 'video/webm',
+    });
+  };
+
+
 
   const handleSave = async () => {
     const canvas = canvasRef.current;
