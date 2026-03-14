@@ -5829,6 +5829,9 @@ _setDragging(null);
                       setIsPlaying(false);
                     } else {
                       isPlayingRef.current = true;
+                      if (videoAudioACRef.current && videoAudioACRef.current.state === 'suspended') {
+                        videoAudioACRef.current.resume().catch(() => {});
+                      }
                       const tNow = virtualTimeRef.current;
                       // Inicia vídeos ativos
                       videosRef.current.forEach(v => {
@@ -6075,6 +6078,11 @@ _setDragging(null);
                 // Iniciar — atualiza isPlayingRef SINCRONAMENTE antes de qualquer play()
                 // Sem isso, o RAF (60fps) vê playing=false enquanto vídeo está tocando e pausa tudo
                 isPlayingRef.current = true;
+                // Resume do AudioContext de vídeo diretamente no gesto do usuário
+                // (única forma confiável de desbloquear o AC criado durante upload)
+                if (videoAudioACRef.current && videoAudioACRef.current.state === 'suspended') {
+                  videoAudioACRef.current.resume().catch(() => {});
+                }
                 const tNow = virtualTimeRef.current;
                 // Pré-posiciona vídeos ainda não ativos no trimStart (evita delay quando chegarem)
                 videosRef.current.forEach(v => {
