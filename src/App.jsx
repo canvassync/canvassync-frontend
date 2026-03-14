@@ -977,6 +977,7 @@ function App() {
   const activeStickerRef = useRef(null);                  // id do sticker selecionado (sem re-render)
   const [activeStickerId, setActiveStickerId] = useState(null);
   const stickerBtnRef   = useRef(null);                   // posição real do botão para painel fixed
+  const bgBtnRef        = useRef(null);                   // botão de fundos prontos
   const sfxBtnRef       = useRef(null);
   const sfxLiveAcRef    = useRef(null);                     // AudioContext para preview de SFX
   const sfxPlayedRef    = useRef(new Set());                // IDs de SFX já disparados nesta sessão
