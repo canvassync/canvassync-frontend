@@ -740,6 +740,12 @@ function App() {
   const [audioOffset, setAudioOffset] = useState(0);      // posição de início do áudio na timeline (s)
   const [audioTrimStart, setAudioTrimStart] = useState(0); // corte no início do arquivo de áudio (s)
   const [audioTrimEnd, setAudioTrimEnd] = useState(null);  // corte no fim (null = sem corte)
+  const audioOffsetRef    = useRef(0);
+  const audioTrimStartRef = useRef(0);
+  const audioTrimEndRef   = useRef(null);
+  useEffect(() => { audioOffsetRef.current = audioOffset; }, [audioOffset]);
+  useEffect(() => { audioTrimStartRef.current = audioTrimStart; }, [audioTrimStart]);
+  useEffect(() => { audioTrimEndRef.current = audioTrimEnd; }, [audioTrimEnd]);
   const [isPlaying, setIsPlaying] = useState(false);
   const [bulkText, setBulkText] = useState('');
   const [textLines, setTextLines] = useState([]);
@@ -1515,11 +1521,19 @@ function App() {
     const cw = canvas?.width  || 720;
     const ch = canvas?.height || 480;
     const size = Math.round(Math.min(cw, ch) * 0.12);
+    // Sticker aparece a partir do tempo atual e dura 3 segundos por padrão
+    const tNow = virtualTimeRef.current;
+    const maxEnd = Math.max(duration || 0,
+      videosRef.current.reduce((m, v) => Math.max(m, v.end || 0), 0),
+      lyricsRef.current.reduce((m, l) => Math.max(m, l.end || 0), 0),
+    ) || (tNow + 5);
     setStickers(prev => [...prev, {
       id: Date.now() + Math.random(),
       type, content, animStyle, size, rotation: 0,
       x: Math.round(cw / 2 + (Math.random() - 0.5) * cw * 0.3),
       y: Math.round(ch / 2 + (Math.random() - 0.5) * ch * 0.3),
+      start: tNow,
+      end: Math.min(tNow + 3, maxEnd),
     }]);
   };
 
@@ -2052,6 +2066,23 @@ function App() {
         // Recua trim end (corta o final)
         const newTrimEnd = Math.max(dragging.initialTrimStart + 0.1, Math.min(dragging.initialTrimEnd + dx, audioDur));
         setAudioTrimEnd(newTrimEnd);
+      }
+      return;
+    }
+
+    // Timeline sticker drag/resize
+    if (dragging && dragging.itemKind === 'sticker-timeline') {
+      const dx = (e.clientX - dragging.initialX) / zoom;
+      if (dragging.type === 'move') {
+        const dur = dragging.initialEnd - dragging.initialStart;
+        const newStart = Math.max(0, dragging.initialStart + dx);
+        setStickers(prev => prev.map(s => s.id === dragging.id ? { ...s, start: newStart, end: newStart + dur } : s));
+      } else if (dragging.type === 'resize-start') {
+        const newStart = Math.max(0, Math.min(dragging.initialStart + dx, dragging.initialEnd - 0.1));
+        setStickers(prev => prev.map(s => s.id === dragging.id ? { ...s, start: newStart } : s));
+      } else if (dragging.type === 'resize-end') {
+        const newEnd = Math.max(dragging.initialStart + 0.1, dragging.initialEnd + dx);
+        setStickers(prev => prev.map(s => s.id === dragging.id ? { ...s, end: newEnd } : s));
       }
       return;
     }
@@ -2596,7 +2627,13 @@ _setDragging(null);
 
     // ── Stickers / Emojis / GIFs ─────────────────────────────────────────────
     const _sNow = Date.now() / 1000;
-    stickersRef.current.forEach(stk => {
+    stickersRef.current.filter(stk => {
+      // Se o sticker tem start/end definidos, só mostra no intervalo
+      if (stk.start !== undefined && stk.end !== undefined) {
+        return time >= stk.start && time <= stk.end;
+      }
+      return true; // stickers legados (sem start/end) sempre visíveis
+    }).forEach(stk => {
       const sz = stk.size || 80;
       const { dy, s, r, a } = getStickerAnimTransform(stk.animStyle, _sNow, sz);
       ctx.save();
@@ -2785,10 +2822,19 @@ _setDragging(null);
     const audio = audioRef.current;
     if (!audio) return;
     const onTime = () => {
-      setCurrentTime(audio.currentTime);
+      const t = audio.currentTime;
+      // Para o áudio quando passa do ponto de corte (audioTrimEnd)
+      const trimEnd = audioTrimEndRef.current;
+      if (trimEnd !== null && t >= trimEnd && isPlayingRef.current) {
+        audio.pause();
+        isPlayingRef.current = false;
+        setIsPlaying(false);
+        stopAllVideoAudio();
+        return;
+      }
+      setCurrentTime((audioOffsetRef.current || 0) + t - (audioTrimStartRef.current || 0));
       // Ativa vídeos que entram no range durante playback com áudio
       if (!isPlayingRef.current) return;
-      const t = audio.currentTime;
       videosRef.current.forEach(v => {
         if (!v.videoEl || v.muted) return;
         const ts = v.trimStart ?? 0;
@@ -3026,9 +3072,10 @@ _setDragging(null);
     }
 
     // ── Stickers / Emojis / GIFs (export) ───────────────────────────────────
-    // Coordenadas já estão em espaço lógico (ctx.scale(scale,scale) foi aplicado no topo)
-    // NÃO usar scaleX/scaleY do RAF loop — essas variáveis não existem aqui
-    stickersRef.current.forEach(stk => {
+    stickersRef.current.filter(stk => {
+      if (stk.start !== undefined && stk.end !== undefined) return t >= stk.start && t <= stk.end;
+      return true;
+    }).forEach(stk => {
       const sz = stk.size || 80;
       const { dy, s, r, a } = getStickerAnimTransform(stk.animStyle, t, sz);
       ctx.save();
@@ -6015,6 +6062,36 @@ _setDragging(null);
                 <span style={{ fontSize: 10, fontWeight: 'bold', color: '#000', pointerEvents: 'none', paddingLeft: 36 }}>🎬 VID</span>
                 {/* Alça resize direita */}
                 <div onMouseDown={(e) => handleVideoTimelineMouseDown(v.id, 'resize-end', e)} style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: '12px', cursor: 'ew-resize', backgroundColor: 'rgba(0,0,0,0.25)', borderTopRightRadius: '18px', borderBottomRightRadius: '18px', zIndex: 3 }} />
+              </div>
+            ))}
+
+            {/* Blocos de stickers na timeline */}
+            {stickers.filter(stk => stk.start !== undefined).map(stk => (
+              <div
+                key={stk.id}
+                onMouseDown={(e) => {
+                  e.stopPropagation();
+                  _setDragging({ id: stk.id, type: 'move', itemKind: 'sticker-timeline',
+                    initialX: e.clientX, initialStart: stk.start, initialEnd: stk.end });
+                }}
+                onContextMenu={(e) => { e.preventDefault(); removeSticker(stk.id); }}
+                style={{
+                  position: 'absolute',
+                  left: stk.start * zoom + 'px',
+                  width: Math.max(24, (stk.end - stk.start) * zoom) + 'px',
+                  height: '18px',
+                  top: '128px',
+                  background: 'rgba(251,191,36,0.35)',
+                  border: '1px solid rgba(251,191,36,0.6)',
+                  borderRadius: '6px',
+                  cursor: 'grab',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: 11, userSelect: 'none', zIndex: 20, overflow: 'hidden',
+                }}
+              >
+                <div onMouseDown={(e) => { e.stopPropagation(); _setDragging({ id: stk.id, type: 'resize-start', itemKind: 'sticker-timeline', initialX: e.clientX, initialStart: stk.start, initialEnd: stk.end }); }} style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: '8px', cursor: 'ew-resize', background: 'rgba(251,191,36,0.5)', borderRadius: '5px 0 0 5px' }} />
+                <span style={{ pointerEvents: 'none', fontSize: 10 }}>{stk.content}</span>
+                <div onMouseDown={(e) => { e.stopPropagation(); _setDragging({ id: stk.id, type: 'resize-end', itemKind: 'sticker-timeline', initialX: e.clientX, initialStart: stk.start, initialEnd: stk.end }); }} style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: '8px', cursor: 'ew-resize', background: 'rgba(251,191,36,0.5)', borderRadius: '0 5px 5px 0' }} />
               </div>
             ))}
 
