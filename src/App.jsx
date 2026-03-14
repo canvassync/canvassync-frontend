@@ -1228,37 +1228,49 @@ function App() {
     setBgSearchLoading(true);
     setBgSearchResults([]);
     try {
-      // Usa Unsplash Source API (sem chave) para busca de imagens gratuitas
-      const terms = encodeURIComponent(query.trim());
-      // Gera 12 URLs de imagens temáticas do Unsplash (sem API key necessária)
+      // source.unsplash.com foi desativado em 2024 — usando picsum.photos
+      // seed = termo + índice → imagens diferentes a cada busca, sempre disponíveis
+      const terms = query.trim().toLowerCase().replace(/\s+/g, '-');
       const results = Array.from({ length: 12 }, (_, i) => ({
         id: `${terms}_${i}`,
-        thumb: `https://source.unsplash.com/400x600/?${terms}&sig=${i}`,
-        full:  `https://source.unsplash.com/720x1280/?${terms}&sig=${i}`,
-        credit: 'Unsplash',
+        thumb: `https://picsum.photos/seed/${terms}${i}/300/500`,
+        full:  `https://picsum.photos/seed/${terms}${i}/720/1280`,
+        credit: 'Picsum Photos',
       }));
       setBgSearchResults(results);
     } catch(e) {
-      console.error('[Unsplash]', e);
+      console.error('[BgSearch]', e);
     } finally {
       setBgSearchLoading(false);
     }
   };
 
-  const applyBgFromUrl = async (url) => {
-    try {
-      const res = await fetch(url);
-      const blob = await res.blob();
-      const reader = new FileReader();
-      reader.onload = (ev) => {
-        setImageSrc(ev.target.result);
-        const img = new Image();
-        img.onload = () => setImage(img);
-        img.src = ev.target.result;
-      };
-      reader.readAsDataURL(blob);
-      setShowBgPanel(false);
-    } catch(e) { alert('Erro ao carregar imagem.'); }
+  const applyBgFromUrl = (url) => {
+    // fetch() falha por CORS em serviços externos — carrega via Image com crossOrigin
+    // e exporta para dataURL via canvas (sem taint, desde que o servidor envie CORS headers)
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      try {
+        const cw = img.naturalWidth  || 720;
+        const ch = img.naturalHeight || 1280;
+        const cv = document.createElement('canvas');
+        cv.width = cw; cv.height = ch;
+        cv.getContext('2d').drawImage(img, 0, 0, cw, ch);
+        const dataUrl = cv.toDataURL('image/jpeg', 0.92);
+        setImageSrc(dataUrl);
+        const loaded = new Image();
+        loaded.onload = () => setImage(loaded);
+        loaded.src = dataUrl;
+        setShowBgPanel(false);
+      } catch(e) {
+        // Fallback: usa a imagem diretamente se o canvas falhar (taint de segurança)
+        setImage(img);
+        setShowBgPanel(false);
+      }
+    };
+    img.onerror = () => alert('Erro ao carregar imagem. Tente outra.');
+    img.src = url;
   };
 
   const handleImageChange = (e) => {
