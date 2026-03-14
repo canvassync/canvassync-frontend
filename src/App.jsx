@@ -2616,10 +2616,15 @@ _setDragging(null);
         const ee = v.start + (rd - ts) / Math.max(0.25, vs);
         if (t >= v.start && t < ee && v.videoEl.paused) {
           const rel = Math.max(0, Math.min(ts + (t - v.start) * vs, (v.videoEl.duration || 0) - 0.033));
-          if (Math.abs(v.videoEl.currentTime - rel) > 0.1) v.videoEl.currentTime = rel;
           v.videoEl.volume = Math.max(0, Math.min(1, projectVolumeRef.current * (v.vidVolume ?? 1)));
           v.videoEl.playbackRate = Math.max(0.25, Math.min(4, projectSpeedRef.current * vs));
-          v.videoEl.play().catch(() => {});
+          const doPlay = () => { if (isPlayingRef.current) v.videoEl.play().catch(() => {}); };
+          if (Math.abs(v.videoEl.currentTime - rel) > 0.1) {
+            v.videoEl._pendingPlayHandler && v.videoEl.removeEventListener('seeked', v.videoEl._pendingPlayHandler);
+            v.videoEl._pendingPlayHandler = doPlay;
+            v.videoEl.addEventListener('seeked', doPlay, { once: true });
+            v.videoEl.currentTime = rel;
+          } else { doPlay(); }
         }
       });
     };
@@ -5369,12 +5374,21 @@ _setDragging(null);
                   v.videoEl.volume = Math.max(0, Math.min(1, projectVolumeRef.current * (v.vidVolume ?? 1)));
                   v.videoEl.playbackRate = Math.max(0.25, Math.min(4, projectSpeedRef.current * vidSpd));
 
-                  // Seek para posição correta e play() — uma única chamada limpa
-                  // O browser enfileira o play após qualquer seek pendente automaticamente
+                  // Para H.264+AAC: DEVE aguardar 'seeked' antes de play()
+                  // play() imediato após currentTime= faz áudio iniciar com ~1s de atraso
+                  // porque o decodificador AAC precisa do keyframe de áudio que só está
+                  // disponível após o seek completar (evento seeked)
+                  const doPlay = () => { if (isPlayingRef.current) v.videoEl.play().catch(() => {}); };
                   if (Math.abs(v.videoEl.currentTime - rel) > 0.05) {
+                    // Cancela qualquer listener anterior para evitar dupla chamada
+                    v.videoEl._pendingPlayHandler && v.videoEl.removeEventListener('seeked', v.videoEl._pendingPlayHandler);
+                    v.videoEl._pendingPlayHandler = doPlay;
+                    v.videoEl.addEventListener('seeked', doPlay, { once: true });
                     v.videoEl.currentTime = rel;
+                  } else {
+                    v.videoEl._pendingPlayHandler = null;
+                    doPlay();
                   }
-                  v.videoEl.play().catch(() => {});
                 });
                 if (audio) {
                   audio.volume       = Math.max(0, Math.min(1, projectVolumeRef.current));
@@ -5398,10 +5412,15 @@ _setDragging(null);
                       const ee = v.start + (rd - ts) / Math.max(0.25, vs);
                       if (newTime >= v.start && newTime < ee && v.videoEl.paused) {
                         const rel = Math.max(0, Math.min(ts + (newTime - v.start) * vs, (v.videoEl.duration || 0) - 0.033));
-                        if (Math.abs(v.videoEl.currentTime - rel) > 0.1) v.videoEl.currentTime = rel;
                         v.videoEl.volume = Math.max(0, Math.min(1, projectVolumeRef.current * (v.vidVolume ?? 1)));
                         v.videoEl.playbackRate = Math.max(0.25, Math.min(4, projectSpeedRef.current * vs));
-                        v.videoEl.play().catch(() => {});
+                        const doPlay = () => { if (isPlayingRef.current) v.videoEl.play().catch(() => {}); };
+                        if (Math.abs(v.videoEl.currentTime - rel) > 0.1) {
+                          v.videoEl._pendingPlayHandler && v.videoEl.removeEventListener('seeked', v.videoEl._pendingPlayHandler);
+                          v.videoEl._pendingPlayHandler = doPlay;
+                          v.videoEl.addEventListener('seeked', doPlay, { once: true });
+                          v.videoEl.currentTime = rel;
+                        } else { doPlay(); }
                       }
                     });
                     // Para automaticamente ao final do conteúdo (sem áudio)
