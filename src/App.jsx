@@ -2736,13 +2736,21 @@ _setDragging(null);
         const vs = v.vidSpeed ?? 1;
         const rd = v.rawDuration ?? v.videoEl.duration ?? (v.end - v.start);
         const ee = v.start + (rd - ts) / Math.max(0.25, vs);
-        if (t >= v.start && t < ee && v.videoEl.paused) {
+        const pastEnd = t >= ee;
+        if (pastEnd && videoAudioNodes.current[v.id]) {
+          // Vídeo terminou: para o áudio Web Audio
+          const node = videoAudioNodes.current[v.id];
+          try { node.source.stop(); } catch {}
+          try { node.gainNode.disconnect(); } catch {}
+          delete videoAudioNodes.current[v.id];
+          if (!v.videoEl.paused) v.videoEl.pause();
+        } else if (!pastEnd && t >= v.start && v.videoEl.paused) {
           const rel = Math.max(0, Math.min(ts + (t - v.start) * vs, (v.videoEl.duration || 0) - 0.033));
           v.videoEl.muted = true;
           v.videoEl.playbackRate = Math.max(0.25, Math.min(4, projectSpeedRef.current * vs));
           if (Math.abs(v.videoEl.currentTime - rel) > 0.1) v.videoEl.currentTime = rel;
           v.videoEl.play().catch(() => {});
-          startVideoAudio(v, t);
+          if (!videoAudioNodes.current[v.id]) startVideoAudio(v, t);
         }
       });
     };
@@ -3074,23 +3082,44 @@ _setDragging(null);
     for (const v of videosArr) {
       if (v.muted) continue;
       try {
-        const resp = await fetch(v.src);
-        const ab = await resp.arrayBuffer();
-        const ac = new (window.AudioContext || window.webkitAudioContext)({ sampleRate });
-        let decoded;
-        try { decoded = await ac.decodeAudioData(ab); }
-        catch { ac.close(); continue; } // vídeo sem faixa de áudio — ignora
-        ac.close();
+        // Usa audioBuffer já decodificado (evita fetch + decode = rápido e sem problemas com MediaSource URLs)
+        let decoded = v.audioBuffer || null;
+        if (!decoded) {
+          // Fallback: tenta fetch se não tiver audioBuffer (projetos antigos)
+          try {
+            const resp = await fetch(v.src);
+            const ab = await resp.arrayBuffer();
+            const ac = new (window.AudioContext || window.webkitAudioContext)({ sampleRate });
+            decoded = await ac.decodeAudioData(ab);
+            ac.close();
+          } catch { continue; }
+        }
+        if (!decoded) continue;
 
-        // Velocidade efetiva = speed do projeto × speed individual do vídeo
-        const effSpeed = Math.max(0.25, Math.min(4, speed * (v.vidSpeed ?? 1)));
-        // Volume efetivo = volume do projeto × volume individual do vídeo
-        const vol = Math.max(0, Math.min(1, volume * (v.vidVolume ?? 1)));
+        const trimSt   = v.trimStart ?? 0;
+        const vidSpd   = v.vidSpeed ?? 1;
+        const effSpeed = Math.max(0.25, Math.min(4, speed * vidSpd));
+        const vol      = Math.max(0, Math.min(1, volume * (v.vidVolume ?? 1)));
 
-        // Usa WOLA para preservar o tom ao alterar velocidade (sem voz fina)
-        const [strL, strR] = await _renderAudioStretched(decoded, effSpeed, vol, sampleRate);
+        // Cria cópia da região de interesse do audioBuffer (trimStart → fim do vídeo editado)
+        const rawDur = v.rawDuration ?? decoded.duration;
+        const trimEndInBuf = Math.min(trimSt + (v.end - v.start) * vidSpd, decoded.duration);
+        const trimmedDuration = Math.max(0, trimEndInBuf - trimSt);
+        if (trimmedDuration < 0.05) continue;
 
-        // Posição de início no buffer de saída (em tempo de projeto, ajustado pelo speed global)
+        // Cria AudioBuffer somente com a região trimada
+        const tmpAC = new OfflineAudioContext(decoded.numberOfChannels, Math.ceil(trimmedDuration * sampleRate), sampleRate);
+        const tmpBuf = tmpAC.createBuffer(decoded.numberOfChannels, Math.ceil(trimmedDuration * decoded.sampleRate), decoded.sampleRate);
+        for (let ch = 0; ch < decoded.numberOfChannels; ch++) {
+          const srcData = decoded.getChannelData(ch);
+          const dstData = tmpBuf.getChannelData(ch);
+          const startSample = Math.round(trimSt * decoded.sampleRate);
+          const endSample   = Math.round(trimEndInBuf * decoded.sampleRate);
+          dstData.set(srcData.subarray(startSample, endSample));
+        }
+
+        const [strL, strR] = await _renderAudioStretched(tmpBuf, effSpeed, vol, sampleRate);
+
         const outOffset = Math.round((v.start / speed) * sampleRate);
         const copyLen   = Math.min(strL.length, outL.length - outOffset);
         if (copyLen <= 0) continue;
@@ -3252,22 +3281,39 @@ _setDragging(null);
         } catch(e) { console.warn('[WEBM RT] bg audio error', e); }
       }
 
-      // 3. Áudio dos vídeos overlay via MediaElementSource
-      // IMPORTANTE: muta o videoEl antes de conectar ao WebAudio
-      // sem isso o audio sai duplo (HTML5 nativo + WebAudio) causando eco
+      // 3. Áudio dos vídeos: usa audioBuffer (já decodificado) — MediaElementSource
+      //    capturaria silêncio pois videoEl.muted=true durante playback Web Audio
       const vidSources = [];
-      const vidVolumesBackup = [];
+      const vidVolumesBackup = []; // mantido para compatibilidade com cleanup
       for (const v of videosRef.current) {
-        if (v.muted || !v.videoEl) continue;
+        if (v.muted || !v.audioBuffer) continue;
         try {
-          vidVolumesBackup.push({ el: v.videoEl, vol: v.videoEl.volume });
-          v.videoEl.volume = 0; // silencia a saída HTML5 nativa
-          const s = ac.createMediaElementSource(v.videoEl);
-          s.connect(gainNode);
-          vidSources.push(s);
+          const trimSt  = v.trimStart ?? 0;
+          const vidSpd  = v.vidSpeed ?? 1;
+          const trimEnd = Math.min(trimSt + (v.end - v.start) * vidSpd, v.audioBuffer.duration);
+          const trimDur = Math.max(0, trimEnd - trimSt);
+          if (trimDur < 0.05) continue;
+
+          const srcNode = ac.createBufferSource();
+          // Cria sub-buffer com região trimada
+          const tmpBuf = ac.createBuffer(v.audioBuffer.numberOfChannels,
+            Math.ceil(trimDur * v.audioBuffer.sampleRate), v.audioBuffer.sampleRate);
+          for (let ch = 0; ch < v.audioBuffer.numberOfChannels; ch++) {
+            const d = v.audioBuffer.getChannelData(ch);
+            const startS = Math.round(trimSt * v.audioBuffer.sampleRate);
+            tmpBuf.getChannelData(ch).set(d.subarray(startS, startS + tmpBuf.length));
+          }
+          srcNode.buffer = tmpBuf;
+          srcNode.playbackRate.value = Math.max(0.25, Math.min(4, _spd1 * vidSpd));
+          const volNode = ac.createGain();
+          volNode.gain.value = Math.max(0, Math.min(1, _vol1 * (v.vidVolume ?? 1)));
+          srcNode.connect(volNode);
+          volNode.connect(dest);
+          // Agenda início no tempo correto do projeto
+          srcNode.start(ac.currentTime + v.start / _spd1);
+          vidSources.push(srcNode);
         } catch(e) {
-          // já conectado a outro contexto — tenta reutilizar sem recriar
-          console.warn('[WEBM RT] MediaElementSource já existe:', e.message);
+          console.warn('[WEBM RT] video audio error:', e.message);
         }
       }
 
@@ -3345,7 +3391,7 @@ _setDragging(null);
 
       rtExportRef.current = false; // restaura draw() para usar audioRef.current
       // 12. Limpa WebAudio
-      for (const s of vidSources) { try { s.disconnect(); } catch {} }
+      for (const s of vidSources) { try { s.stop(); } catch {} try { s.disconnect(); } catch {} }
       // Restaura volume original dos vídeos após export
       // Também reconecta o audio nativo recarregando a src (desfaz o MediaElementSource hijack)
       for (const { el, vol } of vidVolumesBackup) {
