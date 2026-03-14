@@ -2914,50 +2914,29 @@ _setDragging(null);
       const effEnd = v.start + (rd - ts) / Math.max(0.25, vs);
       return t >= v.start && t < Math.min(v.end, effEnd);
     });
-    await Promise.all(activeVids.map(v => new Promise(resolve => {
+    if (activeVids.length > 0) await Promise.all(activeVids.map(v => new Promise(resolve => {
       if (!v.videoEl) return resolve();
       const vidDur = isFinite(v.videoEl.duration) && v.videoEl.duration > 0 ? v.videoEl.duration : (v.end - v.start);
       const trimSt  = v.trimStart ?? 0;
       const vidSpd  = v.vidSpeed ?? 1;
-      // Fim do trim no espaço do buffer (não pode exceder duração do arquivo nem o corte feito)
-      // Clamp agressivo: 200ms antes do fim do arquivo evita frames pretos de end-of-stream
       const trimEnd = Math.min(trimSt + (v.end - v.start) * vidSpd, Math.max(0, vidDur - 0.2));
       const relTime = Math.max(0, Math.min(trimSt + (t - v.start) * vidSpd, trimEnd));
       v.videoEl.pause();
-
-      // Se já está no frame certo, resolve imediatamente
-      if (Math.abs(v.videoEl.currentTime - relTime) < 0.05 && v.videoEl.readyState >= 2) {
-        return resolve();
-      }
-
+      if (Math.abs(v.videoEl.currentTime - relTime) < 0.05 && v.videoEl.readyState >= 2) return resolve();
       let settled = false;
-      // Timeout: 800ms — se estourar, prossegue sem o frame (sem grace period extra)
-      const hard = setTimeout(() => { if (settled) return; settled = true; resolve(); }, 800);
-
-      v.videoEl.addEventListener('seeked', () => {
-        if (settled) return;
-        settled = true;
-        clearTimeout(hard);
-        resolve();
-      }, { once: true });
+      const hard = setTimeout(() => { if (settled) return; settled = true; resolve(); }, 300);
+      v.videoEl.addEventListener('seeked', () => { if (settled) return; settled = true; clearTimeout(hard); resolve(); }, { once: true });
       v.videoEl.currentTime = relTime;
-    })));
-    // Captura bitmap de cada vídeo APÓS o seek (createImageBitmap garante frame
-    // decodificado tanto em HTMLCanvasElement quanto em OffscreenCanvas)
-    const vidBitmaps = await Promise.all(activeVids.map(async v => {
-      if (!v.videoEl || v.videoEl.readyState < 2 || v.videoEl.videoWidth === 0) return null;
-      try { return await createImageBitmap(v.videoEl); } catch { return null; }
-    }));
-    activeVids.forEach((v, i) => {
-      const bmp = vidBitmaps[i];
-      if (!bmp) return;
+    ))));
+    // Desenha videoEl diretamente — sem createImageBitmap (remove cópia GPU desnecessária)
+    activeVids.forEach(v => {
+      if (!v.videoEl || v.videoEl.readyState < 2 || v.videoEl.videoWidth === 0) return;
       const _evf = buildFilterString(v.filters);
       const _etr = getTransitionTransform(v, t);
       ctx.save();
       if (_etr) { _applyTr(ctx, _etr, _evf, v); } else if(_evf!=='none'){ctx.filter=_evf;}
-      drawRotatedElement(ctx, () => drawRoundedImage(ctx, bmp, v.x, v.y, v.width, v.height, v.radius ?? 12), v.x, v.y, v.width, v.height, v.rotation);
+      drawRotatedElement(ctx, () => drawRoundedImage(ctx, v.videoEl, v.x, v.y, v.width, v.height, v.radius ?? 12), v.x, v.y, v.width, v.height, v.rotation);
       ctx.filter='none'; ctx.restore();
-      bmp.close();
     });
     // Renderiza TODAS as imagens ativas no instante t (usa ref para evitar closure stale)
     const activeImgs = (imagesRef.current || []).filter(item => item?.img && t >= item.start && t <= item.end);
@@ -3340,8 +3319,7 @@ _setDragging(null);
         const t = (i / fps) * _spdW;
         await renderAtTimeToCanvas(offCanvas, t);
         writer.addFrame(offCanvas);
-        setExportProgress(((i + 1) / totalFrames));
-        await new Promise(r => setTimeout(r, 0));
+        if (i % 15 === 0) { setExportProgress((i + 1) / totalFrames); await new Promise(r => setTimeout(r, 0)); }
       }
       const blob = await writer.complete();
       await saveWithPicker(blob, `canvas.webm`, 'video/webm', ['.webm']);
@@ -3888,7 +3866,7 @@ _setDragging(null);
         const frame = new VideoFrame(offCanvas, { timestamp: Math.round(fi * 1_000_000 / FPS), duration: Math.round(1_000_000 / FPS) });
         venc.encode(frame, { keyFrame: fi % 60 === 0 });
         frame.close();
-        setExportProgress(fi / TOTAL);
+        if (fi % 15 === 0) { setExportProgress(fi / TOTAL); await new Promise(r => setTimeout(r, 0)); }
       }
       await venc.flush();
       muxer.finalize();
@@ -3997,15 +3975,13 @@ _setDragging(null);
         const frame = new VideoFrame(offCanvas, { timestamp: Math.round(fi * 1_000_000 / FPS), duration: Math.round(1_000_000 / FPS) });
         venc.encode(frame, { keyFrame: fi % 60 === 0 });
         frame.close();
-        setExportProgress(fi / TOTAL);
+        if (fi % 15 === 0) { setExportProgress(fi / TOTAL); await new Promise(r => setTimeout(r, 0)); }
       }
       await venc.flush();
       muxer.finalize();
       setExportProgress(1);
       const blob = new Blob([target.buffer], { type: 'video/mp4' });
-      const url = URL.createObjectURL(blob);
-      await saveWithPicker(new Blob([target.buffer], { type: 'video/mp4' }), `canvas_hd.mp4`, 'video/mp4', ['.mp4']);
-      setTimeout(() => URL.revokeObjectURL(url), 5000);
+      await saveWithPicker(blob, `canvas_hd.mp4`, 'video/mp4', ['.mp4']);
     } catch(err) {
       console.error('[MP4 HD Export]', err);
       alert('Erro ao exportar MP4 HD: ' + err.message);
@@ -4159,9 +4135,7 @@ _setDragging(null);
         vEncoder.encode(videoFrame, { keyFrame: i % (fps * 2) === 0 });
         videoFrame.close();
 
-        setExportProgress((i + 1) / totalFrames);
-        // Yield a cada 5 frames para não travar o browser
-        if (i % 5 === 0) await new Promise(r => setTimeout(r, 0));
+        if (i % 15 === 0) { setExportProgress((i + 1) / totalFrames); await new Promise(r => setTimeout(r, 0)); }
       }
 
       await vEncoder.flush();
