@@ -1534,8 +1534,16 @@ function App() {
 
     // Posição no AudioBuffer = trimStart + tempo dentro do vídeo × vidSpeed
     const bufOffset = Math.max(0, trimSt + (tProject - v.start) * vidSpd);
-    // Duração restante no buffer
-    const bufDuration = Math.max(0, v.audioBuffer.duration - bufOffset);
+
+    // Duração de reprodução: limitada pelo fim do vídeo (v.end) no tempo do projeto
+    // sem isso, o áudio continua tocando além do fim cortado do vídeo
+    const rawDur = v.rawDuration ?? v.audioBuffer.duration;
+    const effEnd = v.start + (rawDur - trimSt) / Math.max(0.25, vidSpd);
+    const remainingProject = Math.max(0, (effEnd - tProject) / projSpd);
+    if (remainingProject < 0.05) return;
+
+    // Duração no AudioBuffer = duração no projeto × effSpd (o buffer toca mais rápido)
+    const bufDuration = remainingProject * effSpd;
     if (bufDuration < 0.05) return;
 
     const gainNode = ac.createGain();
@@ -1544,9 +1552,10 @@ function App() {
 
     const source = ac.createBufferSource();
     source.buffer = v.audioBuffer;
-    source.playbackRate.value = effSpd;  // WOLA está na exportação; aqui usamos playbackRate nativo
+    source.playbackRate.value = effSpd;
     source.connect(gainNode);
-    source.start(0, bufOffset);  // inicia IMEDIATAMENTE no offset correto — sem nenhum delay
+    // Terceiro argumento: duração — para exatamente no fim do vídeo
+    source.start(0, bufOffset, bufDuration);
 
     videoAudioNodes.current[v.id] = { source, gainNode };
     source.onended = () => {
@@ -2598,6 +2607,13 @@ _setDragging(null);
         // O browser retoma automaticamente após buffer stall sem precisar de play() externo.
       } else {
         if (!v.videoEl.paused) v.videoEl.pause();
+        // Para o áudio Web Audio se este vídeo ainda estiver tocando
+        if (videoAudioNodes.current[v.id]) {
+          const node = videoAudioNodes.current[v.id];
+          try { node.source.stop(); } catch {}
+          try { node.gainNode.disconnect(); } catch {}
+          delete videoAudioNodes.current[v.id];
+        }
         // Pré-posiciona apenas quando NÃO está em playback e não está seekando
         if (!playing && !v.videoEl.seeking) {
           const targetTime = t < v.start ? (v.trimStart ?? 0) : relTime;
