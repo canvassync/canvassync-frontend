@@ -1201,7 +1201,8 @@ function App() {
       if (e.key === 'Escape') { setIsFullscreen(false); setShowStickerPanel(false); setShowTemplatePanel(false); }
     };
     const onClickOut = (e) => {
-      if (showBgPanel && bgBtnRef.current && !bgBtnRef.current.contains(e.target)) {
+      if (showBgPanel && bgBtnRef.current && !bgBtnRef.current.contains(e.target) &&
+          !e.target.closest('[data-bg-portal]')) {
         setShowBgPanel(false);
       }
       if (showStickerPanel && stickerBtnRef.current && !stickerBtnRef.current.contains(e.target) &&
@@ -4486,7 +4487,7 @@ _setDragging(null);
                 {showBgPanel && (() => {
                   const rect = bgBtnRef.current?.getBoundingClientRect();
                   return createPortal(
-                    <div style={{ position: 'fixed', top: (rect?.bottom ?? 60) + 6, left: Math.max(8, (rect?.left ?? 0)), zIndex: 99999, background: '#0f172a', border: '1px solid rgba(0,191,255,0.25)', borderRadius: 16, width: 420, maxHeight: '80vh', boxShadow: '0 20px 60px rgba(0,0,0,0.8)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                    <div data-bg-portal="true" style={{ position: 'fixed', top: (rect?.bottom ?? 60) + 6, left: Math.max(8, (rect?.left ?? 0)), zIndex: 99999, background: '#0f172a', border: '1px solid rgba(0,191,255,0.25)', borderRadius: 16, width: 420, maxHeight: '80vh', boxShadow: '0 20px 60px rgba(0,0,0,0.8)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
                       {/* Header */}
                       <div style={{ padding: '12px 16px 8px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                         <span style={{ fontWeight: 800, fontSize: 14, color: '#00BFFF' }}>🎨 Fundos</span>
@@ -4584,33 +4585,48 @@ _setDragging(null);
 
                             {/* Generate tab */}
                             {bgTab === 'generate' && (() => {
-                              const GENERATED = [
-                                { id:'p1', label:'Partículas', gen: (ctx2,w,h) => { ctx2.fillStyle='#050510'; ctx2.fillRect(0,0,w,h); for(let i=0;i<200;i++){const x=Math.random()*w,y=Math.random()*h,r=Math.random()*2+0.5; ctx2.beginPath(); ctx2.arc(x,y,r,0,Math.PI*2); ctx2.fillStyle=`rgba(0,191,255,${Math.random()*0.8+0.2})`; ctx2.fill();} }},
-                                { id:'p2', label:'Grade Neon', gen: (ctx2,w,h) => { ctx2.fillStyle='#000'; ctx2.fillRect(0,0,w,h); ctx2.strokeStyle='rgba(0,255,100,0.3)'; ctx2.lineWidth=1; for(let x=0;x<w;x+=40){ctx2.beginPath();ctx2.moveTo(x,0);ctx2.lineTo(x,h);ctx2.stroke();} for(let y=0;y<h;y+=40){ctx2.beginPath();ctx2.moveTo(0,y);ctx2.lineTo(w,y);ctx2.stroke();} }},
-                                { id:'p3', label:'Bokeh', gen: (ctx2,w,h) => { const g=ctx2.createLinearGradient(0,0,w,h); g.addColorStop(0,'#1a0533'); g.addColorStop(1,'#0a1a4e'); ctx2.fillStyle=g; ctx2.fillRect(0,0,w,h); for(let i=0;i<40;i++){const x=Math.random()*w,y=Math.random()*h,r=Math.random()*60+20,a=Math.random()*0.15+0.05; const cg=ctx2.createRadialGradient(x,y,0,x,y,r); const hue=Math.random()*60+200; cg.addColorStop(0,`hsla(${hue},80%,70%,${a})`); cg.addColorStop(1,'transparent'); ctx2.fillStyle=cg; ctx2.beginPath(); ctx2.arc(x,y,r,0,Math.PI*2); ctx2.fill();} }},
-                                { id:'p4', label:'Ondas', gen: (ctx2,w,h) => { ctx2.fillStyle='#000d1a'; ctx2.fillRect(0,0,w,h); for(let i=0;i<8;i++){ctx2.beginPath(); ctx2.strokeStyle=`rgba(0,191,255,${0.05+i*0.04})`; ctx2.lineWidth=2; for(let x=0;x<w;x+=2){const y2=h/2+Math.sin((x+i*50)/80)*60*(i+1)*0.3+i*30; x===0?ctx2.moveTo(x,y2):ctx2.lineTo(x,y2);} ctx2.stroke();} }},
-                                { id:'p5', label:'Hexágonos', gen: (ctx2,w,h) => { ctx2.fillStyle='#0a0a1a'; ctx2.fillRect(0,0,w,h); const s=50; for(let row=0;row<h/s+2;row++){for(let col=0;col<w/s+2;col++){const x2=col*s*1.5,y2=row*s*Math.sqrt(3)+(col%2)*s*Math.sqrt(3)/2; ctx2.beginPath(); for(let k=0;k<6;k++){const a2=Math.PI/3*k; ctx2.lineTo(x2+s*0.45*Math.cos(a2),y2+s*0.45*Math.sin(a2));} ctx2.closePath(); ctx2.strokeStyle=`rgba(100,200,255,0.15)`; ctx2.lineWidth=1; ctx2.stroke();}} }},
-                                { id:'p6', label:'Nebulosa', gen: (ctx2,w,h) => { ctx2.fillStyle='#000'; ctx2.fillRect(0,0,w,h); const cs=['#7b2ff7','#f953c6','#00c3ff','#ff6b6b']; for(let i=0;i<6;i++){const x2=Math.random()*w,y2=Math.random()*h,r=Math.random()*200+100; const rg=ctx2.createRadialGradient(x2,y2,0,x2,y2,r); const c2=cs[Math.floor(Math.random()*cs.length)]; rg.addColorStop(0,c2.replace(')',',0.15)').replace('rgb','rgba')||c2+'22'); rg.addColorStop(1,'transparent'); ctx2.fillStyle=rg; ctx2.fillRect(0,0,w,h);} }},
+                              const GEN_LIST = [
+                                { id:'p1', label:'Partículas',
+                                  preview:'radial-gradient(ellipse at 20% 30%,rgba(0,191,255,0.5) 0%,transparent 55%),radial-gradient(ellipse at 75% 65%,rgba(100,50,255,0.4) 0%,transparent 55%),#050510',
+                                  gen:(c,w,h)=>{ c.fillStyle='#050510';c.fillRect(0,0,w,h);for(let i=0;i<300;i++){c.beginPath();c.arc(Math.random()*w,Math.random()*h,Math.random()*2.5+0.5,0,6.28);c.fillStyle=`rgba(0,191,255,${Math.random()*0.8+0.2})`;c.fill();} } },
+                                { id:'p2', label:'Grade Neon',
+                                  preview:'linear-gradient(180deg,#000 0%,#001200 100%)',
+                                  gen:(c,w,h)=>{ c.fillStyle='#000';c.fillRect(0,0,w,h);c.strokeStyle='rgba(0,255,100,0.3)';c.lineWidth=1;for(let x=0;x<w;x+=40){c.beginPath();c.moveTo(x,0);c.lineTo(x,h);c.stroke();}for(let y=0;y<h;y+=40){c.beginPath();c.moveTo(0,y);c.lineTo(w,y);c.stroke();} } },
+                                { id:'p3', label:'Bokeh',
+                                  preview:'radial-gradient(ellipse at 30% 40%,rgba(123,47,247,0.7) 0%,transparent 50%),radial-gradient(ellipse at 70% 60%,rgba(0,195,255,0.5) 0%,transparent 50%),#1a0533',
+                                  gen:(c,w,h)=>{ const g=c.createLinearGradient(0,0,w,h);g.addColorStop(0,'#1a0533');g.addColorStop(1,'#0a1a4e');c.fillStyle=g;c.fillRect(0,0,w,h);for(let i=0;i<50;i++){const x=Math.random()*w,y=Math.random()*h,r=Math.random()*80+20;const cg=c.createRadialGradient(x,y,0,x,y,r);const hue=Math.random()*80+200;cg.addColorStop(0,`hsla(${hue},80%,70%,${Math.random()*0.2+0.05})`);cg.addColorStop(1,'transparent');c.fillStyle=cg;c.beginPath();c.arc(x,y,r,0,6.28);c.fill();} } },
+                                { id:'p4', label:'Ondas',
+                                  preview:'linear-gradient(180deg,#000d1a 0%,#001a33 100%)',
+                                  gen:(c,w,h)=>{ c.fillStyle='#000d1a';c.fillRect(0,0,w,h);for(let i=0;i<8;i++){c.beginPath();c.strokeStyle=`rgba(0,191,255,${0.05+i*0.05})`;c.lineWidth=2;for(let x=0;x<w;x+=2){const y2=h/2+Math.sin((x+i*50)/80)*60*(i+1)*0.3+i*30;x===0?c.moveTo(x,y2):c.lineTo(x,y2);}c.stroke();} } },
+                                { id:'p5', label:'Hexágonos',
+                                  preview:'linear-gradient(160deg,#0a0a1a 0%,#0a1040 100%)',
+                                  gen:(c,w,h)=>{ c.fillStyle='#0a0a1a';c.fillRect(0,0,w,h);const s=50;for(let row=0;row<h/s+2;row++){for(let col=0;col<w/s+2;col++){const x2=col*s*1.5,y2=row*s*Math.sqrt(3)+(col%2)*s*Math.sqrt(3)/2;c.beginPath();for(let k=0;k<6;k++){const a2=Math.PI/3*k;c.lineTo(x2+s*0.45*Math.cos(a2),y2+s*0.45*Math.sin(a2));}c.closePath();c.strokeStyle='rgba(100,200,255,0.2)';c.lineWidth=1;c.stroke();}} } },
+                                { id:'p6', label:'Nebulosa',
+                                  preview:'radial-gradient(ellipse at 50% 50%,rgba(123,47,247,0.6) 0%,rgba(249,83,198,0.4) 40%,rgba(0,195,255,0.3) 70%,transparent 100%),#000',
+                                  gen:(c,w,h)=>{ c.fillStyle='#000';c.fillRect(0,0,w,h);const cs=['#7b2ff7','#f953c6','#00c3ff','#ff6b6b'];for(let i=0;i<8;i++){const x2=Math.random()*w,y2=Math.random()*h,r=Math.random()*250+100;const rg=c.createRadialGradient(x2,y2,0,x2,y2,r);rg.addColorStop(0,cs[i%4]+'44');rg.addColorStop(1,'transparent');c.fillStyle=rg;c.fillRect(0,0,w,h);} } },
                               ];
                               const applyGen = (genFn) => {
-                                const cw=720,ch=1280; const c=document.createElement('canvas'); c.width=cw; c.height=ch;
-                                genFn(c.getContext('2d'), cw, ch);
-                                const dataUrl = c.toDataURL('image/jpeg', 0.95);
-                                setImageSrc(dataUrl); const img=new Image(); img.onload=()=>setImage(img); img.src=dataUrl;
+                                const cw=720, ch=1280;
+                                const cv = document.createElement('canvas'); cv.width=cw; cv.height=ch;
+                                genFn(cv.getContext('2d'), cw, ch);
+                                const dataUrl = cv.toDataURL('image/jpeg', 0.95);
+                                setImageSrc(dataUrl);
+                                const img = new Image(); img.onload = () => setImage(img); img.src = dataUrl;
                                 setShowBgPanel(false);
                               };
                               return (
                                 <div style={{ padding: 12, display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, overflowY: 'auto', maxHeight: 340 }}>
-                                  {GENERATED.map(p => {
-                                    const c2 = document.createElement('canvas'); c2.width=90; c2.height=160;
-                                    p.gen(c2.getContext('2d'), 90, 160);
-                                    return (
-                                      <div key={p.id} onClick={() => applyGen(p.gen)} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, cursor: 'pointer' }}>
-                                        <img src={c2.toDataURL()} style={{ width: '100%', aspectRatio: '9/16', objectFit: 'cover', borderRadius: 8, border: '2px solid rgba(255,255,255,0.08)' }} alt={p.label} />
-                                        <span style={{ fontSize: 9, color: '#888' }}>{p.label}</span>
-                                      </div>
-                                    );
-                                  })}
+                                  {GEN_LIST.map(p => (
+                                    <div key={p.id} onClick={() => applyGen(p.gen)}
+                                      style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:4, cursor:'pointer' }}>
+                                      <div style={{ width:'100%', aspectRatio:'9/16', background:p.preview, borderRadius:8,
+                                        border:'2px solid rgba(255,255,255,0.08)', transition:'border-color 0.15s' }}
+                                        onMouseEnter={e => e.currentTarget.style.borderColor='rgba(0,191,255,0.7)'}
+                                        onMouseLeave={e => e.currentTarget.style.borderColor='rgba(255,255,255,0.08)'}
+                                      />
+                                      <span style={{ fontSize:9, color:'#888' }}>{p.label}</span>
+                                    </div>
+                                  ))}
                                 </div>
                               );
                             })()}
