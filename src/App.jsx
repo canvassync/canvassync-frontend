@@ -6092,37 +6092,39 @@ _setDragging(null);
                     v.videoEl.currentTime = trimSt;
                   }
                 });
+                const hasPreroll = audio && tNow < audioOffset;
                 videosRef.current.forEach(v => {
                   if (!v.videoEl) return;
                   const trimSt   = v.trimStart ?? 0;
                   const vidSpd   = v.vidSpeed ?? 1;
                   const rawDur   = v.rawDuration ?? v.videoEl.duration ?? (v.end - v.start);
                   const effEnd   = v.start + (rawDur - trimSt) / Math.max(0.25, vidSpd);
-                  if (tNow < v.start || tNow >= effEnd) return; // fora do range ativo
-                  // relTime correto: trimStart + tempo decorrido × vidSpeed
+                  if (tNow < v.start || tNow >= effEnd) return;
                   const rel = Math.max(0, Math.min(trimSt + (tNow - v.start) * vidSpd, (v.videoEl.duration || 0) - 0.033));
-                  // Vídeo toca MUDO (apenas frames visuais) — áudio via Web Audio (sem delay)
-                  v.videoEl.muted = true;
                   v.videoEl.playbackRate = Math.max(0.25, Math.min(4, projectSpeedRef.current * vidSpd));
                   if (Math.abs(v.videoEl.currentTime - rel) > 0.05) v.videoEl.currentTime = rel;
+                  if (hasPreroll) {
+                    // Pre-roll: usa áudio nativo (muted=false). Web Audio depende do
+                    // AudioContext suspenso criado no upload — resume() não é garantido
+                    // antes das chamadas seguintes em async handlers React.
+                    v.videoEl.muted = false;
+                    v.videoEl.volume = Math.max(0, Math.min(1, projectVolumeRef.current * (v.vidVolume ?? 1)));
+                  } else {
+                    // Sem pré-roll: Web Audio para volume + sincronismo
+                    v.videoEl.muted = true;
+                    startVideoAudio(v, tNow);
+                  }
                   v.videoEl.play().catch(() => {});
-                  // Inicia áudio Web Audio no offset correto — ZERO delay independente de posição
-                  startVideoAudio(v, tNow);
                 });
                 if (audio) {
                   audio.volume       = Math.max(0, Math.min(1, projectVolumeRef.current));
                   audio.playbackRate = Math.max(0.25, Math.min(4, projectSpeedRef.current));
                   const tNowAudio = virtualTimeRef.current;
                   if (tNowAudio >= audioOffset) {
-                    // Playhead já dentro ou após o bloco de áudio — posiciona e toca
                     const relAudio = audioTrimStart + (tNowAudio - audioOffset);
                     if (Math.abs(audio.currentTime - relAudio) > 0.1) audio.currentTime = relAudio;
                     audio.play().catch(() => {});
                   } else {
-                    // Playhead antes do início do áudio — clock virtual puro até o offset.
-                    // NÃO tocar em audio.currentTime durante o pré-roll: isso dispara
-                    // timeupdate, que chama onTime, que seta virtualTimeRef = audioOffset+t
-                    // enquanto o setInterval seta virtualTimeRef = t → oscilação → flickering.
                     const startWallPre = Date.now();
                     const startVirtPre = tNowAudio;
                     const clockSpdPre = Math.max(0.25, Math.min(4, projectSpeedRef.current));
@@ -6134,7 +6136,19 @@ _setDragging(null);
                       setCurrentTime(newTimePre);
                       if (newTimePre >= audioOffsetRef.current) {
                         clearInterval(clockIntervalRef.current); clockIntervalRef.current = null;
-                        // Apenas agora posiciona e inicia o áudio
+                        // Transição pré-roll → áudio principal:
+                        // troca vídeos de áudio nativo para Web Audio
+                        videosRef.current.forEach(v2 => {
+                          if (!v2.videoEl || v2.muted) return;
+                          const ts2 = v2.trimStart ?? 0;
+                          const vs2 = v2.vidSpeed ?? 1;
+                          const rd2 = v2.rawDuration ?? v2.videoEl.duration ?? (v2.end - v2.start);
+                          const ee2 = v2.start + (rd2 - ts2) / Math.max(0.25, vs2);
+                          if (newTimePre >= v2.start && newTimePre < ee2) {
+                            v2.videoEl.muted = true;
+                            startVideoAudio(v2, newTimePre);
+                          }
+                        });
                         audio.currentTime = audioTrimStartRef.current || 0;
                         audio.volume = Math.max(0, Math.min(1, projectVolumeRef.current));
                         audio.playbackRate = Math.max(0.25, Math.min(4, projectSpeedRef.current));
