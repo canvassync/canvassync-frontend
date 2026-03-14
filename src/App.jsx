@@ -1535,16 +1535,10 @@ function App() {
     // Posição no AudioBuffer = trimStart + tempo dentro do vídeo × vidSpeed
     const bufOffset = Math.max(0, trimSt + (tProject - v.start) * vidSpd);
 
-    // Duração de reprodução: limitada pelo fim do vídeo (v.end) no tempo do projeto
-    // sem isso, o áudio continua tocando além do fim cortado do vídeo
-    const rawDur = v.rawDuration ?? v.audioBuffer.duration;
-    const effEnd = v.start + (rawDur - trimSt) / Math.max(0.25, vidSpd);
-    const remainingProject = Math.max(0, (effEnd - tProject) / projSpd);
-    if (remainingProject < 0.05) return;
-
-    // Duração no AudioBuffer = duração no projeto × effSpd (o buffer toca mais rápido)
-    const bufDuration = remainingProject * effSpd;
-    if (bufDuration < 0.05) return;
+    // Duração = tempo restante até v.end (tempo do projeto), convertido para segundos de wall clock
+    // v.end é o fim real do vídeo na timeline (respeitando qualquer corte no final)
+    const wallDuration = Math.max(0, (v.end - tProject) / projSpd);
+    if (wallDuration < 0.05) return;
 
     const gainNode = ac.createGain();
     gainNode.gain.value = Math.max(0, Math.min(1, projectVolumeRef.current * (v.vidVolume ?? 1)));
@@ -1555,7 +1549,7 @@ function App() {
     source.playbackRate.value = effSpd;
     source.connect(gainNode);
     // Terceiro argumento: duração — para exatamente no fim do vídeo
-    source.start(0, bufOffset, bufDuration);
+    source.start(0, bufOffset, wallDuration);
 
     videoAudioNodes.current[v.id] = { source, gainNode };
     source.onended = () => {
