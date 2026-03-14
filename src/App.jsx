@@ -2927,7 +2927,7 @@ _setDragging(null);
       const hard = setTimeout(() => { if (settled) return; settled = true; resolve(); }, 300);
       v.videoEl.addEventListener('seeked', () => { if (settled) return; settled = true; clearTimeout(hard); resolve(); }, { once: true });
       v.videoEl.currentTime = relTime;
-    ))));
+    })));
     // Desenha videoEl diretamente — sem createImageBitmap (remove cópia GPU desnecessária)
     activeVids.forEach(v => {
       if (!v.videoEl || v.videoEl.readyState < 2 || v.videoEl.videoWidth === 0) return;
