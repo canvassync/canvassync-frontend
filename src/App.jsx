@@ -2790,12 +2790,23 @@ _setDragging(null);
     }
     // Renderiza TODOS os vídeos ativos no instante t (seek frame-accurate)
     // Usa ref para evitar closure stale durante export
-    const activeVids = (videosRef.current || []).filter(v => v.videoEl && t >= v.start && t <= v.end);
+    const activeVids = (videosRef.current || []).filter(v => {
+      if (!v.videoEl) return false;
+      const ts = v.trimStart ?? 0;
+      const vs = v.vidSpeed ?? 1;
+      const rd = v.rawDuration ?? v.videoEl.duration ?? (v.end - v.start);
+      const effEnd = v.start + (rd - ts) / Math.max(0.25, vs);
+      return t >= v.start && t < Math.min(v.end, effEnd);
+    });
     await Promise.all(activeVids.map(v => new Promise(resolve => {
       if (!v.videoEl) return resolve();
       const vidDur = isFinite(v.videoEl.duration) && v.videoEl.duration > 0 ? v.videoEl.duration : (v.end - v.start);
-      // relTime = trimStart + tempo decorrido × vidSpeed
-      const relTime = Math.max(0, Math.min((v.trimStart ?? 0) + (t - v.start) * (v.vidSpeed ?? 1), Math.max(0, vidDur - 0.033)));
+      const trimSt  = v.trimStart ?? 0;
+      const vidSpd  = v.vidSpeed ?? 1;
+      // Fim do trim no espaço do buffer (não pode exceder duração do arquivo nem o corte feito)
+      // Clamp agressivo: 200ms antes do fim do arquivo evita frames pretos de end-of-stream
+      const trimEnd = Math.min(trimSt + (v.end - v.start) * vidSpd, Math.max(0, vidDur - 0.2));
+      const relTime = Math.max(0, Math.min(trimSt + (t - v.start) * vidSpd, trimEnd));
       v.videoEl.pause();
 
       // Se já está no frame certo, resolve imediatamente
@@ -2811,10 +2822,7 @@ _setDragging(null);
         if (settled) return;
         settled = true;
         clearTimeout(hard);
-        // Grace period: browsers disparam seeked antes do frame estar decodificado.
-        // Sem esse delay, createImageBitmap captura um frame preto intermediário.
-        // 30ms é suficiente para o decode finalizar sem impactar muito a performance.
-        setTimeout(resolve, 30);
+        resolve();
       }, { once: true });
       v.videoEl.currentTime = relTime;
     })));
@@ -3095,22 +3103,24 @@ _setDragging(null);
         const effSpeed = Math.max(0.25, Math.min(4, speed * vidSpd));
         const vol      = Math.max(0, Math.min(1, volume * (v.vidVolume ?? 1)));
 
-        // Cria cópia da região de interesse do audioBuffer (trimStart → fim do vídeo editado)
-        const rawDur = v.rawDuration ?? decoded.duration;
+        // Região trimada: trimStart → fim do vídeo editado (v.end)
         const trimEndInBuf = Math.min(trimSt + (v.end - v.start) * vidSpd, decoded.duration);
         const trimmedDuration = Math.max(0, trimEndInBuf - trimSt);
         if (trimmedDuration < 0.05) continue;
 
-        // Cria AudioBuffer somente com a região trimada
-        const tmpAC = new OfflineAudioContext(decoded.numberOfChannels, Math.ceil(trimmedDuration * sampleRate), sampleRate);
-        const tmpBuf = tmpAC.createBuffer(decoded.numberOfChannels, Math.ceil(trimmedDuration * decoded.sampleRate), decoded.sampleRate);
-        for (let ch = 0; ch < decoded.numberOfChannels; ch++) {
-          const srcData = decoded.getChannelData(ch);
-          const dstData = tmpBuf.getChannelData(ch);
-          const startSample = Math.round(trimSt * decoded.sampleRate);
-          const endSample   = Math.round(trimEndInBuf * decoded.sampleRate);
-          dstData.set(srcData.subarray(startSample, endSample));
-        }
+        // Cria AudioBuffer com a região trimada sem OfflineAudioContext (mais rápido)
+        const startSample = Math.round(trimSt * decoded.sampleRate);
+        const endSample   = Math.round(trimEndInBuf * decoded.sampleRate);
+        const nCh = decoded.numberOfChannels;
+        const tmpBuf = new (window.AudioContext || window.webkitAudioContext)().createBuffer ?
+          (() => {
+            const _ac = new (window.AudioContext || window.webkitAudioContext)();
+            const b = _ac.createBuffer(nCh, endSample - startSample, decoded.sampleRate);
+            for (let ch = 0; ch < nCh; ch++) b.getChannelData(ch).set(decoded.getChannelData(ch).subarray(startSample, endSample));
+            _ac.close();
+            return b;
+          })() : null;
+        if (!tmpBuf) continue;
 
         const [strL, strR] = await _renderAudioStretched(tmpBuf, effSpeed, vol, sampleRate);
 
