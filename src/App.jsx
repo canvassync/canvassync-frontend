@@ -1159,21 +1159,48 @@ function App() {
     const files = Array.from(e.target.files || []);
     if (!files.length) return;
     files.forEach((file, index) => {
-      const src = URL.createObjectURL(file);
       const videoEl = document.createElement('video');
-      videoEl.src = src;
       videoEl.muted = false;
-      videoEl.loop = false; // nunca faz loop — end é controlado pelo timeline
+      videoEl.loop = false;
       videoEl.playsInline = true;
       videoEl.preload = 'auto';
-      videoEl.crossOrigin = 'anonymous';
-      // NÃO usar opacity:0 — Chrome throttle decodificação de vídeos invisíveis
-      // visibility:hidden mantém o decode ativo sem mostrar na tela
       videoEl.style.cssText = 'position:fixed;width:1px;height:1px;visibility:hidden;pointer-events:none;top:-9999px;left:-9999px';
       document.body.appendChild(videoEl);
       const id = Date.now() + index;
 
-      const addVideo = () => {
+      // ── Carrega o arquivo INTEIRO via MediaSource ──────────────────────────
+      // URL.createObjectURL() faz buffering incremental — buscando no meio do vídeo
+      // o Chrome só bufferiza ~30% do arquivo, causando stall de áudio em HD.
+      // Com MediaSource + appendBuffer(fullBuffer) todo o arquivo fica em RAM
+      // e QUALQUER seek é instantâneo (sem stall de áudio).
+      const tryMediaSource = (mimeType) => new Promise((resolve) => {
+        if (!window.MediaSource || !MediaSource.isTypeSupported(mimeType)) {
+          resolve(URL.createObjectURL(file)); return;
+        }
+        const ms = new MediaSource();
+        const msUrl = URL.createObjectURL(ms);
+        ms.addEventListener('sourceopen', async () => {
+          try {
+            const buf = await file.arrayBuffer();
+            const sb = ms.addSourceBuffer(mimeType);
+            sb.addEventListener('updateend', () => {
+              try { ms.endOfStream(); } catch {}
+              resolve(msUrl);
+            }, { once: true });
+            sb.onerror = () => resolve(URL.createObjectURL(file));
+            sb.appendBuffer(buf);
+          } catch { resolve(URL.createObjectURL(file)); }
+        }, { once: true });
+        videoEl.src = msUrl;
+      });
+
+      const mimeType = file.type && file.type !== '' ? file.type : 'video/mp4';
+      const src = URL.createObjectURL(file); // usado como fallback e para src inicial
+
+      // Inicia com objectURL para metadata (rápido), depois substitui com MediaSource completo
+      videoEl.src = src;
+
+      const addVideo = (finalSrc) => {
         const vidDuration = isFinite(videoEl.duration) && videoEl.duration > 0 ? videoEl.duration : 3;
         const lastEnd = videos.reduce((max, v) => Math.max(max, v.end || 0), 0);
         const start = lastEnd;
@@ -1181,7 +1208,6 @@ function App() {
         const canvas = canvasRef.current;
         const cW = canvas?.width  || 720;
         const cH = canvas?.height || 1280;
-        // Lê dimensões reais — alguns formatos (webm, mkv) só disponibilizam após canplay
         const vW = videoEl.videoWidth  || 640;
         const vH = videoEl.videoHeight || 360;
         const maxW = cW * 0.72;
@@ -1192,19 +1218,33 @@ function App() {
         const x = Math.round((cW - w) / 2);
         const y = Math.round((cH - h) / 2);
         setVideos(prev => {
-          // Evita duplicata se ambos os eventos dispararem
           if (prev.find(v => v.id === id)) return prev;
           const initSpeed = projectSpeedRef.current ?? 1;
-          return [...prev, { id, src, videoEl, start, end, x, y, width: w, height: h, radius: 12, muted: false, vidVolume: projectVolumeRef.current ?? 1, vidSpeed: initSpeed, rawDuration: vidDuration }];
+          return [...prev, { id, src: finalSrc || src, videoEl, start, end, x, y, width: w, height: h, radius: 12, muted: false, vidVolume: projectVolumeRef.current ?? 1, vidSpeed: initSpeed, rawDuration: vidDuration }];
         });
       };
 
-      // canplay é mais confiável que loadedmetadata para webm/mkv (já tem primeiro frame)
-      videoEl.addEventListener('canplay', addVideo, { once: true });
-      // Fallback: se canplay demorar, loadedmetadata também tenta
+      videoEl.addEventListener('canplay', async () => {
+        // Carrega arquivo completo via MediaSource após obter metadata
+        try {
+          const fullSrc = await tryMediaSource(mimeType);
+          if (fullSrc !== src) {
+            // MediaSource criado: substitui src sem perder duration
+            const savedTime = videoEl.currentTime;
+            videoEl.src = fullSrc;
+            videoEl.addEventListener('canplay', () => {
+              videoEl.currentTime = savedTime;
+              addVideo(fullSrc);
+            }, { once: true });
+          } else {
+            addVideo(src);
+          }
+        } catch { addVideo(src); }
+      }, { once: true });
+
       videoEl.addEventListener('loadedmetadata', () => {
         setTimeout(() => {
-          if (!videos.find(v => v.id === id)) addVideo();
+          if (!videos.find(v => v.id === id)) addVideo(src);
         }, 300);
       }, { once: true });
       videoEl.onerror = () => {
