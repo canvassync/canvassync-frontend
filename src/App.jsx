@@ -3292,28 +3292,31 @@ _setDragging(null);
       for (const v of videosRef.current) {
         if (v.muted || !v.audioBuffer) continue;
         try {
-          const trimSt  = v.trimStart ?? 0;
-          const vidSpd  = v.vidSpeed ?? 1;
-          const trimEnd = Math.min(trimSt + (v.end - v.start) * vidSpd, v.audioBuffer.duration);
-          const trimDur = Math.max(0, trimEnd - trimSt);
+          const trimSt   = v.trimStart ?? 0;
+          const vidSpd   = v.vidSpeed ?? 1;
+          const effSpd   = Math.max(0.25, Math.min(4, _spd1 * vidSpd));
+          const trimEnd  = Math.min(trimSt + (v.end - v.start) * vidSpd, v.audioBuffer.duration);
+          const trimDur  = Math.max(0, trimEnd - trimSt);
           if (trimDur < 0.05) continue;
 
-          const srcNode = ac.createBufferSource();
-          // Cria sub-buffer com região trimada
-          const tmpBuf = ac.createBuffer(v.audioBuffer.numberOfChannels,
-            Math.ceil(trimDur * v.audioBuffer.sampleRate), v.audioBuffer.sampleRate);
-          for (let ch = 0; ch < v.audioBuffer.numberOfChannels; ch++) {
-            const d = v.audioBuffer.getChannelData(ch);
-            const startS = Math.round(trimSt * v.audioBuffer.sampleRate);
-            tmpBuf.getChannelData(ch).set(d.subarray(startS, startS + tmpBuf.length));
+          // Sub-buffer com região trimada
+          const nCh    = v.audioBuffer.numberOfChannels;
+          const sr     = v.audioBuffer.sampleRate;
+          const startS = Math.round(trimSt * sr);
+          const endS   = Math.round(trimEnd * sr);
+          const tmpBuf = ac.createBuffer(nCh, endS - startS, sr);
+          for (let ch = 0; ch < nCh; ch++) {
+            tmpBuf.getChannelData(ch).set(v.audioBuffer.getChannelData(ch).subarray(startS, endS));
           }
+
+          const srcNode = ac.createBufferSource();
           srcNode.buffer = tmpBuf;
-          srcNode.playbackRate.value = Math.max(0.25, Math.min(4, _spd1 * vidSpd));
+          srcNode.playbackRate.value = effSpd;
           const volNode = ac.createGain();
           volNode.gain.value = Math.max(0, Math.min(1, _vol1 * (v.vidVolume ?? 1)));
           srcNode.connect(volNode);
           volNode.connect(dest);
-          // Agenda início no tempo correto do projeto
+          // Agenda início: v.start segundos após o início do export (ajustado por projSpd)
           srcNode.start(ac.currentTime + v.start / _spd1);
           vidSources.push(srcNode);
         } catch(e) {
@@ -3622,9 +3625,19 @@ _setDragging(null);
                 videoEl.onerror = res2;
                 setTimeout(res2, 3000);
               });
+              // Decodifica audioBuffer para Web Audio (permite seek instantâneo sem delay)
+              let audioBuffer = null;
+              try {
+                if (!videoAudioACRef.current || videoAudioACRef.current.state === 'closed') {
+                  videoAudioACRef.current = new (window.AudioContext || window.webkitAudioContext)();
+                }
+                const arrayBuf = await (await fetch(src)).arrayBuffer();
+                audioBuffer = await videoAudioACRef.current.decodeAudioData(arrayBuf);
+              } catch (e) { /* vídeo sem áudio — ignora */ }
+
               loadedVideos.push({
                 id: vData.id || Date.now() + Math.random(),
-                src, videoEl,
+                src, videoEl, audioBuffer,
                 start: vData.start ?? 0, end: vData.end ?? 3,
                 x: vData.x ?? 0, y: vData.y ?? 0,
                 width: vData.width ?? 200, height: vData.height ?? 200,
@@ -3686,6 +3699,8 @@ _setDragging(null);
     const _spd2 = Math.max(0.25, Math.min(4, projectSpeedRef.current));
     const _vol2 = Math.max(0, Math.min(1, projectVolumeRef.current));
     const outputDuration2 = effectiveDuration / _spd2;
+    stopAllVideoAudio();
+    videosRef.current.forEach(v => { if (v.videoEl) { if (!v.videoEl.paused) v.videoEl.pause(); v.videoEl.muted = false; } });
     setIsExporting(true); setExportProgress(0);
     offlineExportRef.current = true;
     try {
@@ -3766,7 +3781,10 @@ _setDragging(null);
     } catch(err) {
       console.error('[MP4 Export]', err);
       alert('Erro ao exportar MP4: ' + err.message);
-    } finally { offlineExportRef.current = false; setIsExporting(false); setExportProgress(0); }
+    } finally {
+      offlineExportRef.current = false; setIsExporting(false); setExportProgress(0);
+      videosRef.current.forEach(v => { if (v.videoEl) v.videoEl.muted = true; });
+    }
   };
 
   // ── Exportação MP4 HD 1080×1920 ─────────────────────────────────────────────
@@ -3788,6 +3806,8 @@ _setDragging(null);
     const _spd3 = Math.max(0.25, Math.min(4, projectSpeedRef.current));
     const _vol3 = Math.max(0, Math.min(1, projectVolumeRef.current));
     const outputDuration3 = effectiveDuration / _spd3;
+    stopAllVideoAudio();
+    videosRef.current.forEach(v => { if (v.videoEl) { if (!v.videoEl.paused) v.videoEl.pause(); v.videoEl.muted = false; } });
     setIsExporting(true); setExportProgress(0);
     offlineExportRef.current = true;
     try {
@@ -3872,7 +3892,10 @@ _setDragging(null);
     } catch(err) {
       console.error('[MP4 HD Export]', err);
       alert('Erro ao exportar MP4 HD: ' + err.message);
-    } finally { offlineExportRef.current = false; setIsExporting(false); setExportProgress(0); }
+    } finally {
+      offlineExportRef.current = false; setIsExporting(false); setExportProgress(0);
+      videosRef.current.forEach(v => { if (v.videoEl) v.videoEl.muted = true; });
+    }
   };
 
 
@@ -3907,12 +3930,20 @@ _setDragging(null);
     const hdH = Math.round(srcH * scaleFactor / 2) * 2;
     const SCALE = hdW / srcW;
 
-    // Pausa e salva posição atual dos vídeos para restaurar depois
+    // Para Web Audio e pausa vídeos antes de exportar HD
+    stopAllVideoAudio();
+    isPlayingRef.current = false;
+    setIsPlaying(false);
     const videoSnapshots = videosRef.current.map(v => ({
       v,
       time: v.videoEl ? v.videoEl.currentTime : 0,
+      wasMuted: v.videoEl ? v.videoEl.muted : false,
     }));
-    videoSnapshots.forEach(({ v }) => { if (v.videoEl && !v.videoEl.paused) v.videoEl.pause(); });
+    videoSnapshots.forEach(({ v }) => {
+      if (!v.videoEl) return;
+      if (!v.videoEl.paused) v.videoEl.pause();
+      v.videoEl.muted = false; // unmute para seek funcionar corretamente no Chrome
+    });
 
     setIsExporting(true);
     setExportProgress(0);
@@ -4031,11 +4062,11 @@ _setDragging(null);
       setIsExporting(false);
       setExportProgress(0);
       // Restaura vídeos ao estado anterior (evita ficarem pretos)
-      videoSnapshots.forEach(({ v, time }) => {
+      videoSnapshots.forEach(({ v, time, wasMuted }) => {
         if (!v.videoEl) return;
         try {
+          v.videoEl.muted = true; // restaura muted=true (Web Audio cuida do áudio)
           v.videoEl.currentTime = time;
-          v.videoEl.load();
         } catch { /* ignora */ }
       });
     }
