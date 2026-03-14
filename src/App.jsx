@@ -2044,11 +2044,11 @@ function App() {
     const maxTime = Math.max(duration || 0, lyricMax, imageMax, videoMax, 1);
     const nextTime = Math.max(0, Math.min(maxTime, rawX / zoom));
     if (audio) {
+      // draw() usa virtualTimeRef quando pausado, então audio.currentTime
+      // só precisa estar correto para quando o play for iniciado
       const off = audioOffsetRef.current || 0;
       const trimSt = audioTrimStartRef.current || 0;
-      // Se playhead está antes do início do áudio, posiciona no trimStart
-      // para que draw() mostre t=nextTime corretamente (currentTime=nextTime quando off=0)
-      audio.currentTime = nextTime >= off ? trimSt + (nextTime - off) : nextTime;
+      audio.currentTime = nextTime >= off ? trimSt + (nextTime - off) : trimSt;
     }
     virtualTimeRef.current = nextTime;
     setCurrentTime(nextTime);
@@ -2672,7 +2672,11 @@ _setDragging(null);
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
-    const time = (!rtExportRef.current && audioRef.current) ? audioRef.current.currentTime : virtualTimeRef.current;
+    // Quando tocando: tempo do projeto = audioOffset + (audio.currentTime - audioTrimStart)
+    // Quando pausado: virtualTimeRef tem a posição correta do playhead
+    const time = (!rtExportRef.current && audioRef.current && isPlayingRef.current && !audioRef.current.paused)
+      ? audioOffsetRef.current + (audioRef.current.currentTime - (audioTrimStartRef.current || 0))
+      : virtualTimeRef.current;
     // Reset completo do estado ctx para evitar vazamento entre frames
     // (shadowBlur, filter, globalAlpha definidos fora de save/restore contaminam o próximo frame)
     ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -2963,7 +2967,9 @@ _setDragging(null);
     const audio = audioRef.current;
     // Durante RT export (WebM+Áudio) usa sempre virtualTimeRef — o audioRef
     // não é tocado, então audio.currentTime estaria congelado no último valor
-    const t = (rtExportRef.current || !audio) ? virtualTimeRef.current : audio.currentTime;
+    const t = (rtExportRef.current || !audio || audio.paused || !isPlayingRef.current)
+      ? virtualTimeRef.current
+      : audioOffsetRef.current + (audio.currentTime - (audioTrimStartRef.current || 0));
     const playing = isPlayingRef.current;
     const spd = Math.max(0.25, Math.min(4, projectSpeedRef.current));
     videosRef.current.forEach(v => {
@@ -3058,7 +3064,9 @@ _setDragging(null);
     const loop = () => {
       // 1) Mover o playhead
       const audio = audioRef.current;
-      const t_now = audio ? audio.currentTime : virtualTimeRef.current;
+      const t_now = (audio && !audio.paused && isPlayingRef.current)
+        ? audioOffsetRef.current + (audio.currentTime - (audioTrimStartRef.current || 0))
+        : virtualTimeRef.current;
       if (playheadRef.current) {
         playheadRef.current.style.transform = `translateX(${t_now * zoomRef.current}px)`;
       }
@@ -3121,7 +3129,9 @@ _setDragging(null);
         return;
       }
       const projT = (audioOffsetRef.current || 0) + t - (audioTrimStartRef.current || 0);
-      virtualTimeRef.current = projT;
+      // Só atualiza virtualTimeRef durante playback real — scrub/pause podem
+      // disparar timeupdate, o que corromperia a posição do playhead
+      if (isPlayingRef.current) virtualTimeRef.current = projT;
       setCurrentTime(projT);
       // Ativa vídeos que entram no range durante playback com áudio
       if (!isPlayingRef.current) return;
