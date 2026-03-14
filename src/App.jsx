@@ -2885,8 +2885,6 @@ _setDragging(null);
 
   const renderAtTimeToCanvas = async (targetCanvas, t, scale = 1) => {
     const ctx = targetCanvas.getContext('2d');
-    // Reset completo de TODOS os estados relevantes do ctx a cada frame
-    // setTransform reseta só a matriz; globalAlpha/filter/shadow podem vazar de frames anteriores
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.globalAlpha = 1;
     ctx.globalCompositeOperation = 'source-over';
@@ -2894,7 +2892,6 @@ _setDragging(null);
     ctx.shadowBlur = 0;
     ctx.shadowColor = 'transparent';
     ctx.clearRect(0, 0, targetCanvas.width, targetCanvas.height);
-    // Aplica escala HD: coordenadas lógicas (270×480) × scale = resolução final
     ctx.scale(scale, scale);
     const logicalW = targetCanvas.width / scale;
     const logicalH = targetCanvas.height / scale;
@@ -2904,8 +2901,8 @@ _setDragging(null);
       ctx.fillStyle = '#000';
       ctx.fillRect(0, 0, logicalW, logicalH);
     }
-    // Renderiza TODOS os vídeos ativos no instante t (seek frame-accurate)
-    // Usa ref para evitar closure stale durante export
+
+    // ── Vídeos: seek preciso + verificação de readyState ─────────────────────
     const activeVids = (videosRef.current || []).filter(v => {
       if (!v.videoEl) return false;
       const ts = v.trimStart ?? 0;
@@ -2914,23 +2911,60 @@ _setDragging(null);
       const effEnd = v.start + (rd - ts) / Math.max(0.25, vs);
       return t >= v.start && t < Math.min(v.end, effEnd);
     });
-    if (activeVids.length > 0) await Promise.all(activeVids.map(v => new Promise(resolve => {
-      if (!v.videoEl) return resolve();
-      const vidDur = isFinite(v.videoEl.duration) && v.videoEl.duration > 0 ? v.videoEl.duration : (v.end - v.start);
-      const trimSt  = v.trimStart ?? 0;
-      const vidSpd  = v.vidSpeed ?? 1;
-      const trimEnd = Math.min(trimSt + (v.end - v.start) * vidSpd, Math.max(0, vidDur - 0.2));
-      const relTime = Math.max(0, Math.min(trimSt + (t - v.start) * vidSpd, trimEnd));
-      v.videoEl.pause();
-      if (Math.abs(v.videoEl.currentTime - relTime) < 0.05 && v.videoEl.readyState >= 2) return resolve();
-      let settled = false;
-      const hard = setTimeout(() => { if (settled) return; settled = true; resolve(); }, 300);
-      v.videoEl.addEventListener('seeked', () => { if (settled) return; settled = true; clearTimeout(hard); resolve(); }, { once: true });
-      v.videoEl.currentTime = relTime;
-    })));
-    // Desenha videoEl diretamente — sem createImageBitmap (remove cópia GPU desnecessária)
+
+    if (activeVids.length > 0) {
+      await Promise.all(activeVids.map(v => new Promise(resolve => {
+        if (!v.videoEl) return resolve();
+        const vidDur  = isFinite(v.videoEl.duration) && v.videoEl.duration > 0
+          ? v.videoEl.duration : (v.end - v.start);
+        const trimSt  = v.trimStart ?? 0;
+        const vidSpd  = v.vidSpeed ?? 1;
+        const trimEnd = Math.min(trimSt + (v.end - v.start) * vidSpd, Math.max(0, vidDur - 0.2));
+        const relTime = Math.max(0, Math.min(trimSt + (t - v.start) * vidSpd, trimEnd));
+        v.videoEl.pause();
+
+        // Função que verifica se o frame está REALMENTE pronto para desenhar
+        // readyState >= 3 = HAVE_FUTURE_DATA = frame atual + mais dados disponíveis
+        const isReady = () => v.videoEl.readyState >= 3 && v.videoEl.videoWidth > 0;
+
+        // Se já está na posição certa E frame pronto: resolve imediatamente
+        if (Math.abs(v.videoEl.currentTime - relTime) < 0.04 && isReady()) {
+          return resolve();
+        }
+
+        let settled = false;
+        const done = () => { if (settled) return; settled = true; resolve(); };
+
+        // Timeout generoso: seek em H.264 HD pode levar até 800ms
+        const hard = setTimeout(done, 800);
+
+        v.videoEl.addEventListener('seeked', () => {
+          if (isReady()) {
+            // Frame pronto logo após seeked — resolve
+            clearTimeout(hard);
+            done();
+          } else {
+            // Frame ainda não pronto — aguarda canplay (readyState vai para >= 2)
+            // E canplaythrough (readyState >= 4) como segunda opção
+            const onReady = () => {
+              v.videoEl.removeEventListener('canplay', onReady);
+              v.videoEl.removeEventListener('canplaythrough', onReady);
+              clearTimeout(hard);
+              done();
+            };
+            v.videoEl.addEventListener('canplay',        onReady, { once: true });
+            v.videoEl.addEventListener('canplaythrough', onReady, { once: true });
+          }
+        }, { once: true });
+
+        v.videoEl.currentTime = relTime;
+      })));
+    }
+
+    // Desenha somente vídeos com readyState >= 3 (frame GARANTIDO disponível)
+    // Se readyState < 3: pula silenciosamente — melhor transparente que preto
     activeVids.forEach(v => {
-      if (!v.videoEl || v.videoEl.readyState < 2 || v.videoEl.videoWidth === 0) return;
+      if (!v.videoEl || v.videoEl.readyState < 3 || v.videoEl.videoWidth === 0) return;
       const _evf = buildFilterString(v.filters);
       const _etr = getTransitionTransform(v, t);
       ctx.save();
@@ -3795,7 +3829,16 @@ _setDragging(null);
     const _vol2 = Math.max(0, Math.min(1, projectVolumeRef.current));
     const outputDuration2 = effectiveDuration / _spd2;
     stopAllVideoAudio();
-    videosRef.current.forEach(v => { if (v.videoEl) { if (!v.videoEl.paused) v.videoEl.pause(); v.videoEl.muted = false; } });
+    // Pre-posiciona vídeos no início do seu range para seeks serem sempre FORWARD (mais rápido)
+    await Promise.all(videosRef.current.map(v => new Promise(res => {
+      if (!v.videoEl) return res();
+      v.videoEl.muted = false;
+      const ts = v.trimStart ?? 0;
+      if (Math.abs(v.videoEl.currentTime - ts) < 0.05) return res();
+      v.videoEl.addEventListener('seeked', res, { once: true });
+      setTimeout(res, 500);
+      v.videoEl.currentTime = ts;
+    })));
     setIsExporting(true); setExportProgress(0);
     offlineExportRef.current = true;
     try {
@@ -3902,7 +3945,15 @@ _setDragging(null);
     const _vol3 = Math.max(0, Math.min(1, projectVolumeRef.current));
     const outputDuration3 = effectiveDuration / _spd3;
     stopAllVideoAudio();
-    videosRef.current.forEach(v => { if (v.videoEl) { if (!v.videoEl.paused) v.videoEl.pause(); v.videoEl.muted = false; } });
+    await Promise.all(videosRef.current.map(v => new Promise(res => {
+      if (!v.videoEl) return res();
+      v.videoEl.muted = false;
+      const ts = v.trimStart ?? 0;
+      if (Math.abs(v.videoEl.currentTime - ts) < 0.05) return res();
+      v.videoEl.addEventListener('seeked', res, { once: true });
+      setTimeout(res, 500);
+      v.videoEl.currentTime = ts;
+    })));
     setIsExporting(true); setExportProgress(0);
     offlineExportRef.current = true;
     try {
@@ -4028,15 +4079,19 @@ _setDragging(null);
     isPlayingRef.current = false;
     setIsPlaying(false);
     const videoSnapshots = videosRef.current.map(v => ({
-      v,
-      time: v.videoEl ? v.videoEl.currentTime : 0,
-      wasMuted: v.videoEl ? v.videoEl.muted : false,
+      v, time: v.videoEl ? v.videoEl.currentTime : 0, wasMuted: v.videoEl ? v.videoEl.muted : false,
     }));
-    videoSnapshots.forEach(({ v }) => {
-      if (!v.videoEl) return;
+    // Para, desmuta e pre-seek para o início de cada vídeo
+    await Promise.all(videosRef.current.map(v => new Promise(res => {
+      if (!v.videoEl) return res();
       if (!v.videoEl.paused) v.videoEl.pause();
-      v.videoEl.muted = false; // unmute para seek funcionar corretamente no Chrome
-    });
+      v.videoEl.muted = false;
+      const ts = v.trimStart ?? 0;
+      if (Math.abs(v.videoEl.currentTime - ts) < 0.05) return res();
+      v.videoEl.addEventListener('seeked', res, { once: true });
+      setTimeout(res, 500);
+      v.videoEl.currentTime = ts;
+    })));
 
     setIsExporting(true);
     setExportProgress(0);
