@@ -759,7 +759,7 @@ function App() {
   const [fontSize, setFontSize] = useState(35);
   const [textColor, setTextColor] = useState('#ffffff');
   const [fontFamily, setFontFamily] = useState('Poppins');
-  const [exportFormat, setExportFormat] = useState('webm_offline_audio');
+  const [exportFormat, setExportFormat] = useState('mp4');
   const fileHandleRef = useRef(null); // armazena o handle do picker para uso nos sub-handlers
 
 
