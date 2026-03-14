@@ -115,6 +115,27 @@ const EMOJI_LIST = [
 ];
 
 const ANIMATED_STICKERS = [
+  // ── Setas ──────────────────────────────────────────────────────────────────
+  { key:'arrow_up',       emoji:'⬆️',  anim:'bounce', label:'↑ Cima'       },
+  { key:'arrow_down',     emoji:'⬇️',  anim:'bounce', label:'↓ Baixo'      },
+  { key:'arrow_left',     emoji:'⬅️',  anim:'bounce', label:'← Esquerda'   },
+  { key:'arrow_right',    emoji:'➡️',  anim:'bounce', label:'→ Direita'    },
+  { key:'arrow_ne',       emoji:'↗️',  anim:'float',  label:'↗ Diagonal'   },
+  { key:'arrow_nw',       emoji:'↖️',  anim:'float',  label:'↖ Diagonal'   },
+  { key:'arrow_se',       emoji:'↘️',  anim:'float',  label:'↘ Diagonal'   },
+  { key:'arrow_sw',       emoji:'↙️',  anim:'float',  label:'↙ Diagonal'   },
+  { key:'arrow_lr',       emoji:'↔️',  anim:'pulse',  label:'↔ Horizontal' },
+  { key:'arrow_ud',       emoji:'↕️',  anim:'pulse',  label:'↕ Vertical'   },
+  { key:'arrow_curve_r',  emoji:'↩️',  anim:'spin',   label:'↩ Volta'      },
+  { key:'arrow_curve_l',  emoji:'↪️',  anim:'spin',   label:'↪ Volta'      },
+  { key:'arrow_loop',     emoji:'🔄',  anim:'spin',   label:'🔄 Loop'       },
+  { key:'arrow_dbl_up',   emoji:'⏫',  anim:'bounce', label:'⏫ Rápido ↑'   },
+  { key:'arrow_dbl_down', emoji:'⏬',  anim:'bounce', label:'⏬ Rápido ↓'   },
+  { key:'pointing_right', emoji:'👉',  anim:'bounce', label:'👉 Aponta →'   },
+  { key:'pointing_left',  emoji:'👈',  anim:'bounce', label:'👈 Aponta ←'   },
+  { key:'pointing_up',    emoji:'👆',  anim:'bounce', label:'👆 Aponta ↑'   },
+  { key:'pointing_down',  emoji:'👇',  anim:'bounce', label:'👇 Aponta ↓'   },
+  // ── Stickers originais ────────────────────────────────────────────────────
   { key:'fire',      emoji:'🔥', anim:'bounce', label:'Fogo'      },
   { key:'star',      emoji:'⭐', anim:'spin',   label:'Estrela'   },
   { key:'heart',     emoji:'❤️', anim:'pulse',  label:'Coração'   },
@@ -716,6 +737,9 @@ function App() {
   const [lyrics, setLyrics] = useState([]);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
+  const [audioOffset, setAudioOffset] = useState(0);      // posição de início do áudio na timeline (s)
+  const [audioTrimStart, setAudioTrimStart] = useState(0); // corte no início do arquivo de áudio (s)
+  const [audioTrimEnd, setAudioTrimEnd] = useState(null);  // corte no fim (null = sem corte)
   const [isPlaying, setIsPlaying] = useState(false);
   const [bulkText, setBulkText] = useState('');
   const [textLines, setTextLines] = useState([]);
@@ -1649,6 +1673,21 @@ function App() {
       initialStart: lyric?.start ?? 0, initialEnd: lyric?.end ?? 3 });
   };
 
+  // ── Drag/trim do bloco de áudio na timeline ─────────────────────────────
+  const handleAudioTimelineMouseDown = (type, e) => {
+    e.stopPropagation();
+    const audioDur = audioRef.current?.duration || duration;
+    const displayDur = audioTrimEnd !== null ? (audioTrimEnd - audioTrimStart) : (audioDur - audioTrimStart);
+    _setDragging({
+      id: 'audio', type, itemKind: 'audio',
+      initialX: e.clientX,
+      initialOffset: audioOffset,
+      initialTrimStart: audioTrimStart,
+      initialTrimEnd: audioTrimEnd !== null ? audioTrimEnd : audioDur,
+      audioDur,
+    });
+  };
+
   const handleImageTimelineMouseDown = (id, type, e) => {
     e.stopPropagation();
     setActiveImageId(id);
@@ -1987,6 +2026,32 @@ function App() {
         const maxEnd   = dragging.initialStart + (rawDur - trimSt) / Math.max(0.25, vidSpeed);
         const newEnd   = Math.max(dragging.initialStart + 0.1, Math.min(dragging.initialEnd + dx, maxEnd));
         setVideos(prev => prev.map(v => v.id === dragging.id ? { ...v, end: newEnd } : v));
+      }
+      return;
+    }
+
+    // Timeline audio drag/trim
+    if (dragging && dragging.itemKind === 'audio') {
+      const dx = (e.clientX - dragging.initialX) / zoom;
+      const audioDur = dragging.audioDur;
+      if (dragging.type === 'move') {
+        const newOffset = Math.max(0, dragging.initialOffset + dx);
+        setAudioOffset(newOffset);
+        // Sincroniza o elemento de áudio com o novo offset
+        if (audioRef.current) {
+          const t = virtualTimeRef.current;
+          if (t >= newOffset) audioRef.current.currentTime = t - newOffset + audioTrimStart;
+        }
+      } else if (dragging.type === 'trim-start') {
+        // Avança trim start (corta o início)
+        const newTrimStart = Math.max(0, Math.min(dragging.initialTrimStart + dx, dragging.initialTrimEnd - 0.1));
+        const offsetDelta = newTrimStart - dragging.initialTrimStart;
+        setAudioTrimStart(newTrimStart);
+        setAudioOffset(Math.max(0, dragging.initialOffset + offsetDelta));
+      } else if (dragging.type === 'trim-end') {
+        // Recua trim end (corta o final)
+        const newTrimEnd = Math.max(dragging.initialTrimStart + 0.1, Math.min(dragging.initialTrimEnd + dx, audioDur));
+        setAudioTrimEnd(newTrimEnd);
       }
       return;
     }
@@ -5598,6 +5663,12 @@ _setDragging(null);
                 if (audio) {
                   audio.volume       = Math.max(0, Math.min(1, projectVolumeRef.current));
                   audio.playbackRate = Math.max(0.25, Math.min(4, projectSpeedRef.current));
+                  // Ajusta currentTime para respeitar audioOffset e audioTrimStart
+                  const tNowAudio = virtualTimeRef.current;
+                  if (tNowAudio >= audioOffset) {
+                    const relAudio = audioTrimStart + (tNowAudio - audioOffset);
+                    if (Math.abs(audio.currentTime - relAudio) > 0.1) audio.currentTime = relAudio;
+                  }
                   audio.play().catch(() => {});
                 } else {
                   // Sem áudio: clock virtual baseado em Date.now()
@@ -5791,14 +5862,49 @@ _setDragging(null);
               ))}
             </div>
 
-            {/* FAIXA DE ÁUDIO — canvas estático, sem re-renders */}
-            <canvas
-              id="wave-container"
-              ref={waveformCanvasRef}
-              width={Math.ceil(audioPxWidth)}
-              height={24}
-              style={{ position: 'absolute', top: '118px', left: 0, opacity: 0.65, pointerEvents: 'none' }}
-            />
+            {/* FAIXA DE ÁUDIO — bloco arrastável com trim */}
+            {(audioSrc || audioFile || audioBase64) && (
+              <div
+                onMouseDown={(e) => handleAudioTimelineMouseDown('move', e)}
+                style={{
+                  position: 'absolute',
+                  left: `${audioOffset * zoom}px`,
+                  width: `${((audioTrimEnd !== null ? audioTrimEnd : (duration || 60)) - audioTrimStart) * zoom}px`,
+                  top: '113px',
+                  height: '28px',
+                  background: 'rgba(0,191,255,0.18)',
+                  border: '1px solid rgba(0,191,255,0.5)',
+                  borderRadius: '8px',
+                  cursor: 'grab',
+                  overflow: 'hidden',
+                  zIndex: 20,
+                  userSelect: 'none',
+                  display: 'flex',
+                  alignItems: 'center',
+                }}
+              >
+                {/* Alça trim esquerda */}
+                <div
+                  onMouseDown={(e) => { e.stopPropagation(); handleAudioTimelineMouseDown('trim-start', e); }}
+                  style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: '10px', cursor: 'ew-resize', background: 'rgba(0,191,255,0.4)', borderTopLeftRadius: '7px', borderBottomLeftRadius: '7px', zIndex: 3 }}
+                />
+                {/* Waveform visual */}
+                <canvas
+                  id="wave-container"
+                  ref={waveformCanvasRef}
+                  width={Math.ceil(audioPxWidth)}
+                  height={24}
+                  style={{ position: 'absolute', left: `${-audioTrimStart * zoom}px`, top: 2, opacity: 0.7, pointerEvents: 'none' }}
+                />
+                {/* Label */}
+                <span style={{ position: 'absolute', left: 14, fontSize: 9, color: '#00BFFF', fontWeight: 700, pointerEvents: 'none', whiteSpace: 'nowrap', textShadow: '0 1px 4px #000' }}>🎵 ÁUDIO</span>
+                {/* Alça trim direita */}
+                <div
+                  onMouseDown={(e) => { e.stopPropagation(); handleAudioTimelineMouseDown('trim-end', e); }}
+                  style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: '10px', cursor: 'ew-resize', background: 'rgba(0,191,255,0.4)', borderTopRightRadius: '7px', borderBottomRightRadius: '7px', zIndex: 3 }}
+                />
+              </div>
+            )}
 
             {/* BARRA FINA QUE MARCA O FIM DA MÚSICA */}
             {duration > 0 && (
@@ -5953,6 +6059,9 @@ _setDragging(null);
           src={audioSrc}
           onLoadedMetadata={(e) => {
             setDuration(e.target.duration);
+            setAudioOffset(0);
+            setAudioTrimStart(0);
+            setAudioTrimEnd(null);
             e.target.volume       = Math.max(0, Math.min(1, projectVolumeRef.current));
             e.target.playbackRate = Math.max(0.25, Math.min(4, projectSpeedRef.current));
           }}
