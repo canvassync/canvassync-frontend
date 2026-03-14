@@ -2699,8 +2699,8 @@ _setDragging(null);
       if (activeNow) {
         // Ajusta playbackRate se necessário
         if (Math.abs(v.videoEl.playbackRate - vSpd) > 0.01) v.videoEl.playbackRate = vSpd;
-        if (!playing && !v.videoEl.paused) {
-          // Usuário pausou: para o vídeo
+        if (!playing && !v.videoEl.paused && !rtExportRef.current) {
+          // Usuário pausou e não estamos exportando: para o vídeo
           v.videoEl.pause();
         }
         // NUNCA chamar play() aqui — o play button é o único responsável por iniciar.
@@ -2716,7 +2716,7 @@ _setDragging(null);
           delete videoAudioNodes.current[v.id];
         }
         // Pré-posiciona apenas quando NÃO está em playback e não está seekando
-        if (!playing && !v.videoEl.seeking) {
+        if (!playing && !v.videoEl.seeking && !rtExportRef.current) {
           const targetTime = t < v.start ? (v.trimStart ?? 0) : relTime;
           if (Math.abs(v.videoEl.currentTime - targetTime) > 0.1) {
             v.videoEl.currentTime = targetTime;
@@ -3478,7 +3478,7 @@ _setDragging(null);
       // 8. Sincroniza o relógio virtual para o draw loop funcionar
       const startWall = Date.now();
       virtualTimeRef.current = 0;
-      setIsPlaying(true);
+      // NÃO chamar setIsPlaying — export é independente do estado de play do usuário
       if (clockIntervalRef.current) clearInterval(clockIntervalRef.current);
       clockIntervalRef.current = setInterval(() => {
         const elapsed = (Date.now() - startWall) / 1000;
@@ -3505,7 +3505,6 @@ _setDragging(null);
 
       // 10. Para tudo
       clearInterval(clockIntervalRef.current); clockIntervalRef.current = null;
-      setIsPlaying(false);
       for (const v of vidsToPlay) { if (!v.videoEl.paused) v.videoEl.pause(); }
       if (bgSource) { try { bgSource.stop(); } catch {} }
 
@@ -3941,8 +3940,9 @@ _setDragging(null);
       const startWall = Date.now();
       virtualTimeRef.current = 0;
       rtExportRef.current = true;
-      isPlayingRef.current = true;
-      setIsPlaying(true);
+      // NÃO alterar isPlayingRef/setIsPlaying durante export:
+      // se o usuário clicar Pause/Stop, o export continua independentemente
+      // isPlayingRef.current fica como estava (pode ser false)
 
       for (const v of videosRef.current) {
         if (!v.videoEl) continue;
@@ -3989,20 +3989,23 @@ _setDragging(null);
           const vt = elapsed * spd;
           virtualTimeRef.current = vt;
           setCurrentTime(vt);
+          // Ativa vídeos que entram no range durante o export
           for (const v of videosRef.current) {
             if (!v.videoEl) continue;
-            if (vt >= v.start && vt <= v.end && v.videoEl.paused) v.videoEl.play().catch(() => {});
-            else if ((vt < v.start || vt > v.end) && !v.videoEl.paused) v.videoEl.pause();
+            if (vt >= v.start && vt <= v.end && v.videoEl.paused) {
+              v.videoEl.play().catch(() => {});
+            } else if ((vt < v.start || vt > v.end) && !v.videoEl.paused) {
+              v.videoEl.pause();
+            }
           }
         }, 100);
       });
 
-      // Para tudo
-      isPlayingRef.current = false;
+      // Para os vídeos do export (não toca com audioRef — export é independente)
       rtExportRef.current = false;
-      setIsPlaying(false);
-      if (audioRef.current && !audioRef.current.paused) audioRef.current.pause();
       videosRef.current.forEach(v => { if (v.videoEl) { if (!v.videoEl.paused) v.videoEl.pause(); v.videoEl.muted = true; } });
+      // Restaura estado de play/pause como estava ANTES do export
+      // (não força pause — se o usuário estava tocando antes, continua depois)
 
       await vEnc.flush();
       if (encoderError) throw encoderError;
@@ -4017,7 +4020,6 @@ _setDragging(null);
       setIsExporting(false);
       setExportProgress(0);
       offlineExportRef.current = false;
-      isPlayingRef.current = false;
       rtExportRef.current = false;
       videosRef.current.forEach(v => { if (v.videoEl) v.videoEl.muted = true; });
     }
