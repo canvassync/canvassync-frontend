@@ -5818,7 +5818,7 @@ _setDragging(null);
                   {canvasFormat} · {CANVAS_FORMATS[canvasFormat].width}×{CANVAS_FORMATS[canvasFormat].height}
                 </span>
                 <button
-                  onClick={() => {
+                  onClick={async () => {
                     const audio = audioRef.current;
                     if (isPlaying) {
                       isPlayingRef.current = false;
@@ -5830,7 +5830,7 @@ _setDragging(null);
                     } else {
                       isPlayingRef.current = true;
                       if (videoAudioACRef.current && videoAudioACRef.current.state === 'suspended') {
-                        videoAudioACRef.current.resume().catch(() => {});
+                        try { await videoAudioACRef.current.resume(); } catch {}
                       }
                       const tNow = virtualTimeRef.current;
                       // Inicia vídeos ativos
@@ -6061,7 +6061,7 @@ _setDragging(null);
         
         {/* CONTROLES E ZOOM */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '6px 16px', background: 'rgba(0,0,0,0.6)', borderBottom: '1px solid rgba(255,255,255,0.07)', width: '100%', boxSizing: 'border-box' }}>
-            <button onClick={() => {
+            <button onClick={async () => {
               const audio = audioRef.current;
               if (isPlaying) {
                 isPlayingRef.current = false;
@@ -6078,10 +6078,10 @@ _setDragging(null);
                 // Iniciar — atualiza isPlayingRef SINCRONAMENTE antes de qualquer play()
                 // Sem isso, o RAF (60fps) vê playing=false enquanto vídeo está tocando e pausa tudo
                 isPlayingRef.current = true;
-                // Resume do AudioContext de vídeo diretamente no gesto do usuário
-                // (única forma confiável de desbloquear o AC criado durante upload)
+                // AWAIT resume — sem await o AC ainda está suspended quando startVideoAudio
+                // chama source.start(), que fica bloqueado até outro audio.play() rodar
                 if (videoAudioACRef.current && videoAudioACRef.current.state === 'suspended') {
-                  videoAudioACRef.current.resume().catch(() => {});
+                  try { await videoAudioACRef.current.resume(); } catch {}
                 }
                 const tNow = virtualTimeRef.current;
                 // Pré-posiciona vídeos ainda não ativos no trimStart (evita delay quando chegarem)
