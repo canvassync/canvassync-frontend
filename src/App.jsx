@@ -966,6 +966,7 @@ function App() {
   const clockIntervalRef  = useRef(null);
   const rtExportRef       = useRef(false); // true durante WebM+Áudio RT — força draw() a ignorar audioRef
   const offlineExportRef  = useRef(false); // true durante exports frame-a-frame — suspende syncVideosInRAF
+  const exportStopRef     = useRef(null);  // função para parar o export RT antecipadamente
   // Web Audio para vídeos (evita delay de áudio AAC em MP4 HD)
   const videoAudioACRef   = useRef(null);   // AudioContext partilhado para vídeos
   const videoAudioNodes   = useRef({});     // id → {source, gainNode} dos vídeos tocando
@@ -1606,7 +1607,9 @@ function App() {
     const audio = audioRef.current;
     if (audio) { audio.pause(); audio.currentTime = 0; }
     if (clockIntervalRef.current) { clearInterval(clockIntervalRef.current); clockIntervalRef.current = null; }
-    stopAllVideoAudio();  // para o áudio Web Audio dos vídeos
+    // Para o export RT se estiver rodando
+    if (exportStopRef.current) { exportStopRef.current(); exportStopRef.current = null; }
+    stopAllVideoAudio();// para o áudio Web Audio dos vídeos
     virtualTimeRef.current = 0;
     setIsPlaying(false);
     // Pré-posiciona todos os vídeos no trimStart para que play() inicie sem delay
@@ -3930,24 +3933,13 @@ _setDragging(null);
       }
 
       // ── Captura de frames em tempo real ────────────────────────────────────
-      videosRef.current.forEach(v => {
-        if (!v.videoEl) return;
-        v.videoEl.muted = false;
-        v.videoEl.playbackRate = Math.max(0.25, Math.min(4, spd * (v.vidSpeed ?? 1)));
-        v.videoEl.currentTime = v.trimStart ?? 0;
-      });
+      // Os vídeos são tocados internamente pelo syncId abaixo — invisível para o usuário
+      // (videoEl.muted=false apenas para o export, restaurado no finally)
+      // O draw loop do RAF captura os frames via virtualTimeRef sem alterar o estado de play
 
       const startWall = Date.now();
       virtualTimeRef.current = 0;
       rtExportRef.current = true;
-      // NÃO alterar isPlayingRef/setIsPlaying durante export:
-      // se o usuário clicar Pause/Stop, o export continua independentemente
-      // isPlayingRef.current fica como estava (pode ser false)
-
-      for (const v of videosRef.current) {
-        if (!v.videoEl) continue;
-        if (0 >= v.start && 0 <= v.end) v.videoEl.play().catch(() => {});
-      }
 
       const totalFrames = Math.ceil(audioDur * FPS);
       let frameCount = 0;
@@ -3956,8 +3948,10 @@ _setDragging(null);
         let stopped = false;
         const stop = () => {
           if (stopped) return; stopped = true;
+          exportStopRef.current = null;
           clearInterval(captureId); clearInterval(syncId); resolve();
         };
+        exportStopRef.current = stop; // permite que Stop pare o export
 
         const captureId = setInterval(() => {
           if (stopped || encoderError) { stop(); return; }
@@ -3984,12 +3978,26 @@ _setDragging(null);
           if (frameCount % 15 === 0) setExportProgress(Math.min(frameCount / totalFrames, 0.99));
         }, Math.round(1000 / FPS));
 
+        // Pre-posiciona e desmuta vídeos para o export (sem aparecer no editor)
+        videosRef.current.forEach(v => {
+          if (!v.videoEl) return;
+          v.videoEl.muted = false; // precisa de áudio se usar MediaElementSource
+          v.videoEl.volume = 0;    // silencia saída do speaker — export captura via offscreen
+          v.videoEl.playbackRate = Math.max(0.25, Math.min(4, spd * (v.vidSpeed ?? 1)));
+          v.videoEl.currentTime = v.trimStart ?? 0;
+        });
+        // Inicia vídeos no range t=0
+        videosRef.current.forEach(v => {
+          if (!v.videoEl || v.start > 0) return;
+          v.videoEl.play().catch(() => {});
+        });
+
         const syncId = setInterval(() => {
           const elapsed = (Date.now() - startWall) / 1000;
           const vt = elapsed * spd;
           virtualTimeRef.current = vt;
           setCurrentTime(vt);
-          // Ativa vídeos que entram no range durante o export
+          // Ativa/desativa vídeos conforme o tempo — sem alterar estado de play do usuário
           for (const v of videosRef.current) {
             if (!v.videoEl) continue;
             if (vt >= v.start && vt <= v.end && v.videoEl.paused) {
@@ -4001,11 +4009,15 @@ _setDragging(null);
         }, 100);
       });
 
-      // Para os vídeos do export (não toca com audioRef — export é independente)
+      // Para os vídeos do export e restaura volume
       rtExportRef.current = false;
-      videosRef.current.forEach(v => { if (v.videoEl) { if (!v.videoEl.paused) v.videoEl.pause(); v.videoEl.muted = true; } });
-      // Restaura estado de play/pause como estava ANTES do export
-      // (não força pause — se o usuário estava tocando antes, continua depois)
+      videosRef.current.forEach(v => {
+        if (!v.videoEl) return;
+        if (!v.videoEl.paused) v.videoEl.pause();
+        v.videoEl.muted = true;
+        // Restaura volume para o valor configurado pelo usuário
+        v.videoEl.volume = Math.max(0, Math.min(1, projectVolumeRef.current * (v.vidVolume ?? 1)));
+      });
 
       await vEnc.flush();
       if (encoderError) throw encoderError;
