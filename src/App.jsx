@@ -178,30 +178,55 @@ const ANIMATED_STICKERS = [
 
 // Calcula offset de animação de sticker baseado em tempo real
 const SFX_LIST = [
-  { key:'applause',  emoji:'👏', name:'Aplausos',    dur:2.5 },
-  { key:'explosion', emoji:'💥', name:'Explosão',    dur:2.0 },
-  { key:'whoosh',    emoji:'💨', name:'Whoosh',      dur:0.8 },
-  { key:'bell',      emoji:'🔔', name:'Sino',        dur:1.8 },
-  { key:'kick',      emoji:'🥁', name:'Bumbo',       dur:0.6 },
-  { key:'fanfare',   emoji:'🎺', name:'Fanfarra',    dur:2.2 },
-  { key:'laser',     emoji:'🔫', name:'Laser',       dur:0.7 },
-  { key:'success',   emoji:'✅', name:'Sucesso',     dur:1.0 },
-  { key:'error',     emoji:'❌', name:'Erro',        dur:0.6 },
-  { key:'notify',    emoji:'🔕', name:'Notificação', dur:0.5 },
-  { key:'coin',      emoji:'🪙', name:'Moeda',       dur:0.6 },
-  { key:'punch',     emoji:'👊', name:'Soco',        dur:0.4 },
-  { key:'glass',     emoji:'🥂', name:'Brinde',      dur:2.0 },
-  { key:'powerup',   emoji:'🎮', name:'Power Up',    dur:1.2 },
-  { key:'pop',       emoji:'🎈', name:'Pop',         dur:0.3 },
-  { key:'thunder',   emoji:'⛈️', name:'Trovão',     dur:3.0 },
-  { key:'heartbeat', emoji:'💓', name:'Coração',     dur:1.2 },
-  { key:'swoosh',    emoji:'⚡', name:'Swoosh',      dur:0.4 },
-  { key:'horn',      emoji:'📯', name:'Buzina',      dur:1.0 },
-  { key:'crowd',     emoji:'🎉', name:'Multidão',    dur:2.5 },
-  { key:'drop',      emoji:'💧', name:'Gota',        dur:0.6 },
-  { key:'drums',     emoji:'🎵', name:'Bateria',     dur:1.6 },
-  { key:'woah',      emoji:'😮', name:'Woah',        dur:0.9 },
-  { key:'cash',      emoji:'💰', name:'Dinheiro',    dur:1.0 },
+  // ── Reações / Público ─────────────────────────────────────────────────────
+  { key:'applause',  emoji:'👏', name:'Aplausos',     dur:2.5 },
+  { key:'crowd',     emoji:'🎉', name:'Multidão',     dur:2.5 },
+  { key:'laugh',     emoji:'😂', name:'Risadas',      dur:2.2 },
+  { key:'boo',       emoji:'👎', name:'Vaias',        dur:1.8 },
+  { key:'gasp',      emoji:'😱', name:'Suspiro',      dur:0.8 },
+  { key:'woah',      emoji:'😮', name:'Woah',         dur:0.9 },
+  // ── Música / Ritmo ────────────────────────────────────────────────────────
+  { key:'kick',      emoji:'🥁', name:'Bumbo',        dur:0.6 },
+  { key:'drums',     emoji:'🎵', name:'Bateria',      dur:1.6 },
+  { key:'snare',     emoji:'🪘', name:'Caixa',        dur:0.4 },
+  { key:'hihat',     emoji:'🎶', name:'Hi-Hat',       dur:0.3 },
+  { key:'bass',      emoji:'🎸', name:'Baixo',        dur:1.0 },
+  { key:'fanfare',   emoji:'🎺', name:'Fanfarra',     dur:2.2 },
+  { key:'horn',      emoji:'📯', name:'Buzina',       dur:1.0 },
+  { key:'vinyl',     emoji:'💿', name:'Vinil',        dur:1.2 },
+  // ── Ações / Impacto ───────────────────────────────────────────────────────
+  { key:'explosion', emoji:'💥', name:'Explosão',     dur:2.0 },
+  { key:'punch',     emoji:'👊', name:'Soco',         dur:0.4 },
+  { key:'whoosh',    emoji:'💨', name:'Whoosh',       dur:0.8 },
+  { key:'swoosh',    emoji:'⚡', name:'Swoosh',       dur:0.4 },
+  { key:'thunder',   emoji:'⛈️', name:'Trovão',      dur:3.0 },
+  { key:'gunshot',   emoji:'🔫', name:'Tiro',         dur:0.5 },
+  { key:'glass_break',emoji:'🔨',name:'Vidro',        dur:1.0 },
+  { key:'thud',      emoji:'🪨', name:'Impacto',      dur:0.5 },
+  // ── Interface / Feedback ──────────────────────────────────────────────────
+  { key:'success',   emoji:'✅', name:'Sucesso',      dur:1.0 },
+  { key:'error',     emoji:'❌', name:'Erro',         dur:0.6 },
+  { key:'notify',    emoji:'🔕', name:'Notificação',  dur:0.5 },
+  { key:'bell',      emoji:'🔔', name:'Sino',         dur:1.8 },
+  { key:'coin',      emoji:'🪙', name:'Moeda',        dur:0.6 },
+  { key:'powerup',   emoji:'🎮', name:'Power Up',     dur:1.2 },
+  { key:'levelup',   emoji:'⬆️', name:'Level Up',    dur:1.5 },
+  { key:'pop',       emoji:'🎈', name:'Pop',          dur:0.3 },
+  { key:'click',     emoji:'🖱️', name:'Click',       dur:0.15 },
+  { key:'swipe',     emoji:'👆', name:'Swipe',        dur:0.3 },
+  // ── Natureza / Ambiente ───────────────────────────────────────────────────
+  { key:'drop',      emoji:'💧', name:'Gota',         dur:0.6 },
+  { key:'rain',      emoji:'🌧️', name:'Chuva',       dur:2.0 },
+  { key:'wind',      emoji:'🌬️', name:'Vento',       dur:2.0 },
+  { key:'fire',      emoji:'🔥', name:'Fogo',         dur:2.0 },
+  { key:'ocean',     emoji:'🌊', name:'Oceano',       dur:3.0 },
+  // ── Especiais ─────────────────────────────────────────────────────────────
+  { key:'laser',     emoji:'🔆', name:'Laser',        dur:0.7 },
+  { key:'glitch',    emoji:'📺', name:'Glitch',       dur:0.6 },
+  { key:'rewind',    emoji:'⏪', name:'Rebobinar',    dur:0.8 },
+  { key:'heartbeat', emoji:'💓', name:'Coração',      dur:1.2 },
+  { key:'glass',     emoji:'🥂', name:'Brinde',       dur:2.0 },
+  { key:'cash',      emoji:'💰', name:'Dinheiro',     dur:1.0 },
 ];
 
 const synthesizeSfxBuffer = async (key) => {
@@ -470,6 +495,172 @@ const synthesizeSfxBuffer = async (key) => {
         g.gain.exponentialRampToValueAtTime(0.001, t+0.15);
       });
       noise(0.1, 0, 0.05, 'highpass', 5000);
+      break;
+    }
+    // ── Novos sons ────────────────────────────────────────────────────────────
+    case 'laugh': {
+      // Risadas: modulação de frequência em grupos de 3
+      for (let i = 0; i < 6; i++) {
+        const t0 = i * 0.35; const f = 300 + Math.random() * 200;
+        const g = noise(0, t0, t0 + 0.25, 'bandpass', f);
+        g.gain.setValueAtTime(0, t0);
+        g.gain.linearRampToValueAtTime(0.4, t0 + 0.06);
+        g.gain.linearRampToValueAtTime(0, t0 + 0.25);
+      }
+      break;
+    }
+    case 'boo': {
+      const g = noise(0, 0, dur, 'bandpass', 800);
+      g.gain.setValueAtTime(0, 0);
+      g.gain.linearRampToValueAtTime(0.5, 0.3);
+      g.gain.setValueAtTime(0.5, dur - 0.4);
+      g.gain.linearRampToValueAtTime(0, dur);
+      const og = osc('sawtooth', 180, 0.15, 0, dur);
+      og.gain.setValueAtTime(0.15, 0);
+      og.gain.linearRampToValueAtTime(0, dur);
+      break;
+    }
+    case 'gasp': {
+      const g = noise(0, 0, 0.4, 'highpass', 1200);
+      g.gain.setValueAtTime(0, 0);
+      g.gain.linearRampToValueAtTime(0.5, 0.1);
+      g.gain.linearRampToValueAtTime(0, 0.4);
+      osc('sine', 600, 0.2, 0.1, 0.4, 400);
+      break;
+    }
+    case 'snare': {
+      const ng = noise(0, 0, 0.2, 'bandpass', 3000);
+      ng.gain.setValueAtTime(0.6, 0); ng.gain.exponentialRampToValueAtTime(0.001, 0.2);
+      const og = osc('sine', 200, 0.4, 0, 0.1, 60);
+      og.gain.setValueAtTime(0.4, 0); og.gain.exponentialRampToValueAtTime(0.001, 0.1);
+      break;
+    }
+    case 'hihat': {
+      const ng = noise(0, 0, 0.08, 'highpass', 8000);
+      ng.gain.setValueAtTime(0.5, 0); ng.gain.exponentialRampToValueAtTime(0.001, 0.08);
+      break;
+    }
+    case 'bass': {
+      const og = osc('sine', 60, 0.7, 0, dur, 40);
+      og.gain.setValueAtTime(0, 0);
+      og.gain.linearRampToValueAtTime(0.7, 0.02);
+      og.gain.setValueAtTime(0.7, 0.4);
+      og.gain.linearRampToValueAtTime(0, dur);
+      osc('sawtooth', 60, 0.1, 0, 0.05);
+      break;
+    }
+    case 'vinyl': {
+      // Crackle de vinil
+      noise(0.15, 0, dur, 'highpass', 3000);
+      for (let i = 0; i < 8; i++) {
+        const t0 = i * dur / 8;
+        const ng = noise(0, t0, t0 + 0.05, 'bandpass', 2000 + Math.random() * 3000);
+        ng.gain.setValueAtTime(0.3 * Math.random(), t0);
+        ng.gain.exponentialRampToValueAtTime(0.001, t0 + 0.05);
+      }
+      break;
+    }
+    case 'gunshot': {
+      const ng = noise(0, 0, 0.3, 'lowpass', 400);
+      ng.gain.setValueAtTime(0.9, 0); ng.gain.exponentialRampToValueAtTime(0.001, 0.3);
+      noise(0.4, 0, 0.08, null, 0);
+      osc('sine', 100, 0.5, 0, 0.15, 30);
+      break;
+    }
+    case 'glass_break': {
+      noise(0.5, 0, 0.1, null, 0);
+      for (let i = 0; i < 5; i++) {
+        const t0 = 0.05 + i * 0.15; const f = 2000 + Math.random() * 4000;
+        const ng = noise(0, t0, t0 + 0.2, 'highpass', f);
+        ng.gain.setValueAtTime(0.3, t0); ng.gain.exponentialRampToValueAtTime(0.001, t0 + 0.2);
+      }
+      break;
+    }
+    case 'thud': {
+      const og = osc('sine', 100, 0.7, 0, 0.4, 30);
+      og.gain.setValueAtTime(0.7, 0); og.gain.exponentialRampToValueAtTime(0.001, 0.4);
+      noise(0.3, 0, 0.08, 'lowpass', 300);
+      break;
+    }
+    case 'levelup': {
+      [[261,0],[329,0.2],[392,0.4],[523,0.6],[659,0.8],[784,1.0]].forEach(([f,t]) => {
+        const g = osc('square', f, 0.2, t, t + 0.25);
+        g.gain.setValueAtTime(0.2, t); g.gain.linearRampToValueAtTime(0, t + 0.25);
+      });
+      break;
+    }
+    case 'click': {
+      const og = osc('sine', 1200, 0.5, 0, 0.05);
+      og.gain.setValueAtTime(0.5, 0); og.gain.exponentialRampToValueAtTime(0.001, 0.05);
+      break;
+    }
+    case 'swipe': {
+      const g = noise(0.4, 0, 0.2, 'bandpass', 2000);
+      g.gain.setValueAtTime(0, 0);
+      g.gain.linearRampToValueAtTime(0.4, 0.05);
+      g.gain.linearRampToValueAtTime(0, 0.2);
+      const og = osc('sine', 800, 0.2, 0, 0.2, 1600);
+      og.gain.setValueAtTime(0.2, 0); og.gain.linearRampToValueAtTime(0, 0.2);
+      break;
+    }
+    case 'rain': {
+      noise(0.25, 0, dur, 'highpass', 4000);
+      noise(0.1, 0, dur, 'bandpass', 1500);
+      for (let i = 0; i < 12; i++) {
+        const t0 = Math.random() * dur;
+        const ng = noise(0, t0, t0 + 0.04, 'highpass', 5000 + Math.random() * 3000);
+        ng.gain.setValueAtTime(0.15, t0); ng.gain.exponentialRampToValueAtTime(0.001, t0 + 0.04);
+      }
+      break;
+    }
+    case 'wind': {
+      const g = noise(0.3, 0, dur, 'bandpass', 600);
+      g.gain.setValueAtTime(0.1, 0);
+      g.gain.linearRampToValueAtTime(0.4, dur * 0.3);
+      g.gain.linearRampToValueAtTime(0.2, dur * 0.7);
+      g.gain.linearRampToValueAtTime(0.1, dur);
+      noise(0.1, 0, dur, 'highpass', 2000);
+      break;
+    }
+    case 'fire': {
+      noise(0.25, 0, dur, 'bandpass', 800);
+      noise(0.1, 0, dur, 'bandpass', 300);
+      for (let i = 0; i < 10; i++) {
+        const t0 = Math.random() * dur;
+        const ng = noise(0, t0, t0 + 0.1, 'bandpass', 1000 + Math.random() * 1000);
+        ng.gain.setValueAtTime(0.2, t0); ng.gain.exponentialRampToValueAtTime(0.001, t0 + 0.1);
+      }
+      break;
+    }
+    case 'ocean': {
+      const g = noise(0.3, 0, dur, 'bandpass', 400);
+      // Onda lenta
+      for (let i = 0; i < 3; i++) {
+        const t0 = i * (dur / 3);
+        g.gain.setValueAtTime(0.15, t0);
+        g.gain.linearRampToValueAtTime(0.35, t0 + dur/6);
+        g.gain.linearRampToValueAtTime(0.15, t0 + dur/3);
+      }
+      noise(0.1, 0, dur, 'highpass', 2000);
+      break;
+    }
+    case 'glitch': {
+      for (let i = 0; i < 8; i++) {
+        const t0 = i * 0.07; const f = 200 + Math.random() * 2000;
+        const g = osc(i%2===0?'square':'sawtooth', f, 0.3, t0, t0 + 0.05);
+        g.gain.setValueAtTime(0.3, t0); g.gain.exponentialRampToValueAtTime(0.001, t0+0.05);
+      }
+      noise(0.2, 0, 0.1, 'highpass', 3000);
+      break;
+    }
+    case 'rewind': {
+      const g = noise(0.3, 0, 0.6, 'bandpass', 2000);
+      g.gain.setValueAtTime(0, 0);
+      g.gain.linearRampToValueAtTime(0.4, 0.1);
+      g.gain.setValueAtTime(0.4, 0.5);
+      g.gain.linearRampToValueAtTime(0, 0.6);
+      const og = osc('sawtooth', 1200, 0.15, 0, 0.6, 200);
+      og.gain.setValueAtTime(0.15, 0); og.gain.linearRampToValueAtTime(0, 0.6);
       break;
     }
   }
@@ -777,6 +968,10 @@ function App() {
   const [showSfxPanel, setShowSfxPanel] = useState(false);
   const [sfxPanelPos, setSfxPanelPos]   = useState({ top: 80, left: 0 });
   const [showStickerPanel, setShowStickerPanel] = useState(false);
+  const [showBgPanel, setShowBgPanel] = useState(false);
+  const [bgSearch, setBgSearch] = useState('');
+  const [bgSearchResults, setBgSearchResults] = useState([]);
+  const [bgSearchLoading, setBgSearchLoading] = useState(false);
   const [stickerPanelPos, setStickerPanelPos] = useState({ top: 80, left: 0 });
   const [stickerTab, setStickerTab] = useState('emoji');  // 'emoji'|'sticker'|'gif'
   const activeStickerRef = useRef(null);                  // id do sticker selecionado (sem re-render)
@@ -1004,6 +1199,9 @@ function App() {
       if (e.key === 'Escape') { setIsFullscreen(false); setShowStickerPanel(false); setShowTemplatePanel(false); }
     };
     const onClickOut = (e) => {
+      if (showBgPanel && bgBtnRef.current && !bgBtnRef.current.contains(e.target)) {
+        setShowBgPanel(false);
+      }
       if (showStickerPanel && stickerBtnRef.current && !stickerBtnRef.current.contains(e.target) &&
           !e.target.closest('[data-sticker-portal]')) {
         setShowStickerPanel(false);
@@ -1020,7 +1218,45 @@ function App() {
     window.addEventListener('keydown', onKey);
     document.addEventListener('mousedown', onClickOut);
     return () => { window.removeEventListener('keydown', onKey); document.removeEventListener('mousedown', onClickOut); };
-  }, [showStickerPanel, showSfxPanel, showTemplatePanel]);
+  }, [showStickerPanel, showSfxPanel, showTemplatePanel, showBgPanel]);
+
+  const searchUnsplash = async (query) => {
+    if (!query.trim()) return;
+    setBgSearchLoading(true);
+    setBgSearchResults([]);
+    try {
+      // Usa Unsplash Source API (sem chave) para busca de imagens gratuitas
+      const terms = encodeURIComponent(query.trim());
+      // Gera 12 URLs de imagens temáticas do Unsplash (sem API key necessária)
+      const results = Array.from({ length: 12 }, (_, i) => ({
+        id: `${terms}_${i}`,
+        thumb: `https://source.unsplash.com/400x600/?${terms}&sig=${i}`,
+        full:  `https://source.unsplash.com/720x1280/?${terms}&sig=${i}`,
+        credit: 'Unsplash',
+      }));
+      setBgSearchResults(results);
+    } catch(e) {
+      console.error('[Unsplash]', e);
+    } finally {
+      setBgSearchLoading(false);
+    }
+  };
+
+  const applyBgFromUrl = async (url) => {
+    try {
+      const res = await fetch(url);
+      const blob = await res.blob();
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        setImageSrc(ev.target.result);
+        const img = new Image();
+        img.onload = () => setImage(img);
+        img.src = ev.target.result;
+      };
+      reader.readAsDataURL(blob);
+      setShowBgPanel(false);
+    } catch(e) { alert('Erro ao carregar imagem.'); }
+  };
 
   const handleImageChange = (e) => {
     const file = e.target.files[0];
@@ -4237,7 +4473,155 @@ _setDragging(null);
                 <button onClick={() => { setImageSrc(null); setImage(null); if (bgInputRef.current) bgInputRef.current.value = ''; }} title="Remover fundo" style={{ background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '6px', padding: '1px 7px', fontSize: '11px', color: '#f87171', cursor: 'pointer', lineHeight: 1.6 }}>✕</button>
               )}
             </div>
-            <input ref={bgInputRef} type="file" onChange={handleImageChange} accept="image/*" style={{ color: '#f8fafc', fontSize: '11px' }} />
+            <div style={{ display: 'flex', gap: 4 }}>
+              <input ref={bgInputRef} type="file" onChange={handleImageChange} accept="image/*" style={{ color: '#f8fafc', fontSize: '11px' }} />
+              <div style={{ position: 'relative' }}>
+                <button
+                  ref={bgBtnRef}
+                  onClick={() => { const r = bgBtnRef.current?.getBoundingClientRect(); if (r) setShowBgPanel(v => !v); }}
+                  style={{ background: showBgPanel ? 'rgba(0,191,255,0.2)' : 'rgba(0,191,255,0.07)', border: `1px solid ${showBgPanel ? 'rgba(0,191,255,0.6)' : 'rgba(0,191,255,0.25)'}`, borderRadius: 8, padding: '3px 9px', cursor: 'pointer', fontSize: 11, color: '#00BFFF', fontWeight: 700, whiteSpace: 'nowrap' }}
+                >🎨 Fundos</button>
+                {showBgPanel && (() => {
+                  const rect = bgBtnRef.current?.getBoundingClientRect();
+                  return createPortal(
+                    <div style={{ position: 'fixed', top: (rect?.bottom ?? 60) + 6, left: Math.max(8, (rect?.left ?? 0)), zIndex: 99999, background: '#0f172a', border: '1px solid rgba(0,191,255,0.25)', borderRadius: 16, width: 420, maxHeight: '80vh', boxShadow: '0 20px 60px rgba(0,0,0,0.8)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                      {/* Header */}
+                      <div style={{ padding: '12px 16px 8px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <span style={{ fontWeight: 800, fontSize: 14, color: '#00BFFF' }}>🎨 Fundos</span>
+                        <button onClick={() => setShowBgPanel(false)} style={{ background: 'none', border: 'none', color: '#555', cursor: 'pointer', fontSize: 16 }}>✕</button>
+                      </div>
+
+                      {/* Tabs */}
+                      {(() => {
+                        const [bgTab, setBgTab] = React.useState('gradients');
+                        const GRADIENTS = [
+                          { id:'g1', label:'Noite', css:'linear-gradient(160deg,#0a0a2e 0%,#1a0a3e 50%,#0d1b4b 100%)' },
+                          { id:'g2', label:'Pôr do Sol', css:'linear-gradient(160deg,#ff6b6b 0%,#feca57 50%,#ff9ff3 100%)' },
+                          { id:'g3', label:'Oceano', css:'linear-gradient(160deg,#0575e6 0%,#021b79 100%)' },
+                          { id:'g4', label:'Floresta', css:'linear-gradient(160deg,#134e5e 0%,#71b280 100%)' },
+                          { id:'g5', label:'Fogo', css:'linear-gradient(160deg,#f83600 0%,#f9d423 100%)' },
+                          { id:'g6', label:'Aurora', css:'linear-gradient(160deg,#00c3ff 0%,#7b2ff7 50%,#f64f59 100%)' },
+                          { id:'g7', label:'Rosa Neon', css:'linear-gradient(160deg,#f953c6 0%,#b91d73 100%)' },
+                          { id:'g8', label:'Menta', css:'linear-gradient(160deg,#0ba360 0%,#3cba92 100%)' },
+                          { id:'g9', label:'Carvão', css:'linear-gradient(160deg,#232526 0%,#414345 100%)' },
+                          { id:'g10', label:'Roxo', css:'linear-gradient(160deg,#4776e6 0%,#8e54e9 100%)' },
+                          { id:'g11', label:'Cobre', css:'linear-gradient(160deg,#b79891 0%,#94716b 100%)' },
+                          { id:'g12', label:'Cyber', css:'linear-gradient(160deg,#00f2fe 0%,#4facfe 50%,#0ef 100%)' },
+                          { id:'s1', label:'Preto', css:'#000000' },
+                          { id:'s2', label:'Branco', css:'#ffffff' },
+                          { id:'s3', label:'Cinza', css:'#1a1a2e' },
+                          { id:'s4', label:'Azul', css:'#0d1b2a' },
+                        ];
+                        const applyGradient = (css) => {
+                          const cw = 720, ch = 1280;
+                          const c = document.createElement('canvas'); c.width = cw; c.height = ch;
+                          const ctx2 = c.getContext('2d');
+                          if (css.startsWith('linear') || css.startsWith('#')) {
+                            if (css.startsWith('linear')) {
+                              // Parse gradient
+                              const stops = css.match(/#[a-fA-F0-9]{3,6}|rgba?\([^)]+\)/g) || [];
+                              const grad = ctx2.createLinearGradient(0, 0, cw * 0.3, ch);
+                              stops.forEach((c2, i) => grad.addColorStop(i / Math.max(1, stops.length - 1), c2));
+                              ctx2.fillStyle = grad;
+                            } else {
+                              ctx2.fillStyle = css;
+                            }
+                            ctx2.fillRect(0, 0, cw, ch);
+                          }
+                          const dataUrl = c.toDataURL('image/jpeg', 0.95);
+                          setImageSrc(dataUrl);
+                          const img = new Image(); img.onload = () => setImage(img); img.src = dataUrl;
+                          setShowBgPanel(false);
+                        };
+                        return (
+                          <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
+                            {/* Tab buttons */}
+                            <div style={{ display: 'flex', gap: 4, padding: '8px 12px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                              {[['gradients','🎨 Gradientes'],['unsplash','🔍 Fotos'],['generate','⚡ Gerar']].map(([tab,label]) => (
+                                <button key={tab} onClick={() => setBgTab(tab)} style={{ padding: '5px 12px', borderRadius: 8, border: 'none', cursor: 'pointer', fontSize: 11, fontWeight: 700, background: bgTab===tab ? '#00BFFF' : 'rgba(255,255,255,0.06)', color: bgTab===tab ? '#000' : '#888' }}>{label}</button>
+                              ))}
+                            </div>
+
+                            {/* Gradients tab */}
+                            {bgTab === 'gradients' && (
+                              <div style={{ padding: 12, display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, overflowY: 'auto', maxHeight: 340 }}>
+                                {GRADIENTS.map(g => (
+                                  <div key={g.id} onClick={() => applyGradient(g.css)} style={{ aspectRatio: '9/16', background: g.css, borderRadius: 8, cursor: 'pointer', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', padding: 4, border: '2px solid rgba(255,255,255,0.08)', transition: 'transform 0.15s', ':hover': { transform: 'scale(1.05)' } }}>
+                                    <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.8)', fontWeight: 700, textShadow: '0 1px 3px rgba(0,0,0,0.8)', whiteSpace: 'nowrap' }}>{g.label}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+
+                            {/* Unsplash tab */}
+                            {bgTab === 'unsplash' && (
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: 12, overflow: 'hidden' }}>
+                                <div style={{ display: 'flex', gap: 6 }}>
+                                  <input
+                                    value={bgSearch}
+                                    onChange={e => setBgSearch(e.target.value)}
+                                    onKeyDown={e => e.key === 'Enter' && searchUnsplash(bgSearch)}
+                                    placeholder="Ex: natureza, cidade, abstrato..."
+                                    style={{ flex: 1, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, padding: '7px 10px', fontSize: 12, color: '#f0f0f0', outline: 'none' }}
+                                  />
+                                  <button onClick={() => searchUnsplash(bgSearch)} disabled={bgSearchLoading} style={{ background: '#00BFFF', border: 'none', borderRadius: 8, padding: '7px 14px', fontSize: 12, color: '#000', fontWeight: 700, cursor: 'pointer' }}>
+                                    {bgSearchLoading ? '...' : '🔍'}
+                                  </button>
+                                </div>
+                                {bgSearchResults.length > 0 && (
+                                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6, overflowY: 'auto', maxHeight: 280 }}>
+                                    {bgSearchResults.map(r => (
+                                      <img key={r.id} src={r.thumb} onClick={() => applyBgFromUrl(r.full)} style={{ width: '100%', aspectRatio: '9/16', objectFit: 'cover', borderRadius: 6, cursor: 'pointer', border: '2px solid transparent', transition: 'border 0.15s' }} onMouseEnter={e => e.target.style.border='2px solid #00BFFF'} onMouseLeave={e => e.target.style.border='2px solid transparent'} alt="" />
+                                    ))}
+                                  </div>
+                                )}
+                                {bgSearchResults.length === 0 && !bgSearchLoading && (
+                                  <div style={{ color: '#555', fontSize: 12, textAlign: 'center', padding: '20px 0' }}>Digite um termo e pressione Enter ou 🔍</div>
+                                )}
+                              </div>
+                            )}
+
+                            {/* Generate tab */}
+                            {bgTab === 'generate' && (() => {
+                              const GENERATED = [
+                                { id:'p1', label:'Partículas', gen: (ctx2,w,h) => { ctx2.fillStyle='#050510'; ctx2.fillRect(0,0,w,h); for(let i=0;i<200;i++){const x=Math.random()*w,y=Math.random()*h,r=Math.random()*2+0.5; ctx2.beginPath(); ctx2.arc(x,y,r,0,Math.PI*2); ctx2.fillStyle=`rgba(0,191,255,${Math.random()*0.8+0.2})`; ctx2.fill();} }},
+                                { id:'p2', label:'Grade Neon', gen: (ctx2,w,h) => { ctx2.fillStyle='#000'; ctx2.fillRect(0,0,w,h); ctx2.strokeStyle='rgba(0,255,100,0.3)'; ctx2.lineWidth=1; for(let x=0;x<w;x+=40){ctx2.beginPath();ctx2.moveTo(x,0);ctx2.lineTo(x,h);ctx2.stroke();} for(let y=0;y<h;y+=40){ctx2.beginPath();ctx2.moveTo(0,y);ctx2.lineTo(w,y);ctx2.stroke();} }},
+                                { id:'p3', label:'Bokeh', gen: (ctx2,w,h) => { const g=ctx2.createLinearGradient(0,0,w,h); g.addColorStop(0,'#1a0533'); g.addColorStop(1,'#0a1a4e'); ctx2.fillStyle=g; ctx2.fillRect(0,0,w,h); for(let i=0;i<40;i++){const x=Math.random()*w,y=Math.random()*h,r=Math.random()*60+20,a=Math.random()*0.15+0.05; const cg=ctx2.createRadialGradient(x,y,0,x,y,r); const hue=Math.random()*60+200; cg.addColorStop(0,`hsla(${hue},80%,70%,${a})`); cg.addColorStop(1,'transparent'); ctx2.fillStyle=cg; ctx2.beginPath(); ctx2.arc(x,y,r,0,Math.PI*2); ctx2.fill();} }},
+                                { id:'p4', label:'Ondas', gen: (ctx2,w,h) => { ctx2.fillStyle='#000d1a'; ctx2.fillRect(0,0,w,h); for(let i=0;i<8;i++){ctx2.beginPath(); ctx2.strokeStyle=`rgba(0,191,255,${0.05+i*0.04})`; ctx2.lineWidth=2; for(let x=0;x<w;x+=2){const y2=h/2+Math.sin((x+i*50)/80)*60*(i+1)*0.3+i*30; x===0?ctx2.moveTo(x,y2):ctx2.lineTo(x,y2);} ctx2.stroke();} }},
+                                { id:'p5', label:'Hexágonos', gen: (ctx2,w,h) => { ctx2.fillStyle='#0a0a1a'; ctx2.fillRect(0,0,w,h); const s=50; for(let row=0;row<h/s+2;row++){for(let col=0;col<w/s+2;col++){const x2=col*s*1.5,y2=row*s*Math.sqrt(3)+(col%2)*s*Math.sqrt(3)/2; ctx2.beginPath(); for(let k=0;k<6;k++){const a2=Math.PI/3*k; ctx2.lineTo(x2+s*0.45*Math.cos(a2),y2+s*0.45*Math.sin(a2));} ctx2.closePath(); ctx2.strokeStyle=`rgba(100,200,255,0.15)`; ctx2.lineWidth=1; ctx2.stroke();}} }},
+                                { id:'p6', label:'Nebulosa', gen: (ctx2,w,h) => { ctx2.fillStyle='#000'; ctx2.fillRect(0,0,w,h); const cs=['#7b2ff7','#f953c6','#00c3ff','#ff6b6b']; for(let i=0;i<6;i++){const x2=Math.random()*w,y2=Math.random()*h,r=Math.random()*200+100; const rg=ctx2.createRadialGradient(x2,y2,0,x2,y2,r); const c2=cs[Math.floor(Math.random()*cs.length)]; rg.addColorStop(0,c2.replace(')',',0.15)').replace('rgb','rgba')||c2+'22'); rg.addColorStop(1,'transparent'); ctx2.fillStyle=rg; ctx2.fillRect(0,0,w,h);} }},
+                              ];
+                              const applyGen = (genFn) => {
+                                const cw=720,ch=1280; const c=document.createElement('canvas'); c.width=cw; c.height=ch;
+                                genFn(c.getContext('2d'), cw, ch);
+                                const dataUrl = c.toDataURL('image/jpeg', 0.95);
+                                setImageSrc(dataUrl); const img=new Image(); img.onload=()=>setImage(img); img.src=dataUrl;
+                                setShowBgPanel(false);
+                              };
+                              return (
+                                <div style={{ padding: 12, display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, overflowY: 'auto', maxHeight: 340 }}>
+                                  {GENERATED.map(p => {
+                                    const c2 = document.createElement('canvas'); c2.width=90; c2.height=160;
+                                    p.gen(c2.getContext('2d'), 90, 160);
+                                    return (
+                                      <div key={p.id} onClick={() => applyGen(p.gen)} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, cursor: 'pointer' }}>
+                                        <img src={c2.toDataURL()} style={{ width: '100%', aspectRatio: '9/16', objectFit: 'cover', borderRadius: 8, border: '2px solid rgba(255,255,255,0.08)' }} alt={p.label} />
+                                        <span style={{ fontSize: 9, color: '#888' }}>{p.label}</span>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              );
+                            })()}
+                          </div>
+                        );
+                      })()}
+                    </div>,
+                    document.body
+                  );
+                })()}
+              </div>
+            </div>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
             <label style={{ fontSize: '11px', color: '#00BFFF', fontWeight: 600, letterSpacing: '0.5px' }}>{t('ed_images')}</label>
