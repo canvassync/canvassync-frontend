@@ -2923,48 +2923,32 @@ _setDragging(null);
         const relTime = Math.max(0, Math.min(trimSt + (t - v.start) * vidSpd, trimEnd));
         v.videoEl.pause();
 
-        // Função que verifica se o frame está REALMENTE pronto para desenhar
-        // readyState >= 3 = HAVE_FUTURE_DATA = frame atual + mais dados disponíveis
-        const isReady = () => v.videoEl.readyState >= 3 && v.videoEl.videoWidth > 0;
-
-        // Se já está na posição certa E frame pronto: resolve imediatamente
-        if (Math.abs(v.videoEl.currentTime - relTime) < 0.04 && isReady()) {
+        // Se já na posição certa com dados disponíveis: resolve imediatamente
+        if (Math.abs(v.videoEl.currentTime - relTime) < 0.04 && v.videoEl.readyState >= 2) {
           return resolve();
         }
 
         let settled = false;
         const done = () => { if (settled) return; settled = true; resolve(); };
 
-        // Timeout generoso: seek em H.264 HD pode levar até 800ms
-        const hard = setTimeout(done, 800);
+        // Timeout de segurança: 1000ms (raros casos de H.264 remoto/lento)
+        const hard = setTimeout(done, 1000);
 
+        // seeked + readyState >= 2 é SUFICIENTE para drawImage sem frame preto.
+        // NÃO usar canplay/canplaythrough — não disparam em vídeos PAUSADOS.
+        // Cada frame que esperava canplay ficava 800ms travado = horas de export.
         v.videoEl.addEventListener('seeked', () => {
-          if (isReady()) {
-            // Frame pronto logo após seeked — resolve
-            clearTimeout(hard);
-            done();
-          } else {
-            // Frame ainda não pronto — aguarda canplay (readyState vai para >= 2)
-            // E canplaythrough (readyState >= 4) como segunda opção
-            const onReady = () => {
-              v.videoEl.removeEventListener('canplay', onReady);
-              v.videoEl.removeEventListener('canplaythrough', onReady);
-              clearTimeout(hard);
-              done();
-            };
-            v.videoEl.addEventListener('canplay',        onReady, { once: true });
-            v.videoEl.addEventListener('canplaythrough', onReady, { once: true });
-          }
+          clearTimeout(hard);
+          done(); // readyState >= 2 garantido após seeked em blob/MediaSource local
         }, { once: true });
 
         v.videoEl.currentTime = relTime;
       })));
     }
 
-    // Desenha somente vídeos com readyState >= 3 (frame GARANTIDO disponível)
-    // Se readyState < 3: pula silenciosamente — melhor transparente que preto
+    // readyState >= 2 = frame atual disponível para drawImage
     activeVids.forEach(v => {
-      if (!v.videoEl || v.videoEl.readyState < 3 || v.videoEl.videoWidth === 0) return;
+      if (!v.videoEl || v.videoEl.readyState < 2 || v.videoEl.videoWidth === 0) return;
       const _evf = buildFilterString(v.filters);
       const _etr = getTransitionTransform(v, t);
       ctx.save();
