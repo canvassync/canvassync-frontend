@@ -2666,7 +2666,11 @@ _setDragging(null);
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
-    const time = (!rtExportRef.current && audioRef.current) ? audioRef.current.currentTime : virtualTimeRef.current;
+    // Tempo do projeto = audioOffset + (audio.currentTime - audioTrimStart)
+    // Quando áudio pausado (ex: playhead antes do offset), usa virtualTimeRef
+    const time = (!rtExportRef.current && audioRef.current && !audioRef.current.paused)
+      ? audioOffsetRef.current + (audioRef.current.currentTime - (audioTrimStartRef.current || 0))
+      : virtualTimeRef.current;
     // Reset completo do estado ctx para evitar vazamento entre frames
     // (shadowBlur, filter, globalAlpha definidos fora de save/restore contaminam o próximo frame)
     ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -5813,7 +5817,30 @@ _setDragging(null);
                       if (audio) {
                         audio.volume = Math.max(0, Math.min(1, projectVolumeRef.current));
                         audio.playbackRate = Math.max(0.25, Math.min(4, projectSpeedRef.current));
-                        audio.play().catch(() => {});
+                        const tNowFs = virtualTimeRef.current;
+                        if (tNowFs >= audioOffsetRef.current) {
+                          const relFs = (audioTrimStartRef.current || 0) + (tNowFs - audioOffsetRef.current);
+                          if (Math.abs(audio.currentTime - relFs) > 0.1) audio.currentTime = relFs;
+                          audio.play().catch(() => {});
+                        } else {
+                          audio.pause();
+                          const startWallFs = Date.now(); const startVirtFs = tNowFs;
+                          const clockSpdFs = Math.max(0.25, Math.min(4, projectSpeedRef.current));
+                          if (clockIntervalRef.current) clearInterval(clockIntervalRef.current);
+                          clockIntervalRef.current = setInterval(() => {
+                            if (!isPlayingRef.current) { clearInterval(clockIntervalRef.current); clockIntervalRef.current = null; return; }
+                            const elapsedFs = (Date.now() - startWallFs) / 1000;
+                            const newTimeFs = startVirtFs + elapsedFs * clockSpdFs;
+                            virtualTimeRef.current = newTimeFs; setCurrentTime(newTimeFs);
+                            if (newTimeFs >= audioOffsetRef.current) {
+                              clearInterval(clockIntervalRef.current); clockIntervalRef.current = null;
+                              audio.currentTime = audioTrimStartRef.current || 0;
+                              audio.volume = Math.max(0, Math.min(1, projectVolumeRef.current));
+                              audio.playbackRate = Math.max(0.25, Math.min(4, projectSpeedRef.current));
+                              audio.play().catch(() => {});
+                            }
+                          }, 30);
+                        }
                       } else {
                         const startWall = Date.now(); const startVirt = virtualTimeRef.current;
                         const clockSpd = Math.max(0.25, Math.min(4, projectSpeedRef.current));
@@ -6046,13 +6073,34 @@ _setDragging(null);
                 if (audio) {
                   audio.volume       = Math.max(0, Math.min(1, projectVolumeRef.current));
                   audio.playbackRate = Math.max(0.25, Math.min(4, projectSpeedRef.current));
-                  // Ajusta currentTime para respeitar audioOffset e audioTrimStart
                   const tNowAudio = virtualTimeRef.current;
-                  if (tNowAudio >= audioOffset) {
-                    const relAudio = audioTrimStart + (tNowAudio - audioOffset);
+                  if (tNowAudio >= audioOffsetRef.current) {
+                    // Playhead já passou o início do áudio — posiciona e toca direto
+                    const relAudio = (audioTrimStartRef.current || 0) + (tNowAudio - audioOffsetRef.current);
                     if (Math.abs(audio.currentTime - relAudio) > 0.1) audio.currentTime = relAudio;
+                    audio.play().catch(() => {});
+                  } else {
+                    // Playhead ainda antes do início do áudio — clock virtual até chegar lá
+                    audio.pause();
+                    const startWall2 = Date.now();
+                    const startVirt2 = tNowAudio;
+                    const clockSpd3  = Math.max(0.25, Math.min(4, projectSpeedRef.current));
+                    if (clockIntervalRef.current) clearInterval(clockIntervalRef.current);
+                    clockIntervalRef.current = setInterval(() => {
+                      if (!isPlayingRef.current) { clearInterval(clockIntervalRef.current); clockIntervalRef.current = null; return; }
+                      const elapsed3 = (Date.now() - startWall2) / 1000;
+                      const newTime3 = startVirt2 + elapsed3 * clockSpd3;
+                      virtualTimeRef.current = newTime3;
+                      setCurrentTime(newTime3);
+                      if (newTime3 >= audioOffsetRef.current) {
+                        clearInterval(clockIntervalRef.current); clockIntervalRef.current = null;
+                        audio.currentTime = audioTrimStartRef.current || 0;
+                        audio.volume      = Math.max(0, Math.min(1, projectVolumeRef.current));
+                        audio.playbackRate = Math.max(0.25, Math.min(4, projectSpeedRef.current));
+                        audio.play().catch(() => {});
+                      }
+                    }, 30);
                   }
-                  audio.play().catch(() => {});
                 } else {
                   // Sem áudio: clock virtual baseado em Date.now()
                   const startWall = Date.now();
