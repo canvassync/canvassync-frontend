@@ -931,6 +931,9 @@ function App() {
   const clockIntervalRef  = useRef(null);
   const rtExportRef       = useRef(false); // true durante WebM+Áudio RT — força draw() a ignorar audioRef
   const offlineExportRef  = useRef(false); // true durante exports frame-a-frame — suspende syncVideosInRAF
+  // Web Audio para vídeos (evita delay de áudio AAC em MP4 HD)
+  const videoAudioACRef   = useRef(null);   // AudioContext partilhado para vídeos
+  const videoAudioNodes   = useRef({});     // id → {source, gainNode} dos vídeos tocando
   // Refs para capturar valores atuais dentro de callbacks estáveis
   const fontSizeRef = useRef(fontSize);
   const fontFamilyRef = useRef(fontFamily);
@@ -1200,7 +1203,18 @@ function App() {
       // Inicia com objectURL para metadata (rápido), depois substitui com MediaSource completo
       videoEl.src = src;
 
-      const addVideo = (finalSrc) => {
+      const addVideo = async (finalSrc) => {
+        // Decodifica o áudio do vídeo para Web Audio (permite seek instantâneo sem delay)
+        let audioBuffer = null;
+        try {
+          if (!videoAudioACRef.current || videoAudioACRef.current.state === 'closed') {
+            videoAudioACRef.current = new (window.AudioContext || window.webkitAudioContext)();
+          }
+          const arrayBuf = await file.arrayBuffer();
+          audioBuffer = await videoAudioACRef.current.decodeAudioData(arrayBuf);
+        } catch (e) {
+          console.warn('[VideoAudio] decodeAudioData falhou (vídeo pode não ter áudio):', e.message);
+        }
         const vidDuration = isFinite(videoEl.duration) && videoEl.duration > 0 ? videoEl.duration : 3;
         const lastEnd = videos.reduce((max, v) => Math.max(max, v.end || 0), 0);
         const start = lastEnd;
@@ -1220,7 +1234,7 @@ function App() {
         setVideos(prev => {
           if (prev.find(v => v.id === id)) return prev;
           const initSpeed = projectSpeedRef.current ?? 1;
-          return [...prev, { id, src: finalSrc || src, videoEl, start, end, x, y, width: w, height: h, radius: 12, muted: false, vidVolume: projectVolumeRef.current ?? 1, vidSpeed: initSpeed, rawDuration: vidDuration }];
+          return [...prev, { id, src: finalSrc || src, videoEl, audioBuffer, start, end, x, y, width: w, height: h, radius: 12, muted: false, vidVolume: projectVolumeRef.current ?? 1, vidSpeed: initSpeed, rawDuration: vidDuration }];
         });
       };
 
@@ -1491,10 +1505,62 @@ function App() {
     setLyrics(lyrics.filter(l => l.id !== id));
   };
 
+  // ── Helpers Web Audio para vídeos ──────────────────────────────────────────
+  // Para TODAS as fontes de áudio de vídeo ativas
+  const stopAllVideoAudio = () => {
+    const nodes = videoAudioNodes.current;
+    Object.values(nodes).forEach(({ source, gainNode }) => {
+      try { source.stop(); } catch {}
+      try { gainNode.disconnect(); } catch {}
+    });
+    videoAudioNodes.current = {};
+  };
+
+  // Inicia o áudio Web Audio de um vídeo a partir de um offset no projeto
+  const startVideoAudio = (v, tProject) => {
+    if (!v.audioBuffer || v.muted) return;
+    const ac = videoAudioACRef.current;
+    if (!ac || ac.state === 'closed') return;
+    if (ac.state === 'suspended') ac.resume();
+
+    // Para fonte anterior deste vídeo (se houver)
+    const prev = videoAudioNodes.current[v.id];
+    if (prev) { try { prev.source.stop(); } catch {} try { prev.gainNode.disconnect(); } catch {} }
+
+    const trimSt   = v.trimStart ?? 0;
+    const vidSpd   = v.vidSpeed ?? 1;
+    const projSpd  = projectSpeedRef.current ?? 1;
+    const effSpd   = vidSpd * projSpd;
+
+    // Posição no AudioBuffer = trimStart + tempo dentro do vídeo × vidSpeed
+    const bufOffset = Math.max(0, trimSt + (tProject - v.start) * vidSpd);
+    // Duração restante no buffer
+    const bufDuration = Math.max(0, v.audioBuffer.duration - bufOffset);
+    if (bufDuration < 0.05) return;
+
+    const gainNode = ac.createGain();
+    gainNode.gain.value = Math.max(0, Math.min(1, projectVolumeRef.current * (v.vidVolume ?? 1)));
+    gainNode.connect(ac.destination);
+
+    const source = ac.createBufferSource();
+    source.buffer = v.audioBuffer;
+    source.playbackRate.value = effSpd;  // WOLA está na exportação; aqui usamos playbackRate nativo
+    source.connect(gainNode);
+    source.start(0, bufOffset);  // inicia IMEDIATAMENTE no offset correto — sem nenhum delay
+
+    videoAudioNodes.current[v.id] = { source, gainNode };
+    source.onended = () => {
+      delete videoAudioNodes.current[v.id];
+      try { gainNode.disconnect(); } catch {}
+    };
+  };
+
   const handleStopPlayback = () => {
+    isPlayingRef.current = false;
     const audio = audioRef.current;
     if (audio) { audio.pause(); audio.currentTime = 0; }
     if (clockIntervalRef.current) { clearInterval(clockIntervalRef.current); clockIntervalRef.current = null; }
+    stopAllVideoAudio();  // para o áudio Web Audio dos vídeos
     virtualTimeRef.current = 0;
     setIsPlaying(false);
     // Pré-posiciona todos os vídeos no trimStart para que play() inicie sem delay
@@ -2656,15 +2722,11 @@ _setDragging(null);
         const ee = v.start + (rd - ts) / Math.max(0.25, vs);
         if (t >= v.start && t < ee && v.videoEl.paused) {
           const rel = Math.max(0, Math.min(ts + (t - v.start) * vs, (v.videoEl.duration || 0) - 0.033));
-          v.videoEl.volume = Math.max(0, Math.min(1, projectVolumeRef.current * (v.vidVolume ?? 1)));
+          v.videoEl.muted = true;
           v.videoEl.playbackRate = Math.max(0.25, Math.min(4, projectSpeedRef.current * vs));
-          const doPlay = () => { if (isPlayingRef.current) v.videoEl.play().catch(() => {}); };
-          if (Math.abs(v.videoEl.currentTime - rel) > 0.1) {
-            v.videoEl._pendingPlayHandler && v.videoEl.removeEventListener('seeked', v.videoEl._pendingPlayHandler);
-            v.videoEl._pendingPlayHandler = doPlay;
-            v.videoEl.addEventListener('seeked', doPlay, { once: true });
-            v.videoEl.currentTime = rel;
-          } else { doPlay(); }
+          if (Math.abs(v.videoEl.currentTime - rel) > 0.1) v.videoEl.currentTime = rel;
+          v.videoEl.play().catch(() => {});
+          startVideoAudio(v, t);
         }
       });
     };
@@ -5383,10 +5445,10 @@ _setDragging(null);
             <button onClick={() => {
               const audio = audioRef.current;
               if (isPlaying) {
-                // Pausar — atualiza ref sincronamente para o RAF não tentar resumir
                 isPlayingRef.current = false;
                 if (audio) audio.pause();
                 if (clockIntervalRef.current) { clearInterval(clockIntervalRef.current); clockIntervalRef.current = null; }
+                stopAllVideoAudio();  // para o áudio Web Audio dos vídeos
                 setIsPlaying(false);
               } else {
                 // Iniciar — atualiza isPlayingRef SINCRONAMENTE antes de qualquer play()
@@ -5410,25 +5472,13 @@ _setDragging(null);
                   if (tNow < v.start || tNow >= effEnd) return; // fora do range ativo
                   // relTime correto: trimStart + tempo decorrido × vidSpeed
                   const rel = Math.max(0, Math.min(trimSt + (tNow - v.start) * vidSpd, (v.videoEl.duration || 0) - 0.033));
-                  v.videoEl.muted = v.muted || false;
-                  v.videoEl.volume = Math.max(0, Math.min(1, projectVolumeRef.current * (v.vidVolume ?? 1)));
+                  // Vídeo toca MUDO (apenas frames visuais) — áudio via Web Audio (sem delay)
+                  v.videoEl.muted = true;
                   v.videoEl.playbackRate = Math.max(0.25, Math.min(4, projectSpeedRef.current * vidSpd));
-
-                  // Para H.264+AAC: DEVE aguardar 'seeked' antes de play()
-                  // play() imediato após currentTime= faz áudio iniciar com ~1s de atraso
-                  // porque o decodificador AAC precisa do keyframe de áudio que só está
-                  // disponível após o seek completar (evento seeked)
-                  const doPlay = () => { if (isPlayingRef.current) v.videoEl.play().catch(() => {}); };
-                  if (Math.abs(v.videoEl.currentTime - rel) > 0.05) {
-                    // Cancela qualquer listener anterior para evitar dupla chamada
-                    v.videoEl._pendingPlayHandler && v.videoEl.removeEventListener('seeked', v.videoEl._pendingPlayHandler);
-                    v.videoEl._pendingPlayHandler = doPlay;
-                    v.videoEl.addEventListener('seeked', doPlay, { once: true });
-                    v.videoEl.currentTime = rel;
-                  } else {
-                    v.videoEl._pendingPlayHandler = null;
-                    doPlay();
-                  }
+                  if (Math.abs(v.videoEl.currentTime - rel) > 0.05) v.videoEl.currentTime = rel;
+                  v.videoEl.play().catch(() => {});
+                  // Inicia áudio Web Audio no offset correto — ZERO delay independente de posição
+                  startVideoAudio(v, tNow);
                 });
                 if (audio) {
                   audio.volume       = Math.max(0, Math.min(1, projectVolumeRef.current));
@@ -5452,15 +5502,11 @@ _setDragging(null);
                       const ee = v.start + (rd - ts) / Math.max(0.25, vs);
                       if (newTime >= v.start && newTime < ee && v.videoEl.paused) {
                         const rel = Math.max(0, Math.min(ts + (newTime - v.start) * vs, (v.videoEl.duration || 0) - 0.033));
-                        v.videoEl.volume = Math.max(0, Math.min(1, projectVolumeRef.current * (v.vidVolume ?? 1)));
+                        v.videoEl.muted = true;
                         v.videoEl.playbackRate = Math.max(0.25, Math.min(4, projectSpeedRef.current * vs));
-                        const doPlay = () => { if (isPlayingRef.current) v.videoEl.play().catch(() => {}); };
-                        if (Math.abs(v.videoEl.currentTime - rel) > 0.1) {
-                          v.videoEl._pendingPlayHandler && v.videoEl.removeEventListener('seeked', v.videoEl._pendingPlayHandler);
-                          v.videoEl._pendingPlayHandler = doPlay;
-                          v.videoEl.addEventListener('seeked', doPlay, { once: true });
-                          v.videoEl.currentTime = rel;
-                        } else { doPlay(); }
+                        if (Math.abs(v.videoEl.currentTime - rel) > 0.1) v.videoEl.currentTime = rel;
+                        v.videoEl.play().catch(() => {});
+                        startVideoAudio(v, newTime);
                       }
                     });
                     // Para automaticamente ao final do conteúdo (sem áudio)
