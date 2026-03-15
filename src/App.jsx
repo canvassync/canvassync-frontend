@@ -4256,7 +4256,9 @@ _setDragging(null);
       virtualTimeRef.current = 0;
       rtExportRef.current = true;
 
-      const totalFrames = Math.ceil(audioDur * FPS);
+      // totalFrames usa outDur (duração total do projeto), não audioDur
+      // audioDur apenas limita o buffer de áudio — o vídeo deve ter o comprimento total
+      const totalFrames = Math.ceil(outDur * FPS);
       let frameCount = 0;
 
       await new Promise(resolve => {
@@ -4271,7 +4273,7 @@ _setDragging(null);
         const captureId = setInterval(() => {
           if (stopped || encoderError) { stop(); return; }
           const elapsed = (Date.now() - startWall) / 1000;
-          if (elapsed >= audioDur + 0.2 || frameCount >= totalFrames + 3) { stop(); return; }
+          if (elapsed >= outDur + 0.2 || frameCount >= totalFrames + 3) { stop(); return; }
 
           const srcCanvas = offCanvas || baseCanvas;
           if (offCanvas) {
