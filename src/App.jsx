@@ -6136,10 +6136,28 @@ _setDragging(null);
                       const newTimePre = startVirtPre + (Date.now() - startWallPre) / 1000 * clockSpdPre;
                       virtualTimeRef.current = newTimePre;
                       setCurrentTime(newTimePre);
+                      // Ativa vídeos cujo start foi cruzado durante o pré-roll
+                      videosRef.current.forEach(v => {
+                        if (!v.videoEl || !v.videoEl.paused) return;
+                        const ts = v.trimStart ?? 0;
+                        const vs = v.vidSpeed ?? 1;
+                        const rd = v.rawDuration ?? v.videoEl.duration ?? (v.end - v.start);
+                        const ee = v.start + (rd - ts) / Math.max(0.25, vs);
+                        if (newTimePre >= v.start && newTimePre < ee) {
+                          const rel = Math.max(0, Math.min(ts + (newTimePre - v.start) * vs, (v.videoEl.duration || 0) - 0.033));
+                          if (Math.abs(v.videoEl.currentTime - rel) > 0.1) v.videoEl.currentTime = rel;
+                          v.videoEl.muted = false;
+                          v.videoEl.volume = Math.max(0, Math.min(1, projectVolumeRef.current * (v.vidVolume ?? 1)));
+                          v.videoEl.playbackRate = Math.max(0.25, Math.min(4, projectSpeedRef.current * vs));
+                          v.videoEl.play().catch(() => {});
+                        } else if (newTimePre >= ee && !v.videoEl.paused) {
+                          v.videoEl.pause();
+                        }
+                      });
                       if (newTimePre >= audioOffsetRef.current) {
                         clearInterval(clockIntervalRef.current); clockIntervalRef.current = null;
                         // Transição pré-roll → áudio principal:
-                        // troca vídeos de áudio nativo para Web Audio
+                        // troca vídeos ativos de áudio nativo para Web Audio
                         videosRef.current.forEach(v2 => {
                           if (!v2.videoEl || v2.muted) return;
                           const ts2 = v2.trimStart ?? 0;
