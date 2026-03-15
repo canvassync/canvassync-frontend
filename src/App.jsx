@@ -5829,8 +5829,9 @@ _setDragging(null);
                       setIsPlaying(false);
                     } else {
                       isPlayingRef.current = true;
-                      if (videoAudioACRef.current && videoAudioACRef.current.state === 'suspended') {
-                        try { await videoAudioACRef.current.resume(); } catch {}
+                      if (!videoAudioACRef.current || videoAudioACRef.current.state === 'closed' || videoAudioACRef.current.state === 'suspended') {
+                        try { if (videoAudioACRef.current) videoAudioACRef.current.close(); } catch {}
+                        videoAudioACRef.current = new (window.AudioContext || window.webkitAudioContext)();
                       }
                       const tNow = virtualTimeRef.current;
                       // Inicia vídeos ativos
@@ -6078,10 +6079,11 @@ _setDragging(null);
                 // Iniciar — atualiza isPlayingRef SINCRONAMENTE antes de qualquer play()
                 // Sem isso, o RAF (60fps) vê playing=false enquanto vídeo está tocando e pausa tudo
                 isPlayingRef.current = true;
-                // AWAIT resume — sem await o AC ainda está suspended quando startVideoAudio
-                // chama source.start(), que fica bloqueado até outro audio.play() rodar
-                if (videoAudioACRef.current && videoAudioACRef.current.state === 'suspended') {
-                  try { await videoAudioACRef.current.resume(); } catch {}
+                // Cria AC dentro do gesto do usuario — unica forma garantida de ter estado running.
+                // AC criado durante upload fica suspended; resume() apos async nao e garantido.
+                if (!videoAudioACRef.current || videoAudioACRef.current.state === 'closed' || videoAudioACRef.current.state === 'suspended') {
+                  try { if (videoAudioACRef.current) videoAudioACRef.current.close(); } catch {}
+                  videoAudioACRef.current = new (window.AudioContext || window.webkitAudioContext)();
                 }
                 const tNow = virtualTimeRef.current;
                 // Pré-posiciona vídeos ainda não ativos no trimStart (evita delay quando chegarem)
