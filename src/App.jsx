@@ -1749,8 +1749,12 @@ function App() {
     if (!lines || lines.length === 0) return;
     setCurrentLineIndex(prev => {
       if (prev >= lines.length) return prev;
-      // Usa tempo do áudio se disponível, senão usa o relógio virtual
-      const startTime = audioRef.current ? audioRef.current.currentTime : virtualTimeRef.current;
+      // Usa tempo do PROJETO (não audio.currentTime bruto):
+      // audio.currentTime = tempo no arquivo; com audioTrimStart=47, começa em 47s
+      // O tempo de projeto = audioOffset + (audio.currentTime - audioTrimStart)
+      const startTime = audioRef.current && isPlayingRef.current
+        ? (audioOffsetRef.current || 0) + (audioRef.current.currentTime - (audioTrimStartRef.current || 0))
+        : virtualTimeRef.current;
       const canvas = canvasRef.current;
       const newLine = {
         id: Date.now(),
