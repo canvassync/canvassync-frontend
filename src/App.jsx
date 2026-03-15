@@ -3624,11 +3624,18 @@ _setDragging(null);
     const baseCanvas = canvasRef.current;
     if (!baseCanvas) return;
     const effectiveDuration = (() => {
-      if (duration && duration > 0) return duration;
-      if (lyrics && lyrics.length) return Math.max(...lyrics.map(l => l.end || 0));
-      if (images && images.length) return Math.max(...images.map(i => i.end || 0));
-      if (videos && videos.length) return Math.max(...videos.map(v => v.end || 0));
-      return 3;
+      // Calcula o fim real do áudio na timeline: offset + duração após trim
+      const _audEnd = duration > 0
+        ? (audioOffset || 0) + (
+            audioTrimEnd !== null
+              ? (audioTrimEnd - (audioTrimStart || 0))
+              : (duration - (audioTrimStart || 0))
+          )
+        : 0;
+      const _lyricEnd = lyrics && lyrics.length ? Math.max(...lyrics.map(l => l.end || 0)) : 0;
+      const _imgEnd   = images && images.length ? Math.max(...images.map(i => i.end || 0)) : 0;
+      const _vidEnd   = videos && videos.length ? Math.max(...videos.map(v => v.end || 0)) : 0;
+      return Math.max(_audEnd, _lyricEnd, _imgEnd, _vidEnd) || 3;
     })();
     if (!effectiveDuration || effectiveDuration <= 0) return;
     const _spdW = Math.max(0.25, Math.min(4, projectSpeedRef.current));
@@ -3665,11 +3672,18 @@ _setDragging(null);
     if (!baseCanvas) return;
 
     const effectiveDuration = (() => {
-      if (duration && duration > 0) return duration;
-      if (lyrics && lyrics.length) return Math.max(...lyrics.map(l => l.end || 0));
-      if (images && images.length) return Math.max(...images.map(i => i.end || 0));
-      if (videos && videos.length) return Math.max(...videos.map(v => v.end || 0));
-      return 3;
+      // Calcula o fim real do áudio na timeline: offset + duração após trim
+      const _audEnd = duration > 0
+        ? (audioOffset || 0) + (
+            audioTrimEnd !== null
+              ? (audioTrimEnd - (audioTrimStart || 0))
+              : (duration - (audioTrimStart || 0))
+          )
+        : 0;
+      const _lyricEnd = lyrics && lyrics.length ? Math.max(...lyrics.map(l => l.end || 0)) : 0;
+      const _imgEnd   = images && images.length ? Math.max(...images.map(i => i.end || 0)) : 0;
+      const _vidEnd   = videos && videos.length ? Math.max(...videos.map(v => v.end || 0)) : 0;
+      return Math.max(_audEnd, _lyricEnd, _imgEnd, _vidEnd) || 3;
     })();
     if (!effectiveDuration || effectiveDuration <= 0) return;
 
@@ -4130,11 +4144,17 @@ _setDragging(null);
     if (!baseCanvas) return;
 
     const effectiveDuration = (() => {
-      if (duration && duration > 0) return duration;
-      if (lyrics.length) return Math.max(...lyrics.map(l => l.end || 0));
-      if (images.length) return Math.max(...images.map(i => i.end || 0));
-      if (videos.length) return Math.max(...videos.map(v => v.end || 0));
-      return 3;
+      const _audEnd = duration > 0
+        ? (audioOffset || 0) + (
+            audioTrimEnd !== null
+              ? (audioTrimEnd - (audioTrimStart || 0))
+              : (duration - (audioTrimStart || 0))
+          )
+        : 0;
+      const _lyricEnd = lyrics.length ? Math.max(...lyrics.map(l => l.end || 0)) : 0;
+      const _imgEnd   = images.length ? Math.max(...images.map(i => i.end || 0)) : 0;
+      const _vidEnd   = videos.length ? Math.max(...videos.map(v => v.end || 0)) : 0;
+      return Math.max(_audEnd, _lyricEnd, _imgEnd, _vidEnd) || 3;
     })();
     if (!effectiveDuration || effectiveDuration <= 0) return;
 
