@@ -3782,7 +3782,8 @@ _setDragging(null);
       recorder.start(100); // chunks a cada 100ms
 
       // 7. Começa a tocar tudo em sincronia
-      if (bgSource) bgSource.start(0);
+      // audioOffset: agendar o início do bgSource no tempo correto da timeline
+      if (bgSource) bgSource.start(ac.currentTime + (audioOffset || 0) / _spd1);
       for (const v of vidsToPlay) {
         if (0 >= v.start && 0 <= v.end) v.videoEl.play().catch(() => {});
       }
@@ -4221,9 +4222,14 @@ _setDragging(null);
               _ac2.close(); return b;
             })() : decoded;
             const [sL, sR] = await _renderAudioStretched(tmpBuf, spd, vol, 48000);
-            const copyLen = Math.min(sL.length, silLen);
-            outL.set(sL.subarray(0, copyLen));
-            outR.set(sR.subarray(0, copyLen));
+            // audioOffset: o áudio começa em audioOffset segundos na timeline.
+            // No buffer de saída, precisamos pular offsetSamples amostras antes de escrever.
+            const offsetSamples = Math.round((audioOffset || 0) / spd * 48000);
+            const copyLen = Math.min(sL.length, silLen - offsetSamples);
+            if (copyLen > 0 && offsetSamples < silLen) {
+              outL.set(sL.subarray(0, copyLen), offsetSamples);
+              outR.set(sR.subarray(0, copyLen), offsetSamples);
+            }
           }
           await _mixSfxIntoBuffers(outL, outR, soundEffects, 48000);
           await _mixVideoAudioIntoBuffers(outL, outR, videosRef.current, spd, vol, 48000);
