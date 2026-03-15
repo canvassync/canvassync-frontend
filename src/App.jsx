@@ -3677,11 +3677,9 @@ _setDragging(null);
     const _vol1 = Math.max(0, Math.min(1, projectVolumeRef.current));
     const _trimStart1 = audioTrimStart || 0;
     const _trimEnd1   = audioTrimEnd !== null ? audioTrimEnd : null;
-    // Duração respeitando audioTrimEnd (corte no fim do áudio)
-    const _rawDur1 = effectiveDuration / _spd1;
-    const outputDuration1 = _trimEnd1 !== null
-      ? Math.min(_rawDur1, (_trimEnd1 - _trimStart1) / _spd1)
-      : _rawDur1;
+    // outputDuration1 = duração TOTAL do projeto (não limitada pelo trim do áudio)
+    // O trim afeta apenas o conteúdo do buffer de áudio, não a duração do vídeo
+    const outputDuration1 = effectiveDuration / _spd1;
 
     setIsExporting(true);
     setExportProgress(0);
@@ -3709,8 +3707,17 @@ _setDragging(null);
             buf = bytes.buffer;
           }
           const decoded = await ac.decodeAudioData(buf);
+          // Aplica trimStart/trimEnd ao buffer antes de tocar
+          const _tS = Math.round((_trimStart1 || 0) * decoded.sampleRate);
+          const _tE = _trimEnd1 !== null
+            ? Math.round(_trimEnd1 * decoded.sampleRate)
+            : decoded.length;
+          const _nCh = decoded.numberOfChannels;
+          const _trimmedBuf = ac.createBuffer(_nCh, Math.max(1, _tE - _tS), decoded.sampleRate);
+          for (let _ch = 0; _ch < _nCh; _ch++)
+            _trimmedBuf.getChannelData(_ch).set(decoded.getChannelData(_ch).subarray(_tS, _tE));
           bgSource = ac.createBufferSource();
-          bgSource.buffer = decoded;
+          bgSource.buffer = _trimmedBuf;
           bgSource.playbackRate.value = _spd1;
           bgSource.connect(gainNode);
         } catch(e) { console.warn('[WEBM RT] bg audio error', e); }
@@ -4194,8 +4201,9 @@ _setDragging(null);
           const aEncCodec = isMP4 ? 'mp4a.40.2' : 'opus';
           aEnc.configure({ codec: aEncCodec, sampleRate: 48000, numberOfChannels: 2, bitrate: bitrateAudio });
 
-          // Buffer de saída do tamanho correto (respeitando audioTrimEnd)
-          const silLen = Math.ceil(48000 * audioDur);
+          // Buffer de saída: tamanho do projeto completo (outDur), não audioDur.
+          // Com audioOffset, audioDur seria pequeno demais: offsetSamples + sL.length > audioDur*SR
+          const silLen = Math.ceil(48000 * outDur);
           const outL = new Float32Array(silLen);
           const outR = new Float32Array(silLen);
 
