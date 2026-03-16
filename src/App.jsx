@@ -118,15 +118,79 @@ const EMOJI_LIST = [
   ['🌍','🏔️','🏖️','🌅','🌃','🌆','🗼','🗽','🏯','🎠','🎡','🎢'],
 ];
 
-const STICKER_EMOJIS = [
-  '😀','😂','😍','🥰','😎','🤩','😭','😤','🥳','🤔','👍','👎','❤️','🔥','⭐','✨','🎉','🎊','🎶','🎵',
-  '🎸','🎤','🎧','🏆','💎','👑','🦋','🌸','🌺','🌈','☀️','🌙','⚡','💫','🌊','🍀','🎯','💯','🚀','💥',
-  '❄️','🌹','💝','🦄','🐉','🦁','🐺','🦊','🐸','🦋','🍎','🍕','🍦','☕','🍾','🥂','🏀','⚽','🎮','🕹️',
-  '💻','📱','📷','🎬','🎭','🎨','🖌️','✏️','📚','💡','🔮','🌍','🗺️','✈️','🚗','🏠','🎪','🎠','🎡','🎢',
-  '🌟','💫','⚡','🔥','💥','🌈','❤️','💙','💚','💛','💜','🖤','🤍','🎀','🎗️','🏅','🥇','🎖️','🌠','🌌',
+const EMOJI_LIST = [
+  // ── Setas (sem animação) ──────────────────────────────────────────────────
+  ['⬆️','⬇️','⬅️','➡️','↗️','↘️','↙️','↖️','↔️','↕️','↩️','↪️'],
+  ['🔄','⏫','⏬','⏩','⏪','⏭️','⏮️','🔃','🔁','🔂','▶️','◀️'],
+  ['👉','👈','👆','👇','☝️','🫵','👍','👎','✅','❌','⭕','❓'],
+  // ── Originais ─────────────────────────────────────────────────────────────
+  ['❤️','🧡','💛','💚','💙','💜','🖤','🤍','💕','💞','💓','💗'],
+  ['🔥','⭐','🌟','💫','✨','💥','🎉','🎊','🎈','🎀','🎁','🏅'],
+  ['😂','😍','🥳','😎','🤩','😘','🤣','😜','🥰','🫶','😆','🤪'],
+  ['👑','💎','🏆','🎸','🎤','🎬','🎯','🎲','🎨','🎭','🎪','🃏'],
+  ['🌈','🌊','⚡','🌙','☀️','❄️','🌸','🍀','🌺','🌻','🌹','🍄'],
+  ['💯','🔑','💪','🙌','👏','✌️','🤟','🤙','💰','💸','🔮','🧿'],
+  ['🐉','🦄','🦊','🦁','🐺','🦅','🐙','🦈','🐯','🦋','🦚','🦜'],
+  ['🍕','🎂','🍦','🍭','🍾','🥂','🧁','🍫','🍬','🍒','🍓','🫐'],
+  ['🚀','✈️','🏎️','⚽','🏀','🎮','🎵','🎶','📸','📱','💻','🕹️'],
+  ['🌍','🏔️','🏖️','🌅','🌃','🌆','🗼','🗽','🏯','🎠','🎡','🎢'],
 ];
 
 const ANIMATED_STICKERS = [
+  // ── Setas ──────────────────────────────────────────────────────────────────
+  { key:'arrow_up',       emoji:'⬆️',  anim:'bounce', label:'↑ Cima'       },
+  { key:'arrow_down',     emoji:'⬇️',  anim:'bounce', label:'↓ Baixo'      },
+  { key:'arrow_left',     emoji:'⬅️',  anim:'bounce', label:'← Esquerda'   },
+  { key:'arrow_right',    emoji:'➡️',  anim:'bounce', label:'→ Direita'    },
+  { key:'arrow_ne',       emoji:'↗️',  anim:'float',  label:'↗ Diagonal'   },
+  { key:'arrow_nw',       emoji:'↖️',  anim:'float',  label:'↖ Diagonal'   },
+  { key:'arrow_se',       emoji:'↘️',  anim:'float',  label:'↘ Diagonal'   },
+  { key:'arrow_sw',       emoji:'↙️',  anim:'float',  label:'↙ Diagonal'   },
+  { key:'arrow_lr',       emoji:'↔️',  anim:'pulse',  label:'↔ Horizontal' },
+  { key:'arrow_ud',       emoji:'↕️',  anim:'pulse',  label:'↕ Vertical'   },
+  { key:'arrow_curve_r',  emoji:'↩️',  anim:'spin',   label:'↩ Volta'      },
+  { key:'arrow_curve_l',  emoji:'↪️',  anim:'spin',   label:'↪ Volta'      },
+  { key:'arrow_loop',     emoji:'🔄',  anim:'spin',   label:'🔄 Loop'       },
+  { key:'arrow_dbl_up',   emoji:'⏫',  anim:'bounce', label:'⏫ Rápido ↑'   },
+  { key:'arrow_dbl_down', emoji:'⏬',  anim:'bounce', label:'⏬ Rápido ↓'   },
+  { key:'pointing_right', emoji:'👉',  anim:'bounce', label:'👉 Aponta →'   },
+  { key:'pointing_left',  emoji:'👈',  anim:'bounce', label:'👈 Aponta ←'   },
+  { key:'pointing_up',    emoji:'👆',  anim:'bounce', label:'👆 Aponta ↑'   },
+  { key:'pointing_down',  emoji:'👇',  anim:'bounce', label:'👇 Aponta ↓'   },
+  // ── Stickers originais ────────────────────────────────────────────────────
+  { key:'fire',      emoji:'🔥', anim:'bounce', label:'Fogo'      },
+  { key:'star',      emoji:'⭐', anim:'spin',   label:'Estrela'   },
+  { key:'heart',     emoji:'❤️', anim:'pulse',  label:'Coração'   },
+  { key:'party',     emoji:'🎉', anim:'shake',  label:'Festa'     },
+  { key:'sparkle',   emoji:'✨', anim:'float',  label:'Brilho'    },
+  { key:'crown',     emoji:'👑', anim:'bounce', label:'Coroa'     },
+  { key:'music',     emoji:'🎵', anim:'pulse',  label:'Música'    },
+  { key:'rainbow',   emoji:'🌈', anim:'float',  label:'Arco-íris' },
+  { key:'lightning', emoji:'⚡', anim:'spin',   label:'Raio'      },
+  { key:'diamond',   emoji:'💎', anim:'pulse',  label:'Diamante'  },
+  { key:'rocket',    emoji:'🚀', anim:'float',  label:'Foguete'   },
+  { key:'dragon',    emoji:'🐉', anim:'bounce', label:'Dragão'    },
+  { key:'trophy',    emoji:'🏆', anim:'shake',  label:'Troféu'    },
+  { key:'unicorn',   emoji:'🦄', anim:'bounce', label:'Unicórnio' },
+  { key:'explosion', emoji:'💥', anim:'pulse',  label:'Explosão'  },
+  { key:'confetti',  emoji:'🎊', anim:'shake',  label:'Confete'   },
+  { key:'money',     emoji:'💰', anim:'bounce', label:'Dinheiro'  },
+  { key:'mic',       emoji:'🎤', anim:'pulse',  label:'Microfone' },
+  { key:'camera',    emoji:'📸', anim:'shake',  label:'Câmera'    },
+  { key:'clapper',   emoji:'🎬', anim:'bounce', label:'Claquete'  },
+  { key:'notes',     emoji:'🎶', anim:'float',  label:'Notas'     },
+  { key:'sunflower', emoji:'🌻', anim:'spin',   label:'Girassol'  },
+  { key:'butterfly', emoji:'🦋', anim:'float',  label:'Borboleta' },
+  { key:'crystal',   emoji:'🔮', anim:'pulse',  label:'Cristal'   },
+  { key:'target',    emoji:'🎯', anim:'spin',   label:'Alvo'      },
+  { key:'alien',     emoji:'👽', anim:'float',  label:'Alien'     },
+  { key:'ghost',     emoji:'👻', anim:'bounce', label:'Fantasma'  },
+  { key:'skull',     emoji:'💀', anim:'shake',  label:'Caveira'   },
+  { key:'angel',     emoji:'😇', anim:'float',  label:'Anjo'      },
+  { key:'devil',     emoji:'😈', anim:'pulse',  label:'Diabo'     },
+  { key:'hundred',   emoji:'💯', anim:'bounce', label:'100'       },
+  { key:'flex',      emoji:'💪', anim:'pulse',  label:'Força'     },
+];
   // ── Setas ──────────────────────────────────────────────────────────────────
   { key:'arrow_up',       emoji:'⬆️',  anim:'bounce', label:'↑ Cima'       },
   { key:'arrow_down',     emoji:'⬇️',  anim:'bounce', label:'↓ Baixo'      },
@@ -1253,6 +1317,28 @@ function App() {
       // source.unsplash.com foi desativado em 2024 — usando picsum.photos
       // seed = termo + índice → imagens diferentes a cada busca, sempre disponíveis
       const terms = query.trim().toLowerCase().replace(/\s+/g, '-');
+      const results = Array.from({ length: 12 }, (_, i) => ({
+        id: `${terms}_${i}`,
+        thumb: `https://picsum.photos/seed/${terms}${i}/300/500`,
+        full:  `https://picsum.photos/seed/${terms}${i}/720/1280`,
+        credit: 'Picsum Photos',
+      }));
+      setBgSearchResults(results);
+    } catch(e) {
+      console.error('[BgSearch]', e);
+    } finally {
+      setBgSearchLoading(false);
+    }
+  };
+
+
+  const searchBgImages = async () => {
+    const query = bgSearchQuery.trim() || bgSearch.trim();
+    if (!query) return;
+    setBgSearchLoading(true);
+    setBgSearchResults([]);
+    try {
+      const terms = query.toLowerCase().replace(/\s+/g, '-');
       const results = Array.from({ length: 12 }, (_, i) => ({
         id: `${terms}_${i}`,
         thumb: `https://picsum.photos/seed/${terms}${i}/300/500`,
@@ -3028,6 +3114,84 @@ _setDragging(null);
   };
 
   drawTextBgEffectRef.current = _drawTextBgEffectImpl;
+
+  const _drawScreenEffectImpl = (ctx, effect, W, H, t) => {
+    if (!effect || effect === 'none') return;
+    const ph = t;
+    ctx.save();
+    try {
+      switch(effect) {
+        case 'vignette': { const vg=ctx.createRadialGradient(W/2,H/2,Math.min(W,H)*0.3,W/2,H/2,Math.max(W,H)*0.75); vg.addColorStop(0,'transparent'); vg.addColorStop(1,'rgba(0,0,0,0.72)'); ctx.fillStyle=vg; ctx.fillRect(0,0,W,H); break; }
+        case 'film_grain': { for(let i=0;i<600;i++){const gx=Math.random()*W,gy=Math.random()*H;ctx.fillStyle=`rgba(255,255,255,${Math.random()*0.25})`;ctx.fillRect(gx,gy,1,1);} const fvg=ctx.createRadialGradient(W/2,H/2,Math.min(W,H)*0.4,W/2,H/2,Math.max(W,H)*0.75); fvg.addColorStop(0,'transparent'); fvg.addColorStop(1,'rgba(0,0,0,0.4)'); ctx.fillStyle=fvg; ctx.fillRect(0,0,W,H); break; }
+        case 'vintage': { ctx.fillStyle='rgba(100,60,0,0.18)'; ctx.fillRect(0,0,W,H); const vvg=ctx.createRadialGradient(W/2,H/2,Math.min(W,H)*0.3,W/2,H/2,Math.max(W,H)*0.75); vvg.addColorStop(0,'transparent'); vvg.addColorStop(1,'rgba(40,20,0,0.5)'); ctx.fillStyle=vvg; ctx.fillRect(0,0,W,H); ctx.strokeStyle='rgba(255,240,200,0.08)'; ctx.lineWidth=1; for(let i=0;i<3;i++){const sx=((i*317+Math.floor(ph*2)*89)%W+W)%W; ctx.beginPath(); ctx.moveTo(sx,0); ctx.lineTo(sx+2,H); ctx.stroke();} break; }
+        case 'tv_static': { for(let y=0;y<H;y+=2){ctx.fillStyle=`rgba(0,0,0,${Math.random()*0.06})`;ctx.fillRect(0,y,W,1);} for(let i=0;i<400;i++){const nx=Math.random()*W,ny=Math.random()*H,nv=Math.floor(Math.random()*255);ctx.fillStyle=`rgba(${nv},${nv},${nv},0.4)`;ctx.fillRect(nx,ny,2,2);} if(Math.random()<0.15){ctx.fillStyle='rgba(255,255,255,0.08)';ctx.fillRect(0,Math.random()*H,W,1+Math.random()*3);} break; }
+        case 'vhs': { for(let y=0;y<H;y+=3){ctx.fillStyle='rgba(0,0,0,0.18)';ctx.fillRect(0,y,W,1);} ctx.globalCompositeOperation='screen'; ctx.fillStyle='rgba(255,0,0,0.04)';ctx.fillRect(2,0,W,H); ctx.fillStyle='rgba(0,0,255,0.04)';ctx.fillRect(-2,0,W,H); ctx.globalCompositeOperation='source-over'; const barY=((ph*30)%H+H)%H; ctx.fillStyle='rgba(255,255,255,0.06)';ctx.fillRect(0,barY,W,12); break; }
+        case 'glitch': { ctx.globalCompositeOperation='screen'; ctx.fillStyle='rgba(255,0,100,0.04)';ctx.fillRect(3,0,W,H); ctx.fillStyle='rgba(0,255,200,0.04)';ctx.fillRect(-3,0,W,H); ctx.globalCompositeOperation='source-over'; if(Math.floor(ph*8)%3===0){for(let i=0;i<5;i++){const gy=Math.random()*H,gh=2+Math.random()*8;ctx.fillStyle=`rgba(${Math.random()<0.5?255:0},0,${Math.random()<0.5?255:0},0.08)`;ctx.fillRect(0,gy,W,gh);}} break; }
+        case 'neon_glow': { const np=0.4+0.3*Math.sin(ph*2),hue=(ph*40)%360; const ng=ctx.createRadialGradient(W/2,H/2,Math.min(W,H)*0.2,W/2,H/2,Math.max(W,H)*0.8); ng.addColorStop(0,'transparent'); ng.addColorStop(1,`hsla(${hue},100%,55%,${np*0.35})`); ctx.fillStyle=ng; ctx.fillRect(0,0,W,H); ctx.strokeStyle=`hsla(${hue},100%,65%,${np*0.4})`; ctx.lineWidth=4; ctx.shadowBlur=20; ctx.shadowColor=`hsl(${hue},100%,60%)`; ctx.strokeRect(8,8,W-16,H-16); ctx.shadowBlur=0; break; }
+        case 'blur_fx': { try{ctx.filter='blur(4px)';ctx.drawImage(ctx.canvas,0,0);ctx.filter='none';}catch(e){} ctx.fillStyle='rgba(0,0,0,0.08)';ctx.fillRect(0,0,W,H); break; }
+        case 'matrix': { ctx.fillStyle='rgba(0,255,70,0.06)';ctx.fillRect(0,0,W,H); ctx.fillStyle='rgba(0,255,70,0.55)'; ctx.font=`${Math.max(10,Math.floor(W/50))}px monospace`; ctx.textAlign='left'; const cols=Math.floor(W/14); for(let c=0;c<cols;c++){const ch2=String.fromCharCode(0x30A0+Math.floor((ph*7+c*13)%96));const cy2=((c*137+Math.floor(ph*20)*31)%H+H)%H;ctx.fillText(ch2,c*14,cy2);} break; }
+        case 'confetti': { const colors2=['#ff0','#f0f','#0ff','#f66','#6f6','#66f','#fa0']; for(let i=0;i<60;i++){const cx2=((i*197+Math.floor(ph*15)*53)%W+W)%W,cy3=((i*113+ph*80*((i%5)+1))%H+H)%H,crot=(ph*2+i)*0.5;ctx.save();ctx.translate(cx2,cy3);ctx.rotate(crot);ctx.fillStyle=colors2[i%colors2.length];ctx.globalAlpha=0.7;ctx.fillRect(-4,-2,8,4);ctx.restore();} break; }
+        case 'particles': { ctx.fillStyle='rgba(200,220,255,0.55)'; for(let i=0;i<80;i++){const px2=((i*197+ph*15*(1+(i%5)*0.2))%W+W)%W,py2=((i*113-ph*20*(1+(i%3)*0.3))%H+H)%H,pr=0.5+((i*71)%3)*0.5;ctx.beginPath();ctx.arc(px2,py2,pr,0,6.28);ctx.fill();} break; }
+        case 'aurora': { for(let band=0;band<4;band++){const bph=ph*0.5+band*0.8,ay=H*0.15+H*0.1*Math.sin(bph+band),hue2=(160+band*40+(ph*10)%60)%360;const ag=ctx.createLinearGradient(0,ay-60,0,ay+80);ag.addColorStop(0,'transparent');ag.addColorStop(0.3,`hsla(${hue2},90%,60%,0.18)`);ag.addColorStop(0.7,`hsla(${(hue2+40)%360},80%,55%,0.12)`);ag.addColorStop(1,'transparent');ctx.fillStyle=ag;ctx.fillRect(0,ay-60,W,140);} break; }
+        case 'ice': { ctx.fillStyle='rgba(150,200,255,0.08)';ctx.fillRect(0,0,W,H); ctx.strokeStyle='rgba(180,220,255,0.25)';ctx.lineWidth=1; for(let i=0;i<20;i++){const ix=Math.random()*W,iy=Math.random()*H,il=10+Math.random()*30,ia=(Math.random()-0.5)*Math.PI;ctx.beginPath();ctx.moveTo(ix,iy);ctx.lineTo(ix+Math.cos(ia)*il,iy+Math.sin(ia)*il);ctx.stroke();} const ig=ctx.createRadialGradient(W/2,H/2,Math.min(W,H)*0.3,W/2,H/2,Math.max(W,H)*0.7);ig.addColorStop(0,'transparent');ig.addColorStop(1,'rgba(150,200,255,0.3)');ctx.fillStyle=ig;ctx.fillRect(0,0,W,H); break; }
+        case 'cyberpunk': { ctx.fillStyle='rgba(0,0,20,0.3)';ctx.fillRect(0,0,W,H); ctx.strokeStyle='rgba(0,255,180,0.06)';ctx.lineWidth=1; const cg2=Math.floor(W/20); for(let c=0;c<=cg2;c++){const x=c*(W/cg2);ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke();} for(let r=0;r<=10;r++){const y=r*(H/10);ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();} const cp=0.3+0.3*Math.sin(ph*3);ctx.shadowBlur=15;ctx.shadowColor='#00ffb4';ctx.strokeStyle=`rgba(0,255,180,${cp})`;ctx.lineWidth=2;ctx.strokeRect(4,4,W-8,H-8);ctx.shadowBlur=0; break; }
+
+        case 'rain': {
+          const atmo=ctx.createLinearGradient(0,0,0,H);atmo.addColorStop(0,'rgba(15,25,45,0.22)');atmo.addColorStop(1,'rgba(8,15,30,0.10)');ctx.fillStyle=atmo;ctx.fillRect(0,0,W,H);
+          const windAngle=Math.sin(ph*0.25)*0.22+Math.sin(ph*0.07)*0.08-0.18;
+          const RL=[{n:100,spd:220,len:14,lw:0.4,a:0.14},{n:80,spd:320,len:22,lw:0.6,a:0.22},{n:55,spd:450,len:34,lw:0.9,a:0.32},{n:30,spd:600,len:50,lw:1.3,a:0.45}];
+          RL.forEach((L,li)=>{ctx.lineWidth=L.lw;for(let i=0;i<L.n;i++){const hx=((i*127.1+li*311.7+0.03)%1+1)%1,hy=((i*91.3+li*173.9+0.07)%1+1)%1,spd=L.spd*(0.75+((i*71.3)%1)*0.5);const bx2=((hx*W+ph*windAngle*spd)%W+W)%W,by2=((hy*H+ph*(spd/H)*H)%H+H)%H,ex2=bx2+L.len*windAngle,ey2=by2+L.len,alpha=L.a*(0.55+((i*53.9)%1)*0.45);const rg=ctx.createLinearGradient(bx2,by2,ex2,ey2);rg.addColorStop(0,`rgba(200,225,255,${alpha*1.4})`);rg.addColorStop(1,'rgba(140,190,255,0)');ctx.strokeStyle=rg;ctx.beginPath();ctx.moveTo(bx2,by2);ctx.lineTo(ex2,ey2);ctx.stroke();}});
+          const sT=ph*2.5;for(let i=0;i<35;i++){const gx=((i*197.3+Math.floor(sT+i*0.37)*79.1)%W+W)%W,gy=H-1-((i*113.7)%1)*(H*0.04),age=(sT+i*0.37)%1,sr2=age*8*(0.7+((i*53)%1)*0.6),sa2=Math.pow(1-age,1.5)*0.4;ctx.strokeStyle=`rgba(160,210,255,${sa2})`;ctx.lineWidth=0.7;ctx.beginPath();ctx.ellipse(gx,gy,sr2,sr2*0.25,0,0,Math.PI*2);ctx.stroke();}
+          const rv=ctx.createRadialGradient(W/2,H/2,Math.min(W,H)*0.3,W/2,H/2,Math.max(W,H)*0.8);rv.addColorStop(0,'transparent');rv.addColorStop(1,'rgba(5,15,40,0.50)');ctx.fillStyle=rv;ctx.fillRect(0,0,W,H);
+          break;
+        }
+        case 'fire': {
+          for(let layer=0;layer<3;layer++){const lh=H*(0.12+layer*0.06);const lg=ctx.createLinearGradient(0,H,0,H-lh);const intensities=[0.40,0.20,0.10];lg.addColorStop(0,`rgba(255,${40+layer*30},0,${intensities[layer]})`);lg.addColorStop(0.6,`rgba(255,${80+layer*40},0,${intensities[layer]*0.4})`);lg.addColorStop(1,'transparent');ctx.fillStyle=lg;ctx.fillRect(0,H-lh,W,lh);}
+          const COL=Math.max(1,Math.floor(W/4));for(let c=0;c<COL;c++){const nx=c/COL,f1=Math.sin(ph*2.7+nx*8.3)*0.40,f2=Math.sin(ph*4.3+nx*14.1+1.5)*0.25,f3=Math.sin(ph*1.6+nx*5.9+0.8)*0.20,f4=Math.sin(ph*7.1+nx*22.0+2.1)*0.15,turb=0.5+(f1+f2+f3+f4)*0.5,baseH=H*(0.25+turb*0.30),cx2=c*(W/COL),cw2=W/COL*1.6;const fg2=ctx.createLinearGradient(cx2+cw2/2,H,cx2+cw2/2,H-baseH);fg2.addColorStop(0,'rgba(255,255,200,0.80)');fg2.addColorStop(0.15,'rgba(255,200,30,0.70)');fg2.addColorStop(0.40,'rgba(255,100,0,0.55)');fg2.addColorStop(0.70,'rgba(200,30,0,0.30)');fg2.addColorStop(1,'transparent');const ctrlX=cx2+(turb-0.5)*cw2*0.8;ctx.fillStyle=fg2;ctx.beginPath();ctx.moveTo(cx2-cw2*0.1,H);ctx.quadraticCurveTo(ctrlX,H-baseH*0.5,cx2+cw2/2,H-baseH);ctx.quadraticCurveTo(ctrlX+cw2*0.3,H-baseH*0.5,cx2+cw2*1.1,H);ctx.closePath();ctx.fill();}
+          ctx.shadowBlur=6;for(let e=0;e<45;e++){const eph=ph*(0.8+((e*71.3)%1)*0.6)+e*0.41,ex2=((e*173.3+Math.sin(eph*1.3)*W*0.04)%W+W)%W,riseY=((eph*H*0.6)%H+H)%H,ey2=H-riseY;if(ey2<-10||ey2>H)continue;const fade=Math.max(0,ey2/H),er=0.8+((e*53.1)%1)*1.8,ec=`rgba(255,${160+Math.floor(((e*71)%1)*90)},${Math.floor(((e*37)%1)*40)},${fade*0.9})`;ctx.shadowColor=ec;ctx.fillStyle=ec;ctx.beginPath();ctx.arc(ex2,ey2,er,0,Math.PI*2);ctx.fill();}ctx.shadowBlur=0;
+          break;
+        }
+        case 'smoke': {
+          for(let layer=0;layer<3;layer++){const lh=H*(0.08+layer*0.05),lo=0.10-layer*0.03;const lg=ctx.createLinearGradient(0,H,0,H-lh);lg.addColorStop(0,`rgba(130,130,140,${lo})`);lg.addColorStop(1,'transparent');ctx.fillStyle=lg;ctx.fillRect(0,H-lh,W,lh);}
+          const N=35;for(let i=0;i<N;i++){const vrise=0.03+((i*71.3)%1)*0.04,windPhase=ph*0.15+i*0.9,windDrift=Math.sin(windPhase)*0.04+Math.sin(windPhase*2.3+1)*0.02,life=((ph*vrise+(i/N))%1+1)%1,spx=((i*197.3)%1)*W,px=(spx+windDrift*W*life*3+W)%W,py=H*0.92-life*H*0.65,baseR=W*0.045*(0.5+((i*53.1)%1)*0.5),pr=baseR*(0.2+life*0.8)*1.6;const pa=life<0.15?(life/0.15)*0.20:Math.pow(1-life,1.2)*0.20*(0.6+((i*37.7)%1)*0.4);if(pa<=0.005)continue;const gv=Math.floor(80+life*130);const sg2=ctx.createRadialGradient(px,py,0,px,py,pr);sg2.addColorStop(0,`rgba(${gv},${gv},${gv},${pa})`);sg2.addColorStop(0.45,`rgba(${gv},${gv},${gv},${pa*0.55})`);sg2.addColorStop(1,'transparent');ctx.fillStyle=sg2;ctx.beginPath();ctx.arc(px,py,pr,0,Math.PI*2);ctx.fill();}
+          const veil=ctx.createLinearGradient(0,0,0,H);veil.addColorStop(0,'rgba(60,60,70,0.04)');veil.addColorStop(1,'rgba(80,80,90,0.09)');ctx.fillStyle=veil;ctx.fillRect(0,0,W,H);
+          break;
+        }
+        case 'night': {
+          const sky=ctx.createLinearGradient(0,0,0,H);sky.addColorStop(0,'rgba(0,2,14,0.72)');sky.addColorStop(0.45,'rgba(0,4,20,0.45)');sky.addColorStop(1,'rgba(0,6,25,0.18)');ctx.fillStyle=sky;ctx.fillRect(0,0,W,H);
+          [{x:0.18,y:0.10,r:W*0.20,h:240,a:0.07},{x:0.78,y:0.07,r:W*0.16,h:195,a:0.06},{x:0.50,y:0.18,r:W*0.26,h:275,a:0.05}].forEach(nb=>{const g3=ctx.createRadialGradient(nb.x*W,nb.y*H,0,nb.x*W,nb.y*H,nb.r);g3.addColorStop(0,`hsla(${nb.h},60%,35%,${nb.a})`);g3.addColorStop(1,'transparent');ctx.fillStyle=g3;ctx.fillRect(0,0,W,H);});
+          const classes=[{n:180,sMin:0.4,sMax:0.9,twMin:0.20,twMax:0.65,yMax:0.60},{n:50,sMin:0.8,sMax:1.6,twMin:0.35,twMax:0.85,yMax:0.50},{n:18,sMin:1.4,sMax:2.4,twMin:0.60,twMax:1.00,yMax:0.42}];
+          const seeds=[[127.1,91.3,53.1],[197.7,113.9,71.3],[311.3,173.7,37.9]];
+          classes.forEach((cls,ci)=>{const [sx2,sy2,sp2]=seeds[ci];for(let i=0;i<cls.n;i++){const fx=((i*sx2+ci*211)%1+1)%1,fy=((i*sy2+ci*173)%1+1)%1;if(fy>cls.yMax)continue;const fr=((i*sp2)%1+1)%1,sr=cls.sMin+fr*(cls.sMax-cls.sMin),phase2=i*2.3+ci*1.7,tw=cls.twMin+Math.abs(Math.sin(ph*0.7+phase2))*(cls.twMax-cls.twMin);ctx.globalAlpha=tw*0.35;const hg=ctx.createRadialGradient(fx*W,fy*H,0,fx*W,fy*H,sr*4);hg.addColorStop(0,'rgba(220,230,255,0.6)');hg.addColorStop(1,'transparent');ctx.fillStyle=hg;ctx.fillRect(fx*W-sr*5,fy*H-sr*5,sr*10,sr*10);ctx.globalAlpha=tw;ctx.fillStyle='hsl(200,20%,97%)';ctx.beginPath();ctx.arc(fx*W,fy*H,sr*0.55,0,Math.PI*2);ctx.fill();ctx.globalAlpha=1;}});
+          const mx=W*0.80,my=H*0.11,mr=Math.min(W,H)*0.052;const corona=ctx.createRadialGradient(mx,my,mr,mx,my,mr*3.5);corona.addColorStop(0,'rgba(255,250,210,0.18)');corona.addColorStop(1,'transparent');ctx.fillStyle=corona;ctx.fillRect(mx-mr*4,my-mr*4,mr*8,mr*8);ctx.fillStyle='rgba(255,252,225,0.92)';ctx.beginPath();ctx.arc(mx,my,mr,0,Math.PI*2);ctx.fill();ctx.fillStyle='rgba(0,4,20,0.94)';ctx.beginPath();ctx.arc(mx+mr*0.42,my,mr*0.88,0,Math.PI*2);ctx.fill();
+          const hmist=ctx.createLinearGradient(0,H*0.60,0,H);hmist.addColorStop(0,'transparent');hmist.addColorStop(1,'rgba(0,10,32,0.42)');ctx.fillStyle=hmist;ctx.fillRect(0,H*0.60,W,H*0.40);
+          break;
+        }
+        case 'lightning': {
+          const CYCLE=2.8,cyclePhase=(ph%CYCLE)/CYCLE,isFlash=cyclePhase<0.08,flashAge=cyclePhase/0.08;
+          if(isFlash){
+            const flashAlpha=Math.pow(1-flashAge,1.8)*0.35*(0.7+Math.sin(ph*47)*0.3);ctx.fillStyle=`rgba(200,215,255,${flashAlpha})`;ctx.fillRect(0,0,W,H);
+            const drawBolt=(x1,y1,x2,y2,depth,alpha,lineW)=>{if(depth<=0||alpha<0.03){ctx.strokeStyle=`rgba(220,235,255,${alpha})`;ctx.lineWidth=lineW;ctx.shadowBlur=lineW*8;ctx.shadowColor=`rgba(150,180,255,${alpha*0.7})`;ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();return;}const mx2=(x1+x2)/2+(Math.sin(x1*0.1+y1*0.07+ph*31)*W*0.04*(4/depth));const my2=(y1+y2)/2+(Math.cos(y1*0.08+x1*0.05+ph*17)*H*0.015*(4/depth));drawBolt(x1,y1,mx2,my2,depth-1,alpha,lineW);drawBolt(mx2,my2,x2,y2,depth-1,alpha,lineW);if(depth===3&&((Math.sin(ph*13+x1)*0.5+0.5)>0.4)){drawBolt(mx2,my2,mx2+W*(Math.sin(ph*7+y1*0.05)*0.1),my2+H*(0.12+((Math.sin(ph*11+x1*0.03)*0.5+0.5))*0.08),depth-2,alpha*0.55,lineW*0.55);}};
+            const fade=1-flashAge,boltX=W*(0.2+((Math.sin(Math.floor(ph/CYCLE)*7.3+1.5)*0.5+0.5))*0.6);ctx.shadowBlur=0;drawBolt(boltX,-5,boltX+W*(Math.sin(ph*3)*0.08),H*0.75,4,fade*0.9,2.2);drawBolt(boltX,-5,boltX+W*(Math.sin(ph*3)*0.08),H*0.75,3,fade*0.35,5.0);ctx.shadowBlur=0;
+          }
+          const bgGlow=Math.max(0,(0.12-cyclePhase)*8)*0.25;if(bgGlow>0){ctx.fillStyle=`rgba(180,200,255,${bgGlow})`;ctx.fillRect(0,0,W,H);}
+          const stormVig=ctx.createRadialGradient(W/2,H/2,Math.min(W,H)*0.25,W/2,H/2,Math.max(W,H)*0.85);stormVig.addColorStop(0,'transparent');stormVig.addColorStop(1,'rgba(0,5,20,0.55)');ctx.fillStyle=stormVig;ctx.fillRect(0,0,W,H);
+          break;
+        }
+        case 'shake': {
+          const intensity=Math.min(W,H)*0.018*(0.5+0.5*Math.abs(Math.sin(ph*1.3)));const dx=Math.sin(ph*23.7)*intensity+Math.sin(ph*37.1)*intensity*0.4,dy=Math.cos(ph*19.3)*intensity+Math.cos(ph*29.7)*intensity*0.3;
+          const steps=5;for(let s=1;s<=steps;s++){const t2=s/steps;ctx.globalAlpha=0.12*(1-t2*0.6);ctx.drawImage(ctx.canvas,dx*t2,dy*t2);ctx.drawImage(ctx.canvas,-dx*t2*0.5,-dy*t2*0.5);}ctx.globalAlpha=1;
+          break;
+        }
+        default: break;
+      }
+    } finally {
+      ctx.globalAlpha=1; ctx.globalCompositeOperation='source-over';
+      ctx.filter='none'; ctx.shadowBlur=0; ctx.shadowColor='transparent';
+      ctx.restore();
+    }
+  };
+  drawScreenEffectRef.current = _drawScreenEffectImpl;
 
   const draw = useCallback(() => {
     const canvas = canvasRef.current;
@@ -5050,6 +5214,8 @@ _setDragging(null);
                 <div style={{padding:'8px 14px 4px',fontSize:10,color:'#555',fontWeight:700,letterSpacing:'0.8px',textTransform:'uppercase'}}>Importar Mídia</div>
                 {[
                   { icon:'🖼️', label:'Fundo / Imagem de fundo', color:'#00BFFF',  action:()=>{ bgInputRef.current?.click(); setShowMidiasPanel(false); } },
+                  { icon:'🎨', label:'Fundos & Gradientes',       color:'#00BFFF',  action:()=>{ setShowMidiasPanel(false); setShowBgPanel(v=>!v); } },
+                  { icon:'✕',  label:'Remover fundo',             color:'#f87171',  action:()=>{ setImageSrc(null); setImage(null); if(bgInputRef.current)bgInputRef.current.value=''; setShowMidiasPanel(false); } },
                   { icon:'🏞️', label:'Imagens overlay',         color:'#00BFFF',  action:()=>{ imagesInputRef.current?.click(); setShowMidiasPanel(false); } },
                   { icon:'🎬', label:'Vídeo',                    color:'#a78bfa',  action:()=>{ videoInputRef.current?.click(); setShowMidiasPanel(false); } },
                   { icon:'🎵', label:'Música / Áudio',           color:'#10b981',  action:()=>{ audioInputRef.current?.click(); setShowMidiasPanel(false); } },
@@ -5063,16 +5229,8 @@ _setDragging(null);
                     <span style={{fontSize:12,color:'#ccc',fontWeight:500}}>{item.label}</span>
                   </div>
                 ))}
-                <div style={{height:1,background:'rgba(255,255,255,0.06)',margin:'4px 0'}} />
-                <div style={{padding:'8px 14px 4px',fontSize:10,color:'#555',fontWeight:700,letterSpacing:'0.8px',textTransform:'uppercase'}}>Fundos</div>
-                <div key="bg-fundos" onClick={()=>{ setShowMidiasPanel(false); setShowBgPanel(v=>!v); }}
-                  style={{ display:'flex', alignItems:'center', gap:10, padding:'9px 14px', cursor:'pointer', transition:'background 0.1s' }}
-                  onMouseEnter={e=>e.currentTarget.style.background='rgba(255,255,255,0.05)'}
-                  onMouseLeave={e=>e.currentTarget.style.background='transparent'}
-                >
-                  <span style={{fontSize:16}}>🎨</span>
-                  <span style={{fontSize:12,color:'#ccc',fontWeight:500}}>Fundos & Gradientes</span>
-                </div>
+<div style={{height:1,background:'rgba(255,255,255,0.06)',margin:'4px 0'}} />
+
               </div>
             </>,
             document.body
@@ -5099,28 +5257,35 @@ _setDragging(null);
                 </div>
                 {/* TEMPLATE CONTENT — MANTIDO ORIGINAL */}
                 <div style={{ display:'flex', gap:6, padding:'10px 16px 6px', borderBottom:'1px solid rgba(255,255,255,0.05)' }}>
-                  {Object.keys(CANVAS_FORMATS).map(fmt=>(
-                    <button key={fmt} onClick={()=>setTemplateFormatTab(fmt)} style={{ padding:'4px 12px', borderRadius:8, border:'none', cursor:'pointer', fontSize:11, fontWeight:700, background:templateFormatTab===fmt?'#10b981':'rgba(255,255,255,0.06)', color:templateFormatTab===fmt?'#000':'#888' }}>{fmt}</button>
-                  ))}
+                  {['9:16','16:9','1:1','4:3'].map(fmt=>{
+                    const count = CANVAS_TEMPLATES.filter(t=>t.format===fmt).length;
+                    if(!count) return null;
+                    return <button key={fmt} onClick={()=>setTemplateFormatTab(fmt)} style={{ padding:'4px 12px', borderRadius:8, border:'none', cursor:'pointer', fontSize:11, fontWeight:700, background:templateFormatTab===fmt?'#10b981':'rgba(255,255,255,0.06)', color:templateFormatTab===fmt?'#000':'#888' }}>{fmt} <span style={{opacity:0.5}}>({count})</span></button>;
+                  })}
                 </div>
                 <div style={{ overflowY:'auto', flex:1, padding:16, display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(200px,1fr))', gap:12 }}>
-                  {CANVAS_TEMPLATES.filter(tp=>tp.format===templateFormatTab||!tp.format).map(tp=>(
-                    <div key={tp.id} style={{ background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.07)', borderRadius:12, overflow:'hidden', cursor:'pointer', transition:'all 0.2s' }}
-                      onMouseEnter={e=>{e.currentTarget.style.borderColor='rgba(16,185,129,0.5)';e.currentTarget.style.transform='translateY(-2px)';}}
-                      onMouseLeave={e=>{e.currentTarget.style.borderColor='rgba(255,255,255,0.07)';e.currentTarget.style.transform='translateY(0)';}}
-                    >
-                      <div style={{ aspectRatio:tp.format==='16:9'?'16/9':tp.format==='1:1'?'1/1':'9/16', background:tp.preview||'#1a1a2e', display:'flex', alignItems:'center', justifyContent:'center', fontSize:32 }}>
-                        {tp.emoji||'🎨'}
+                  {CANVAS_TEMPLATES.filter(tp=>tp.format===templateFormatTab).map(tp=>{
+                    const accentColor = tp.accent || tp.settings?.shadowColor || '#00BFFF';
+                    const bgStyle = `linear-gradient(135deg,${accentColor}33 0%,#0d1117 100%)`;
+                    const ffDisplay = (tp.settings?.fontFamily||'Bebas Neue').split(' ')[0];
+                    return (
+                      <div key={tp.id} style={{ background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.07)', borderRadius:12, overflow:'hidden', cursor:'pointer', transition:'all 0.2s' }}
+                        onMouseEnter={e=>{e.currentTarget.style.borderColor=accentColor+'99';e.currentTarget.style.transform='translateY(-2px)';}}
+                        onMouseLeave={e=>{e.currentTarget.style.borderColor='rgba(255,255,255,0.07)';e.currentTarget.style.transform='translateY(0)';}}
+                      >
+                        <div style={{ aspectRatio:tp.format==='16:9'?'16/9':tp.format==='1:1'?'1/1':'9/16', background:bgStyle, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:4, minHeight:80 }}>
+                          <span style={{ fontSize:20, fontWeight:900, color:accentColor, fontFamily:tp.settings?.fontFamily||'inherit', letterSpacing:'1px', textAlign:'center', padding:'0 6px', textShadow:`0 0 12px ${accentColor}` }}>{tp.name}</span>
+                          <span style={{ fontSize:9, color:'rgba(255,255,255,0.4)', fontFamily:'monospace' }}>{ffDisplay}</span>
+                        </div>
+                        <div style={{ padding:'8px 10px' }}>
+                          <div style={{ fontSize:10, color:'#888', marginBottom:6 }}>{tp.desc||''}</div>
+                          <button onClick={()=>applyTemplate(tp)} style={{ width:'100%', padding:'5px 0', background:`${accentColor}22`, border:`1px solid ${accentColor}55`, borderRadius:7, fontSize:10, color:accentColor, fontWeight:700, cursor:'pointer' }}>
+                            {lang==='pt'?'Usar template':'Use template'}
+                          </button>
+                        </div>
                       </div>
-                      <div style={{ padding:'10px 12px' }}>
-                        <div style={{ fontSize:12, fontWeight:700, color:'#f0f0f0', marginBottom:4 }}>{lang==='pt'?tp.name:tp.nameEn}</div>
-                        <div style={{ fontSize:10, color:'#666', marginBottom:8 }}>{lang==='pt'?tp.desc:tp.descEn}</div>
-                        <button onClick={()=>applyTemplate(tp)} style={{ width:'100%', padding:'6px 0', background:'rgba(16,185,129,0.15)', border:'1px solid rgba(16,185,129,0.3)', borderRadius:8, fontSize:11, color:'#10b981', fontWeight:700, cursor:'pointer' }}>
-                          {lang==='pt'?'Usar template':'Use template'}
-                        </button>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             </>,
@@ -5145,33 +5310,39 @@ _setDragging(null);
                 <button onClick={()=>setShowStickerPanel(false)} style={{ background:'none', border:'none', color:'#555', cursor:'pointer', fontSize:16 }}>✕</button>
               </div>
               <div style={{ display:'flex', gap:6, padding:'8px 12px', borderBottom:'1px solid rgba(255,255,255,0.05)' }}>
-                {(['emoji','animated']).map(tab=>(
+                {[['emoji',`😀 Emojis`],['sticker',`✨ Animados`]].map(([tab,label])=>(
                   <button key={tab} onClick={()=>setStickerTab(tab)} style={{ padding:'4px 12px', borderRadius:8, border:'none', cursor:'pointer', fontSize:11, fontWeight:700, background:stickerTab===tab?'#fbbf24':'rgba(255,255,255,0.06)', color:stickerTab===tab?'#000':'#888' }}>
-                    {tab==='emoji'?`😀 ${t('stk_emoji')}`:`🌀 ${t('stk_animated')}`}
+                    {label}
                   </button>
                 ))}
               </div>
               <div style={{ overflowY:'auto', flex:1, padding:8 }}>
                 {stickerTab==='emoji'&&(
-                  <div style={{ display:'grid', gridTemplateColumns:'repeat(8,1fr)', gap:2 }}>
-                    {STICKER_EMOJIS.map(em=>(
-                      <div key={em} onClick={()=>addSticker('emoji',em)} style={{ fontSize:22, textAlign:'center', padding:'6px 0', cursor:'pointer', borderRadius:8, transition:'background 0.1s' }}
-                        onMouseEnter={e=>e.currentTarget.style.background='rgba(251,191,36,0.15)'}
-                        onMouseLeave={e=>e.currentTarget.style.background='transparent'}
-                      >{em}</div>
+                  <div>
+                    {EMOJI_LIST.map((row, ri) => (
+                      <div key={ri} style={{ display:'flex', gap:3, marginBottom:3, flexWrap:'wrap' }}>
+                        {row.map(em => (
+                          <button key={em} onClick={()=>addSticker('emoji',em,null)}
+                            style={{ background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.07)', borderRadius:9, padding:'5px 3px', fontSize:21, cursor:'pointer', lineHeight:1, width:40, transition:'background 0.1s' }}
+                            onMouseEnter={e=>e.currentTarget.style.background='rgba(251,191,36,0.15)'}
+                            onMouseLeave={e=>e.currentTarget.style.background='rgba(255,255,255,0.04)'}
+                          >{em}</button>
+                        ))}
+                      </div>
                     ))}
                   </div>
                 )}
                 {stickerTab==='animated'&&(
-                  <div style={{ display:'grid', gridTemplateColumns:'repeat(2,1fr)', gap:8, padding:4 }}>
+                  <div style={{ display:'flex', flexWrap:'wrap', gap:7 }}>
                     {ANIMATED_STICKERS.map(stk=>(
-                      <div key={stk.key} onClick={()=>addSticker('animated',stk.content,stk.animStyle)} style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:4, padding:'10px 6px', borderRadius:10, cursor:'pointer', background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.06)', transition:'all 0.15s' }}
-                        onMouseEnter={e=>{ e.currentTarget.style.background='rgba(251,191,36,0.1)'; e.currentTarget.style.borderColor='rgba(251,191,36,0.4)'; }}
-                        onMouseLeave={e=>{ e.currentTarget.style.background='rgba(255,255,255,0.03)'; e.currentTarget.style.borderColor='rgba(255,255,255,0.06)'; }}
+                      <button key={stk.key} onClick={()=>addSticker('sticker',stk.emoji,stk.anim)}
+                        style={{ background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.07)', borderRadius:11, padding:'7px 5px', cursor:'pointer', display:'flex', flexDirection:'column', alignItems:'center', gap:3, width:64, transition:'background 0.15s' }}
+                        onMouseEnter={e=>e.currentTarget.style.background='rgba(251,191,36,0.15)'}
+                        onMouseLeave={e=>e.currentTarget.style.background='rgba(255,255,255,0.04)'}
                       >
-                        <span style={{fontSize:28}}>{stk.content}</span>
-                        <span style={{fontSize:10,color:'#888'}}>{lang==='pt'?stk.label:stk.labelEn}</span>
-                      </div>
+                        <span style={{fontSize:24}}>{stk.emoji}</span>
+                        <span style={{fontSize:9,color:'#888',fontWeight:700}}>{stk.label}</span>
+                      </button>
                     ))}
                   </div>
                 )}
@@ -5202,23 +5373,30 @@ _setDragging(null);
                 <span style={{ fontWeight:800, fontSize:13, color:'#10b981' }}>🔊 {t('sfx_title')}</span>
                 <button onClick={()=>setShowSfxPanel(false)} style={{ background:'none', border:'none', color:'#555', cursor:'pointer', fontSize:16 }}>✕</button>
               </div>
-              <div style={{ overflowY:'auto', flex:1, padding:8, display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:6 }}>
+              <div style={{ overflowY:'auto', flex:1, padding:'10px 12px', display:'grid', gridTemplateColumns:'repeat(6,1fr)', gap:6 }}>
                 {SFX_LIST.map(sfx=>(
-                  <div key={sfx.key} onClick={()=>addSfxToTimeline(sfx.key)} style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:4, padding:'8px 4px', borderRadius:10, cursor:'pointer', background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.06)', transition:'all 0.15s' }}
-                    onMouseEnter={e=>{e.currentTarget.style.background='rgba(16,185,129,0.12)';e.currentTarget.style.borderColor='rgba(16,185,129,0.4)';}}
-                    onMouseLeave={e=>{e.currentTarget.style.background='rgba(255,255,255,0.03)';e.currentTarget.style.borderColor='rgba(255,255,255,0.06)';}}
+                  <button key={sfx.key}
+                    title={sfx.name}
+                    onClick={()=>{
+                      const t=virtualTimeRef.current;
+                      setSoundEffects(prev=>[...prev,{id:Date.now()+Math.random(),key:sfx.key,name:sfx.name,emoji:sfx.emoji,startTime:parseFloat(t.toFixed(2)),volume:1}]);
+                    }}
+                    style={{ background:'rgba(255,255,255,0.04)', border:'1px solid rgba(16,185,129,0.15)', borderRadius:10, padding:'8px 4px', cursor:'pointer', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:3, width:'100%', boxSizing:'border-box' }}
+                    onMouseEnter={e=>e.currentTarget.style.background='rgba(16,185,129,0.15)'}
+                    onMouseLeave={e=>e.currentTarget.style.background='rgba(255,255,255,0.04)'}
                   >
-                    <span style={{fontSize:20}}>{sfx.icon}</span>
-                    <span style={{fontSize:9,color:'#888',textAlign:'center'}}>{lang==='pt'?sfx.label:sfx.labelEn}</span>
-                  </div>
+                    <span style={{fontSize:20,lineHeight:1}}>{sfx.emoji}</span>
+                    <span style={{fontSize:9,color:'#aaa',fontWeight:600,textAlign:'center',lineHeight:1.2,wordBreak:'break-word'}}>{sfx.name}</span>
+                  </button>
                 ))}
               </div>
               {soundEffects.length>0&&(
                 <div style={{ padding:'8px 12px', borderTop:'1px solid rgba(255,255,255,0.06)', display:'flex', flexDirection:'column', gap:4, maxHeight:140, overflowY:'auto' }}>
                   {soundEffects.map(sfx=>(
                     <div key={sfx.id} style={{ display:'flex', alignItems:'center', gap:6, background:'rgba(255,255,255,0.03)', borderRadius:8, padding:'4px 8px' }}>
-                      <span style={{fontSize:14}}>{SFX_LIST.find(s=>s.key===sfx.key)?.icon||'🔊'}</span>
-                      <span style={{fontSize:10,color:'#888',flex:1}}>{sfx.startTime?.toFixed(1)}s</span>
+                      <span style={{fontSize:16}}>{sfx.emoji||SFX_LIST.find(s=>s.key===sfx.key)?.emoji||'🔊'}</span>
+                      <span style={{fontSize:11,color:'#ccc',fontWeight:600,flex:1}}>{sfx.name||SFX_LIST.find(s=>s.key===sfx.key)?.name||sfx.key}</span>
+                      <span style={{fontSize:10,color:'#10b981',minWidth:36}}>{sfx.startTime?.toFixed(1)}s</span>
                       <input type="range" min={0.1} max={2} step={0.1} value={sfx.volume} title={`Volume: ${Math.round(sfx.volume*100)}%`}
                         onChange={e=>setSoundEffects(prev=>prev.map(s=>s.id===sfx.id?{...s,volume:Number(e.target.value)}:s))}
                         style={{width:60,accentColor:'#10b981',cursor:'pointer'}} />
@@ -5518,7 +5696,7 @@ _setDragging(null);
                 {bgTab==='unsplash'&&(
                   <div style={{ padding:12, display:'flex', flexDirection:'column', gap:10 }}>
                     <div style={{ display:'flex', gap:6 }}>
-                      <input value={bgSearchQuery} onChange={e=>setBgSearchQuery(e.target.value)}
+                      <input value={bgSearch} onChange={e=>{setBgSearch(e.target.value);}}
                         onKeyDown={e=>e.key==='Enter'&&searchBgImages()}
                         placeholder="Buscar fotos..." style={{ flex:1, background:'rgba(255,255,255,0.06)', border:'1px solid rgba(255,255,255,0.1)', borderRadius:8, padding:'7px 10px', color:'#fff', fontSize:12 }} />
                       <button onClick={searchBgImages} disabled={bgSearchLoading} style={{ padding:'7px 14px', background:'rgba(0,191,255,0.15)', border:'1px solid rgba(0,191,255,0.3)', borderRadius:8, color:'#00BFFF', fontSize:12, cursor:'pointer', fontWeight:700 }}>
