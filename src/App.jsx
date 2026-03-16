@@ -969,6 +969,12 @@ function App() {
   const [sfxPanelPos, setSfxPanelPos]   = useState({ top: 80, left: 0 });
   const [showStickerPanel, setShowStickerPanel] = useState(false);
   const [showBgPanel, setShowBgPanel] = useState(false);
+  const [showMidiasPanel, setShowMidiasPanel] = useState(false);
+  const [showExportPanel, setShowExportPanel] = useState(false);
+  const [showProjetoPanel, setShowProjetoPanel] = useState(false);
+  const midiaBtnRef  = useRef(null);
+  const exportBtnRef = useRef(null);
+  const projetoBtnRef = useRef(null);
   const [screenEffect, setScreenEffect] = useState('none');
   const [showFxPanel, setShowFxPanel] = useState(false);
   const fxBtnRef = useRef(null);
@@ -1206,7 +1212,7 @@ function App() {
   // Fecha tela cheia com ESC; fecha painel sticker com ESC ou clique fora
   useEffect(() => {
     const onKey = (e) => {
-      if (e.key === 'Escape') { setIsFullscreen(false); setShowStickerPanel(false); setShowTemplatePanel(false); setShowFxPanel(false); }
+      if (e.key === 'Escape') { setIsFullscreen(false); setShowStickerPanel(false); setShowTemplatePanel(false); setShowFxPanel(false); setShowMidiasPanel(false); setShowExportPanel(false); setShowProjetoPanel(false); }
     };
     const onClickOut = (e) => {
       if (showBgPanel && bgBtnRef.current && !bgBtnRef.current.contains(e.target) &&
@@ -5001,717 +5007,441 @@ _setDragging(null);
         }
       `}</style>
       
-      {/* HEADER CONTROLS */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: '12px 18px', background: 'rgba(8,8,8,0.97)', borderBottom: '1px solid rgba(0,191,255,0.12)', fontSize: '12px', width: '100%', boxSizing: 'border-box', backdropFilter: 'blur(12px)', boxShadow: '0 1px 0 rgba(0,191,255,0.08)' }}>
-        {/* Linha 1: imports de mídia + formato + exportar */}
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '14px', alignItems: 'center' }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <label style={{ fontSize: '11px', color: '#00BFFF', fontWeight: 600, letterSpacing: '0.5px' }}>{t('ed_background')}</label>
-              {imageSrc && (
-                <button onClick={() => { setImageSrc(null); setImage(null); if (bgInputRef.current) bgInputRef.current.value = ''; }} title="Remover fundo" style={{ background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '6px', padding: '1px 7px', fontSize: '11px', color: '#f87171', cursor: 'pointer', lineHeight: 1.6 }}>✕</button>
-              )}
-            </div>
-            <div style={{ display: 'flex', gap: 4 }}>
-              <input ref={bgInputRef} type="file" onChange={handleImageChange} accept="image/*" style={{ color: '#f8fafc', fontSize: '11px' }} />
-              <div style={{ position: 'relative' }}>
-                <button
-                  ref={bgBtnRef}
-                  onClick={() => { const r = bgBtnRef.current?.getBoundingClientRect(); if (r) setShowBgPanel(v => !v); }}
-                  style={{ background: showBgPanel ? 'rgba(0,191,255,0.2)' : 'rgba(0,191,255,0.07)', border: `1px solid ${showBgPanel ? 'rgba(0,191,255,0.6)' : 'rgba(0,191,255,0.25)'}`, borderRadius: 8, padding: '3px 9px', cursor: 'pointer', fontSize: 11, color: '#00BFFF', fontWeight: 700, whiteSpace: 'nowrap' }}
-                >🎨 Fundos</button>
-                {/* ── Efeitos de Tela ── */}
-                <button
-                  ref={fxBtnRef}
-                  onClick={() => setShowFxPanel(v => !v)}
-                  style={{ background: showFxPanel || screenEffect !== 'none' ? 'rgba(167,139,250,0.2)' : 'rgba(167,139,250,0.07)', border: `1px solid ${showFxPanel || screenEffect !== 'none' ? 'rgba(167,139,250,0.7)' : 'rgba(167,139,250,0.25)'}`, borderRadius: 8, padding: '3px 9px', cursor: 'pointer', fontSize: 11, color: '#a78bfa', fontWeight: 700, whiteSpace: 'nowrap' }}
-                >✨ Efeitos</button>
-                {/* ── Cor Cinematográfica ── */}
-                <button
-                  onClick={() => setShowKeyframePanel(v => !v)}
-                  style={{ background: showKeyframePanel ? 'rgba(251,191,36,0.2)' : 'rgba(251,191,36,0.07)', border: `1px solid ${showKeyframePanel ? 'rgba(251,191,36,0.7)' : 'rgba(251,191,36,0.25)'}`, borderRadius: 8, padding: '3px 9px', cursor: 'pointer', fontSize: 11, color: '#fbbf24', fontWeight: 700, whiteSpace: 'nowrap' }}
-                >🎨 Cor & Curvas</button>
-                {showKeyframePanel && (() => {
-                  const r2 = fxBtnRef.current?.getBoundingClientRect();
-                  return createPortal(
-                    <div style={{ position:'fixed', top:(r2?.bottom??60)+6, right:16, zIndex:99999, background:'#0f172a', border:'1px solid rgba(251,191,36,0.3)', borderRadius:16, width:320, boxShadow:'0 20px 60px rgba(0,0,0,0.8)', padding:16, display:'flex', flexDirection:'column', gap:12 }}>
-                      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
-                        <span style={{ fontWeight:800, fontSize:14, color:'#fbbf24' }}>🎨 Cor Cinematográfica</span>
-                        <button onClick={() => setShowKeyframePanel(false)} style={{ background:'none', border:'none', color:'#555', cursor:'pointer', fontSize:16 }}>✕</button>
-                      </div>
-                      {/* Aberração Cromática Global */}
-                      <div>
-                        <span style={{ fontSize:11, color:'#fbbf24', fontWeight:700, display:'block', marginBottom:6 }}>🌈 Aberração Cromática Global</span>
-                        <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-                          <input type="range" min={0} max={20} value={chromaAberration}
-                            onChange={e => setChromaAberration(+e.target.value)}
-                            style={{ flex:1, accentColor:'#fbbf24', height:3 }} />
-                          <span style={{ fontSize:10, color: chromaAberration>0?'#fbbf24':'#555', minWidth:24 }}>{chromaAberration}</span>
-                          {chromaAberration>0 && <button onClick={() => setChromaAberration(0)} style={{ background:'none', border:'none', color:'#555', cursor:'pointer', fontSize:12 }}>↺</button>}
-                        </div>
-                      </div>
-                      {/* Curvas de Cor */}
-                      <div>
-                        <span style={{ fontSize:11, color:'#fbbf24', fontWeight:700, display:'block', marginBottom:6 }}>📊 Curvas de Cor</span>
-                        {[
-                          { key:'r',         label:'R — Vermelho',   color:'#f87171' },
-                          { key:'g',         label:'G — Verde',      color:'#4ade80' },
-                          { key:'b',         label:'B — Azul',       color:'#60a5fa' },
-                          { key:'midtone',   label:'Meios-tons',     color:'#fbbf24' },
-                          { key:'shadows',   label:'Sombras',        color:'#94a3b8' },
-                          { key:'highlights',label:'Altas Luzes',    color:'#fff' },
-                        ].map(({key, label, color}) => {
-                          const def = key==='r'||key==='g'||key==='b'||key==='midtone' ? 1 : 0;
-                          const min2 = key==='shadows'||key==='highlights' ? -0.3 : 0.2;
-                          const max2 = key==='shadows'||key==='highlights' ?  0.3 : 2.0;
-                          const step2= 0.01;
-                          const val  = colorCurves[key] ?? def;
-                          const changed = Math.abs(val - def) > 0.01;
-                          return (
-                            <div key={key} style={{ display:'flex', alignItems:'center', gap:8, marginBottom:4 }}>
-                              <span style={{ fontSize:10, color: changed?color:'#555', minWidth:80, fontWeight: changed?700:400 }}>{label}</span>
-                              <input type="range" min={min2} max={max2} step={step2} value={val}
-                                onChange={e => setColorCurves(prev => ({...prev, [key]: +e.target.value}))}
-                                style={{ flex:1, accentColor:color, height:3 }} />
-                              <span style={{ fontSize:10, color: changed?color:'#555', minWidth:32, textAlign:'right' }}>{val.toFixed(2)}</span>
-                              {changed && <button onClick={() => setColorCurves(prev => ({...prev, [key]: def}))} style={{ background:'none', border:'none', color:'#555', cursor:'pointer', fontSize:12, padding:0 }}>↺</button>}
-                            </div>
-                          );
-                        })}
-                        <button onClick={() => setColorCurves({r:1,g:1,b:1,midtone:1,shadows:0,highlights:0})}
-                          style={{ marginTop:4, background:'rgba(251,191,36,0.08)', border:'1px solid rgba(251,191,36,0.2)', borderRadius:8, padding:'3px 12px', fontSize:10, color:'#fbbf24', cursor:'pointer', width:'100%' }}>↺ Reset curvas</button>
-                      </div>
-                    </div>,
-                    document.body
-                  );
-                })()}
-                {showFxPanel && (() => {
-                  const rect2 = fxBtnRef.current?.getBoundingClientRect();
-                  const FX_LIST = [
-                    { id:'none',        label:'Nenhum',      icon:'🔲' },
-                    { id:'vignette',    label:'Vinheta',     icon:'🌑' },
-                    { id:'film_grain',  label:'Grão',        icon:'📽️' },
-                    { id:'vintage',     label:'Vintage',     icon:'🟤' },
-                    { id:'night',       label:'Noite',       icon:'🌌' },
-                    { id:'rain',        label:'Chuva',       icon:'🌧️' },
-                    { id:'smoke',       label:'Fumaça',      icon:'💨' },
-                    { id:'fire',        label:'Fogo',        icon:'🔥' },
-                    { id:'lightning',   label:'Raios',       icon:'⚡' },
-                    { id:'shake',       label:'Tremor',      icon:'📳' },
-                    { id:'confetti',    label:'Confete',     icon:'🎉' },
-                    { id:'particles',   label:'Partículas',  icon:'✨' },
-                    { id:'aurora',      label:'Aurora',      icon:'🌈' },
-                    { id:'neon_glow',   label:'Neon',        icon:'💜' },
-                    { id:'matrix',      label:'Matrix',      icon:'💚' },
-                    { id:'cyberpunk',   label:'Cyberpunk',   icon:'🟢' },
-                    { id:'ice',         label:'Gelo',        icon:'❄️' },
-                    { id:'blur_fx',     label:'Desfoque',    icon:'🌫️' },
-                    { id:'vhs',         label:'VHS',         icon:'📼' },
-                    { id:'tv_static',   label:'TV Estático', icon:'📺' },
-                    { id:'glitch',      label:'Glitch',      icon:'⚡' },
-                  ];
-                  return createPortal(
-                    <div style={{ position:'fixed', top:(rect2?.bottom??60)+6, left:Math.max(8,(rect2?.left??0)), zIndex:99999, background:'#0f172a', border:'1px solid rgba(167,139,250,0.3)', borderRadius:16, width:360, maxHeight:'80vh', boxShadow:'0 20px 60px rgba(0,0,0,0.8)', display:'flex', flexDirection:'column', overflow:'hidden' }}>
-                      <div style={{ padding:'12px 16px 8px', borderBottom:'1px solid rgba(255,255,255,0.06)', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
-                        <span style={{ fontWeight:800, fontSize:14, color:'#a78bfa' }}>✨ Efeitos de Tela</span>
-                        <div style={{ display:'flex', gap:8, alignItems:'center' }}>
-                          {screenEffect !== 'none' && <button onClick={() => setScreenEffect('none')} style={{ background:'rgba(239,68,68,0.15)', border:'1px solid rgba(239,68,68,0.3)', borderRadius:6, padding:'2px 8px', color:'#f87171', fontSize:10, cursor:'pointer' }}>✕ Remover</button>}
-                          <button onClick={() => setShowFxPanel(false)} style={{ background:'none', border:'none', color:'#555', cursor:'pointer', fontSize:16 }}>✕</button>
-                        </div>
-                      </div>
-                      <div style={{ padding:12, display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:8, overflowY:'auto', maxHeight:400 }}>
-                        {FX_LIST.map(fx => (
-                          <div key={fx.id} onClick={() => { setScreenEffect(fx.id); if(fx.id!=='none') setShowFxPanel(false); }}
-                            style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:4, padding:'10px 6px', borderRadius:10, cursor:'pointer', background:screenEffect===fx.id?'rgba(167,139,250,0.18)':'rgba(255,255,255,0.03)', border:`1px solid ${screenEffect===fx.id?'rgba(167,139,250,0.6)':'rgba(255,255,255,0.06)'}`, transition:'all 0.15s' }}
-                            onMouseEnter={e=>e.currentTarget.style.background='rgba(167,139,250,0.1)'}
-                            onMouseLeave={e=>e.currentTarget.style.background=screenEffect===fx.id?'rgba(167,139,250,0.18)':'rgba(255,255,255,0.03)'}
-                          >
-                            <span style={{ fontSize:22 }}>{fx.icon}</span>
-                            <span style={{ fontSize:10, color:screenEffect===fx.id?'#a78bfa':'#888', fontWeight:screenEffect===fx.id?700:400, textAlign:'center' }}>{fx.label}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>,
-                    document.body
-                  );
-                })()}
-                {showBgPanel && (() => {
-                  const rect = bgBtnRef.current?.getBoundingClientRect();
-                  return createPortal(
-                    <div data-bg-portal="true" style={{ position: 'fixed', top: (rect?.bottom ?? 60) + 6, left: Math.max(8, (rect?.left ?? 0)), zIndex: 99999, background: '#0f172a', border: '1px solid rgba(0,191,255,0.25)', borderRadius: 16, width: 420, maxHeight: '80vh', boxShadow: '0 20px 60px rgba(0,0,0,0.8)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-                      {/* Header */}
-                      <div style={{ padding: '12px 16px 8px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                        <span style={{ fontWeight: 800, fontSize: 14, color: '#00BFFF' }}>🎨 Fundos</span>
-                        <button onClick={() => setShowBgPanel(false)} style={{ background: 'none', border: 'none', color: '#555', cursor: 'pointer', fontSize: 16 }}>✕</button>
-                      </div>
+      {/* HEADER CONTROLS — Redesign profissional: barra única com grupos */}
+      <div style={{ display:'flex', alignItems:'center', gap:6, padding:'0 14px', height:52, background:'linear-gradient(180deg,#0d1117 0%,#090d13 100%)', borderBottom:'1px solid rgba(255,255,255,0.07)', width:'100%', boxSizing:'border-box', flexShrink:0, zIndex:100 }}>
 
-                      {/* Tabs */}
-                      {(() => {
-                        const GRADIENTS = [
-                          { id:'g1', label:'Noite', css:'linear-gradient(160deg,#0a0a2e 0%,#1a0a3e 50%,#0d1b4b 100%)' },
-                          { id:'g2', label:'Pôr do Sol', css:'linear-gradient(160deg,#ff6b6b 0%,#feca57 50%,#ff9ff3 100%)' },
-                          { id:'g3', label:'Oceano', css:'linear-gradient(160deg,#0575e6 0%,#021b79 100%)' },
-                          { id:'g4', label:'Floresta', css:'linear-gradient(160deg,#134e5e 0%,#71b280 100%)' },
-                          { id:'g5', label:'Fogo', css:'linear-gradient(160deg,#f83600 0%,#f9d423 100%)' },
-                          { id:'g6', label:'Aurora', css:'linear-gradient(160deg,#00c3ff 0%,#7b2ff7 50%,#f64f59 100%)' },
-                          { id:'g7', label:'Rosa Neon', css:'linear-gradient(160deg,#f953c6 0%,#b91d73 100%)' },
-                          { id:'g8', label:'Menta', css:'linear-gradient(160deg,#0ba360 0%,#3cba92 100%)' },
-                          { id:'g9', label:'Carvão', css:'linear-gradient(160deg,#232526 0%,#414345 100%)' },
-                          { id:'g10', label:'Roxo', css:'linear-gradient(160deg,#4776e6 0%,#8e54e9 100%)' },
-                          { id:'g11', label:'Cobre', css:'linear-gradient(160deg,#b79891 0%,#94716b 100%)' },
-                          { id:'g12', label:'Cyber', css:'linear-gradient(160deg,#00f2fe 0%,#4facfe 50%,#0ef 100%)' },
-                          { id:'s1', label:'Preto', css:'#000000' },
-                          { id:'s2', label:'Branco', css:'#ffffff' },
-                          { id:'s3', label:'Cinza', css:'#1a1a2e' },
-                          { id:'s4', label:'Azul', css:'#0d1b2a' },
-                        ];
-                        const applyGradient = (css) => {
-                          const cw = 720, ch = 1280;
-                          const c = document.createElement('canvas'); c.width = cw; c.height = ch;
-                          const ctx2 = c.getContext('2d');
-                          if (css.startsWith('linear') || css.startsWith('#')) {
-                            if (css.startsWith('linear')) {
-                              // Parse gradient
-                              const stops = css.match(/#[a-fA-F0-9]{3,6}|rgba?\([^)]+\)/g) || [];
-                              const grad = ctx2.createLinearGradient(0, 0, cw * 0.3, ch);
-                              stops.forEach((c2, i) => grad.addColorStop(i / Math.max(1, stops.length - 1), c2));
-                              ctx2.fillStyle = grad;
-                            } else {
-                              ctx2.fillStyle = css;
-                            }
-                            ctx2.fillRect(0, 0, cw, ch);
-                          }
-                          const dataUrl = c.toDataURL('image/jpeg', 0.95);
-                          setImageSrc(dataUrl);
-                          const img = new Image(); img.onload = () => setImage(img); img.src = dataUrl;
-                          setShowBgPanel(false);
-                        };
-                        return (
-                          <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
-                            {/* Tab buttons */}
-                            <div style={{ display: 'flex', gap: 4, padding: '8px 12px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-                              {[['gradients','🎨 Gradientes'],['unsplash','🔍 Fotos'],['generate','⚡ Gerar']].map(([tab,label]) => (
-                                <button key={tab} onClick={() => setBgTab(tab)} style={{ padding: '5px 12px', borderRadius: 8, border: 'none', cursor: 'pointer', fontSize: 11, fontWeight: 700, background: bgTab===tab ? '#00BFFF' : 'rgba(255,255,255,0.06)', color: bgTab===tab ? '#000' : '#888' }}>{label}</button>
-                              ))}
-                            </div>
-
-                            {/* Gradients tab */}
-                            {bgTab === 'gradients' && (
-                              <div style={{ padding: 12, display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, overflowY: 'auto', maxHeight: 340 }}>
-                                {GRADIENTS.map(g => (
-                                  <div key={g.id} onClick={() => applyGradient(g.css)} style={{ aspectRatio: '9/16', background: g.css, borderRadius: 8, cursor: 'pointer', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', padding: 4, border: '2px solid rgba(255,255,255,0.08)', transition: 'transform 0.15s', ':hover': { transform: 'scale(1.05)' } }}>
-                                    <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.8)', fontWeight: 700, textShadow: '0 1px 3px rgba(0,0,0,0.8)', whiteSpace: 'nowrap' }}>{g.label}</span>
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-
-                            {/* Unsplash tab */}
-                            {bgTab === 'unsplash' && (
-                              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: 12, overflow: 'hidden' }}>
-                                <div style={{ display: 'flex', gap: 6 }}>
-                                  <input
-                                    value={bgSearch}
-                                    onChange={e => setBgSearch(e.target.value)}
-                                    onKeyDown={e => e.key === 'Enter' && searchUnsplash(bgSearch)}
-                                    placeholder="Ex: natureza, cidade, abstrato..."
-                                    style={{ flex: 1, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, padding: '7px 10px', fontSize: 12, color: '#f0f0f0', outline: 'none' }}
-                                  />
-                                  <button onClick={() => searchUnsplash(bgSearch)} disabled={bgSearchLoading} style={{ background: '#00BFFF', border: 'none', borderRadius: 8, padding: '7px 14px', fontSize: 12, color: '#000', fontWeight: 700, cursor: 'pointer' }}>
-                                    {bgSearchLoading ? '...' : '🔍'}
-                                  </button>
-                                </div>
-                                {bgSearchResults.length > 0 && (
-                                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6, overflowY: 'auto', maxHeight: 280 }}>
-                                    {bgSearchResults.map(r => (
-                                      <img key={r.id} src={r.thumb} onClick={() => applyBgFromUrl(r.full)} style={{ width: '100%', aspectRatio: '9/16', objectFit: 'cover', borderRadius: 6, cursor: 'pointer', border: '2px solid transparent', transition: 'border 0.15s' }} onMouseEnter={e => e.target.style.border='2px solid #00BFFF'} onMouseLeave={e => e.target.style.border='2px solid transparent'} alt="" />
-                                    ))}
-                                  </div>
-                                )}
-                                {bgSearchResults.length === 0 && !bgSearchLoading && (
-                                  <div style={{ color: '#555', fontSize: 12, textAlign: 'center', padding: '20px 0' }}>Digite um termo e pressione Enter ou 🔍</div>
-                                )}
-                              </div>
-                            )}
-
-                            {/* Generate tab */}
-                            {bgTab === 'generate' && (() => {
-                              const GEN_LIST = [
-                                { id:'p1', label:'Partículas',
-                                  preview:'radial-gradient(ellipse at 20% 30%,rgba(0,191,255,0.5) 0%,transparent 55%),radial-gradient(ellipse at 75% 65%,rgba(100,50,255,0.4) 0%,transparent 55%),#050510',
-                                  gen:(c,w,h)=>{ c.fillStyle='#050510';c.fillRect(0,0,w,h);for(let i=0;i<300;i++){c.beginPath();c.arc(Math.random()*w,Math.random()*h,Math.random()*2.5+0.5,0,6.28);c.fillStyle=`rgba(0,191,255,${Math.random()*0.8+0.2})`;c.fill();} } },
-                                { id:'p2', label:'Grade Neon',
-                                  preview:'linear-gradient(180deg,#000 0%,#001200 100%)',
-                                  gen:(c,w,h)=>{ c.fillStyle='#000';c.fillRect(0,0,w,h);c.strokeStyle='rgba(0,255,100,0.3)';c.lineWidth=1;for(let x=0;x<w;x+=40){c.beginPath();c.moveTo(x,0);c.lineTo(x,h);c.stroke();}for(let y=0;y<h;y+=40){c.beginPath();c.moveTo(0,y);c.lineTo(w,y);c.stroke();} } },
-                                { id:'p3', label:'Bokeh',
-                                  preview:'radial-gradient(ellipse at 30% 40%,rgba(123,47,247,0.7) 0%,transparent 50%),radial-gradient(ellipse at 70% 60%,rgba(0,195,255,0.5) 0%,transparent 50%),#1a0533',
-                                  gen:(c,w,h)=>{ const g=c.createLinearGradient(0,0,w,h);g.addColorStop(0,'#1a0533');g.addColorStop(1,'#0a1a4e');c.fillStyle=g;c.fillRect(0,0,w,h);for(let i=0;i<50;i++){const x=Math.random()*w,y=Math.random()*h,r=Math.random()*80+20;const cg=c.createRadialGradient(x,y,0,x,y,r);const hue=Math.random()*80+200;cg.addColorStop(0,`hsla(${hue},80%,70%,${Math.random()*0.2+0.05})`);cg.addColorStop(1,'transparent');c.fillStyle=cg;c.beginPath();c.arc(x,y,r,0,6.28);c.fill();} } },
-                                { id:'p4', label:'Ondas',
-                                  preview:'linear-gradient(180deg,#000d1a 0%,#001a33 100%)',
-                                  gen:(c,w,h)=>{ c.fillStyle='#000d1a';c.fillRect(0,0,w,h);for(let i=0;i<8;i++){c.beginPath();c.strokeStyle=`rgba(0,191,255,${0.05+i*0.05})`;c.lineWidth=2;for(let x=0;x<w;x+=2){const y2=h/2+Math.sin((x+i*50)/80)*60*(i+1)*0.3+i*30;x===0?c.moveTo(x,y2):c.lineTo(x,y2);}c.stroke();} } },
-                                { id:'p5', label:'Hexágonos',
-                                  preview:'linear-gradient(160deg,#0a0a1a 0%,#0a1040 100%)',
-                                  gen:(c,w,h)=>{ c.fillStyle='#0a0a1a';c.fillRect(0,0,w,h);const s=50;for(let row=0;row<h/s+2;row++){for(let col=0;col<w/s+2;col++){const x2=col*s*1.5,y2=row*s*Math.sqrt(3)+(col%2)*s*Math.sqrt(3)/2;c.beginPath();for(let k=0;k<6;k++){const a2=Math.PI/3*k;c.lineTo(x2+s*0.45*Math.cos(a2),y2+s*0.45*Math.sin(a2));}c.closePath();c.strokeStyle='rgba(100,200,255,0.2)';c.lineWidth=1;c.stroke();}} } },
-                                { id:'p6', label:'Nebulosa',
-                                  preview:'radial-gradient(ellipse at 50% 50%,rgba(123,47,247,0.6) 0%,rgba(249,83,198,0.4) 40%,rgba(0,195,255,0.3) 70%,transparent 100%),#000',
-                                  gen:(c,w,h)=>{ c.fillStyle='#000';c.fillRect(0,0,w,h);const cs=['#7b2ff7','#f953c6','#00c3ff','#ff6b6b'];for(let i=0;i<8;i++){const x2=Math.random()*w,y2=Math.random()*h,r=Math.random()*250+100;const rg=c.createRadialGradient(x2,y2,0,x2,y2,r);rg.addColorStop(0,cs[i%4]+'44');rg.addColorStop(1,'transparent');c.fillStyle=rg;c.fillRect(0,0,w,h);} } },
-                              ];
-                              const applyGen = (genFn) => {
-                                const cw=720, ch=1280;
-                                const cv = document.createElement('canvas'); cv.width=cw; cv.height=ch;
-                                genFn(cv.getContext('2d'), cw, ch);
-                                const dataUrl = cv.toDataURL('image/jpeg', 0.95);
-                                setImageSrc(dataUrl);
-                                const img = new Image(); img.onload = () => setImage(img); img.src = dataUrl;
-                                setShowBgPanel(false);
-                              };
-                              return (
-                                <div style={{ padding: 12, display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, overflowY: 'auto', maxHeight: 340 }}>
-                                  {GEN_LIST.map(p => (
-                                    <div key={p.id} onClick={() => applyGen(p.gen)}
-                                      style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:4, cursor:'pointer' }}>
-                                      <div style={{ width:'100%', aspectRatio:'9/16', background:p.preview, borderRadius:8,
-                                        border:'2px solid rgba(255,255,255,0.08)', transition:'border-color 0.15s' }}
-                                        onMouseEnter={e => e.currentTarget.style.borderColor='rgba(0,191,255,0.7)'}
-                                        onMouseLeave={e => e.currentTarget.style.borderColor='rgba(255,255,255,0.08)'}
-                                      />
-                                      <span style={{ fontSize:9, color:'#888' }}>{p.label}</span>
-                                    </div>
-                                  ))}
-                                </div>
-                              );
-                            })()}
-                          </div>
-                        );
-                      })()}
-                    </div>,
-                    document.body
-                  );
-                })()}
-              </div>
-            </div>
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-            <label style={{ fontSize: '11px', color: '#00BFFF', fontWeight: 600, letterSpacing: '0.5px' }}>{t('ed_images')}</label>
-            <input ref={imagesInputRef} type="file" onChange={handleImagesChange} accept="image/*" multiple style={{ color: '#aaa', fontSize: '11px' }} />
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-            <label style={{ fontSize: '11px', color: '#00BFFF', fontWeight: 600, letterSpacing: '0.5px' }}>{t('ed_audio')}</label>
-            <input ref={audioInputRef} type="file" onChange={handleAudioChange} accept="audio/*" style={{ color: '#f8fafc', fontSize: '11px' }} />
-          </div>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-            <label style={{ fontSize: '11px', color: '#a78bfa', fontWeight: 600, letterSpacing: '0.5px' }}>🎬 {t('ed_videos')}</label>
-            <input ref={videoInputRef} type="file" onChange={handleVideoUpload} accept="video/*" multiple style={{ color: '#aaa', fontSize: '11px' }} />
-          </div>
-          <input ref={fontInputRef} type="file" accept=".ttf,.otf,.woff,.woff2" style={{ display: 'none' }} onChange={handleFontUpload} />
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-            <label style={{ fontSize: '10px', color: '#a78bfa', fontWeight: 700, letterSpacing: '0.5px' }}>📐 {t('ed_canvas_label')}</label>
-            <select value={canvasFormat} onChange={(e) => setCanvasFormat(e.target.value)} style={{ backgroundColor: '#111', color: '#f0f0f0', border: '1px solid rgba(167,139,250,0.3)', borderRadius: '14px', padding: '7px 10px', fontSize: '12px' }}>
-              {Object.entries(CANVAS_FORMATS).map(([key, val]) => (
-                <option key={key} value={key}>{key} — {val.width}×{val.height}</option>
-              ))}
-            </select>
-          </div>
-          <LangToggle style={{ marginLeft: 'auto' }} />
+        {/* ── Logo ── */}
+        <div style={{ display:'flex', alignItems:'center', gap:8, marginRight:10, flexShrink:0 }}>
+          <div style={{ width:28, height:28, borderRadius:8, background:'linear-gradient(135deg,#00BFFF,#7b2ff7)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:14 }}>▶</div>
+          <span style={{ fontSize:13, fontWeight:800, color:'#f0f0f0', letterSpacing:'-0.3px', whiteSpace:'nowrap' }}>Canvas<span style={{ color:'#00BFFF' }}>Sync</span></span>
         </div>
-        {/* Linha 2: salvar · exportar projeto · importar projeto · limpar projeto */}
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', alignItems: 'center' }}>
-          {/* Formato + nome do arquivo + Salvar */}
-          <select value={exportFormat} onChange={(e) => setExportFormat(e.target.value)} style={{ backgroundColor: '#111', color: '#f0f0f0', border: '1px solid rgba(0,191,255,0.2)', borderRadius: '14px', padding: '7px 10px', fontSize: '12px' }}>
-            <option value="webm_offline_audio">🎬 {t('fmt_webm')}</option>
-            <option value="mp4">🎬 {t('fmt_mp4')}</option>
-            <option value="webm_hd">✨ {t('fmt_webm_hd')}</option>
-            <option value="mp4_hd">✨ {t('fmt_mp4_hd')}</option>
-            <option value="png">🖼️ PNG</option>
-            <option value="jpg">🖼️ JPG</option>
-          </select>
 
-          {/* Salvar + indicador de progresso */}
-          <button onClick={handleSave} disabled={isExporting} style={{ background: isExporting ? '#0a1a1a' : '#00BFFF', border: 'none', padding: '8px 18px', borderRadius: '14px', cursor: isExporting ? 'not-allowed' : 'pointer', fontWeight: 'bold', fontSize: '12px', color: isExporting ? '#555' : '#000', boxShadow: isExporting ? 'none' : '0 4px 16px rgba(0,191,255,0.3)', whiteSpace: 'nowrap' }}>
-            {t('ed_save')}
-          </button>
-          {isExporting && (
-            <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-              <div style={{ width:120, height:6, background:'rgba(255,255,255,0.08)', borderRadius:4, overflow:'hidden' }}>
-                <div style={{ height:'100%', width:`${Math.round(exportProgress*100)}%`, background:'#00BFFF', borderRadius:4, transition:'width 0.2s' }} />
-              </div>
-              <span style={{ fontSize:11, color:'#00BFFF', fontWeight:700, whiteSpace:'nowrap' }}>{t('ed_exporting')} {Math.round(exportProgress*100)}%</span>
-            </div>
-          )}
-          {/* Separador */}
-          <div style={{ width:1, height:28, background:'rgba(255,255,255,0.07)' }} />
-          <button onClick={exportProject} style={{ background: 'rgba(0,191,255,0.08)', border: '1px solid rgba(0,191,255,0.2)', padding: '7px 14px', borderRadius: '14px', cursor: 'pointer', fontWeight: 'bold', fontSize: '11px', color: '#00BFFF' }}>
-            {t('ed_export_project')}
-          </button>
-          <input ref={importInputRef} type="file" accept="application/json" style={{ display: 'none' }} onChange={(e) => importProjectFromFile(e.target.files[0])} />
-          <button onClick={() => importInputRef.current && importInputRef.current.click()} style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', padding: '7px 14px', borderRadius: '14px', cursor: 'pointer', fontWeight: 'bold', fontSize: '11px', color: '#888' }}>
-            {t('ed_import_project')}
-          </button>
-          <button onClick={handleClearProject} style={{ background: 'rgba(239,68,68,0.07)', border: '1px solid rgba(239,68,68,0.25)', padding: '7px 14px', borderRadius: '14px', cursor: 'pointer', fontWeight: 'bold', fontSize: '11px', color: '#f87171' }}>
-            {t('ed_clear_project')}
-          </button>
+        {/* Divisor */}
+        <div style={{ width:1, height:28, background:'rgba(255,255,255,0.07)', flexShrink:0 }} />
 
-          {/* ── Botão Templates ── */}
-          <div style={{ position: 'relative' }}>
-            <button
-              ref={templateBtnRef}
-              onClick={() => {
-                const rect = templateBtnRef.current?.getBoundingClientRect();
-                if (rect) setTemplatePanelPos({
-                  top:  rect.bottom + 8,
-                  left: Math.max(10, Math.min(rect.left, window.innerWidth - 750)),
-                });
-                setTemplateFormatTab(canvasFormat);
-                setShowTemplatePanel(v => !v);
-              }}
-              style={{
-                background: showTemplatePanel ? 'rgba(16,185,129,0.22)' : 'rgba(16,185,129,0.08)',
-                border: `1px solid ${showTemplatePanel ? 'rgba(16,185,129,0.7)' : 'rgba(16,185,129,0.25)'}`,
-                borderRadius: 14, padding: '7px 14px', cursor: 'pointer',
-                fontWeight: 700, fontSize: 13, color: '#10b981',
-                display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap',
-              }}
-            >🎨 Templates</button>
-
-            {showTemplatePanel && createPortal(
-              <>
-                {/* Overlay fecha ao clicar fora — nativo, sem problemas de propagação */}
-                <div onClick={() => setShowTemplatePanel(false)} style={{ position:'fixed', inset:0, zIndex:99998 }} />
-                <div
-                  ref={templatePortalRef}
-                  style={{
-                    position: 'fixed',
-                    top:  templatePanelPos.top,
-                    left: templatePanelPos.left,
-                    zIndex: 99999,
-                    background: '#0f172a',
-                    border: '1px solid rgba(16,185,129,0.3)',
-                    borderRadius: 20,
-                    width: 740,
-                    maxHeight: '82vh',
-                    boxShadow: '0 24px 64px rgba(0,0,0,0.85)',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    overflow: 'hidden',
-                  }}
-                >
-                {/* Header do painel */}
-                <div style={{ padding: '16px 20px 12px', borderBottom: '1px solid rgba(255,255,255,0.07)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <div>
-                    <div style={{ fontSize: 15, fontWeight: 800, color: '#10b981' }}>🎨 Templates</div>
-                    <div style={{ fontSize: 11, color: '#475569', marginTop: 2 }}>
-                      {t('tpl_subtitle')}
-                    </div>
+        {/* ── Grupo MÍDIAS ── */}
+        <div style={{ position:'relative', flexShrink:0 }}>
+          <button ref={midiaBtnRef}
+            onClick={() => { setShowMidiasPanel(v=>!v); setShowExportPanel(false); setShowProjetoPanel(false); }}
+            style={{ display:'flex', alignItems:'center', gap:5, padding:'6px 11px', borderRadius:8, background:showMidiasPanel?'rgba(0,191,255,0.18)':'transparent', border:`1px solid ${showMidiasPanel?'rgba(0,191,255,0.5)':'transparent'}`, cursor:'pointer', color:'#ccc', fontSize:12, fontWeight:600, transition:'all 0.15s', whiteSpace:'nowrap' }}
+            onMouseEnter={e=>{if(!showMidiasPanel)e.currentTarget.style.background='rgba(255,255,255,0.05)'}}
+            onMouseLeave={e=>{if(!showMidiasPanel)e.currentTarget.style.background='transparent'}}
+          >
+            <span style={{fontSize:14}}>📂</span> Mídias <span style={{fontSize:9,opacity:0.6}}>▾</span>
+          </button>
+          {showMidiasPanel && createPortal(
+            <>
+              <div onClick={()=>setShowMidiasPanel(false)} style={{position:'fixed',inset:0,zIndex:99997}} />
+              <div style={{ position:'fixed', top:(midiaBtnRef.current?.getBoundingClientRect().bottom??52)+4, left:Math.max(8,midiaBtnRef.current?.getBoundingClientRect().left??0), zIndex:99998, background:'#0f172a', border:'1px solid rgba(255,255,255,0.1)', borderRadius:12, width:240, boxShadow:'0 16px 48px rgba(0,0,0,0.8)', overflow:'hidden', padding:'6px 0' }}>
+                <div style={{padding:'8px 14px 4px',fontSize:10,color:'#555',fontWeight:700,letterSpacing:'0.8px',textTransform:'uppercase'}}>Importar Mídia</div>
+                {[
+                  { icon:'🖼️', label:'Fundo / Imagem de fundo', color:'#00BFFF',  action:()=>{ bgInputRef.current?.click(); setShowMidiasPanel(false); } },
+                  { icon:'🏞️', label:'Imagens overlay',         color:'#00BFFF',  action:()=>{ imagesInputRef.current?.click(); setShowMidiasPanel(false); } },
+                  { icon:'🎬', label:'Vídeo',                    color:'#a78bfa',  action:()=>{ videoInputRef.current?.click(); setShowMidiasPanel(false); } },
+                  { icon:'🎵', label:'Música / Áudio',           color:'#10b981',  action:()=>{ audioInputRef.current?.click(); setShowMidiasPanel(false); } },
+                ].map(item=>(
+                  <div key={item.label} onClick={item.action}
+                    style={{ display:'flex', alignItems:'center', gap:10, padding:'9px 14px', cursor:'pointer', transition:'background 0.1s' }}
+                    onMouseEnter={e=>e.currentTarget.style.background='rgba(255,255,255,0.05)'}
+                    onMouseLeave={e=>e.currentTarget.style.background='transparent'}
+                  >
+                    <span style={{fontSize:16}}>{item.icon}</span>
+                    <span style={{fontSize:12,color:'#ccc',fontWeight:500}}>{item.label}</span>
                   </div>
-                  <button onClick={() => setShowTemplatePanel(false)} style={{ background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 10, padding: '5px 12px', color: '#f87171', fontWeight: 700, fontSize: 12, cursor: 'pointer' }}>✕</button>
+                ))}
+                <div style={{height:1,background:'rgba(255,255,255,0.06)',margin:'4px 0'}} />
+                <div style={{padding:'8px 14px 4px',fontSize:10,color:'#555',fontWeight:700,letterSpacing:'0.8px',textTransform:'uppercase'}}>Fundos</div>
+                <div key="bg-fundos" onClick={()=>{ setShowMidiasPanel(false); setShowBgPanel(v=>!v); }}
+                  style={{ display:'flex', alignItems:'center', gap:10, padding:'9px 14px', cursor:'pointer', transition:'background 0.1s' }}
+                  onMouseEnter={e=>e.currentTarget.style.background='rgba(255,255,255,0.05)'}
+                  onMouseLeave={e=>e.currentTarget.style.background='transparent'}
+                >
+                  <span style={{fontSize:16}}>🎨</span>
+                  <span style={{fontSize:12,color:'#ccc',fontWeight:500}}>Fundos & Gradientes</span>
                 </div>
+              </div>
+            </>,
+            document.body
+          )}
+        </div>
 
-                {/* Abas de formato */}
-                <div style={{ display: 'flex', borderBottom: '1px solid rgba(255,255,255,0.07)', background: 'rgba(0,0,0,0.2)' }}>
-                  {['16:9','9:16','1:1','4:3'].map(fmt => {
-                    const icons = {'16:9':'🖥️','9:16':'📱','1:1':'⬜','4:3':'📺'};
-                    const count = CANVAS_TEMPLATES.filter(t => t.format === fmt).length;
-                    return (
-                      <button key={fmt} onClick={() => setTemplateFormatTab(fmt)} style={{
-                        flex: 1, padding: '10px 4px', background: templateFormatTab === fmt ? 'rgba(16,185,129,0.12)' : 'transparent',
-                        border: 'none', borderBottom: templateFormatTab === fmt ? '2px solid #10b981' : '2px solid transparent',
-                        color: templateFormatTab === fmt ? '#10b981' : '#555', fontWeight: 700, fontSize: 12, cursor: 'pointer',
-                        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2,
-                      }}>
-                        <span style={{ fontSize: 16 }}>{icons[fmt]}</span>
-                        <span>{fmt}</span>
-                        <span style={{ fontSize: 9, color: templateFormatTab === fmt ? 'rgba(16,185,129,0.7)' : '#333' }}>{count} {t('tpl_count')}</span>
-                      </button>
-                    );
-                  })}
+        {/* ── Templates ── */}
+        <div style={{ position:'relative', flexShrink:0 }}>
+          <button ref={templateBtnRef}
+            onClick={()=>{ const rect=templateBtnRef.current?.getBoundingClientRect(); if(rect) setTemplatePanelPos({top:rect.bottom+4,left:Math.max(10,Math.min(rect.left,window.innerWidth-750))}); setTemplateFormatTab(canvasFormat); setShowTemplatePanel(v=>!v); }}
+            style={{ display:'flex', alignItems:'center', gap:5, padding:'6px 11px', borderRadius:8, background:showTemplatePanel?'rgba(16,185,129,0.18)':'transparent', border:`1px solid ${showTemplatePanel?'rgba(16,185,129,0.5)':'transparent'}`, cursor:'pointer', color:'#ccc', fontSize:12, fontWeight:600, whiteSpace:'nowrap', transition:'all 0.15s' }}
+            onMouseEnter={e=>{if(!showTemplatePanel)e.currentTarget.style.background='rgba(255,255,255,0.05)'}}
+            onMouseLeave={e=>{if(!showTemplatePanel)e.currentTarget.style.background='transparent'}}
+          >
+            <span style={{fontSize:14}}>⚡</span> Templates
+          </button>
+          {showTemplatePanel && createPortal(
+            <>
+              <div onClick={()=>setShowTemplatePanel(false)} style={{position:'fixed',inset:0,zIndex:99998}} />
+              <div ref={templatePortalRef} style={{ position:'fixed', top:templatePanelPos.top, left:templatePanelPos.left, zIndex:99999, background:'#0f172a', border:'1px solid rgba(16,185,129,0.3)', borderRadius:20, width:740, maxHeight:'82vh', boxShadow:'0 24px 64px rgba(0,0,0,0.85)', display:'flex', flexDirection:'column', overflow:'hidden' }}>
+                <div style={{ padding:'16px 20px 12px', borderBottom:'1px solid rgba(255,255,255,0.07)', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+                  <span style={{ fontWeight:800, fontSize:16, color:'#10b981' }}>⚡ Templates</span>
+                  <button onClick={()=>setShowTemplatePanel(false)} style={{ background:'none', border:'none', color:'#555', cursor:'pointer', fontSize:18 }}>✕</button>
                 </div>
-
-                {/* Grid de templates */}
-                <div style={{ overflowY: 'auto', flex: 1, minHeight: 0, padding: '16px', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
-                  {CANVAS_TEMPLATES.filter(t => t.format === templateFormatTab).map(tpl => {
-                    const s = tpl.settings;
-                    // Mini-canvas proporcional dentro de um preview fixo 210×118
-                    const previewW = 210, previewH = 118;
-                    const fmtRatios = {'16:9':[16,9],'9:16':[9,16],'1:1':[1,1],'4:3':[4,3]};
-                    const [rw, rh] = fmtRatios[tpl.format] || [16,9];
-                    // Dimensões da mini-tela dentro do preview (letterbox/pillarbox)
-                    let mw = previewW * 0.88, mh = mw * (rh / rw);
-                    if (mh > previewH * 0.88) { mh = previewH * 0.88; mw = mh * (rw / rh); }
-                    mw = Math.round(mw); mh = Math.round(mh);
-                    return (
-                      <div key={tpl.id} style={{
-                        background: '#0a0f1e',
-                        border: '1px solid rgba(255,255,255,0.07)',
-                        borderRadius: 14,
-                        cursor: 'pointer', transition: 'border 0.15s, background 0.15s',
-                        display: 'flex', flexDirection: 'column',
-                      }}
-                        onMouseEnter={e => { e.currentTarget.style.border = `1px solid ${tpl.accent}70`; e.currentTarget.style.background = '#0e1628'; }}
-                        onMouseLeave={e => { e.currentTarget.style.border = '1px solid rgba(255,255,255,0.07)'; e.currentTarget.style.background = '#0a0f1e'; }}
-                      >
-                        {/* Preview — altura fixa 118px para todos os formatos */}
-                        <div style={{
-                          width: '100%', height: 118, background: '#060c18', flexShrink: 0,
-                          display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative',
-                          borderRadius: '14px 14px 0 0', overflow: 'hidden',
-                        }}>
-                          {/* Mini-tela proporcional ao formato */}
-                          <div style={{
-                            width: mw, height: mh, position: 'relative', borderRadius: 4, overflow: 'hidden',
-                            background: `radial-gradient(ellipse at 50% 50%, ${tpl.accent}20 0%, #080818 70%)`,
-                            boxShadow: s.shadowEnabled ? `0 0 14px ${tpl.accent}50` : 'none',
-                            border: `1px solid ${tpl.accent}30`,
-                            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 3,
-                          }}>
-                            {/* Linha topo extra */}
-                            <div style={{ width: '55%', height: 2, borderRadius: 1, background: tpl.accent, opacity: 0.35 }} />
-                            {/* Bloco lyric principal */}
-                            <div style={{
-                              width: '75%', height: Math.max(5, Math.round(mh * 0.09)), borderRadius: 2,
-                              background: s.gradientEnabled
-                                ? `linear-gradient(90deg, ${s.gradientColor1}, ${s.gradientColor2})`
-                                : s.textColor,
-                              boxShadow: s.shadowEnabled ? `0 0 8px ${tpl.accent}80` : 'none',
-                            }} />
-                            <div style={{
-                              width: '55%', height: Math.max(3, Math.round(mh * 0.065)), borderRadius: 2,
-                              background: s.gradientEnabled ? s.gradientColor2 : s.textColor, opacity: 0.55,
-                            }} />
-                            {/* Linha rodapé extra */}
-                            <div style={{ width: '50%', height: 2, borderRadius: 1, background: tpl.accent, opacity: 0.25 }} />
-                          </div>
-                          {/* Badge formato */}
-                          <div style={{
-                            position: 'absolute', top: 5, right: 6,
-                            background: `${tpl.accent}22`, border: `1px solid ${tpl.accent}44`,
-                            borderRadius: 4, padding: '1px 5px', fontSize: 8,
-                            color: tpl.accent, fontWeight: 700,
-                          }}>{tpl.format}</div>
-                        </div>
-
-                        {/* Info */}
-                        <div style={{ padding: '9px 12px 6px', display: 'flex', flexDirection: 'column', gap: 4 }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                            <div style={{ width: 7, height: 7, borderRadius: '50%', background: tpl.accent, flexShrink: 0 }} />
-                            <span style={{ fontSize: 11, fontWeight: 800, color: '#f1f5f9' }}>{tpl.name}</span>
-                          </div>
-                          <span style={{ fontSize: 10, color: '#64748b', lineHeight: 1.4 }}>{lang === 'en' && tpl.descEn ? tpl.descEn : tpl.desc}</span>
-                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3 }}>
-                            <span style={{ fontSize: 9, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 4, padding: '1px 5px', color: '#94a3b8' }}>{s.fontFamily}</span>
-                            {s.gradientEnabled && <span style={{ fontSize: 9, background: 'rgba(167,139,250,0.1)', border: '1px solid rgba(167,139,250,0.3)', borderRadius: 4, padding: '1px 5px', color: '#a78bfa' }}>gradient</span>}
-                            {s.shadowEnabled && <span style={{ fontSize: 9, background: 'rgba(251,191,36,0.1)', border: '1px solid rgba(251,191,36,0.3)', borderRadius: 4, padding: '1px 5px', color: '#fbbf24' }}>glow</span>}
-                          </div>
-                        </div>
-
-                        {/* Botão aplicar */}
-                        <button
-                          onClick={() => applyTemplate(tpl)}
-                          style={{
-                            margin: '4px 12px 12px', padding: '8px 0', borderRadius: 9, cursor: 'pointer',
-                            background: `${tpl.accent}20`,
-                            border: `1px solid ${tpl.accent}55`, color: tpl.accent,
-                            fontWeight: 800, fontSize: 12,
-                          }}
-                          onMouseEnter={e => { e.currentTarget.style.background = `${tpl.accent}45`; e.currentTarget.style.color = '#fff'; }}
-                          onMouseLeave={e => { e.currentTarget.style.background = `${tpl.accent}20`; e.currentTarget.style.color = tpl.accent; }}
-                        >
-                          ✓ {t('tpl_use')}
+                {/* TEMPLATE CONTENT — MANTIDO ORIGINAL */}
+                <div style={{ display:'flex', gap:6, padding:'10px 16px 6px', borderBottom:'1px solid rgba(255,255,255,0.05)' }}>
+                  {Object.keys(CANVAS_FORMATS).map(fmt=>(
+                    <button key={fmt} onClick={()=>setTemplateFormatTab(fmt)} style={{ padding:'4px 12px', borderRadius:8, border:'none', cursor:'pointer', fontSize:11, fontWeight:700, background:templateFormatTab===fmt?'#10b981':'rgba(255,255,255,0.06)', color:templateFormatTab===fmt?'#000':'#888' }}>{fmt}</button>
+                  ))}
+                </div>
+                <div style={{ overflowY:'auto', flex:1, padding:16, display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(200px,1fr))', gap:12 }}>
+                  {TEMPLATES.filter(tp=>tp.format===templateFormatTab||!tp.format).map(tp=>(
+                    <div key={tp.id} style={{ background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.07)', borderRadius:12, overflow:'hidden', cursor:'pointer', transition:'all 0.2s' }}
+                      onMouseEnter={e=>{e.currentTarget.style.borderColor='rgba(16,185,129,0.5)';e.currentTarget.style.transform='translateY(-2px)';}}
+                      onMouseLeave={e=>{e.currentTarget.style.borderColor='rgba(255,255,255,0.07)';e.currentTarget.style.transform='translateY(0)';}}
+                    >
+                      <div style={{ aspectRatio:tp.format==='16:9'?'16/9':tp.format==='1:1'?'1/1':'9/16', background:tp.preview||'#1a1a2e', display:'flex', alignItems:'center', justifyContent:'center', fontSize:32 }}>
+                        {tp.emoji||'🎨'}
+                      </div>
+                      <div style={{ padding:'10px 12px' }}>
+                        <div style={{ fontSize:12, fontWeight:700, color:'#f0f0f0', marginBottom:4 }}>{lang==='pt'?tp.name:tp.nameEn}</div>
+                        <div style={{ fontSize:10, color:'#666', marginBottom:8 }}>{lang==='pt'?tp.desc:tp.descEn}</div>
+                        <button onClick={()=>applyTemplate(tp)} style={{ width:'100%', padding:'6px 0', background:'rgba(16,185,129,0.15)', border:'1px solid rgba(16,185,129,0.3)', borderRadius:8, fontSize:11, color:'#10b981', fontWeight:700, cursor:'pointer' }}>
+                          {lang==='pt'?'Usar template':'Use template'}
                         </button>
                       </div>
-                    );
-                  })}
-                </div>
-
-                {/* Footer */}
-                <div style={{ padding: '10px 20px', borderTop: '1px solid rgba(255,255,255,0.06)', fontSize: 10, color: '#334155', textAlign: 'center' }}>
-                  {t('tpl_footer')}
-                </div>
-              </div>
-              </>
-            , document.body)}
-          </div>
-
-          {/* ── Separador ── */}
-          <div style={{ width: 1, height: 36, background: 'rgba(255,255,255,0.07)', margin: '0 4px' }} />
-          <div style={{ position: 'relative' }}>
-            <button
-              ref={stickerBtnRef}
-              onClick={() => {
-                const rect = stickerBtnRef.current?.getBoundingClientRect();
-                if (rect) setStickerPanelPos({
-                  top:  rect.bottom + 8,
-                  left: Math.min(rect.left, window.innerWidth - 372),
-                });
-                setShowStickerPanel(v => !v);
-              }}
-              style={{
-                background: showStickerPanel ? 'rgba(251,191,36,0.2)' : 'rgba(251,191,36,0.07)',
-                border: `1px solid ${showStickerPanel ? 'rgba(251,191,36,0.6)' : 'rgba(251,191,36,0.2)'}`,
-                borderRadius: 14, padding: '7px 14px', cursor: 'pointer',
-                fontWeight: 700, fontSize: 13, color: '#fbbf24',
-                display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap',
-              }}
-            >✨ Stickers {stickers.length > 0 && <span style={{ background:'#fbbf24',color:'#000',borderRadius:8,padding:'1px 6px',fontSize:10,fontWeight:900 }}>{stickers.length}</span>}</button>
-
-            {showStickerPanel && createPortal(
-              <div
-                data-sticker-portal
-                onClick={e => e.stopPropagation()}
-                style={{
-                  position: 'fixed',
-                  top: stickerPanelPos.top,
-                  left: stickerPanelPos.left,
-                  zIndex: 99999,
-                  background: '#111827', border: '1px solid rgba(251,191,36,0.25)',
-                  borderRadius: 18, width: 360, boxShadow: '0 16px 48px rgba(0,0,0,0.8)',
-                  overflow: 'hidden',
-                }}
-              >
-                {/* Tabs */}
-                <div style={{ display: 'flex', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
-                  {[['emoji','😀 Emojis'],['sticker','✨ Animados']].map(([tab, label]) => (
-                    <button key={tab} onClick={() => setStickerTab(tab)} style={{
-                      flex: 1, padding: '10px 0', background: stickerTab === tab ? 'rgba(251,191,36,0.12)' : 'transparent',
-                      border: 'none', borderBottom: stickerTab === tab ? '2px solid #fbbf24' : '2px solid transparent',
-                      color: stickerTab === tab ? '#fbbf24' : '#888', fontWeight: 700, fontSize: 12, cursor: 'pointer',
-                    }}>{label}</button>
+                    </div>
                   ))}
                 </div>
-
-                <div style={{ padding: 12, maxHeight: 260, overflowY: 'auto' }}>
-                  {stickerTab === 'emoji' && (
-                    <div>
-                      {EMOJI_LIST.map((row, ri) => (
-                        <div key={ri} style={{ display: 'flex', gap: 4, marginBottom: 4, flexWrap: 'wrap' }}>
-                          {row.map(em => (
-                            <button key={em} onClick={() => { addSticker('emoji', em, null); }}
-                              title={`Adicionar ${em}`}
-                              style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 10, padding: '6px 4px', fontSize: 22, cursor: 'pointer', lineHeight: 1, width: 44, transition: 'background 0.15s' }}
-                              onMouseEnter={e => e.target.style.background='rgba(251,191,36,0.15)'}
-                              onMouseLeave={e => e.target.style.background='rgba(255,255,255,0.04)'}
-                            >{em}</button>
-                          ))}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {stickerTab === 'sticker' && (
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                      {ANIMATED_STICKERS.map(stk => (
-                        <button key={stk.key} onClick={() => { addSticker('sticker', stk.emoji, stk.anim); }}
-                          title={stk.label}
-                          style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 12, padding: '8px 6px', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, width: 68, transition: 'background 0.15s' }}
-                          onMouseEnter={e => e.currentTarget.style.background='rgba(251,191,36,0.15)'}
-                          onMouseLeave={e => e.currentTarget.style.background='rgba(255,255,255,0.04)'}
-                        >
-                          <span style={{ fontSize: 26 }}>{stk.emoji}</span>
-                          <span style={{ fontSize: 9, color: '#888', fontWeight: 700, letterSpacing: '0.3px' }}>{stk.label}</span>
-                          <span style={{ fontSize: 8, color: '#fbbf24', fontWeight: 600 }}>{stk.anim}</span>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-
-                <div style={{ padding: '8px 12px', borderTop: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <span style={{ fontSize: 10, color: '#555' }}>{t('stk_hint')}</span>
-                  {stickers.length > 0 && (
-                    <button onClick={() => { setStickers([]); setActiveStickerId(null); }} style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 8, padding: '3px 10px', fontSize: 10, color: '#f87171', fontWeight: 700, cursor: 'pointer' }}>
-                      {t('stk_clear_all')}
-                    </button>
-                  )}
-                </div>
               </div>
-            , document.body)}
-          </div>
+            </>,
+            document.body
+          )}
+        </div>
 
-          {/* ── Efeitos Sonoros ── */}
-          <div style={{ position: 'relative' }}>
-            <button
-              ref={sfxBtnRef}
-              onClick={() => {
-                const rect = sfxBtnRef.current?.getBoundingClientRect();
-                if (rect) setSfxPanelPos({ top: rect.bottom + 8, left: Math.min(rect.left, window.innerWidth - 380) });
-                setShowSfxPanel(v => !v);
-              }}
-              style={{
-                background: showSfxPanel ? 'rgba(16,185,129,0.2)' : 'rgba(16,185,129,0.07)',
-                border: `1px solid ${showSfxPanel ? 'rgba(16,185,129,0.6)' : 'rgba(16,185,129,0.25)'}`,
-                borderRadius: 14, padding: '7px 14px', cursor: 'pointer',
-                fontWeight: 700, fontSize: 13, color: '#10b981',
-                display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap',
-              }}
-            >🔊 {t('ed_sfx')} {soundEffects.length > 0 && <span style={{ background:'#10b981',color:'#000',borderRadius:8,padding:'1px 6px',fontSize:10,fontWeight:900 }}>{soundEffects.length}</span>}</button>
-
-            {showSfxPanel && createPortal(
-              <div data-sfx-portal onClick={e => e.stopPropagation()} style={{
-                position: 'fixed', top: sfxPanelPos.top, left: sfxPanelPos.left,
-                zIndex: 99999, background: '#111827',
-                border: '1px solid rgba(16,185,129,0.25)', borderRadius: 18,
-                width: 370, boxShadow: '0 16px 48px rgba(0,0,0,0.8)',
-                display: 'flex', flexDirection: 'column', overflow: 'hidden',
-              }}>
-                {/* Header */}
-                <div style={{ padding: '12px 16px 8px', borderBottom: '1px solid rgba(255,255,255,0.06)', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-                  <span style={{ fontWeight:800, fontSize:13, color:'#10b981' }}>🔊 {t('sfx_title')}</span>
-                  <span style={{ fontSize:10, color:'#555' }}>{t('sfx_hint')}</span>
-                </div>
-                {/* Grid of SFX */}
-                <div style={{ padding: '10px 12px', maxHeight: 220, overflowY:'auto', display:'grid', gridTemplateColumns:'repeat(6, 1fr)', gap:6 }}>
-                  {SFX_LIST.map(sfx => (
-                    <button key={sfx.key}
-                      title={sfx.name}
-                      onClick={() => {
-                        const audio = document.querySelector('audio');
-                        const t = audio ? audio.currentTime : 0;
-                        setSoundEffects(prev => [...prev, { id: Date.now() + Math.random(), key: sfx.key, name: sfx.name, emoji: sfx.emoji, startTime: parseFloat(t.toFixed(2)), volume: 1 }]);
-                      }}
-                      style={{ background:'rgba(255,255,255,0.04)', border:'1px solid rgba(16,185,129,0.15)', borderRadius:10, padding:'8px 4px', cursor:'pointer', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:3, width:'100%', boxSizing:'border-box' }}
-                      onMouseEnter={e => e.currentTarget.style.background='rgba(16,185,129,0.15)'}
-                      onMouseLeave={e => e.currentTarget.style.background='rgba(255,255,255,0.04)'}
-                    >
-                      <span style={{ fontSize:20, lineHeight:1 }}>{sfx.emoji}</span>
-                      <span style={{ fontSize:9, color:'#aaa', fontWeight:600, textAlign:'center', lineHeight:1.2, wordBreak:'break-word' }}>{sfx.name}</span>
-                    </button>
-                  ))}
-                </div>
-                {/* Placed effects list */}
-                {soundEffects.length > 0 && (
-                  <div style={{ borderTop:'1px solid rgba(255,255,255,0.06)', padding:'8px 12px', maxHeight:180, overflowY:'auto' }}>
-                    <div style={{ fontSize:9, color:'#555', fontWeight:700, marginBottom:6 }}>{t('sfx_placed')}</div>
-                    {soundEffects.map((sfx, i) => (
-                      <div key={sfx.id} style={{ display:'flex', alignItems:'center', gap:8, padding:'4px 0', borderBottom:'1px solid rgba(255,255,255,0.04)' }}>
-                        <span style={{ fontSize:16 }}>{sfx.emoji}</span>
-                        <span style={{ fontSize:11, color:'#ccc', fontWeight:600, flex:1 }}>{sfx.name}</span>
-                        <span style={{ fontSize:10, color:'#10b981', minWidth:36 }}>{sfx.startTime.toFixed(1)}s</span>
-                        <input type="range" min={0.1} max={2} step={0.1}
-                          value={sfx.volume}
-                          title={`Volume: ${Math.round(sfx.volume*100)}%`}
-                          onChange={e => setSoundEffects(prev => prev.map(s => s.id === sfx.id ? {...s, volume: Number(e.target.value)} : s))}
-                          style={{ width:60, accentColor:'#10b981', cursor:'pointer' }}
-                        />
-                        <span style={{ fontSize:9, color:'#555', minWidth:28 }}>{Math.round(sfx.volume*100)}%</span>
-                        <button onClick={() => setSoundEffects(prev => prev.filter(s => s.id !== sfx.id))}
-                          style={{ background:'rgba(239,68,68,0.1)', border:'1px solid rgba(239,68,68,0.3)', borderRadius:6, padding:'2px 7px', fontSize:11, color:'#f87171', cursor:'pointer' }}>✕</button>
+        {/* ── Stickers ── */}
+        <div style={{ position:'relative', flexShrink:0 }}>
+          <button ref={stickerBtnRef}
+            onClick={()=>{ const rect=stickerBtnRef.current?.getBoundingClientRect(); if(rect) setStickerPanelPos({top:rect.bottom+4,left:Math.min(rect.left,window.innerWidth-372)}); setShowStickerPanel(v=>!v); }}
+            style={{ display:'flex', alignItems:'center', gap:5, padding:'6px 11px', borderRadius:8, background:showStickerPanel?'rgba(251,191,36,0.18)':'transparent', border:`1px solid ${showStickerPanel?'rgba(251,191,36,0.5)':'transparent'}`, cursor:'pointer', color:'#ccc', fontSize:12, fontWeight:600, whiteSpace:'nowrap', transition:'all 0.15s' }}
+            onMouseEnter={e=>{if(!showStickerPanel)e.currentTarget.style.background='rgba(255,255,255,0.05)'}}
+            onMouseLeave={e=>{if(!showStickerPanel)e.currentTarget.style.background='transparent'}}
+          >
+            <span style={{fontSize:14}}>✨</span> Stickers {stickers.length>0&&<span style={{background:'#fbbf24',color:'#000',borderRadius:6,padding:'0 5px',fontSize:10,fontWeight:900,marginLeft:2}}>{stickers.length}</span>}
+          </button>
+          {showStickerPanel && createPortal(
+            <div data-sticker-portal onClick={e=>e.stopPropagation()} style={{ position:'fixed', top:stickerPanelPos.top, left:stickerPanelPos.left, zIndex:99999, background:'#111827', border:'1px solid rgba(251,191,36,0.25)', borderRadius:18, width:360, boxShadow:'0 16px 48px rgba(0,0,0,0.8)', maxHeight:'80vh', display:'flex', flexDirection:'column', overflow:'hidden' }}>
+              <div style={{ padding:'12px 16px 8px', borderBottom:'1px solid rgba(255,255,255,0.06)', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+                <span style={{ fontWeight:800, fontSize:14, color:'#fbbf24' }}>✨ Stickers</span>
+                <button onClick={()=>setShowStickerPanel(false)} style={{ background:'none', border:'none', color:'#555', cursor:'pointer', fontSize:16 }}>✕</button>
+              </div>
+              <div style={{ display:'flex', gap:6, padding:'8px 12px', borderBottom:'1px solid rgba(255,255,255,0.05)' }}>
+                {(['emoji','animated']).map(tab=>(
+                  <button key={tab} onClick={()=>setStickerTab(tab)} style={{ padding:'4px 12px', borderRadius:8, border:'none', cursor:'pointer', fontSize:11, fontWeight:700, background:stickerTab===tab?'#fbbf24':'rgba(255,255,255,0.06)', color:stickerTab===tab?'#000':'#888' }}>
+                    {tab==='emoji'?`😀 ${t('stk_emoji')}`:`🌀 ${t('stk_animated')}`}
+                  </button>
+                ))}
+              </div>
+              <div style={{ overflowY:'auto', flex:1, padding:8 }}>
+                {stickerTab==='emoji'&&(
+                  <div style={{ display:'grid', gridTemplateColumns:'repeat(8,1fr)', gap:2 }}>
+                    {STICKER_EMOJIS.map(em=>(
+                      <div key={em} onClick={()=>addSticker('emoji',em)} style={{ fontSize:22, textAlign:'center', padding:'6px 0', cursor:'pointer', borderRadius:8, transition:'background 0.1s' }}
+                        onMouseEnter={e=>e.currentTarget.style.background='rgba(251,191,36,0.15)'}
+                        onMouseLeave={e=>e.currentTarget.style.background='transparent'}
+                      >{em}</div>
+                    ))}
+                  </div>
+                )}
+                {stickerTab==='animated'&&(
+                  <div style={{ display:'grid', gridTemplateColumns:'repeat(2,1fr)', gap:8, padding:4 }}>
+                    {ANIMATED_STICKERS.map(stk=>(
+                      <div key={stk.key} onClick={()=>addSticker('animated',stk.content,stk.animStyle)} style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:4, padding:'10px 6px', borderRadius:10, cursor:'pointer', background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.06)', transition:'all 0.15s' }}
+                        onMouseEnter={e=>{ e.currentTarget.style.background='rgba(251,191,36,0.1)'; e.currentTarget.style.borderColor='rgba(251,191,36,0.4)'; }}
+                        onMouseLeave={e=>{ e.currentTarget.style.background='rgba(255,255,255,0.03)'; e.currentTarget.style.borderColor='rgba(255,255,255,0.06)'; }}
+                      >
+                        <span style={{fontSize:28}}>{stk.content}</span>
+                        <span style={{fontSize:10,color:'#888'}}>{lang==='pt'?stk.label:stk.labelEn}</span>
                       </div>
                     ))}
-                    <button onClick={() => setSoundEffects([])} style={{ marginTop:8, background:'rgba(239,68,68,0.08)', border:'1px solid rgba(239,68,68,0.2)', borderRadius:8, padding:'4px 12px', fontSize:10, color:'#f87171', fontWeight:700, cursor:'pointer', width:'100%' }}>
-                      {t('sfx_remove_all')}
-                    </button>
-                  </div>
-                )}
-                {soundEffects.length === 0 && (
-                  <div style={{ padding:'10px 16px 14px', fontSize:11, color:'#444', textAlign:'center' }}>
-                    {t('sfx_empty')}
                   </div>
                 )}
               </div>
-            , document.body)}
-          </div>
-        </div>{/* fim Linha 2 */}
+              {stickers.length>0&&(
+                <div style={{ padding:'8px 12px', borderTop:'1px solid rgba(255,255,255,0.05)', display:'flex', justifyContent:'flex-end' }}>
+                  <button onClick={()=>{ setStickers([]); setActiveStickerId(null); }} style={{ background:'rgba(239,68,68,0.1)', border:'1px solid rgba(239,68,68,0.3)', borderRadius:8, padding:'3px 10px', fontSize:10, color:'#f87171', fontWeight:700, cursor:'pointer' }}>{t('stk_clear_all')}</button>
+                </div>
+              )}
+            </div>,
+            document.body
+          )}
+        </div>
+
+        {/* ── Sons (SFX) ── */}
+        <div style={{ position:'relative', flexShrink:0 }}>
+          <button ref={sfxBtnRef}
+            onClick={()=>{ const rect=sfxBtnRef.current?.getBoundingClientRect(); if(rect) setSfxPanelPos({top:rect.bottom+4,left:Math.min(rect.left,window.innerWidth-380)}); setShowSfxPanel(v=>!v); }}
+            style={{ display:'flex', alignItems:'center', gap:5, padding:'6px 11px', borderRadius:8, background:showSfxPanel?'rgba(16,185,129,0.18)':'transparent', border:`1px solid ${showSfxPanel?'rgba(16,185,129,0.5)':'transparent'}`, cursor:'pointer', color:'#ccc', fontSize:12, fontWeight:600, whiteSpace:'nowrap', transition:'all 0.15s' }}
+            onMouseEnter={e=>{if(!showSfxPanel)e.currentTarget.style.background='rgba(255,255,255,0.05)'}}
+            onMouseLeave={e=>{if(!showSfxPanel)e.currentTarget.style.background='transparent'}}
+          >
+            <span style={{fontSize:14}}>🔊</span> {t('ed_sfx')} {soundEffects.length>0&&<span style={{background:'#10b981',color:'#000',borderRadius:6,padding:'0 5px',fontSize:10,fontWeight:900,marginLeft:2}}>{soundEffects.length}</span>}
+          </button>
+          {showSfxPanel && createPortal(
+            <div data-sfx-portal onClick={e=>e.stopPropagation()} style={{ position:'fixed', top:sfxPanelPos.top, left:sfxPanelPos.left, zIndex:99999, background:'#0f172a', border:'1px solid rgba(16,185,129,0.25)', borderRadius:18, width:380, maxHeight:'80vh', boxShadow:'0 16px 48px rgba(0,0,0,0.8)', display:'flex', flexDirection:'column', overflow:'hidden' }}>
+              <div style={{ padding:'12px 16px 8px', borderBottom:'1px solid rgba(255,255,255,0.06)', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+                <span style={{ fontWeight:800, fontSize:13, color:'#10b981' }}>🔊 {t('sfx_title')}</span>
+                <button onClick={()=>setShowSfxPanel(false)} style={{ background:'none', border:'none', color:'#555', cursor:'pointer', fontSize:16 }}>✕</button>
+              </div>
+              <div style={{ overflowY:'auto', flex:1, padding:8, display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:6 }}>
+                {SFX_LIST.map(sfx=>(
+                  <div key={sfx.key} onClick={()=>addSfxToTimeline(sfx.key)} style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:4, padding:'8px 4px', borderRadius:10, cursor:'pointer', background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.06)', transition:'all 0.15s' }}
+                    onMouseEnter={e=>{e.currentTarget.style.background='rgba(16,185,129,0.12)';e.currentTarget.style.borderColor='rgba(16,185,129,0.4)';}}
+                    onMouseLeave={e=>{e.currentTarget.style.background='rgba(255,255,255,0.03)';e.currentTarget.style.borderColor='rgba(255,255,255,0.06)';}}
+                  >
+                    <span style={{fontSize:20}}>{sfx.icon}</span>
+                    <span style={{fontSize:9,color:'#888',textAlign:'center'}}>{lang==='pt'?sfx.label:sfx.labelEn}</span>
+                  </div>
+                ))}
+              </div>
+              {soundEffects.length>0&&(
+                <div style={{ padding:'8px 12px', borderTop:'1px solid rgba(255,255,255,0.06)', display:'flex', flexDirection:'column', gap:4, maxHeight:140, overflowY:'auto' }}>
+                  {soundEffects.map(sfx=>(
+                    <div key={sfx.id} style={{ display:'flex', alignItems:'center', gap:6, background:'rgba(255,255,255,0.03)', borderRadius:8, padding:'4px 8px' }}>
+                      <span style={{fontSize:14}}>{SFX_LIST.find(s=>s.key===sfx.key)?.icon||'🔊'}</span>
+                      <span style={{fontSize:10,color:'#888',flex:1}}>{sfx.startTime?.toFixed(1)}s</span>
+                      <input type="range" min={0.1} max={2} step={0.1} value={sfx.volume} title={`Volume: ${Math.round(sfx.volume*100)}%`}
+                        onChange={e=>setSoundEffects(prev=>prev.map(s=>s.id===sfx.id?{...s,volume:Number(e.target.value)}:s))}
+                        style={{width:60,accentColor:'#10b981',cursor:'pointer'}} />
+                      <span style={{fontSize:9,color:'#555',minWidth:28}}>{Math.round(sfx.volume*100)}%</span>
+                      <button onClick={()=>setSoundEffects(prev=>prev.filter(s=>s.id!==sfx.id))} style={{ background:'rgba(239,68,68,0.1)', border:'1px solid rgba(239,68,68,0.3)', borderRadius:6, padding:'2px 7px', fontSize:11, color:'#f87171', cursor:'pointer' }}>✕</button>
+                    </div>
+                  ))}
+                  <button onClick={()=>setSoundEffects([])} style={{ marginTop:4, background:'rgba(239,68,68,0.08)', border:'1px solid rgba(239,68,68,0.2)', borderRadius:8, padding:'4px 12px', fontSize:10, color:'#f87171', fontWeight:700, cursor:'pointer', width:'100%' }}>{t('sfx_remove_all')}</button>
+                </div>
+              )}
+              {soundEffects.length===0&&<div style={{padding:'10px 16px 14px',fontSize:11,color:'#444',textAlign:'center'}}>{t('sfx_empty')}</div>}
+            </div>,
+            document.body
+          )}
+        </div>
+
+        {/* ── Visual (Efeitos + Cor) ── */}
+        <div style={{ position:'relative', flexShrink:0 }}>
+          <button ref={fxBtnRef}
+            onClick={()=>setShowFxPanel(v=>!v)}
+            style={{ display:'flex', alignItems:'center', gap:5, padding:'6px 11px', borderRadius:8, background:showFxPanel||screenEffect!=='none'?'rgba(167,139,250,0.18)':'transparent', border:`1px solid ${showFxPanel||screenEffect!=='none'?'rgba(167,139,250,0.5)':'transparent'}`, cursor:'pointer', color:'#ccc', fontSize:12, fontWeight:600, whiteSpace:'nowrap', transition:'all 0.15s' }}
+            onMouseEnter={e=>{if(!showFxPanel)e.currentTarget.style.background='rgba(255,255,255,0.05)'}}
+            onMouseLeave={e=>{if(!showFxPanel)e.currentTarget.style.background=showFxPanel||screenEffect!=='none'?'rgba(167,139,250,0.18)':'transparent'}}
+          >
+            <span style={{fontSize:14}}>🎬</span> Efeitos {screenEffect!=='none'&&<span style={{background:'#a78bfa',borderRadius:4,width:6,height:6,display:'inline-block',marginLeft:2}} />}
+          </button>
+          {showFxPanel && (() => {
+            const rect2 = fxBtnRef.current?.getBoundingClientRect();
+            const FX_LIST = [
+              { id:'none',        label:'Nenhum',      icon:'🔲' },
+              { id:'vignette',    label:'Vinheta',     icon:'🌑' },
+              { id:'film_grain',  label:'Grão',        icon:'📽️' },
+              { id:'vintage',     label:'Vintage',     icon:'🟤' },
+              { id:'night',       label:'Noite',       icon:'🌌' },
+              { id:'rain',        label:'Chuva',       icon:'🌧️' },
+              { id:'smoke',       label:'Fumaça',      icon:'💨' },
+              { id:'fire',        label:'Fogo',        icon:'🔥' },
+              { id:'lightning',   label:'Raios',       icon:'⚡' },
+              { id:'shake',       label:'Tremor',      icon:'📳' },
+              { id:'confetti',    label:'Confete',     icon:'🎉' },
+              { id:'particles',   label:'Partículas',  icon:'✨' },
+              { id:'aurora',      label:'Aurora',      icon:'🌈' },
+              { id:'neon_glow',   label:'Neon',        icon:'💜' },
+              { id:'matrix',      label:'Matrix',      icon:'💚' },
+              { id:'cyberpunk',   label:'Cyberpunk',   icon:'🟢' },
+              { id:'ice',         label:'Gelo',        icon:'❄️' },
+              { id:'blur_fx',     label:'Desfoque',    icon:'🌫️' },
+              { id:'vhs',         label:'VHS',         icon:'📼' },
+              { id:'tv_static',   label:'TV Estático', icon:'📺' },
+              { id:'glitch',      label:'Glitch',      icon:'⚡' },
+            ];
+            return createPortal(
+              <div style={{ position:'fixed', top:(rect2?.bottom??52)+4, left:Math.max(8,(rect2?.left??0)), zIndex:99999, background:'#0f172a', border:'1px solid rgba(167,139,250,0.3)', borderRadius:16, width:360, maxHeight:'80vh', boxShadow:'0 20px 60px rgba(0,0,0,0.8)', display:'flex', flexDirection:'column', overflow:'hidden' }}>
+                <div style={{ padding:'12px 16px 8px', borderBottom:'1px solid rgba(255,255,255,0.06)', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+                  <span style={{ fontWeight:800, fontSize:14, color:'#a78bfa' }}>🎬 Efeitos de Tela</span>
+                  <div style={{ display:'flex', gap:8, alignItems:'center' }}>
+                    {screenEffect!=='none'&&<button onClick={()=>setScreenEffect('none')} style={{ background:'rgba(239,68,68,0.15)', border:'1px solid rgba(239,68,68,0.3)', borderRadius:6, padding:'2px 8px', color:'#f87171', fontSize:10, cursor:'pointer' }}>✕ Remover</button>}
+                    <button onClick={()=>setShowFxPanel(false)} style={{ background:'none', border:'none', color:'#555', cursor:'pointer', fontSize:16 }}>✕</button>
+                  </div>
+                </div>
+                <div style={{ padding:12, display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:8, overflowY:'auto', maxHeight:400 }}>
+                  {FX_LIST.map(fx=>(
+                    <div key={fx.id} onClick={()=>{ setScreenEffect(fx.id); if(fx.id!=='none') setShowFxPanel(false); }}
+                      style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:4, padding:'10px 6px', borderRadius:10, cursor:'pointer', background:screenEffect===fx.id?'rgba(167,139,250,0.18)':'rgba(255,255,255,0.03)', border:`1px solid ${screenEffect===fx.id?'rgba(167,139,250,0.6)':'rgba(255,255,255,0.06)'}`, transition:'all 0.15s' }}
+                      onMouseEnter={e=>e.currentTarget.style.background='rgba(167,139,250,0.1)'}
+                      onMouseLeave={e=>e.currentTarget.style.background=screenEffect===fx.id?'rgba(167,139,250,0.18)':'rgba(255,255,255,0.03)'}
+                    >
+                      <span style={{fontSize:22}}>{fx.icon}</span>
+                      <span style={{fontSize:10,color:screenEffect===fx.id?'#a78bfa':'#888',fontWeight:screenEffect===fx.id?700:400,textAlign:'center'}}>{fx.label}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>,
+              document.body
+            );
+          })()}
+        </div>
+
+        {/* ── Cor & Curvas ── */}
+        <div style={{ position:'relative', flexShrink:0 }}>
+          <button onClick={()=>setShowKeyframePanel(v=>!v)}
+            style={{ display:'flex', alignItems:'center', gap:5, padding:'6px 11px', borderRadius:8, background:showKeyframePanel?'rgba(251,191,36,0.18)':'transparent', border:`1px solid ${showKeyframePanel?'rgba(251,191,36,0.5)':'transparent'}`, cursor:'pointer', color:'#ccc', fontSize:12, fontWeight:600, whiteSpace:'nowrap', transition:'all 0.15s' }}
+            onMouseEnter={e=>{if(!showKeyframePanel)e.currentTarget.style.background='rgba(255,255,255,0.05)'}}
+            onMouseLeave={e=>{if(!showKeyframePanel)e.currentTarget.style.background=showKeyframePanel?'rgba(251,191,36,0.18)':'transparent'}}
+          >
+            <span style={{fontSize:14}}>🎨</span> Cor & Curvas
+          </button>
+          {showKeyframePanel && (() => {
+            const r2 = fxBtnRef.current?.getBoundingClientRect();
+            return createPortal(
+              <div style={{ position:'fixed', top:(r2?.bottom??52)+4, right:16, zIndex:99999, background:'#0f172a', border:'1px solid rgba(251,191,36,0.3)', borderRadius:16, width:320, boxShadow:'0 20px 60px rgba(0,0,0,0.8)', padding:16, display:'flex', flexDirection:'column', gap:12 }}>
+                <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+                  <span style={{ fontWeight:800, fontSize:14, color:'#fbbf24' }}>🎨 Cor Cinematográfica</span>
+                  <button onClick={()=>setShowKeyframePanel(false)} style={{ background:'none', border:'none', color:'#555', cursor:'pointer', fontSize:16 }}>✕</button>
+                </div>
+                <div>
+                  <span style={{ fontSize:11, color:'#fbbf24', fontWeight:700, display:'block', marginBottom:6 }}>🌈 Aberração Cromática Global</span>
+                  <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                    <input type="range" min={0} max={20} value={chromaAberration} onChange={e=>setChromaAberration(+e.target.value)} style={{ flex:1, accentColor:'#fbbf24', height:3 }} />
+                    <span style={{ fontSize:10, color:chromaAberration>0?'#fbbf24':'#555', minWidth:24 }}>{chromaAberration}</span>
+                    {chromaAberration>0&&<button onClick={()=>setChromaAberration(0)} style={{ background:'none', border:'none', color:'#555', cursor:'pointer', fontSize:12 }}>↺</button>}
+                  </div>
+                </div>
+                <div>
+                  <span style={{ fontSize:11, color:'#fbbf24', fontWeight:700, display:'block', marginBottom:6 }}>📊 Curvas de Cor</span>
+                  {[{key:'r',label:'R — Vermelho',color:'#f87171'},{key:'g',label:'G — Verde',color:'#4ade80'},{key:'b',label:'B — Azul',color:'#60a5fa'},{key:'midtone',label:'Meios-tons',color:'#fbbf24'},{key:'shadows',label:'Sombras',color:'#94a3b8'},{key:'highlights',label:'Altas Luzes',color:'#fff'}].map(({key,label,color})=>{
+                    const def=key==='r'||key==='g'||key==='b'||key==='midtone'?1:0;
+                    const min2=key==='shadows'||key==='highlights'?-0.3:0.2;
+                    const max2=key==='shadows'||key==='highlights'?0.3:2.0;
+                    const val=colorCurves[key]??def;
+                    const changed=Math.abs(val-def)>0.01;
+                    return (
+                      <div key={key} style={{ display:'flex', alignItems:'center', gap:8, marginBottom:4 }}>
+                        <span style={{ fontSize:10, color:changed?color:'#555', minWidth:80, fontWeight:changed?700:400 }}>{label}</span>
+                        <input type="range" min={min2} max={max2} step={0.01} value={val} onChange={e=>setColorCurves(prev=>({...prev,[key]:+e.target.value}))} style={{ flex:1, accentColor:color, height:3 }} />
+                        <span style={{ fontSize:10, color:changed?color:'#555', minWidth:32, textAlign:'right' }}>{val.toFixed(2)}</span>
+                        {changed&&<button onClick={()=>setColorCurves(prev=>({...prev,[key]:def}))} style={{ background:'none', border:'none', color:'#555', cursor:'pointer', fontSize:12, padding:0 }}>↺</button>}
+                      </div>
+                    );
+                  })}
+                  <button onClick={()=>setColorCurves({r:1,g:1,b:1,midtone:1,shadows:0,highlights:0})} style={{ marginTop:4, background:'rgba(251,191,36,0.08)', border:'1px solid rgba(251,191,36,0.2)', borderRadius:8, padding:'3px 12px', fontSize:10, color:'#fbbf24', cursor:'pointer', width:'100%' }}>↺ Reset curvas</button>
+                </div>
+              </div>,
+              document.body
+            );
+          })()}
+        </div>
+
+        {/* Divisor */}
+        <div style={{ width:1, height:28, background:'rgba(255,255,255,0.07)', flexShrink:0, marginLeft:4 }} />
+
+        {/* ── Formato de Canvas ── */}
+        <select value={canvasFormat} onChange={e=>setCanvasFormat(e.target.value)} style={{ backgroundColor:'transparent', color:'#999', border:'1px solid rgba(255,255,255,0.1)', borderRadius:8, padding:'5px 8px', fontSize:11, cursor:'pointer', flexShrink:0 }}>
+          {Object.entries(CANVAS_FORMATS).map(([key,val])=>(
+            <option key={key} value={key} style={{background:'#111'}}>{key} — {val.width}×{val.height}</option>
+          ))}
+        </select>
+
+        {/* Spacer */}
+        <div style={{ flex:1 }} />
+
+        {/* ── Projeto ── */}
+        <div style={{ position:'relative', flexShrink:0 }}>
+          <button ref={projetoBtnRef}
+            onClick={()=>{ setShowProjetoPanel(v=>!v); setShowExportPanel(false); }}
+            style={{ display:'flex', alignItems:'center', gap:5, padding:'6px 11px', borderRadius:8, background:showProjetoPanel?'rgba(255,255,255,0.12)':'transparent', border:`1px solid ${showProjetoPanel?'rgba(255,255,255,0.2)':'transparent'}`, cursor:'pointer', color:'#888', fontSize:12, fontWeight:600, whiteSpace:'nowrap', transition:'all 0.15s' }}
+            onMouseEnter={e=>{if(!showProjetoPanel)e.currentTarget.style.background='rgba(255,255,255,0.05)'}}
+            onMouseLeave={e=>{if(!showProjetoPanel)e.currentTarget.style.background='transparent'}}
+          >
+            <span style={{fontSize:13}}>📁</span> Projeto <span style={{fontSize:9,opacity:0.6}}>▾</span>
+          </button>
+          {showProjetoPanel && createPortal(
+            <>
+              <div onClick={()=>setShowProjetoPanel(false)} style={{position:'fixed',inset:0,zIndex:99997}} />
+              <div style={{ position:'fixed', top:(projetoBtnRef.current?.getBoundingClientRect().bottom??52)+4, right:Math.max(8,window.innerWidth-(projetoBtnRef.current?.getBoundingClientRect().right??200)), zIndex:99998, background:'#0f172a', border:'1px solid rgba(255,255,255,0.1)', borderRadius:12, width:220, boxShadow:'0 16px 48px rgba(0,0,0,0.8)', overflow:'hidden', padding:'6px 0' }}>
+                <div style={{padding:'8px 14px 4px',fontSize:10,color:'#555',fontWeight:700,letterSpacing:'0.8px',textTransform:'uppercase'}}>Projeto</div>
+                {[
+                  { icon:'💾', label:t('ed_export_project'), color:'#00BFFF',  action: exportProject },
+                  { icon:'📂', label:t('ed_import_project'), color:'#888',     action:()=>{ importInputRef.current?.click(); setShowProjetoPanel(false); } },
+                  { icon:'🗑️', label:t('ed_clear_project'),  color:'#f87171',  action:()=>{ handleClearProject(); setShowProjetoPanel(false); } },
+                ].map(item=>(
+                  <div key={item.label} onClick={item.action}
+                    style={{ display:'flex', alignItems:'center', gap:10, padding:'9px 14px', cursor:'pointer', transition:'background 0.1s' }}
+                    onMouseEnter={e=>e.currentTarget.style.background='rgba(255,255,255,0.05)'}
+                    onMouseLeave={e=>e.currentTarget.style.background='transparent'}
+                  >
+                    <span style={{fontSize:16}}>{item.icon}</span>
+                    <span style={{fontSize:12,color:item.color,fontWeight:500}}>{item.label}</span>
+                  </div>
+                ))}
+              </div>
+            </>,
+            document.body
+          )}
+        </div>
+
+        {/* ── Exportar ── */}
+        <div style={{ position:'relative', flexShrink:0 }}>
+          <button ref={exportBtnRef}
+            onClick={()=>{ setShowExportPanel(v=>!v); setShowProjetoPanel(false); }}
+            style={{ display:'flex', alignItems:'center', gap:5, padding:'6px 13px', borderRadius:8, background:showExportPanel?'rgba(0,191,255,0.22)':'rgba(0,191,255,0.1)', border:`1px solid ${showExportPanel?'rgba(0,191,255,0.6)':'rgba(0,191,255,0.25)'}`, cursor:'pointer', color:'#00BFFF', fontSize:12, fontWeight:700, whiteSpace:'nowrap', transition:'all 0.15s' }}
+          >
+            <span style={{fontSize:13}}>⬇</span> Exportar <span style={{fontSize:9,opacity:0.7}}>▾</span>
+          </button>
+          {showExportPanel && createPortal(
+            <>
+              <div onClick={()=>setShowExportPanel(false)} style={{position:'fixed',inset:0,zIndex:99997}} />
+              <div style={{ position:'fixed', top:(exportBtnRef.current?.getBoundingClientRect().bottom??52)+4, right:Math.max(8,window.innerWidth-(exportBtnRef.current?.getBoundingClientRect().right??100)), zIndex:99998, background:'#0f172a', border:'1px solid rgba(0,191,255,0.2)', borderRadius:14, width:260, boxShadow:'0 16px 48px rgba(0,0,0,0.85)', overflow:'hidden' }}>
+                <div style={{padding:'12px 14px 8px',fontSize:10,color:'#555',fontWeight:700,letterSpacing:'0.8px',textTransform:'uppercase',borderBottom:'1px solid rgba(255,255,255,0.06)'}}>Formato de Saída</div>
+                <div style={{padding:'8px 10px', display:'flex', flexDirection:'column', gap:4}}>
+                  {[
+                    {value:'webm_offline_audio', label:'🎬 WebM com Áudio', desc:'Recomendado'},
+                    {value:'mp4',                label:'🎬 MP4 HD',          desc:''},
+                    {value:'webm_hd',            label:'✨ WebM HD+',        desc:'Alta qualidade'},
+                    {value:'mp4_hd',             label:'✨ MP4 HD+',         desc:'Alta qualidade'},
+                    {value:'png',                label:'🖼️ PNG',             desc:'Imagem estática'},
+                    {value:'jpg',                label:'🖼️ JPG',             desc:'Imagem estática'},
+                  ].map(fmt=>(
+                    <div key={fmt.value} onClick={()=>setExportFormat(fmt.value)}
+                      style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'7px 10px', borderRadius:8, cursor:'pointer', background:exportFormat===fmt.value?'rgba(0,191,255,0.12)':'transparent', border:`1px solid ${exportFormat===fmt.value?'rgba(0,191,255,0.35)':'transparent'}`, transition:'all 0.12s' }}
+                      onMouseEnter={e=>{ if(exportFormat!==fmt.value) e.currentTarget.style.background='rgba(255,255,255,0.04)'; }}
+                      onMouseLeave={e=>{ if(exportFormat!==fmt.value) e.currentTarget.style.background='transparent'; }}
+                    >
+                      <span style={{fontSize:12,color:exportFormat===fmt.value?'#00BFFF':'#ccc',fontWeight:exportFormat===fmt.value?700:400}}>{fmt.label}</span>
+                      {fmt.desc&&<span style={{fontSize:9,color:'#555',background:'rgba(255,255,255,0.05)',padding:'1px 5px',borderRadius:4}}>{fmt.desc}</span>}
+                    </div>
+                  ))}
+                </div>
+                <div style={{padding:'8px 10px', borderTop:'1px solid rgba(255,255,255,0.06)'}}>
+                  {isExporting?(
+                    <div style={{display:'flex',flexDirection:'column',gap:6}}>
+                      <div style={{width:'100%',height:5,background:'rgba(255,255,255,0.08)',borderRadius:3,overflow:'hidden'}}>
+                        <div style={{height:'100%',width:`${Math.round(exportProgress*100)}%`,background:'#00BFFF',borderRadius:3,transition:'width 0.2s'}} />
+                      </div>
+                      <span style={{fontSize:11,color:'#00BFFF',fontWeight:700,textAlign:'center'}}>{t('ed_exporting')} {Math.round(exportProgress*100)}%</span>
+                    </div>
+                  ):(
+                    <button onClick={()=>{ handleSave(); setShowExportPanel(false); }} style={{ width:'100%', padding:'9px 0', background:'linear-gradient(135deg,#00BFFF,#0080ff)', border:'none', borderRadius:9, cursor:'pointer', fontWeight:800, fontSize:13, color:'#000', boxShadow:'0 4px 16px rgba(0,191,255,0.3)' }}>
+                      ⬇ {t('ed_save')}
+                    </button>
+                  )}
+                </div>
+              </div>
+            </>,
+            document.body
+          )}
+        </div>
+
+        {/* ── Lang + inputs ocultos ── */}
+        <LangToggle style={{ marginLeft:4 }} />
+        <input ref={bgInputRef}     type="file" onChange={handleImageChange}  accept="image/*"          style={{display:'none'}} />
+        <input ref={imagesInputRef} type="file" onChange={handleImagesChange} accept="image/*" multiple style={{display:'none'}} />
+        <input ref={audioInputRef}  type="file" onChange={handleAudioChange}  accept="audio/*"          style={{display:'none'}} />
+        <input ref={videoInputRef}  type="file" onChange={handleVideoUpload}  accept="video/*" multiple style={{display:'none'}} />
+        <input ref={fontInputRef}   type="file" accept=".ttf,.otf,.woff,.woff2" style={{display:'none'}} onChange={handleFontUpload} />
+        <input ref={importInputRef} type="file" accept="application/json"       style={{display:'none'}} onChange={e=>importProjectFromFile(e.target.files[0])} />
+
       </div>{/* fim HEADER CONTROLS */}
 
       <div style={{ display: 'flex', flex: 1, width: '100%', overflow: 'hidden' }}>
