@@ -1240,23 +1240,32 @@ function App() {
     setBgSearchLoading(true);
     setBgSearchResults([]);
     try {
-      // Unsplash Source API — retorna imagens reais por palavra-chave sem CORS issues
-      // Não requer chave de API, funciona para img src e para crossOrigin
+      // Wikimedia Commons — API pública, CORS habilitado, busca semântica real, sem chave
       const terms = encodeURIComponent(query.trim());
-      const canvasW = CANVAS_FORMATS[canvasFormat]?.width  || 720;
-      const canvasH = CANVAS_FORMATS[canvasFormat]?.height || 1280;
-      const results = Array.from({ length: 12 }, (_, i) => {
-        const sig = i + 1;
-        return {
-          id: `${terms}_${sig}`,
-          thumb: `https://source.unsplash.com/300x500/?${terms}&sig=${sig}`,
-          full:  `https://source.unsplash.com/${canvasW}x${canvasH}/?${terms}&sig=${sig}`,
-          credit: 'Unsplash',
-        };
-      });
-      setBgSearchResults(results);
+      const apiUrl = `https://commons.wikimedia.org/w/api.php?action=query&list=search&srsearch=${terms}&srnamespace=6&srlimit=12&format=json&origin=*`;
+      const resp = await fetch(apiUrl);
+      const data = await resp.json();
+      const pages = (data?.query?.search || []);
+      // Para cada resultado, busca a URL da imagem via imageinfo
+      const titles = pages.map(p => encodeURIComponent(p.title)).join('|');
+      if (!titles) { setBgSearchResults([]); return; }
+      const infoUrl = `https://commons.wikimedia.org/w/api.php?action=query&titles=${titles}&prop=imageinfo&iiprop=url|thumburl&iiurlwidth=300&format=json&origin=*`;
+      const infoResp = await fetch(infoUrl);
+      const infoData = await infoResp.json();
+      const pageMap = infoData?.query?.pages || {};
+      const results = Object.values(pageMap)
+        .filter(p => p?.imageinfo?.[0]?.url)
+        .map((p, i) => ({
+          id: `wiki_${i}`,
+          thumb: p.imageinfo[0].thumburl || p.imageinfo[0].url,
+          full:  p.imageinfo[0].url,
+          credit: 'Wikimedia Commons',
+        }))
+        .filter(r => /\.(jpg|jpeg|png|webp)/i.test(r.full));
+      setBgSearchResults(results.slice(0, 12));
     } catch(e) {
       console.error('[BgSearch]', e);
+      setBgSearchResults([]);
     } finally {
       setBgSearchLoading(false);
     }
@@ -1266,27 +1275,7 @@ function App() {
   const searchBgImages = async () => {
     const query = bgSearch.trim();
     if (!query) return;
-    setBgSearchLoading(true);
-    setBgSearchResults([]);
-    try {
-      const terms = encodeURIComponent(query);
-      const canvasW = CANVAS_FORMATS[canvasFormat]?.width  || 720;
-      const canvasH = CANVAS_FORMATS[canvasFormat]?.height || 1280;
-      const results = Array.from({ length: 12 }, (_, i) => {
-        const sig = i + 1;
-        return {
-          id: `${terms}_${sig}`,
-          thumb: `https://source.unsplash.com/300x500/?${terms}&sig=${sig}`,
-          full:  `https://source.unsplash.com/${canvasW}x${canvasH}/?${terms}&sig=${sig}`,
-          credit: 'Unsplash',
-        };
-      });
-      setBgSearchResults(results);
-    } catch(e) {
-      console.error('[BgSearch]', e);
-    } finally {
-      setBgSearchLoading(false);
-    }
+    await searchUnsplash(query);
   };
 
   const applyBgFromUrl = (url) => {
@@ -3578,40 +3567,28 @@ _setDragging(null);
                          Math.abs(cc.midtone-1)>0.01||Math.abs(cc.shadows)>0.01||Math.abs(cc.highlights)>0.01);
     if (hasCC) {
       try {
-        const W2=canvas.width, H2=canvas.height;
-        // getImageData falha se o canvas estiver "tainted" por vídeo sem CORS.
-        // Usamos willReadFrequently:true e capturamos SecurityError silenciosamente.
-        let id;
-        try { id = ctx.getImageData(0,0,W2,H2); } catch(secErr) { id = null; }
-        if (id) {
-          const d=id.data;
-          for(let i=0;i<d.length;i+=4){
-            const r=d[i]/255, g=d[i+1]/255, b=d[i+2]/255;
-            const lum=(r*0.299+g*0.587+b*0.114);
-            const sf=lum<0.5?(1-lum*2)*cc.shadows:0;
-            const hf=lum>0.5?(lum*2-1)*cc.highlights:0;
-            const mt=cc.midtone>0?1/cc.midtone:1;
-            const ap=(v,ch)=>{
-              let out=Math.pow(Math.max(0,v*ch),mt)+(sf+hf);
-              return Math.max(0,Math.min(255,Math.round(out*255)));
-            };
-            d[i]=ap(r,cc.r); d[i+1]=ap(g,cc.g); d[i+2]=ap(b,cc.b);
-          }
-          ctx.putImageData(id,0,0);
-        } else {
-          // Fallback para canvas tainted: aplica via CSS filter no contexto do canvas
-          // (visível na tela mas não exportável — o usuário vê o efeito)
-          const fR = cc.r !== undefined ? cc.r : 1;
-          const fG = cc.g !== undefined ? cc.g : 1;
-          const fB = cc.b !== undefined ? cc.b : 1;
-          const avgRGB = (fR + fG + fB) / 3;
-          const sat = Math.max(0, avgRGB * 100);
-          const bright = Math.max(0, (cc.midtone ?? 1) * 100);
-          const cont = Math.max(0, (cc.highlights ?? 1) * 100 + 100);
-          ctx.filter = `brightness(${bright.toFixed(0)}%) saturate(${sat.toFixed(0)}%) contrast(${cont.toFixed(0)}%)`;
-          ctx.drawImage(canvas, 0, 0);
-          ctx.filter = 'none';
-        }
+        // CSS filter approach: GPU-accelerated, funciona mesmo com canvas tainted por vídeo.
+        // Mapeia os canais R/G/B e parâmetros de curva para funções CSS filter equivalentes.
+        const fR  = cc.r  ?? 1;
+        const fG  = cc.g  ?? 1;
+        const fB  = cc.b  ?? 1;
+        const mid = cc.midtone   ?? 1;  // gamma (>1 = mais brilho nos meios-tons)
+        const shd = cc.shadows   ?? 0;  // aumento nas sombras (0-1)
+        const hlt = cc.highlights ?? 0; // aumento nos realces (0-1)
+        // Saturação estimada a partir do desvio entre canais RGB
+        const maxRGB = Math.max(fR, fG, fB);
+        const minRGB = Math.min(fR, fG, fB);
+        const satEst = minRGB > 0 ? maxRGB / minRGB : 1;
+        const satPct  = Math.round(Math.max(0, Math.min(5, satEst)) * 100);
+        const brightPct = Math.round(Math.max(0, Math.min(3, mid)) * 100);
+        const contrastPct = Math.round(100 + (hlt - shd) * 60);
+        const tmp = document.createElement('canvas');
+        tmp.width = canvas.width; tmp.height = canvas.height;
+        const tctx = tmp.getContext('2d');
+        tctx.filter = `brightness(${brightPct}%) saturate(${satPct}%) contrast(${contrastPct}%)`;
+        tctx.drawImage(canvas, 0, 0);
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(tmp, 0, 0);
       } catch(e) {}
     }
     // Efeito de tela (overlay sobre tudo)
@@ -3711,20 +3688,6 @@ _setDragging(null);
       ctx.drawImage(tempCanvas, 0, 0, fmt.width, fmt.height);
     }
   }, [canvasFormat]); // eslint-disable-line
-
-  // Inicializa dimensões do canvas ao montar
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const fmt = CANVAS_FORMATS[canvasFormat];
-    if (fmt && (canvas.width !== fmt.width || canvas.height !== fmt.height)) {
-      canvas.width  = fmt.width;
-      canvas.height = fmt.height;
-      const ctx = canvas.getContext('2d');
-      ctx.fillStyle = '#000';
-      ctx.fillRect(0, 0, fmt.width, fmt.height);
-    }
-  }, []); // eslint-disable-line
 
   const drawRef = useRef(null);
   useEffect(() => { drawRef.current = draw; }, [draw]);
@@ -4115,22 +4078,24 @@ _setDragging(null);
                            Math.abs(ccE.midtone-1)>0.01||Math.abs(ccE.shadows)>0.01||Math.abs(ccE.highlights)>0.01);
     if (hasCCE) {
       try {
-        const W3=targetCanvas.width, H3=targetCanvas.height;
-        let idE;
-        try { idE = ctx.getImageData(0,0,W3,H3); } catch(secErr) { idE = null; }
-        if (idE) {
-          const dE=idE.data;
-          for(let i=0;i<dE.length;i+=4){
-            const r=dE[i]/255, g=dE[i+1]/255, b=dE[i+2]/255;
-            const lum=(r*0.299+g*0.587+b*0.114);
-            const sf=lum<0.5?(1-lum*2)*ccE.shadows:0;
-            const hf=lum>0.5?(lum*2-1)*ccE.highlights:0;
-            const mt=ccE.midtone>0?1/ccE.midtone:1;
-            const ap=(v,ch)=>{ let out=Math.pow(Math.max(0,v*ch),mt)+(sf+hf); return Math.max(0,Math.min(255,Math.round(out*255))); };
-            dE[i]=ap(r,ccE.r); dE[i+1]=ap(g,ccE.g); dE[i+2]=ap(b,ccE.b);
-          }
-          ctx.putImageData(idE,0,0);
-        }
+        const fRe  = ccE.r  ?? 1;
+        const fGe  = ccE.g  ?? 1;
+        const fBe  = ccE.b  ?? 1;
+        const mide = ccE.midtone   ?? 1;
+        const shde = ccE.shadows   ?? 0;
+        const hlte = ccE.highlights ?? 0;
+        const maxE = Math.max(fRe, fGe, fBe);
+        const minE = Math.min(fRe, fGe, fBe);
+        const satE  = Math.round(Math.max(0, Math.min(5, minE > 0 ? maxE / minE : 1)) * 100);
+        const briE  = Math.round(Math.max(0, Math.min(3, mide)) * 100);
+        const conE  = Math.round(100 + (hlte - shde) * 60);
+        const tmpE  = document.createElement('canvas');
+        tmpE.width  = targetCanvas.width; tmpE.height = targetCanvas.height;
+        const tctxE = tmpE.getContext('2d');
+        tctxE.filter = `brightness(${briE}%) saturate(${satE}%) contrast(${conE}%)`;
+        tctxE.drawImage(targetCanvas, 0, 0);
+        ctx.clearRect(0, 0, targetCanvas.width, targetCanvas.height);
+        ctx.drawImage(tmpE, 0, 0);
       } catch(e) {}
     }
     // Efeito de tela no export (shake ignorado — drawImage em canvas offscreen causa artefatos)
@@ -5476,10 +5441,10 @@ _setDragging(null);
               </div>
               <div style={{ overflowY:'auto', flex:1, padding:8 }}>
                 {stickerTab==='emoji'&&(
-                  <div style={{ display:'grid', gridTemplateColumns:'repeat(12,1fr)', gap:3 }}>
+                  <div style={{ display:'grid', gridTemplateColumns:'repeat(9,1fr)', gap:4 }}>
                     {EMOJI_LIST.flat().map((em, idx) => (
                       <button key={`${em}_${idx}`} onClick={()=>addSticker('emoji',em,null)}
-                        style={{ background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.07)', borderRadius:9, padding:'4px 2px', fontSize:20, cursor:'pointer', lineHeight:1, width:'100%', aspectRatio:'1', display:'flex', alignItems:'center', justifyContent:'center', transition:'background 0.1s' }}
+                        style={{ background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.07)', borderRadius:9, padding:'5px 2px', fontSize:22, cursor:'pointer', lineHeight:1, width:'100%', aspectRatio:'1', display:'flex', alignItems:'center', justifyContent:'center', transition:'background 0.1s' }}
                         onMouseEnter={e=>e.currentTarget.style.background='rgba(251,191,36,0.15)'}
                         onMouseLeave={e=>e.currentTarget.style.background='rgba(255,255,255,0.04)'}
                       >{em}</button>
@@ -6605,7 +6570,9 @@ _setDragging(null);
           </div>
 
           <canvas 
-            ref={canvasRef} 
+            ref={canvasRef}
+            width={CANVAS_FORMATS[canvasFormat]?.width || 720}
+            height={CANVAS_FORMATS[canvasFormat]?.height || 1280}
             onMouseDown={handleCanvasMouseDown}
             onContextMenu={(e) => {
               e.preventDefault();
