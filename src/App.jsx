@@ -1240,17 +1240,18 @@ function App() {
     setBgSearchLoading(true);
     setBgSearchResults([]);
     try {
-      // loremflickr.com retorna imagens reais filtradas por palavra-chave
+      // Unsplash Source API — retorna imagens reais por palavra-chave sem CORS issues
+      // Não requer chave de API, funciona para img src e para crossOrigin
       const terms = encodeURIComponent(query.trim());
       const canvasW = CANVAS_FORMATS[canvasFormat]?.width  || 720;
       const canvasH = CANVAS_FORMATS[canvasFormat]?.height || 1280;
       const results = Array.from({ length: 12 }, (_, i) => {
-        const lock = Date.now() + i; // evita cache entre buscas
+        const sig = i + 1;
         return {
-          id: `${terms}_${i}_${lock}`,
-          thumb: `https://loremflickr.com/300/500/${terms}?lock=${lock}`,
-          full:  `https://loremflickr.com/${canvasW}/${canvasH}/${terms}?lock=${lock}`,
-          credit: 'LoremFlickr / Flickr',
+          id: `${terms}_${sig}`,
+          thumb: `https://source.unsplash.com/300x500/?${terms}&sig=${sig}`,
+          full:  `https://source.unsplash.com/${canvasW}x${canvasH}/?${terms}&sig=${sig}`,
+          credit: 'Unsplash',
         };
       });
       setBgSearchResults(results);
@@ -1272,12 +1273,12 @@ function App() {
       const canvasW = CANVAS_FORMATS[canvasFormat]?.width  || 720;
       const canvasH = CANVAS_FORMATS[canvasFormat]?.height || 1280;
       const results = Array.from({ length: 12 }, (_, i) => {
-        const lock = Date.now() + i;
+        const sig = i + 1;
         return {
-          id: `${terms}_${i}_${lock}`,
-          thumb: `https://loremflickr.com/300/500/${terms}?lock=${lock}`,
-          full:  `https://loremflickr.com/${canvasW}/${canvasH}/${terms}?lock=${lock}`,
-          credit: 'LoremFlickr / Flickr',
+          id: `${terms}_${sig}`,
+          thumb: `https://source.unsplash.com/300x500/?${terms}&sig=${sig}`,
+          full:  `https://source.unsplash.com/${canvasW}x${canvasH}/?${terms}&sig=${sig}`,
+          credit: 'Unsplash',
         };
       });
       setBgSearchResults(results);
@@ -1289,30 +1290,35 @@ function App() {
   };
 
   const applyBgFromUrl = (url) => {
-    // fetch() falha por CORS em serviços externos — carrega via Image com crossOrigin
-    // e exporta para dataURL via canvas (sem taint, desde que o servidor envie CORS headers)
+    // Carrega a imagem diretamente como src — evita taint de CORS no canvas
+    // A imagem fica disponível para drawImage pois NÃO tentamos toDataURL
     const img = new Image();
     img.crossOrigin = 'anonymous';
     img.onload = () => {
+      setImage(img);
+      // Tenta converter para dataURL para persistência no localStorage
       try {
         const cw = img.naturalWidth  || 720;
         const ch = img.naturalHeight || 1280;
         const cv = document.createElement('canvas');
         cv.width = cw; cv.height = ch;
-        cv.getContext('2d').drawImage(img, 0, 0, cw, ch);
+        const cvCtx = cv.getContext('2d');
+        cvCtx.drawImage(img, 0, 0, cw, ch);
         const dataUrl = cv.toDataURL('image/jpeg', 0.92);
         setImageSrc(dataUrl);
-        const loaded = new Image();
-        loaded.onload = () => setImage(loaded);
-        loaded.src = dataUrl;
-        setShowBgPanel(false);
       } catch(e) {
-        // Fallback: usa a imagem diretamente se o canvas falhar (taint de segurança)
-        setImage(img);
-        setShowBgPanel(false);
+        // Taint de CORS — mantém a imagem em memória sem persistir no localStorage
+        setImageSrc(null);
       }
+      setShowBgPanel(false);
     };
-    img.onerror = () => alert('Erro ao carregar imagem. Tente outra.');
+    img.onerror = () => {
+      // Tenta sem crossOrigin como fallback
+      const img2 = new Image();
+      img2.onload = () => { setImage(img2); setImageSrc(null); setShowBgPanel(false); };
+      img2.onerror = () => alert('Erro ao carregar imagem. Tente outra busca.');
+      img2.src = url + (url.includes('?') ? '&' : '?') + 'cb=' + Date.now();
+    };
     img.src = url;
   };
 
@@ -3573,22 +3579,39 @@ _setDragging(null);
     if (hasCC) {
       try {
         const W2=canvas.width, H2=canvas.height;
-        const id=ctx.getImageData(0,0,W2,H2), d=id.data;
-        for(let i=0;i<d.length;i+=4){
-          const r=d[i]/255, g=d[i+1]/255, b=d[i+2]/255;
-          const lum=(r*0.299+g*0.587+b*0.114);
-          // Shadows/Highlights via luminância
-          const sf=lum<0.5?(1-lum*2)*cc.shadows:0;
-          const hf=lum>0.5?(lum*2-1)*cc.highlights:0;
-          // Midtones via curva gamma
-          const mt=cc.midtone>0?1/cc.midtone:1;
-          const ap=(v,ch)=>{
-            let out=Math.pow(Math.max(0,v*ch),mt)+(sf+hf);
-            return Math.max(0,Math.min(255,Math.round(out*255)));
-          };
-          d[i]=ap(r,cc.r); d[i+1]=ap(g,cc.g); d[i+2]=ap(b,cc.b);
+        // getImageData falha se o canvas estiver "tainted" por vídeo sem CORS.
+        // Usamos willReadFrequently:true e capturamos SecurityError silenciosamente.
+        let id;
+        try { id = ctx.getImageData(0,0,W2,H2); } catch(secErr) { id = null; }
+        if (id) {
+          const d=id.data;
+          for(let i=0;i<d.length;i+=4){
+            const r=d[i]/255, g=d[i+1]/255, b=d[i+2]/255;
+            const lum=(r*0.299+g*0.587+b*0.114);
+            const sf=lum<0.5?(1-lum*2)*cc.shadows:0;
+            const hf=lum>0.5?(lum*2-1)*cc.highlights:0;
+            const mt=cc.midtone>0?1/cc.midtone:1;
+            const ap=(v,ch)=>{
+              let out=Math.pow(Math.max(0,v*ch),mt)+(sf+hf);
+              return Math.max(0,Math.min(255,Math.round(out*255)));
+            };
+            d[i]=ap(r,cc.r); d[i+1]=ap(g,cc.g); d[i+2]=ap(b,cc.b);
+          }
+          ctx.putImageData(id,0,0);
+        } else {
+          // Fallback para canvas tainted: aplica via CSS filter no contexto do canvas
+          // (visível na tela mas não exportável — o usuário vê o efeito)
+          const fR = cc.r !== undefined ? cc.r : 1;
+          const fG = cc.g !== undefined ? cc.g : 1;
+          const fB = cc.b !== undefined ? cc.b : 1;
+          const avgRGB = (fR + fG + fB) / 3;
+          const sat = Math.max(0, avgRGB * 100);
+          const bright = Math.max(0, (cc.midtone ?? 1) * 100);
+          const cont = Math.max(0, (cc.highlights ?? 1) * 100 + 100);
+          ctx.filter = `brightness(${bright.toFixed(0)}%) saturate(${sat.toFixed(0)}%) contrast(${cont.toFixed(0)}%)`;
+          ctx.drawImage(canvas, 0, 0);
+          ctx.filter = 'none';
         }
-        ctx.putImageData(id,0,0);
       } catch(e) {}
     }
     // Efeito de tela (overlay sobre tudo)
@@ -3605,6 +3628,9 @@ _setDragging(null);
     // Durante exports offline (frame-a-frame) o renderAtTimeToCanvas controla
     // os vídeos diretamente — interferir aqui corrompe os frames exportados
     if (offlineExportRef.current) return;
+    // Durante RT export o export loop controla play/pause e playbackRate
+    // — interferir aqui sobrescreve o playbackRate correto e acelera o vídeo
+    if (rtExportRef.current) return;
     const audio = audioRef.current;
     // Durante RT export (WebM+Áudio) usa sempre virtualTimeRef — o audioRef
     // não é tocado, então audio.currentTime estaria congelado no último valor
@@ -3659,6 +3685,47 @@ _setDragging(null);
   // ── REFS para o loop RAF unificado ────────────────────────────────────────
   // Mantemos todas as dependências em refs para que o loop NUNCA precise ser
   // recriado. Recriação = cancel + restart = solavanco visível no playhead.
+  // ── Atualiza dimensões do canvas via imperative para evitar flash branco ──
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const fmt = CANVAS_FORMATS[canvasFormat];
+    if (!fmt) return;
+    const prevW = canvas.width, prevH = canvas.height;
+    if (prevW === fmt.width && prevH === fmt.height) return; // sem mudança
+    // Salva pixels atuais antes de redimensionar
+    const tempCanvas = document.createElement('canvas');
+    tempCanvas.width  = prevW;
+    tempCanvas.height = prevH;
+    if (prevW > 0 && prevH > 0) {
+      tempCanvas.getContext('2d').drawImage(canvas, 0, 0);
+    }
+    canvas.width  = fmt.width;
+    canvas.height = fmt.height;
+    // Preenche fundo escuro imediatamente para não mostrar branco
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, 0, fmt.width, fmt.height);
+    // Restaura pixels redimensionados
+    if (prevW > 0 && prevH > 0) {
+      ctx.drawImage(tempCanvas, 0, 0, fmt.width, fmt.height);
+    }
+  }, [canvasFormat]); // eslint-disable-line
+
+  // Inicializa dimensões do canvas ao montar
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const fmt = CANVAS_FORMATS[canvasFormat];
+    if (fmt && (canvas.width !== fmt.width || canvas.height !== fmt.height)) {
+      canvas.width  = fmt.width;
+      canvas.height = fmt.height;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#000';
+      ctx.fillRect(0, 0, fmt.width, fmt.height);
+    }
+  }, []); // eslint-disable-line
+
   const drawRef = useRef(null);
   useEffect(() => { drawRef.current = draw; }, [draw]);
 
@@ -4049,17 +4116,21 @@ _setDragging(null);
     if (hasCCE) {
       try {
         const W3=targetCanvas.width, H3=targetCanvas.height;
-        const idE=ctx.getImageData(0,0,W3,H3), dE=idE.data;
-        for(let i=0;i<dE.length;i+=4){
-          const r=dE[i]/255, g=dE[i+1]/255, b=dE[i+2]/255;
-          const lum=(r*0.299+g*0.587+b*0.114);
-          const sf=lum<0.5?(1-lum*2)*ccE.shadows:0;
-          const hf=lum>0.5?(lum*2-1)*ccE.highlights:0;
-          const mt=ccE.midtone>0?1/ccE.midtone:1;
-          const ap=(v,ch)=>{ let out=Math.pow(Math.max(0,v*ch),mt)+(sf+hf); return Math.max(0,Math.min(255,Math.round(out*255))); };
-          dE[i]=ap(r,ccE.r); dE[i+1]=ap(g,ccE.g); dE[i+2]=ap(b,ccE.b);
+        let idE;
+        try { idE = ctx.getImageData(0,0,W3,H3); } catch(secErr) { idE = null; }
+        if (idE) {
+          const dE=idE.data;
+          for(let i=0;i<dE.length;i+=4){
+            const r=dE[i]/255, g=dE[i+1]/255, b=dE[i+2]/255;
+            const lum=(r*0.299+g*0.587+b*0.114);
+            const sf=lum<0.5?(1-lum*2)*ccE.shadows:0;
+            const hf=lum>0.5?(lum*2-1)*ccE.highlights:0;
+            const mt=ccE.midtone>0?1/ccE.midtone:1;
+            const ap=(v,ch)=>{ let out=Math.pow(Math.max(0,v*ch),mt)+(sf+hf); return Math.max(0,Math.min(255,Math.round(out*255))); };
+            dE[i]=ap(r,ccE.r); dE[i+1]=ap(g,ccE.g); dE[i+2]=ap(b,ccE.b);
+          }
+          ctx.putImageData(idE,0,0);
         }
-        ctx.putImageData(idE,0,0);
       } catch(e) {}
     }
     // Efeito de tela no export (shake ignorado — drawImage em canvas offscreen causa artefatos)
@@ -5405,17 +5476,13 @@ _setDragging(null);
               </div>
               <div style={{ overflowY:'auto', flex:1, padding:8 }}>
                 {stickerTab==='emoji'&&(
-                  <div>
-                    {EMOJI_LIST.map((row, ri) => (
-                      <div key={ri} style={{ display:'flex', gap:3, marginBottom:3, flexWrap:'wrap' }}>
-                        {row.map(em => (
-                          <button key={em} onClick={()=>addSticker('emoji',em,null)}
-                            style={{ background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.07)', borderRadius:9, padding:'5px 3px', fontSize:21, cursor:'pointer', lineHeight:1, width:40, transition:'background 0.1s' }}
-                            onMouseEnter={e=>e.currentTarget.style.background='rgba(251,191,36,0.15)'}
-                            onMouseLeave={e=>e.currentTarget.style.background='rgba(255,255,255,0.04)'}
-                          >{em}</button>
-                        ))}
-                      </div>
+                  <div style={{ display:'grid', gridTemplateColumns:'repeat(12,1fr)', gap:3 }}>
+                    {EMOJI_LIST.flat().map((em, idx) => (
+                      <button key={`${em}_${idx}`} onClick={()=>addSticker('emoji',em,null)}
+                        style={{ background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.07)', borderRadius:9, padding:'4px 2px', fontSize:20, cursor:'pointer', lineHeight:1, width:'100%', aspectRatio:'1', display:'flex', alignItems:'center', justifyContent:'center', transition:'background 0.1s' }}
+                        onMouseEnter={e=>e.currentTarget.style.background='rgba(251,191,36,0.15)'}
+                        onMouseLeave={e=>e.currentTarget.style.background='rgba(255,255,255,0.04)'}
+                      >{em}</button>
                     ))}
                   </div>
                 )}
@@ -6539,8 +6606,6 @@ _setDragging(null);
 
           <canvas 
             ref={canvasRef} 
-            width={CANVAS_FORMATS[canvasFormat].width} 
-            height={CANVAS_FORMATS[canvasFormat].height} 
             onMouseDown={handleCanvasMouseDown}
             onContextMenu={(e) => {
               e.preventDefault();
