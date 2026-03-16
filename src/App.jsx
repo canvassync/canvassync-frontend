@@ -2742,7 +2742,7 @@ _setDragging(null);
       ctx.globalAlpha = 1; ctx.filter = 'none';
       switch (effect) {
 
-        // ══ EFEITOS DE TEXTO ESTILO CAPCUT ══════════════════════════
+        // ══ EFEITOS DE TEXTO ══════════════════════════
 
         case 'outline_white': {
           // Outline branco espesso + sombra preta — máxima legibilidade
@@ -3036,25 +3036,16 @@ _setDragging(null);
     }
 
     // Desenha TODOS os vídeos ativos (abaixo das imagens)
-    getVideosForTime(time).forEach(rawV => {
-      if (!rawV.videoEl || rawV.videoEl.readyState < 1 || rawV.videoEl.videoWidth === 0) return;
-      const v = applyKF(rawV, time); // aplica keyframes
+    getVideosForTime(time).forEach(v => {
+      if (!v.videoEl || v.videoEl.readyState < 1 || v.videoEl.videoWidth === 0) return;
       const vRot = (v.rotation || 0) * Math.PI / 180;
       const _vf  = buildFilterString(v.filters);
-      const _vtr = getTransitionTransform(rawV, time);
+      const _vtr = getTransitionTransform(v, time);
       ctx.save();
-      if (v._kfOpacity !== undefined) ctx.globalAlpha = v._kfOpacity;
-      if (v.mask && v.mask !== 'none') {
-        ctx.save();
-        const cxv = v.x + v.width/2, cyv = v.y + v.height/2;
-        ctx.translate(cxv, cyv); ctx.rotate(vRot); ctx.translate(-cxv, -cyv);
-        applyMask(ctx, v);
-      }
       if (_vtr) { _applyTr(ctx, _vtr, _vf, v); }
       else if (_vf !== 'none') { ctx.filter = _vf; }
-      drawRotatedElement(ctx, () => drawRoundedImage(ctx, rawV.videoEl, v.x, v.y, v.width, v.height, v.radius ?? 12), v.x, v.y, v.width, v.height, v.rotation);
+      drawRotatedElement(ctx, () => drawRoundedImage(ctx, v.videoEl, v.x, v.y, v.width, v.height, v.radius ?? 12), v.x, v.y, v.width, v.height, v.rotation);
       ctx.filter = 'none'; ctx.restore();
-      if (v.mask && v.mask !== 'none') ctx.restore();
       if (activeVideoId === v.id) {
         const cx = v.x + v.width / 2, cy = v.y + v.height / 2;
         ctx.save();
@@ -3070,24 +3061,15 @@ _setDragging(null);
 
     // Desenha TODAS as imagens ativas no instante (camadas simultâneas)
     const overlayImages = getImagesForTime(time);
-    overlayImages.forEach(rawImg => {
-      const overlayImage = applyKF(rawImg, time); // aplica keyframes
+    overlayImages.forEach(overlayImage => {
       const iRot = (overlayImage.rotation || 0) * Math.PI / 180;
       const _if  = buildFilterString(overlayImage.filters);
-      const _itr = getTransitionTransform(rawImg, time); // transições usam item original
+      const _itr = getTransitionTransform(overlayImage, time);
       ctx.save();
-      if (overlayImage._kfOpacity !== undefined) ctx.globalAlpha = overlayImage._kfOpacity;
-      if (overlayImage.mask && overlayImage.mask !== 'none') {
-        ctx.save();
-        const cx3 = overlayImage.x + overlayImage.width/2, cy3 = overlayImage.y + overlayImage.height/2;
-        ctx.translate(cx3, cy3); ctx.rotate(iRot); ctx.translate(-cx3, -cy3);
-        applyMask(ctx, overlayImage);
-      }
       if (_itr) { _applyTr(ctx, _itr, _if, overlayImage); }
       else if (_if !== 'none') { ctx.filter = _if; }
       drawRotatedElement(ctx, () => drawRoundedImage(ctx, overlayImage.img, overlayImage.x, overlayImage.y, overlayImage.width, overlayImage.height, overlayImage.radius ?? 18), overlayImage.x, overlayImage.y, overlayImage.width, overlayImage.height, overlayImage.rotation);
       ctx.filter = 'none'; ctx.restore();
-      if (overlayImage.mask && overlayImage.mask !== 'none') ctx.restore();
       if (activeImageId === overlayImage.id) {
         const cx = overlayImage.x + overlayImage.width / 2, cy = overlayImage.y + overlayImage.height / 2;
         ctx.save();
@@ -5734,8 +5716,8 @@ _setDragging(null);
 
       <div style={{ display: 'flex', flex: 1, width: '100%', overflow: 'hidden' }}>
         
-        {/* EDITOR ESQUERDA — 520PX */}
-        <div style={{ width: '520px', minWidth: '520px', borderRight: '1px solid rgba(255,255,255,0.07)', display: 'flex', flexDirection: 'column', background: '#0d0d0d', boxShadow: 'none', overflowY: 'auto' }}>
+        {/* EDITOR ESQUERDA — 580PX */}
+        <div style={{ width: '580px', minWidth: '580px', borderRight: '1px solid rgba(255,255,255,0.07)', display: 'flex', flexDirection: 'column', background: '#0d0d0d', boxShadow: 'none', overflowY: 'auto' }}>
 
           {/* ══ SEÇÃO SELEÇÃO IMAGEM/VÍDEO — rotação ══ */}
           {(activeImageId || activeVideoId) && (() => {
@@ -6111,7 +6093,7 @@ _setDragging(null);
                   title='Efeito de fundo'
                   style={{ fontSize: '10px', backgroundColor: '#111', color: '#f0f0f0', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px', padding: '4px 6px' }}>
                   <option value='none'>— Sem efeito</option>
-                  <optgroup label='── Estilo Texto (CapCut) ──'>
+                  <optgroup label='── Estilo Texto ──'>
                   <option value='outline_white'>◻ Outline Branco</option>
                   <option value='outline_black'>◼ Outline Preto</option>
                   <option value='double_stroke'>⬜ Duplo Stroke</option>
@@ -6251,7 +6233,7 @@ _setDragging(null);
                 title="Efeito de fundo"
                 style={{ fontSize: '10px', backgroundColor: '#111', color: '#f0f0f0', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px', padding: '4px 6px' }}>
                 <option value="none">— Sem efeito</option>
-                <optgroup label="── Estilo Texto (CapCut) ──">
+                <optgroup label="── Estilo Texto ──">
                 <option value="outline_white">◻ Outline Branco</option>
                 <option value="outline_black">◼ Outline Preto</option>
                 <option value="double_stroke">⬜ Duplo Stroke</option>
