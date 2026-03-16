@@ -949,6 +949,7 @@ function App() {
 
   const [fontSize, setFontSize] = useState(35);
   const [textColor, setTextColor] = useState('#ffffff');
+  const [textBgEffect, setTextBgEffect] = useState('none'); // efeito de fundo do texto de letra
   const [fontFamily, setFontFamily] = useState('Poppins');
   const [exportFormat, setExportFormat] = useState('mp4');
   const fileHandleRef = useRef(null); // armazena o handle do picker para uso nos sub-handlers
@@ -1190,7 +1191,7 @@ function App() {
   // ── UNDO / REDO ────────────────────────────────────────────────────────────
   useEffect(() => {
     const link = document.createElement('link');
-    link.href = 'https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Bebas+Neue&family=Montserrat:wght@700&family=Poppins:wght@700&family=Oswald:wght@700&family=Roboto+Condensed:wght@700&family=Raleway:wght@700&family=Playfair+Display:wght@700&family=Lora:wght@700&display=swap';
+    link.href = 'https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Bebas+Neue&family=Montserrat:wght@700&family=Poppins:wght@700&family=Oswald:wght@700&family=Roboto+Condensed:wght@700&family=Raleway:wght@700&family=Playfair+Display:wght@700&family=Lora:wght@700&family=Anton&family=Black+Han+Sans&family=Righteous&family=Russo+One&family=Lilita+One&family=Exo+2:wght@700&family=Kanit:wght@700&family=Nunito:wght@700&family=Ubuntu:wght@700&family=Pacifico&family=Permanent+Marker&family=Caveat:wght@700&family=Dancing+Script:wght@700&family=Lobster&family=Abril+Fatface&family=Press+Start+2P&family=Orbitron:wght@700&family=Share+Tech+Mono&display=swap';
     link.rel = 'stylesheet';
     document.head.appendChild(link);
   }, []);
@@ -2686,6 +2687,141 @@ _setDragging(null);
   const stickersRef = useRef([]);
   useEffect(() => { stickersRef.current = stickers; }, [stickers]);
 
+  // ── Desenha efeito de fundo atrás do texto ─────────────────────────────────
+  const drawTextBgEffect = (ctx, effect, lines, lFontSize, lineH, totalH, t) => {
+    if (!effect || effect === 'none') return;
+    const maxW = lines.reduce((m, l) => Math.max(m, ctx.measureText(l.toUpperCase ? l.toUpperCase() : l).width), 0);
+    const padX = lFontSize * 0.6, padY = lFontSize * 0.35;
+    const bx = -maxW / 2 - padX, by = -totalH / 2 - padY;
+    const bw = maxW + padX * 2,  bh = totalH + padY * 2;
+    const r  = lFontSize * 0.25;
+    const roundRect = (cx, cy, cw, ch, cr) => {
+      ctx.beginPath();
+      ctx.moveTo(cx + cr, cy);
+      ctx.arcTo(cx + cw, cy, cx + cw, cy + ch, cr);
+      ctx.arcTo(cx + cw, cy + ch, cx, cy + ch, cr);
+      ctx.arcTo(cx, cy + ch, cx, cy, cr);
+      ctx.arcTo(cx, cy, cx + cw, cy, cr);
+      ctx.closePath();
+    };
+    ctx.save();
+    ctx.shadowBlur = 0; ctx.shadowColor = 'transparent';
+    switch (effect) {
+      case 'black': {
+        roundRect(bx, by, bw, bh, r);
+        ctx.fillStyle = 'rgba(0,0,0,0.75)';
+        ctx.fill();
+        break;
+      }
+      case 'white': {
+        roundRect(bx, by, bw, bh, r);
+        ctx.fillStyle = 'rgba(255,255,255,0.82)';
+        ctx.fill();
+        break;
+      }
+      case 'blur': {
+        roundRect(bx, by, bw, bh, r);
+        ctx.filter = 'blur(12px)';
+        ctx.fillStyle = 'rgba(0,0,0,0.55)';
+        ctx.fill();
+        ctx.filter = 'none';
+        roundRect(bx, by, bw, bh, r);
+        ctx.fillStyle = 'rgba(0,0,0,0.25)';
+        ctx.fill();
+        break;
+      }
+      case 'fire': {
+        const phase = (t || 0) * 2;
+        const g = ctx.createLinearGradient(bx, by + bh, bx, by);
+        g.addColorStop(0, '#ff0a00');
+        g.addColorStop(0.4 + 0.1 * Math.sin(phase), '#ff6a00');
+        g.addColorStop(0.7 + 0.05 * Math.cos(phase * 1.3), '#ffb700');
+        g.addColorStop(1, 'rgba(255,200,0,0.15)');
+        roundRect(bx, by, bw, bh, r);
+        ctx.fillStyle = g;
+        ctx.fill();
+        // glow
+        ctx.shadowBlur = 18; ctx.shadowColor = '#ff4400';
+        ctx.strokeStyle = 'rgba(255,100,0,0.6)'; ctx.lineWidth = 1.5;
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+        break;
+      }
+      case 'water': {
+        const phase2 = (t || 0) * 1.5;
+        const g2 = ctx.createLinearGradient(bx, by, bx, by + bh);
+        g2.addColorStop(0, 'rgba(0,180,255,0.15)');
+        g2.addColorStop(0.3 + 0.08 * Math.sin(phase2), 'rgba(0,120,220,0.65)');
+        g2.addColorStop(0.7 + 0.05 * Math.cos(phase2 * 1.2), 'rgba(0,60,180,0.75)');
+        g2.addColorStop(1, 'rgba(0,20,120,0.85)');
+        roundRect(bx, by, bw, bh, r);
+        ctx.fillStyle = g2;
+        ctx.fill();
+        ctx.shadowBlur = 14; ctx.shadowColor = 'rgba(0,150,255,0.6)';
+        ctx.strokeStyle = 'rgba(100,210,255,0.5)'; ctx.lineWidth = 1.5;
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+        break;
+      }
+      case 'neon': {
+        roundRect(bx, by, bw, bh, r);
+        ctx.fillStyle = 'rgba(0,0,0,0.85)';
+        ctx.fill();
+        const colors = ['#ff00ff','#00ffff','#ff00aa'];
+        const c = colors[Math.floor((t || 0) * 1.5) % colors.length];
+        ctx.shadowBlur = 22; ctx.shadowColor = c;
+        ctx.strokeStyle = c; ctx.lineWidth = 2;
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+        break;
+      }
+      case 'rainbow': {
+        const rg = ctx.createLinearGradient(bx, by, bx + bw, by);
+        const off = ((t || 0) * 0.3) % 1;
+        rg.addColorStop((0 + off) % 1,    '#ff0000');
+        rg.addColorStop((0.17 + off) % 1, '#ff8800');
+        rg.addColorStop((0.33 + off) % 1, '#ffff00');
+        rg.addColorStop((0.5 + off) % 1,  '#00ff00');
+        rg.addColorStop((0.67 + off) % 1, '#0088ff');
+        rg.addColorStop((0.83 + off) % 1, '#8800ff');
+        rg.addColorStop((1 + off) % 1,    '#ff0000');
+        roundRect(bx, by, bw, bh, r);
+        ctx.fillStyle = rg;
+        ctx.globalAlpha = 0.75;
+        ctx.fill();
+        ctx.globalAlpha = 1;
+        break;
+      }
+      case 'dark_blur': {
+        roundRect(bx - 4, by - 4, bw + 8, bh + 8, r + 2);
+        ctx.filter = 'blur(8px)';
+        ctx.fillStyle = 'rgba(0,0,0,0.7)';
+        ctx.fill();
+        ctx.filter = 'none';
+        roundRect(bx, by, bw, bh, r);
+        ctx.fillStyle = 'rgba(0,0,0,0.55)';
+        ctx.fill();
+        break;
+      }
+      case 'gold': {
+        const gg = ctx.createLinearGradient(bx, by, bx + bw, by + bh);
+        gg.addColorStop(0, 'rgba(180,130,0,0.9)');
+        gg.addColorStop(0.5, 'rgba(255,215,0,0.95)');
+        gg.addColorStop(1, 'rgba(180,130,0,0.9)');
+        roundRect(bx, by, bw, bh, r);
+        ctx.fillStyle = gg;
+        ctx.fill();
+        ctx.shadowBlur = 10; ctx.shadowColor = '#ffd700';
+        ctx.strokeStyle = 'rgba(255,240,100,0.7)'; ctx.lineWidth = 1.5;
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+        break;
+      }
+      default: break;
+    }
+    ctx.restore();
+  };
+
   const draw = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -2775,7 +2911,28 @@ _setDragging(null);
       const lines = txt.text.split('\n');
       const lineH = tSize * 1.25;
       const rot = (txt.rotation || 0) * Math.PI / 180;
+      // Efeito de fundo do texto extra
+      if (txt.bgEffect && txt.bgEffect !== 'none') {
+        ctx.save();
+        ctx.translate(txt.x, txt.y);
+        ctx.rotate(rot);
+        ctx.font = `bold ${tSize}px ${tFont}`;
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        const _etotalH = lines.length * lineH;
+        drawTextBgEffect(ctx, txt.bgEffect, lines, tSize, lineH, _etotalH, time);
+        ctx.restore();
+      }
       ctx.save();
+      if (txt.bgEffect && txt.bgEffect !== 'none') {
+        ctx.save();
+        ctx.translate(txt.x, txt.y);
+        ctx.rotate(rot);
+        ctx.font = `bold ${tSize}px ${tFont}`;
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        const _etH = lines.length * lineH;
+        drawTextBgEffect(ctx, txt.bgEffect, lines, tSize, lineH, _etH, t);
+        ctx.restore();
+      }
       ctx.translate(txt.x, txt.y);
       ctx.rotate(rot);
       ctx.font = `bold ${tSize}px ${tFont}`;
@@ -2854,6 +3011,19 @@ _setDragging(null);
       const _elaps = Math.max(0, time - activeLine.start);
       const _ease  = 1 - Math.pow(1 - Math.min(1, _elaps / 0.45), 2);
       const _twCh  = _anim === 'typewriter' ? Math.floor(_elaps * _twSpd) : Infinity;
+      // Efeito de fundo atrás do texto
+      const _bgFx = activeLine.bgEffect ?? textBgEffect;
+      if (_bgFx && _bgFx !== 'none') {
+        ctx.save();
+        if (_anim === 'fade')  ctx.globalAlpha = _ease;
+        if (_anim === 'slide') ctx.translate(0, (1 - _ease) * 48);
+        ctx.translate(lx, ly);
+        ctx.rotate(lRot);
+        ctx.font = `bold ${lFontSize}px ${lFontFamily}`;
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        drawTextBgEffect(ctx, _bgFx, lines, lFontSize, lineH, totalH, time);
+        ctx.restore();
+      }
       ctx.save();
       if (_anim === 'fade')  ctx.globalAlpha = _ease;
       if (_anim === 'slide') ctx.translate(0, (1 - _ease) * 48);
@@ -3340,6 +3510,17 @@ _setDragging(null);
       const _elaps = Math.max(0, t - activeLine.start);
       const _ease  = 1 - Math.pow(1 - Math.min(1, _elaps / 0.45), 2);
       const _twCh  = _anim === 'typewriter' ? Math.floor(_elaps * _twSpd) : Infinity;
+      const _bgFxR = activeLine.bgEffect ?? textBgEffect;
+      if (_bgFxR && _bgFxR !== 'none') {
+        ctx.save();
+        if (_anim === 'fade')  ctx.globalAlpha = _ease;
+        if (_anim === 'slide') ctx.translate(0, (1 - _ease) * 48);
+        ctx.translate(lx, ly); ctx.rotate(lRot);
+        ctx.font = `bold ${lFontSize}px ${lFontFamily}`;
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        drawTextBgEffect(ctx, _bgFxR, lines, lFontSize, lineH, totalH, t);
+        ctx.restore();
+      }
       ctx.save();
       if (_anim === 'fade')  ctx.globalAlpha = _ease;
       if (_anim === 'slide') ctx.translate(0, (1 - _ease) * 48);
@@ -5408,14 +5589,40 @@ _setDragging(null);
                   value={activeExtraTextId ? (extraTexts.find(t=>t.id===activeExtraTextId)?.fontFamily || extraTextFontFamily) : (extraTexts.length ? extraTexts[extraTexts.length-1].fontFamily || extraTextFontFamily : extraTextFontFamily)}
                   onChange={e => { setExtraTextFontFamily(e.target.value); const tid = activeExtraTextId || (extraTexts.length ? extraTexts[extraTexts.length-1].id : null); if(tid) setExtraTexts(prev=>prev.map(t=>t.id===tid?{...t,fontFamily:e.target.value}:t)); }}
                   style={{ fontSize: '11px', backgroundColor: '#111', color: '#f0f0f0', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px', padding: '5px 8px' }}>
-                  <option value="Poppins">Poppins</option>
+                  <optgroup label="── Display ──">
                   <option value="Bebas Neue">Bebas Neue</option>
+                  <option value="Anton">Anton</option>
+                  <option value="Black Han Sans">Black Han Sans</option>
+                  <option value="Righteous">Righteous</option>
+                  <option value="Russo One">Russo One</option>
+                  <option value="Lilita One">Lilita One</option>
+                  <option value="Abril Fatface">Abril Fatface</option>
+                  <option value="Lobster">Lobster</option>
+                  </optgroup>
+                  <optgroup label="── Sans Serif ──">
+                  <option value="Poppins">Poppins</option>
                   <option value="Montserrat">Montserrat</option>
                   <option value="Oswald">Oswald</option>
                   <option value="Roboto Condensed">Roboto Condensed</option>
                   <option value="Raleway">Raleway</option>
-                  <option value="Playfair Display">Playfair</option>
+                  <option value="Exo 2">Exo 2</option>
+                  <option value="Kanit">Kanit</option>
+                  <option value="Nunito">Nunito</option>
+                  <option value="Ubuntu">Ubuntu</option>
+                  <option value="Orbitron">Orbitron</option>
+                  </optgroup>
+                  <optgroup label="── Serif / Script ──">
+                  <option value="Playfair Display">Playfair Display</option>
                   <option value="Lora">Lora</option>
+                  <option value="Pacifico">Pacifico</option>
+                  <option value="Permanent Marker">Permanent Marker</option>
+                  <option value="Caveat">Caveat</option>
+                  <option value="Dancing Script">Dancing Script</option>
+                  </optgroup>
+                  <optgroup label="── Pixel / Tech ──">
+                  <option value="Press Start 2P">Press Start 2P</option>
+                  <option value="Share Tech Mono">Share Tech Mono</option>
+                  </optgroup>
                   {customFonts.map(f => <option key={f.name} value={f.name}>{f.name}</option>)}
                 </select>
                 <span style={{ fontSize: '10px', color: '#94a3b8' }}>
@@ -5425,6 +5632,22 @@ _setDragging(null);
                   value={activeExtraTextId ? (extraTexts.find(t=>t.id===activeExtraTextId)?.fontSize || extraTextFontSize) : (extraTexts.length ? extraTexts[extraTexts.length-1]?.fontSize || extraTextFontSize : extraTextFontSize)}
                   onChange={e => { const v=parseInt(e.target.value); setExtraTextFontSize(v); const tid = activeExtraTextId || (extraTexts.length ? extraTexts[extraTexts.length-1].id : null); if(tid) setExtraTexts(prev=>prev.map(t=>t.id===tid?{...t,fontSize:v}:t)); }}
                   style={{ width: '90px', accentColor: '#00BFFF' }} />
+                <select
+                  value={activeExtraTextId ? (extraTexts.find(t=>t.id===activeExtraTextId)?.bgEffect ?? 'none') : (extraTexts.length ? extraTexts[extraTexts.length-1]?.bgEffect ?? 'none' : 'none')}
+                  onChange={e => { const tid = activeExtraTextId || (extraTexts.length ? extraTexts[extraTexts.length-1].id : null); if(tid) setExtraTexts(prev=>prev.map(t=>t.id===tid?{...t,bgEffect:e.target.value}:t)); }}
+                  title='Efeito de fundo'
+                  style={{ fontSize: '10px', backgroundColor: '#111', color: '#f0f0f0', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px', padding: '4px 6px' }}>
+                  <option value='none'>🔲 Sem fundo</option>
+                  <option value='black'>⬛ Fundo preto</option>
+                  <option value='white'>⬜ Fundo branco</option>
+                  <option value='blur'>🌫️ Blur</option>
+                  <option value='dark_blur'>🔳 Blur escuro</option>
+                  <option value='fire'>🔥 Fogo</option>
+                  <option value='water'>💧 Água</option>
+                  <option value='neon'>✨ Neon</option>
+                  <option value='rainbow'>🌈 Arco-íris</option>
+                  <option value='gold'>🏆 Dourado</option>
+                </select>
                 <button onClick={() => fontInputRef.current?.click()} style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.25)', borderRadius: '8px', padding: '3px 9px', fontSize: '10px', color: '#f59e0b', cursor: 'pointer' }}>+ {t('ed_add_font')}</button>
               </div>
             </div>
@@ -5485,14 +5708,40 @@ _setDragging(null);
                   if (activeLyricId) setLyrics(prev => prev.map(l => l.id === activeLyricId ? {...l, fontFamily: e.target.value} : l));
                 }}
                 style={{ fontSize: '11px', backgroundColor: '#111', color: '#f0f0f0', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px', padding: '5px 8px' }}>
-                <option value="Poppins">Poppins</option>
+                <optgroup label="── Display ──">
                 <option value="Bebas Neue">Bebas Neue</option>
+                <option value="Anton">Anton</option>
+                <option value="Black Han Sans">Black Han Sans</option>
+                <option value="Righteous">Righteous</option>
+                <option value="Russo One">Russo One</option>
+                <option value="Lilita One">Lilita One</option>
+                <option value="Abril Fatface">Abril Fatface</option>
+                <option value="Lobster">Lobster</option>
+                </optgroup>
+                <optgroup label="── Sans Serif ──">
+                <option value="Poppins">Poppins</option>
                 <option value="Montserrat">Montserrat</option>
                 <option value="Oswald">Oswald</option>
                 <option value="Roboto Condensed">Roboto Condensed</option>
                 <option value="Raleway">Raleway</option>
-                <option value="Playfair Display">Playfair</option>
+                <option value="Exo 2">Exo 2</option>
+                <option value="Kanit">Kanit</option>
+                <option value="Nunito">Nunito</option>
+                <option value="Ubuntu">Ubuntu</option>
+                <option value="Orbitron">Orbitron</option>
+                </optgroup>
+                <optgroup label="── Serif / Script ──">
+                <option value="Playfair Display">Playfair Display</option>
                 <option value="Lora">Lora</option>
+                <option value="Pacifico">Pacifico</option>
+                <option value="Permanent Marker">Permanent Marker</option>
+                <option value="Caveat">Caveat</option>
+                <option value="Dancing Script">Dancing Script</option>
+                </optgroup>
+                <optgroup label="── Pixel / Tech ──">
+                <option value="Press Start 2P">Press Start 2P</option>
+                <option value="Share Tech Mono">Share Tech Mono</option>
+                </optgroup>
                 {customFonts.map(f => <option key={f.name} value={f.name}>{f.name}</option>)}
               </select>
               <span style={{ fontSize: '10px', color: '#94a3b8' }}>
@@ -5506,6 +5755,26 @@ _setDragging(null);
                   if (activeLyricId) setLyrics(prev => prev.map(l => l.id === activeLyricId ? {...l, fontSize: v} : l));
                 }}
                 style={{ flex: 1, minWidth: '60px', accentColor: '#00BFFF' }} />
+              {/* Efeito de fundo */}
+              <select
+                value={activeLyricId ? (lyrics.find(l => l.id === activeLyricId)?.bgEffect ?? textBgEffect) : textBgEffect}
+                onChange={e => {
+                  setTextBgEffect(e.target.value);
+                  if (activeLyricId) setLyrics(prev => prev.map(l => l.id === activeLyricId ? {...l, bgEffect: e.target.value} : l));
+                }}
+                title="Efeito de fundo"
+                style={{ fontSize: '10px', backgroundColor: '#111', color: '#f0f0f0', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px', padding: '4px 6px' }}>
+                <option value="none">🔲 Sem fundo</option>
+                <option value="black">⬛ Fundo preto</option>
+                <option value="white">⬜ Fundo branco</option>
+                <option value="blur">🌫️ Blur</option>
+                <option value="dark_blur">🔳 Blur escuro</option>
+                <option value="fire">🔥 Fogo</option>
+                <option value="water">💧 Água</option>
+                <option value="neon">✨ Neon</option>
+                <option value="rainbow">🌈 Arco-íris</option>
+                <option value="gold">🏆 Dourado</option>
+              </select>
             </div>
 
             {/* Sombra + Gradiente + Upload fonte — por marcação quando selecionada */}
