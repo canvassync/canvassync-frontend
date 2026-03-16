@@ -5441,7 +5441,7 @@ _setDragging(null);
               </div>
               <div style={{ overflowY:'auto', flex:1, padding:8 }}>
                 {stickerTab==='emoji'&&(
-                  <div style={{ display:'grid', gridTemplateColumns:'repeat(9,1fr)', gap:4 }}>
+                  <div style={{ display:'grid', gridTemplateColumns:'repeat(8,1fr)', gap:4 }}>
                     {EMOJI_LIST.flat().map((em, idx) => (
                       <button key={`${em}_${idx}`} onClick={()=>addSticker('emoji',em,null)}
                         style={{ background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.07)', borderRadius:9, padding:'5px 2px', fontSize:22, cursor:'pointer', lineHeight:1, width:'100%', aspectRatio:'1', display:'flex', alignItems:'center', justifyContent:'center', transition:'background 0.1s' }}
@@ -5707,10 +5707,10 @@ _setDragging(null);
                 <div style={{padding:'12px 14px 8px',fontSize:10,color:'#555',fontWeight:700,letterSpacing:'0.8px',textTransform:'uppercase',borderBottom:'1px solid rgba(255,255,255,0.06)'}}>Formato de Saída</div>
                 <div style={{padding:'8px 10px', display:'flex', flexDirection:'column', gap:4}}>
                   {[
-                    {value:'webm_offline_audio', label:'🎬 WebM com Áudio', desc:'Recomendado'},
-                    {value:'mp4',                label:'🎬 MP4 HD',          desc:''},
+                    {value:'webm_offline_audio', label:'🎬 WebM com Áudio', desc:''},
+                    {value:'mp4',                label:'🎬 MP4 HD',          desc:'Alta qualidade'},
                     {value:'webm_hd',            label:'✨ WebM HD+',        desc:'Alta qualidade'},
-                    {value:'mp4_hd',             label:'✨ MP4 HD+',         desc:'Alta qualidade'},
+                    {value:'mp4_hd',             label:'✨ MP4 HD+',         desc:'Padrão'},
                     {value:'png',                label:'🖼️ PNG',             desc:'Imagem estática'},
                     {value:'jpg',                label:'🖼️ JPG',             desc:'Imagem estática'},
                   ].map(fmt=>(
