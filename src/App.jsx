@@ -974,6 +974,10 @@ function App() {
   const [showFxPanel, setShowFxPanel] = useState(false);
   const fxBtnRef = useRef(null);
   const screenEffectRef = useRef('none');
+  // ── Keyframes, Máscaras, Aberração Cromática ───────────────────────────────
+  const [showKeyframePanel, setShowKeyframePanel] = useState(false);
+  const [chromaAberration, setChromaAberration] = useState(0); // 0-20 intensidade global
+  const [colorCurves, setColorCurves] = useState({ r:1, g:1, b:1, midtone:1, shadows:0, highlights:0 });
   const [bgSearch, setBgSearch] = useState('');
   const [bgSearchResults, setBgSearchResults] = useState([]);
   const [bgSearchLoading, setBgSearchLoading] = useState(false);
@@ -1695,7 +1699,9 @@ function App() {
         }
         if (p.projectVolume !== undefined) setVolume(p.projectVolume);
         if (p.projectSpeed  !== undefined) setSpeed(p.projectSpeed);
-        if (p.screenEffect  !== undefined) setScreenEffect(p.screenEffect);
+        if (p.screenEffect    !== undefined) setScreenEffect(p.screenEffect);
+        if (p.chromaAberration!== undefined) setChromaAberration(p.chromaAberration);
+        if (p.colorCurves      !== undefined) setColorCurves(p.colorCurves);
         if (p.audioBase64) {
           setAudioBase64(p.audioBase64);
           setAudioMimeType(p.audioMimeType || 'audio/mpeg');
@@ -1939,6 +1945,8 @@ function App() {
     setAudioFile(null);
     setAudioBase64(null);
     setScreenEffect('none');
+    setChromaAberration(0);
+    setColorCurves({r:1,g:1,b:1,midtone:1,shadows:0,highlights:0});
     setAudioMimeType(null);
     setWaveformPeaks([]);
     setDuration(0);
@@ -3531,6 +3539,203 @@ _setDragging(null);
   };
   drawScreenEffectRef.current = _drawScreenEffectImpl;
 
+  // ── Keyframe interpolation ───────────────────────────────────────────────────
+  // Retorna as propriedades interpoladas (x,y,scale,opacity,rotation) para um elemento
+  // baseado em seu array de keyframes e o tempo atual do projeto.
+  const interpolateKF = (item, t) => {
+    const kfs = item.keyframes;
+    if (!kfs || kfs.length === 0) return null; // sem keyframes = usa propriedades estáticas
+    if (kfs.length === 1) return kfs[0];
+    // Clamp: antes do primeiro kf ou depois do último
+    if (t <= kfs[0].t)   return kfs[0];
+    if (t >= kfs[kfs.length-1].t) return kfs[kfs.length-1];
+    // Encontra o intervalo
+    let lo = kfs[0], hi = kfs[1];
+    for (let i = 0; i < kfs.length - 1; i++) {
+      if (t >= kfs[i].t && t <= kfs[i+1].t) { lo = kfs[i]; hi = kfs[i+1]; break; }
+    }
+    const span = hi.t - lo.t;
+    if (span <= 0) return hi;
+    // Easing: easeInOut cubic para movimento natural
+    const p = (t - lo.t) / span;
+    const ease = p < 0.5 ? 4*p*p*p : 1 - Math.pow(-2*p+2,3)/2;
+    const lerp = (a, b) => a + (b - a) * ease;
+    return {
+      t,
+      x:        lo.x        !== undefined && hi.x        !== undefined ? lerp(lo.x, hi.x)               : undefined,
+      y:        lo.y        !== undefined && hi.y         !== undefined ? lerp(lo.y, hi.y)               : undefined,
+      scale:    lo.scale    !== undefined && hi.scale    !== undefined ? lerp(lo.scale, hi.scale)         : undefined,
+      opacity:  lo.opacity  !== undefined && hi.opacity  !== undefined ? lerp(lo.opacity, hi.opacity)     : undefined,
+      rotation: lo.rotation !== undefined && hi.rotation !== undefined ? lerp(lo.rotation, hi.rotation)   : undefined,
+    };
+  };
+
+  // Aplica keyframe values a um item (retorna item modificado sem mutação)
+  const applyKF = (item, t) => {
+    const kf = interpolateKF(item, t);
+    if (!kf) return item;
+    const result = { ...item };
+    if (kf.x        !== undefined) result.x        = kf.x;
+    if (kf.y        !== undefined) result.y        = kf.y;
+    if (kf.rotation !== undefined) result.rotation = kf.rotation;
+    if (kf.scale    !== undefined) {
+      const cx = item.x + (item.width  || 0) / 2;
+      const cy = item.y + (item.height || 0) / 2;
+      result.width  = (item.width  || 0) * kf.scale;
+      result.height = (item.height || 0) * kf.scale;
+      result.x = cx - result.width  / 2;
+      result.y = cy - result.height / 2;
+    }
+    if (kf.opacity !== undefined) result._kfOpacity = kf.opacity;
+    return result;
+  };
+
+  // ── Mask clip path ────────────────────────────────────────────────────────────
+  // Aplica a máscara de um elemento ao ctx antes de desenhar
+  const applyMask = (ctx, item) => {
+    if (!item.mask || item.mask === 'none') return false;
+    const { x, y, width: w, height: h } = item;
+    const cx = x + w/2, cy = y + h/2;
+    const feather = item.maskFeather || 0;
+    ctx.beginPath();
+    switch(item.mask) {
+      case 'circle':
+        ctx.arc(cx, cy, Math.min(w, h) / 2, 0, Math.PI * 2);
+        break;
+      case 'ellipse':
+        ctx.ellipse(cx, cy, w/2, h/2, 0, 0, Math.PI * 2);
+        break;
+      case 'diamond': {
+        ctx.moveTo(cx,   y);
+        ctx.lineTo(x+w,  cy);
+        ctx.lineTo(cx,   y+h);
+        ctx.lineTo(x,    cy);
+        ctx.closePath();
+        break;
+      }
+      case 'star': {
+        const spikes = 5, outerR = Math.min(w,h)/2, innerR = outerR * 0.45;
+        for (let s = 0; s < spikes * 2; s++) {
+          const angle = (s * Math.PI) / spikes - Math.PI / 2;
+          const r = s % 2 === 0 ? outerR : innerR;
+          s === 0 ? ctx.moveTo(cx + Math.cos(angle)*r, cy + Math.sin(angle)*r)
+                  : ctx.lineTo(cx + Math.cos(angle)*r, cy + Math.sin(angle)*r);
+        }
+        ctx.closePath();
+        break;
+      }
+      case 'heart': {
+        const s2 = Math.min(w, h) * 0.42;
+        ctx.moveTo(cx, cy + s2 * 0.8);
+        ctx.bezierCurveTo(cx - s2*1.5, cy - s2*0.3, cx - s2*2, cy - s2*1.2, cx,      cy - s2*0.4);
+        ctx.bezierCurveTo(cx + s2*2,   cy - s2*1.2, cx + s2*1.5, cy - s2*0.3, cx,    cy + s2*0.8);
+        break;
+      }
+      case 'hexagon': {
+        for (let s = 0; s < 6; s++) {
+          const a = (s * Math.PI) / 3 - Math.PI / 6;
+          const r = Math.min(w, h) / 2;
+          s === 0 ? ctx.moveTo(cx + Math.cos(a)*r, cy + Math.sin(a)*r)
+                  : ctx.lineTo(cx + Math.cos(a)*r, cy + Math.sin(a)*r);
+        }
+        ctx.closePath();
+        break;
+      }
+      case 'triangle': {
+        ctx.moveTo(cx,    y);
+        ctx.lineTo(x+w,  y+h);
+        ctx.lineTo(x,    y+h);
+        ctx.closePath();
+        break;
+      }
+      default:
+        return false;
+    }
+    if (feather > 0) {
+      // Aplica suavização de borda via composição + blur antes do clip
+      ctx.save();
+      ctx.filter = `blur(${feather}px)`;
+      ctx.clip();
+      ctx.filter = 'none';
+      ctx.restore();
+      ctx.beginPath();
+      // Redesenha o caminho para o clip real
+      applyMask(ctx, { ...item, maskFeather: 0 });
+    }
+    ctx.clip();
+    return true;
+  };
+
+  // ── Aberração Cromática (canal RGB separado) ──────────────────────────────────
+  // Desenha um elemento com separação de canais para simular lente cromática de cinema
+  const drawWithChromatic = (ctx, drawFn, item, intensity) => {
+    if (!intensity || intensity <= 0) { drawFn(); return; }
+    const offC = document.createElement('canvas');
+    const cW   = ctx.canvas ? ctx.canvas.width  : 720;
+    const cH   = ctx.canvas ? ctx.canvas.height : 1280;
+    offC.width = cW; offC.height = cH;
+    const offCtx = offC.getContext('2d');
+    // Salva o transform atual para replicar no offscreen
+    const tf = ctx.getTransform();
+    offCtx.setTransform(tf.a, tf.b, tf.c, tf.d, tf.e, tf.f);
+    // 1. Desenha no offscreen
+    drawFn.call({ ctx: offCtx });
+    // 2. Extrai dados de pixel e separa canais
+    offCtx.setTransform(1,0,0,1,0,0);
+    const cx2 = item.x + (item.width  || 0) / 2;
+    const cy2 = item.y + (item.height || 0) / 2;
+    const ox = Math.min(cW, Math.max(0, Math.round(cx2 - (item.width||0)/2 - intensity*4)));
+    const oy = Math.min(cH, Math.max(0, Math.round(cy2 - (item.height||0)/2 - intensity*4)));
+    const ow = Math.min(cW - ox, Math.round((item.width||100) + intensity*8));
+    const oh = Math.min(cH - oy, Math.round((item.height||100) + intensity*8));
+    if (ow <= 0 || oh <= 0) { drawFn(); return; }
+    try {
+      const imgData = offCtx.getImageData(ox, oy, ow, oh);
+      const d = imgData.data;
+      // Pequenos offsets por canal: R esquerda, B direita
+      const shift = Math.round(intensity * 0.8);
+      const R = new Uint8ClampedArray(d); // original = base para R
+      const G = new Uint8ClampedArray(d);
+      const B = new Uint8ClampedArray(d);
+      // Aplica offset: zeramos os canais que não queremos
+      for (let i = 0; i < d.length; i += 4) {
+        d[i  ] = 0; // zera R no original
+        d[i+2] = 0; // zera B no original
+      }
+      // Canal R offset -shift
+      const rdx = -shift;
+      ctx.save();
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.globalAlpha = 0.95;
+      // Desenha os 3 canais com offsets usando blend mode
+      const drawChan = (chanData, dx, mode) => {
+        const chanImg = ctx.createImageData(ow, oh);
+        chanImg.data.set(chanData);
+        const tmp = document.createElement('canvas');
+        tmp.width=ow; tmp.height=oh;
+        tmp.getContext('2d').putImageData(chanImg, 0, 0);
+        ctx.globalCompositeOperation = mode;
+        ctx.drawImage(tmp, ox+dx, oy);
+      };
+      // Canal R (vermelho, offset esquerda)
+      const rOnly = new Uint8ClampedArray(R);
+      for (let i=0;i<rOnly.length;i+=4){rOnly[i+1]=0;rOnly[i+2]=0;}
+      drawChan(rOnly, rdx, 'screen');
+      // Canal G (verde, centro)
+      const gOnly = new Uint8ClampedArray(G);
+      for (let i=0;i<gOnly.length;i+=4){gOnly[i]=0;gOnly[i+2]=0;}
+      drawChan(gOnly, 0, 'screen');
+      // Canal B (azul, offset direita)
+      const bOnly = new Uint8ClampedArray(B);
+      for (let i=0;i<bOnly.length;i+=4){bOnly[i]=0;bOnly[i+1]=0;}
+      drawChan(bOnly, shift, 'screen');
+      ctx.restore();
+    } catch(e) {
+      // Fallback: desenha normalmente (taint de segurança em alguns SVGs)
+      drawFn();
+    }
+  };
+
   // Armazena a implementação no ref para que draw() (useCallback) sempre acesse a versão mais recente
   drawTextBgEffectRef.current = _drawTextBgEffectImpl;
 
@@ -3561,17 +3766,25 @@ _setDragging(null);
     }
 
     // Desenha TODOS os vídeos ativos (abaixo das imagens)
-    getVideosForTime(time).forEach(v => {
-      if (!v.videoEl || v.videoEl.readyState < 1 || v.videoEl.videoWidth === 0) return;
-      // Pausa se atingiu o fim real do vídeo — já gerenciado pelo sync loop RAF
+    getVideosForTime(time).forEach(rawV => {
+      if (!rawV.videoEl || rawV.videoEl.readyState < 1 || rawV.videoEl.videoWidth === 0) return;
+      const v = applyKF(rawV, time); // aplica keyframes
       const vRot = (v.rotation || 0) * Math.PI / 180;
       const _vf  = buildFilterString(v.filters);
-      const _vtr = getTransitionTransform(v, time);
+      const _vtr = getTransitionTransform(rawV, time);
       ctx.save();
+      if (v._kfOpacity !== undefined) ctx.globalAlpha = v._kfOpacity;
+      if (v.mask && v.mask !== 'none') {
+        ctx.save();
+        const cxv = v.x + v.width/2, cyv = v.y + v.height/2;
+        ctx.translate(cxv, cyv); ctx.rotate(vRot); ctx.translate(-cxv, -cyv);
+        applyMask(ctx, v);
+      }
       if (_vtr) { _applyTr(ctx, _vtr, _vf, v); }
       else if (_vf !== 'none') { ctx.filter = _vf; }
-      drawRotatedElement(ctx, () => drawRoundedImage(ctx, v.videoEl, v.x, v.y, v.width, v.height, v.radius ?? 12), v.x, v.y, v.width, v.height, v.rotation);
+      drawRotatedElement(ctx, () => drawRoundedImage(ctx, rawV.videoEl, v.x, v.y, v.width, v.height, v.radius ?? 12), v.x, v.y, v.width, v.height, v.rotation);
       ctx.filter = 'none'; ctx.restore();
+      if (v.mask && v.mask !== 'none') ctx.restore();
       if (activeVideoId === v.id) {
         const cx = v.x + v.width / 2, cy = v.y + v.height / 2;
         ctx.save();
@@ -3587,15 +3800,24 @@ _setDragging(null);
 
     // Desenha TODAS as imagens ativas no instante (camadas simultâneas)
     const overlayImages = getImagesForTime(time);
-    overlayImages.forEach(overlayImage => {
+    overlayImages.forEach(rawImg => {
+      const overlayImage = applyKF(rawImg, time); // aplica keyframes
       const iRot = (overlayImage.rotation || 0) * Math.PI / 180;
       const _if  = buildFilterString(overlayImage.filters);
-      const _itr = getTransitionTransform(overlayImage, time);
+      const _itr = getTransitionTransform(rawImg, time); // transições usam item original
       ctx.save();
+      if (overlayImage._kfOpacity !== undefined) ctx.globalAlpha = overlayImage._kfOpacity;
+      if (overlayImage.mask && overlayImage.mask !== 'none') {
+        ctx.save();
+        const cx3 = overlayImage.x + overlayImage.width/2, cy3 = overlayImage.y + overlayImage.height/2;
+        ctx.translate(cx3, cy3); ctx.rotate(iRot); ctx.translate(-cx3, -cy3);
+        applyMask(ctx, overlayImage);
+      }
       if (_itr) { _applyTr(ctx, _itr, _if, overlayImage); }
       else if (_if !== 'none') { ctx.filter = _if; }
       drawRotatedElement(ctx, () => drawRoundedImage(ctx, overlayImage.img, overlayImage.x, overlayImage.y, overlayImage.width, overlayImage.height, overlayImage.radius ?? 18), overlayImage.x, overlayImage.y, overlayImage.width, overlayImage.height, overlayImage.rotation);
       ctx.filter = 'none'; ctx.restore();
+      if (overlayImage.mask && overlayImage.mask !== 'none') ctx.restore();
       if (activeImageId === overlayImage.id) {
         const cx = overlayImage.x + overlayImage.width / 2, cy = overlayImage.y + overlayImage.height / 2;
         ctx.save();
@@ -3854,12 +4076,37 @@ _setDragging(null);
       }
       ctx.restore();
     });
+    // ── Curvas de Cor (pós-processamento global) ──────────────────────────────
+    const cc = colorCurves;
+    const hasCC = cc && (Math.abs(cc.r-1)>0.01||Math.abs(cc.g-1)>0.01||Math.abs(cc.b-1)>0.01||
+                         Math.abs(cc.midtone-1)>0.01||Math.abs(cc.shadows)>0.01||Math.abs(cc.highlights)>0.01);
+    if (hasCC) {
+      try {
+        const W2=canvas.width, H2=canvas.height;
+        const id=ctx.getImageData(0,0,W2,H2), d=id.data;
+        for(let i=0;i<d.length;i+=4){
+          const r=d[i]/255, g=d[i+1]/255, b=d[i+2]/255;
+          const lum=(r*0.299+g*0.587+b*0.114);
+          // Shadows/Highlights via luminância
+          const sf=lum<0.5?(1-lum*2)*cc.shadows:0;
+          const hf=lum>0.5?(lum*2-1)*cc.highlights:0;
+          // Midtones via curva gamma
+          const mt=cc.midtone>0?1/cc.midtone:1;
+          const ap=(v,ch)=>{
+            let out=Math.pow(Math.max(0,v*ch),mt)+(sf+hf);
+            return Math.max(0,Math.min(255,Math.round(out*255)));
+          };
+          d[i]=ap(r,cc.r); d[i+1]=ap(g,cc.g); d[i+2]=ap(b,cc.b);
+        }
+        ctx.putImageData(id,0,0);
+      } catch(e) {}
+    }
     // Efeito de tela (overlay sobre tudo)
     if (screenEffect && screenEffect !== 'none') {
       drawScreenEffectRef.current?.(ctx, screenEffect, canvas.width, canvas.height, Date.now()/1000);
     }
     // Não agenda mais RAF aqui — o loop unificado abaixo cuida disso
-  }, [activeImageId, activeVideoId, activeExtraTextId, activeLyricId, editingLyricId, drawRotatedElement, drawRoundedImage, drawRoundedRect, drawResizeHandles, extraTextColor, extraTextFontFamily, extraTextFontSize, extraTexts, fontFamily, fontSize, getImagesForTime, getVideosForTime, image, lyrics, textColor, wrapLyricText, videos, shadowEnabled, shadowBlur, shadowColor, shadowOffsetX, shadowOffsetY, gradientEnabled, gradientColor1, gradientColor2, zoom, screenEffect]);
+  }, [activeImageId, activeVideoId, activeExtraTextId, activeLyricId, editingLyricId, drawRotatedElement, drawRoundedImage, drawRoundedRect, drawResizeHandles, extraTextColor, extraTextFontFamily, extraTextFontSize, extraTexts, fontFamily, fontSize, getImagesForTime, getVideosForTime, image, lyrics, textColor, wrapLyricText, videos, shadowEnabled, shadowBlur, shadowColor, shadowOffsetX, shadowOffsetY, gradientEnabled, gradientColor1, gradientColor2, zoom, screenEffect, colorCurves, chromaAberration]);
 
 
   // ── Sync de vídeos via função chamada pelo loop RAF ──────────────────────
@@ -4303,6 +4550,26 @@ _setDragging(null);
       ctx.fillText(stk.content, 0, 0);
       ctx.restore();
     });
+    // ── Curvas de Cor no export ──────────────────────────────────────────────
+    const ccE = colorCurves;
+    const hasCCE = ccE && (Math.abs(ccE.r-1)>0.01||Math.abs(ccE.g-1)>0.01||Math.abs(ccE.b-1)>0.01||
+                           Math.abs(ccE.midtone-1)>0.01||Math.abs(ccE.shadows)>0.01||Math.abs(ccE.highlights)>0.01);
+    if (hasCCE) {
+      try {
+        const W3=targetCanvas.width, H3=targetCanvas.height;
+        const idE=ctx.getImageData(0,0,W3,H3), dE=idE.data;
+        for(let i=0;i<dE.length;i+=4){
+          const r=dE[i]/255, g=dE[i+1]/255, b=dE[i+2]/255;
+          const lum=(r*0.299+g*0.587+b*0.114);
+          const sf=lum<0.5?(1-lum*2)*ccE.shadows:0;
+          const hf=lum>0.5?(lum*2-1)*ccE.highlights:0;
+          const mt=ccE.midtone>0?1/ccE.midtone:1;
+          const ap=(v,ch)=>{ let out=Math.pow(Math.max(0,v*ch),mt)+(sf+hf); return Math.max(0,Math.min(255,Math.round(out*255))); };
+          dE[i]=ap(r,ccE.r); dE[i+1]=ap(g,ccE.g); dE[i+2]=ap(b,ccE.b);
+        }
+        ctx.putImageData(idE,0,0);
+      } catch(e) {}
+    }
     // Efeito de tela no export
     if (screenEffect && screenEffect !== 'none') {
       drawScreenEffectRef.current?.(ctx, screenEffect, logicalW, logicalH, t);
@@ -4876,6 +5143,8 @@ _setDragging(null);
     projectVolume: projectVolume ?? 1,
     projectSpeed:  projectSpeed  ?? 1,
     screenEffect:  screenEffect  || 'none',
+    chromaAberration: chromaAberration || 0,
+    colorCurves: colorCurves || {r:1,g:1,b:1,midtone:1,shadows:0,highlights:0},
   });
 
   const exportProject = async () => {
@@ -5018,7 +5287,9 @@ _setDragging(null);
         // Restaura áudio do projeto
         if (p.projectVolume !== undefined) setVolume(p.projectVolume);
         if (p.projectSpeed  !== undefined) setSpeed(p.projectSpeed);
-        if (p.screenEffect  !== undefined) setScreenEffect(p.screenEffect);
+        if (p.screenEffect    !== undefined) setScreenEffect(p.screenEffect);
+        if (p.chromaAberration!== undefined) setChromaAberration(p.chromaAberration);
+        if (p.colorCurves      !== undefined) setColorCurves(p.colorCurves);
         if (p.audioBase64) {
           setAudioBase64(p.audioBase64);
           setAudioMimeType(p.audioMimeType || 'audio/mpeg');
@@ -5503,6 +5774,65 @@ _setDragging(null);
                   onClick={() => setShowFxPanel(v => !v)}
                   style={{ background: showFxPanel || screenEffect !== 'none' ? 'rgba(167,139,250,0.2)' : 'rgba(167,139,250,0.07)', border: `1px solid ${showFxPanel || screenEffect !== 'none' ? 'rgba(167,139,250,0.7)' : 'rgba(167,139,250,0.25)'}`, borderRadius: 8, padding: '3px 9px', cursor: 'pointer', fontSize: 11, color: '#a78bfa', fontWeight: 700, whiteSpace: 'nowrap' }}
                 >✨ Efeitos</button>
+                {/* ── Cor Cinematográfica ── */}
+                <button
+                  onClick={() => setShowKeyframePanel(v => !v)}
+                  style={{ background: showKeyframePanel ? 'rgba(251,191,36,0.2)' : 'rgba(251,191,36,0.07)', border: `1px solid ${showKeyframePanel ? 'rgba(251,191,36,0.7)' : 'rgba(251,191,36,0.25)'}`, borderRadius: 8, padding: '3px 9px', cursor: 'pointer', fontSize: 11, color: '#fbbf24', fontWeight: 700, whiteSpace: 'nowrap' }}
+                >🎨 Cor & Curvas</button>
+                {showKeyframePanel && (() => {
+                  const r2 = fxBtnRef.current?.getBoundingClientRect();
+                  return createPortal(
+                    <div style={{ position:'fixed', top:(r2?.bottom??60)+6, right:16, zIndex:99999, background:'#0f172a', border:'1px solid rgba(251,191,36,0.3)', borderRadius:16, width:320, boxShadow:'0 20px 60px rgba(0,0,0,0.8)', padding:16, display:'flex', flexDirection:'column', gap:12 }}>
+                      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+                        <span style={{ fontWeight:800, fontSize:14, color:'#fbbf24' }}>🎨 Cor Cinematográfica</span>
+                        <button onClick={() => setShowKeyframePanel(false)} style={{ background:'none', border:'none', color:'#555', cursor:'pointer', fontSize:16 }}>✕</button>
+                      </div>
+                      {/* Aberração Cromática Global */}
+                      <div>
+                        <span style={{ fontSize:11, color:'#fbbf24', fontWeight:700, display:'block', marginBottom:6 }}>🌈 Aberração Cromática Global</span>
+                        <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                          <input type="range" min={0} max={20} value={chromaAberration}
+                            onChange={e => setChromaAberration(+e.target.value)}
+                            style={{ flex:1, accentColor:'#fbbf24', height:3 }} />
+                          <span style={{ fontSize:10, color: chromaAberration>0?'#fbbf24':'#555', minWidth:24 }}>{chromaAberration}</span>
+                          {chromaAberration>0 && <button onClick={() => setChromaAberration(0)} style={{ background:'none', border:'none', color:'#555', cursor:'pointer', fontSize:12 }}>↺</button>}
+                        </div>
+                      </div>
+                      {/* Curvas de Cor */}
+                      <div>
+                        <span style={{ fontSize:11, color:'#fbbf24', fontWeight:700, display:'block', marginBottom:6 }}>📊 Curvas de Cor</span>
+                        {[
+                          { key:'r',         label:'R — Vermelho',   color:'#f87171' },
+                          { key:'g',         label:'G — Verde',      color:'#4ade80' },
+                          { key:'b',         label:'B — Azul',       color:'#60a5fa' },
+                          { key:'midtone',   label:'Meios-tons',     color:'#fbbf24' },
+                          { key:'shadows',   label:'Sombras',        color:'#94a3b8' },
+                          { key:'highlights',label:'Altas Luzes',    color:'#fff' },
+                        ].map(({key, label, color}) => {
+                          const def = key==='r'||key==='g'||key==='b'||key==='midtone' ? 1 : 0;
+                          const min2 = key==='shadows'||key==='highlights' ? -0.3 : 0.2;
+                          const max2 = key==='shadows'||key==='highlights' ?  0.3 : 2.0;
+                          const step2= 0.01;
+                          const val  = colorCurves[key] ?? def;
+                          const changed = Math.abs(val - def) > 0.01;
+                          return (
+                            <div key={key} style={{ display:'flex', alignItems:'center', gap:8, marginBottom:4 }}>
+                              <span style={{ fontSize:10, color: changed?color:'#555', minWidth:80, fontWeight: changed?700:400 }}>{label}</span>
+                              <input type="range" min={min2} max={max2} step={step2} value={val}
+                                onChange={e => setColorCurves(prev => ({...prev, [key]: +e.target.value}))}
+                                style={{ flex:1, accentColor:color, height:3 }} />
+                              <span style={{ fontSize:10, color: changed?color:'#555', minWidth:32, textAlign:'right' }}>{val.toFixed(2)}</span>
+                              {changed && <button onClick={() => setColorCurves(prev => ({...prev, [key]: def}))} style={{ background:'none', border:'none', color:'#555', cursor:'pointer', fontSize:12, padding:0 }}>↺</button>}
+                            </div>
+                          );
+                        })}
+                        <button onClick={() => setColorCurves({r:1,g:1,b:1,midtone:1,shadows:0,highlights:0})}
+                          style={{ marginTop:4, background:'rgba(251,191,36,0.08)', border:'1px solid rgba(251,191,36,0.2)', borderRadius:8, padding:'3px 12px', fontSize:10, color:'#fbbf24', cursor:'pointer', width:'100%' }}>↺ Reset curvas</button>
+                      </div>
+                    </div>,
+                    document.body
+                  );
+                })()}
                 {showFxPanel && (() => {
                   const rect2 = fxBtnRef.current?.getBoundingClientRect();
                   const FX_LIST = [
@@ -6350,6 +6680,101 @@ _setDragging(null);
                   );
                 })()}
 
+              </div>
+            );
+          })()}
+
+          {/* ══ SEÇÃO KEYFRAMES + MÁSCARAS + ABERRAÇÃO CROMÁTICA ══ */}
+          {(activeImageId || activeVideoId) && (() => {
+            const selImg = activeImageId ? images.find(i => i.id === activeImageId) : null;
+            const selVid = activeVideoId ? videos.find(v => v.id === activeVideoId) : null;
+            const sel    = selImg || selVid;
+            const isVid  = !!selVid;
+            if (!sel) return null;
+            const accent   = isVid ? '#a78bfa' : '#fbbf24';
+            const accentBg = isVid ? 'rgba(167,139,250,' : 'rgba(251,191,36,';
+            const upd = (patch) => {
+              if (isVid) setVideos(prev => prev.map(v => v.id === sel.id ? {...v, ...patch} : v));
+              else       setImages(prev => prev.map(i => i.id === sel.id ? {...i, ...patch} : i));
+            };
+            const kfs = sel.keyframes || [];
+            const tNow = virtualTimeRef.current;
+            return (
+              <div style={{ padding: '12px 18px', borderBottom: '1px solid rgba(255,255,255,0.07)', display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {/* ── Máscara de Forma ── */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <span style={{ fontSize: 11, color: accent, fontWeight: 700, letterSpacing: '0.5px' }}>✂️ Máscara</span>
+                  <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
+                    {[['none','Sem'],['circle','⬤ Círculo'],['ellipse','⬭ Elipse'],['diamond','◇ Losango'],['star','★ Estrela'],['heart','♥ Coração'],['hexagon','⬡ Hex'],['triangle','▲ Triângulo']].map(([v,l]) => (
+                      <button key={v} onClick={() => upd({mask: v})}
+                        style={{ padding:'3px 8px', fontSize:10, borderRadius:8, cursor:'pointer', fontWeight:600,
+                          background: (sel.mask||'none')===v ? `${accentBg}0.25)` : 'rgba(255,255,255,0.04)',
+                          border:`1px solid ${(sel.mask||'none')===v ? `${accentBg}0.6)` : 'rgba(255,255,255,0.08)'}`,
+                          color: (sel.mask||'none')===v ? accent : '#666' }}>{l}</button>
+                    ))}
+                  </div>
+                  {sel.mask && sel.mask !== 'none' && (
+                    <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                      <span style={{ fontSize:10, color:'#666', minWidth:70 }}>Suavidade</span>
+                      <input type="range" min={0} max={15} value={sel.maskFeather||0}
+                        onChange={e => upd({maskFeather: +e.target.value})}
+                        style={{ flex:1, accentColor: accent, height:3 }} />
+                      <span style={{ fontSize:10, color: accent, minWidth:24 }}>{sel.maskFeather||0}px</span>
+                    </div>
+                  )}
+                </div>
+                {/* ── Aberração Cromática por elemento ── */}
+                <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
+                  <span style={{ fontSize:11, color: accent, fontWeight:700, letterSpacing:'0.5px' }}>🌈 Aberração Cromática</span>
+                  <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                    <span style={{ fontSize:10, color:'#666', minWidth:70 }}>Intensidade</span>
+                    <input type="range" min={0} max={20} value={sel.chromaticAberration||0}
+                      onChange={e => upd({chromaticAberration: +e.target.value})}
+                      style={{ flex:1, accentColor: accent, height:3 }} />
+                    <span style={{ fontSize:10, color:(sel.chromaticAberration||0)>0?accent:'#555', minWidth:24 }}>{sel.chromaticAberration||0}</span>
+                    {(sel.chromaticAberration||0)>0 && <button onClick={() => upd({chromaticAberration:0})} style={{ background:'none',border:'none',color:'#555',cursor:'pointer',fontSize:12 }}>↺</button>}
+                  </div>
+                </div>
+                {/* ── Keyframes ── */}
+                <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
+                  <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+                    <span style={{ fontSize:11, color: accent, fontWeight:700, letterSpacing:'0.5px' }}>🎞️ Keyframes</span>
+                    <div style={{ display:'flex', gap:6 }}>
+                      <button
+                        onClick={() => {
+                          const kf = { t: parseFloat(tNow.toFixed(3)), x: sel.x, y: sel.y, scale: 1, opacity: sel._kfOpacity ?? 1, rotation: sel.rotation || 0 };
+                          const existing = kfs.filter(k => Math.abs(k.t - kf.t) > 0.05);
+                          upd({ keyframes: [...existing, kf].sort((a,b) => a.t - b.t) });
+                        }}
+                        style={{ background:`${accentBg}0.15)`, border:`1px solid ${accentBg}0.4)`, borderRadius:8, padding:'3px 10px', fontSize:10, color: accent, cursor:'pointer', fontWeight:700 }}
+                      >+ KF em {tNow.toFixed(1)}s</button>
+                      {kfs.length > 0 && <button onClick={() => upd({keyframes:[]})}
+                        style={{ background:'rgba(239,68,68,0.08)', border:'1px solid rgba(239,68,68,0.25)', borderRadius:8, padding:'3px 8px', fontSize:10, color:'#f87171', cursor:'pointer' }}>✕ Limpar</button>}
+                    </div>
+                  </div>
+                  {kfs.length > 0 ? (
+                    <div style={{ display:'flex', flexDirection:'column', gap:3, maxHeight:140, overflowY:'auto' }}>
+                      {kfs.map((kf, ki) => (
+                        <div key={ki} style={{ display:'flex', alignItems:'center', gap:6, background:'rgba(255,255,255,0.03)', borderRadius:8, padding:'5px 8px' }}>
+                          <span style={{ fontSize:10, color: accent, fontWeight:700, minWidth:36 }}>{kf.t.toFixed(1)}s</span>
+                          <span style={{ fontSize:9, color:'#555', flex:1 }}>x:{Math.round(kf.x||0)} y:{Math.round(kf.y||0)} sc:{(kf.scale||1).toFixed(2)} op:{Math.round((kf.opacity??1)*100)}%</span>
+                          <input type="range" min={0} max={2} step={0.05} value={kf.scale||1}
+                            onChange={e => upd({keyframes: kfs.map((k,i) => i===ki?{...k,scale:+e.target.value}:k)})}
+                            style={{ width:45, accentColor:accent, height:2 }} title={`Escala: ${(kf.scale||1).toFixed(2)}`} />
+                          <input type="range" min={0} max={1} step={0.05} value={kf.opacity??1}
+                            onChange={e => upd({keyframes: kfs.map((k,i) => i===ki?{...k,opacity:+e.target.value}:k)})}
+                            style={{ width:45, accentColor:accent, height:2 }} title={`Opacidade: ${Math.round((kf.opacity??1)*100)}%`} />
+                          <button onClick={() => upd({keyframes: kfs.filter((_,i) => i!==ki)})}
+                            style={{ background:'none', border:'none', color:'#555', cursor:'pointer', fontSize:12 }}>✕</button>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div style={{ fontSize:10, color:'#444', textAlign:'center', padding:'4px 0' }}>
+                      Clique "+ KF" enquanto o play roda para animar posição, escala e opacidade
+                    </div>
+                  )}
+                </div>
               </div>
             );
           })()}
