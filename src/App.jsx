@@ -5657,6 +5657,16 @@ _setDragging(null);
         {/* Spacer */}
         <div style={{ flex:1 }} />
 
+        {/* ── Limpar tudo ── */}
+        <button
+          onClick={handleClearProject}
+          style={{ display:'flex', alignItems:'center', gap:5, padding:'6px 11px', borderRadius:8, background:'transparent', border:'1px solid transparent', cursor:'pointer', color:'#f87171', fontSize:12, fontWeight:600, whiteSpace:'nowrap', transition:'all 0.15s', flexShrink:0 }}
+          onMouseEnter={e=>{ e.currentTarget.style.background='rgba(239,68,68,0.08)'; e.currentTarget.style.borderColor='rgba(239,68,68,0.25)'; }}
+          onMouseLeave={e=>{ e.currentTarget.style.background='transparent'; e.currentTarget.style.borderColor='transparent'; }}
+        >
+          <span style={{fontSize:13}}>🗑️</span> {t('ed_clear_project')}
+        </button>
+
         {/* ── Projeto ── */}
         <div style={{ position:'relative', flexShrink:0 }}>
           <button ref={projetoBtnRef}
@@ -5675,7 +5685,6 @@ _setDragging(null);
                 {[
                   { icon:'💾', label:t('ed_export_project'), color:'#00BFFF',  action: exportProject },
                   { icon:'📂', label:t('ed_import_project'), color:'#888',     action:()=>{ importInputRef.current?.click(); setShowProjetoPanel(false); } },
-                  { icon:'🗑️', label:t('ed_clear_project'),  color:'#f87171',  action:()=>{ handleClearProject(); setShowProjetoPanel(false); } },
                 ].map(item=>(
                   <div key={item.label} onClick={item.action}
                     style={{ display:'flex', alignItems:'center', gap:10, padding:'9px 14px', cursor:'pointer', transition:'background 0.1s' }}
