@@ -970,6 +970,10 @@ function App() {
   const [sfxPanelPos, setSfxPanelPos]   = useState({ top: 80, left: 0 });
   const [showStickerPanel, setShowStickerPanel] = useState(false);
   const [showBgPanel, setShowBgPanel] = useState(false);
+  const [screenEffect, setScreenEffect] = useState('none');
+  const [showFxPanel, setShowFxPanel] = useState(false);
+  const fxBtnRef = useRef(null);
+  const screenEffectRef = useRef('none');
   const [bgSearch, setBgSearch] = useState('');
   const [bgSearchResults, setBgSearchResults] = useState([]);
   const [bgSearchLoading, setBgSearchLoading] = useState(false);
@@ -1199,7 +1203,7 @@ function App() {
   // Fecha tela cheia com ESC; fecha painel sticker com ESC ou clique fora
   useEffect(() => {
     const onKey = (e) => {
-      if (e.key === 'Escape') { setIsFullscreen(false); setShowStickerPanel(false); setShowTemplatePanel(false); }
+      if (e.key === 'Escape') { setIsFullscreen(false); setShowStickerPanel(false); setShowTemplatePanel(false); setShowFxPanel(false); }
     };
     const onClickOut = (e) => {
       if (showBgPanel && bgBtnRef.current && !bgBtnRef.current.contains(e.target) &&
@@ -1691,6 +1695,7 @@ function App() {
         }
         if (p.projectVolume !== undefined) setVolume(p.projectVolume);
         if (p.projectSpeed  !== undefined) setSpeed(p.projectSpeed);
+        if (p.screenEffect  !== undefined) setScreenEffect(p.screenEffect);
         if (p.audioBase64) {
           setAudioBase64(p.audioBase64);
           setAudioMimeType(p.audioMimeType || 'audio/mpeg');
@@ -1933,6 +1938,7 @@ function App() {
     setAudioSrc(null);
     setAudioFile(null);
     setAudioBase64(null);
+    setScreenEffect('none');
     setAudioMimeType(null);
     setWaveformPeaks([]);
     setDuration(0);
@@ -2689,6 +2695,7 @@ _setDragging(null);
 
   // ── Desenha efeito de fundo atrás do texto ─────────────────────────────────
   const drawTextBgEffectRef = useRef(null);
+  const drawScreenEffectRef = useRef(null);
   const _drawTextBgEffectImpl = (ctx, effect, lines, lFontSize, lineH, totalH) => {
     if (!effect || effect === 'none') return;
     // Usa Date.now() para animações — funciona mesmo sem áudio tocando
@@ -2836,6 +2843,298 @@ _setDragging(null);
       ctx.restore();
     }
   };
+  // ── Efeitos de tela (sobreposição sobre todo o canvas) ─────────────────────
+  const _drawScreenEffectImpl = (ctx, effect, W, H, t) => {
+    if (!effect || effect === 'none') return;
+    const ph = t; // Date.now()/1000 passado pelo caller
+    ctx.save();
+    try {
+      switch(effect) {
+
+        case 'vignette': {
+          const vg = ctx.createRadialGradient(W/2,H/2,Math.min(W,H)*0.3,W/2,H/2,Math.max(W,H)*0.75);
+          vg.addColorStop(0,'transparent'); vg.addColorStop(1,'rgba(0,0,0,0.72)');
+          ctx.fillStyle = vg; ctx.fillRect(0,0,W,H); break;
+        }
+
+        case 'rain': {
+          ctx.strokeStyle='rgba(140,200,255,0.35)'; ctx.lineWidth=1;
+          const seed=Math.floor(ph*30);
+          for(let i=0;i<120;i++){
+            const x=((i*137.5+seed*73)%W+W)%W;
+            const y=((i*97+seed*31)%H+H)%H;
+            const len=8+((i*53)%20);
+            ctx.beginPath(); ctx.moveTo(x,y); ctx.lineTo(x-1,y+len); ctx.stroke();
+          }
+          // splash drops
+          ctx.fillStyle='rgba(140,200,255,0.2)';
+          for(let i=0;i<20;i++){
+            const sx=((i*173+Math.floor(ph*10)*61)%W+W)%W;
+            const sy=((i*211+Math.floor(ph*10)*43)%H+H)%H;
+            ctx.beginPath(); ctx.arc(sx,sy,1.5,0,6.28); ctx.fill();
+          }
+          break;
+        }
+
+        case 'fire': {
+          // flames rising from bottom
+          for(let x=0;x<W;x+=6){
+            const flicker=Math.sin(ph*4+x*0.05)*0.5+0.5;
+            const fh=(40+flicker*60)*(H/480);
+            const fg=ctx.createLinearGradient(x,H,x,H-fh);
+            fg.addColorStop(0,`rgba(255,${Math.floor(60+flicker*60)},0,0.55)`);
+            fg.addColorStop(0.5,`rgba(255,120,0,0.3)`);
+            fg.addColorStop(1,'transparent');
+            ctx.fillStyle=fg; ctx.fillRect(x,H-fh,6,fh);
+          }
+          // glow at base
+          const bg=ctx.createLinearGradient(0,H,0,H-60*(H/480));
+          bg.addColorStop(0,'rgba(255,80,0,0.25)'); bg.addColorStop(1,'transparent');
+          ctx.fillStyle=bg; ctx.fillRect(0,0,W,H);
+          break;
+        }
+
+        case 'smoke': {
+          const sc = Math.floor(ph*2);
+          for(let i=0;i<18;i++){
+            const bx=((i*197+sc*83)%W+W)%W;
+            const by=H-(((i*113+sc*61+ph*40)%H+H)%H);
+            const br=30+((i*71)%40);
+            const sg=ctx.createRadialGradient(bx,by,0,bx,by,br);
+            sg.addColorStop(0,'rgba(180,180,180,0.12)');
+            sg.addColorStop(1,'transparent');
+            ctx.fillStyle=sg; ctx.beginPath(); ctx.arc(bx,by,br,0,6.28); ctx.fill();
+          }
+          break;
+        }
+
+        case 'tv_static': {
+          // Scanlines + noise
+          for(let y=0;y<H;y+=2){
+            const op=Math.random()*0.06;
+            ctx.fillStyle=`rgba(0,0,0,${op})`;
+            ctx.fillRect(0,y,W,1);
+          }
+          // noise pixels
+          for(let i=0;i<400;i++){
+            const nx=Math.random()*W, ny=Math.random()*H;
+            const nv=Math.floor(Math.random()*255);
+            ctx.fillStyle=`rgba(${nv},${nv},${nv},0.4)`;
+            ctx.fillRect(nx,ny,2,2);
+          }
+          // horizontal glitch lines
+          if(Math.random()<0.15){
+            const gy=Math.random()*H, gh=1+Math.random()*3;
+            ctx.fillStyle='rgba(255,255,255,0.08)';
+            ctx.fillRect(0,gy,W,gh);
+          }
+          break;
+        }
+
+        case 'vhs': {
+          // Scanlines
+          for(let y=0;y<H;y+=3){
+            ctx.fillStyle='rgba(0,0,0,0.18)'; ctx.fillRect(0,y,W,1);
+          }
+          // Color fringe
+          ctx.globalCompositeOperation='screen';
+          ctx.fillStyle='rgba(255,0,0,0.04)'; ctx.fillRect(2,0,W,H);
+          ctx.fillStyle='rgba(0,0,255,0.04)'; ctx.fillRect(-2,0,W,H);
+          ctx.globalCompositeOperation='source-over';
+          // Rolling noise bar
+          const barY=((ph*30)%H+H)%H;
+          ctx.fillStyle='rgba(255,255,255,0.06)'; ctx.fillRect(0,barY,W,12);
+          ctx.fillStyle='rgba(0,0,0,0.08)'; ctx.fillRect(0,(barY+12)%H,W,4);
+          break;
+        }
+
+        case 'glitch': {
+          const gt=Math.floor(ph*8);
+          if(gt%3===0){
+            for(let i=0;i<5;i++){
+              const gy2=Math.random()*H, gh2=2+Math.random()*8;
+              const gx2=(Math.random()-0.5)*20;
+              ctx.save();
+              ctx.globalCompositeOperation='screen';
+              ctx.drawImage(ctx.canvas,gx2,gy2,W,gh2,0,gy2,W,gh2);
+              ctx.restore();
+              ctx.fillStyle=`rgba(${Math.random()<0.5?255:0},${Math.random()<0.5?255:0},${Math.random()<0.5?255:0},0.08)`;
+              ctx.fillRect(0,gy2,W,gh2);
+            }
+          }
+          // Always: subtle color split
+          ctx.globalCompositeOperation='screen';
+          ctx.fillStyle='rgba(255,0,100,0.04)'; ctx.fillRect(3,0,W,H);
+          ctx.fillStyle='rgba(0,255,200,0.04)'; ctx.fillRect(-3,0,W,H);
+          ctx.globalCompositeOperation='source-over';
+          break;
+        }
+
+        case 'neon_glow': {
+          // Pulsing colored vignette
+          const np=0.4+0.3*Math.sin(ph*2);
+          const hue=(ph*40)%360;
+          const ng=ctx.createRadialGradient(W/2,H/2,Math.min(W,H)*0.2,W/2,H/2,Math.max(W,H)*0.8);
+          ng.addColorStop(0,'transparent');
+          ng.addColorStop(1,`hsla(${hue},100%,55%,${np*0.35})`);
+          ctx.fillStyle=ng; ctx.fillRect(0,0,W,H);
+          // Edge glow lines
+          ctx.strokeStyle=`hsla(${hue},100%,65%,${np*0.4})`;
+          ctx.lineWidth=4; ctx.shadowBlur=20; ctx.shadowColor=`hsl(${hue},100%,60%)`;
+          ctx.strokeRect(8,8,W-16,H-16);
+          ctx.shadowBlur=0; break;
+        }
+
+        case 'blur_fx': {
+          ctx.filter='blur(4px)';
+          ctx.drawImage(ctx.canvas,0,0);
+          ctx.filter='none';
+          // slight darken overlay
+          ctx.fillStyle='rgba(0,0,0,0.08)'; ctx.fillRect(0,0,W,H);
+          break;
+        }
+
+        case 'night': {
+          ctx.fillStyle='rgba(0,5,30,0.45)'; ctx.fillRect(0,0,W,H);
+          // Stars
+          for(let i=0;i<60;i++){
+            const sx2=((i*197)%W+W)%W, sy2=((i*137)%H+H)%H;
+            const sa=0.3+0.4*Math.abs(Math.sin(ph+i));
+            ctx.fillStyle=`rgba(255,255,255,${sa})`;
+            ctx.beginPath(); ctx.arc(sx2,sy2,0.8,0,6.28); ctx.fill();
+          }
+          break;
+        }
+
+        case 'film_grain': {
+          for(let i=0;i<600;i++){
+            const gx=Math.random()*W, gy=Math.random()*H;
+            const ga=Math.random()*0.25;
+            ctx.fillStyle=`rgba(255,255,255,${ga})`;
+            ctx.fillRect(gx,gy,1,1);
+          }
+          // Subtle vignette
+          const fvg=ctx.createRadialGradient(W/2,H/2,Math.min(W,H)*0.4,W/2,H/2,Math.max(W,H)*0.75);
+          fvg.addColorStop(0,'transparent'); fvg.addColorStop(1,'rgba(0,0,0,0.4)');
+          ctx.fillStyle=fvg; ctx.fillRect(0,0,W,H);
+          break;
+        }
+
+        case 'matrix': {
+          ctx.fillStyle='rgba(0,255,70,0.06)'; ctx.fillRect(0,0,W,H);
+          ctx.fillStyle='rgba(0,255,70,0.55)';
+          ctx.font=`${Math.max(10,Math.floor(W/50))}px Share Tech Mono, monospace`;
+          ctx.textAlign='left';
+          const cols=Math.floor(W/14);
+          for(let c=0;c<cols;c++){
+            const ch2=String.fromCharCode(0x30A0+Math.floor((ph*7+c*13)%96));
+            const cy2=((c*137+Math.floor(ph*20)*31)%H+H)%H;
+            ctx.fillText(ch2,c*14,cy2);
+          }
+          break;
+        }
+
+        case 'confetti': {
+          const colors2=['#ff0','#f0f','#0ff','#f66','#6f6','#66f','#fa0'];
+          for(let i=0;i<60;i++){
+            const cx2=((i*197+Math.floor(ph*15)*53)%W+W)%W;
+            const cy3=((i*113+ph*80*((i%5)+1))%H+H)%H;
+            const crot=(ph*2+i)*0.5;
+            ctx.save(); ctx.translate(cx2,cy3); ctx.rotate(crot);
+            ctx.fillStyle=colors2[i%colors2.length];
+            ctx.globalAlpha=0.7; ctx.fillRect(-4,-2,8,4); ctx.restore();
+          }
+          break;
+        }
+
+        case 'aurora': {
+          for(let band=0;band<4;band++){
+            const boff=band*0.8;
+            const bph=ph*0.5+boff;
+            const ay=H*0.15+H*0.1*Math.sin(bph+band);
+            const ag=ctx.createLinearGradient(0,ay-60,0,ay+80);
+            const hue2=(160+band*40+(ph*10)%60)%360;
+            ag.addColorStop(0,'transparent');
+            ag.addColorStop(0.3,`hsla(${hue2},90%,60%,0.18)`);
+            ag.addColorStop(0.7,`hsla(${(hue2+40)%360},80%,55%,0.12)`);
+            ag.addColorStop(1,'transparent');
+            ctx.fillStyle=ag; ctx.fillRect(0,ay-60,W,140);
+          }
+          break;
+        }
+
+        case 'particles': {
+          ctx.fillStyle='rgba(200,220,255,0.55)';
+          for(let i=0;i<80;i++){
+            const px2=((i*197+ph*15*(1+(i%5)*0.2))%W+W)%W;
+            const py2=((i*113-ph*20*(1+(i%3)*0.3))%H+H)%H;
+            const pr=0.5+((i*71)%3)*0.5;
+            ctx.beginPath(); ctx.arc(px2,py2,pr,0,6.28); ctx.fill();
+          }
+          break;
+        }
+
+        case 'ice': {
+          // Cold blue overlay + frost edges
+          ctx.fillStyle='rgba(150,200,255,0.08)'; ctx.fillRect(0,0,W,H);
+          ctx.strokeStyle='rgba(180,220,255,0.25)'; ctx.lineWidth=1;
+          for(let i=0;i<20;i++){
+            const ix=Math.random()*W, iy=Math.random()*H;
+            const il=10+Math.random()*30;
+            const ia=(Math.random()-0.5)*Math.PI;
+            ctx.beginPath(); ctx.moveTo(ix,iy);
+            ctx.lineTo(ix+Math.cos(ia)*il,iy+Math.sin(ia)*il);
+            // branches
+            ctx.moveTo(ix+Math.cos(ia)*il*0.5,iy+Math.sin(ia)*il*0.5);
+            ctx.lineTo(ix+Math.cos(ia+0.6)*il*0.4,iy+Math.sin(ia+0.6)*il*0.4);
+            ctx.stroke();
+          }
+          const ig=ctx.createRadialGradient(W/2,H/2,Math.min(W,H)*0.3,W/2,H/2,Math.max(W,H)*0.7);
+          ig.addColorStop(0,'transparent'); ig.addColorStop(1,'rgba(150,200,255,0.3)');
+          ctx.fillStyle=ig; ctx.fillRect(0,0,W,H);
+          break;
+        }
+
+        case 'vintage': {
+          // Sepia + vignette + scratches
+          ctx.fillStyle='rgba(100,60,0,0.18)'; ctx.fillRect(0,0,W,H);
+          const vvg=ctx.createRadialGradient(W/2,H/2,Math.min(W,H)*0.3,W/2,H/2,Math.max(W,H)*0.75);
+          vvg.addColorStop(0,'transparent'); vvg.addColorStop(1,'rgba(40,20,0,0.5)');
+          ctx.fillStyle=vvg; ctx.fillRect(0,0,W,H);
+          // Scratches
+          ctx.strokeStyle='rgba(255,240,200,0.08)'; ctx.lineWidth=1;
+          for(let i=0;i<3;i++){
+            const sx3=((i*317+Math.floor(ph*2)*89)%W+W)%W;
+            ctx.beginPath(); ctx.moveTo(sx3,0); ctx.lineTo(sx3+2,H); ctx.stroke();
+          }
+          break;
+        }
+
+        case 'cyberpunk': {
+          // Dark + grid + edge highlights
+          ctx.fillStyle='rgba(0,0,20,0.3)'; ctx.fillRect(0,0,W,H);
+          ctx.strokeStyle='rgba(0,255,180,0.06)'; ctx.lineWidth=1;
+          const cg2=Math.floor(W/20);
+          for(let c=0;c<=cg2;c++){ const x=c*(W/cg2); ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke(); }
+          for(let r=0;r<=10;r++){ const y=r*(H/10); ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke(); }
+          // Pulsing neon edges
+          const cp=0.3+0.3*Math.sin(ph*3);
+          ctx.shadowBlur=15; ctx.shadowColor='#00ffb4';
+          ctx.strokeStyle=`rgba(0,255,180,${cp})`; ctx.lineWidth=2;
+          ctx.strokeRect(4,4,W-8,H-8);
+          ctx.shadowBlur=0; break;
+        }
+
+        default: break;
+      }
+    } finally {
+      ctx.globalAlpha=1; ctx.globalCompositeOperation='source-over';
+      ctx.filter='none'; ctx.shadowBlur=0; ctx.shadowColor='transparent';
+      ctx.restore();
+    }
+  };
+  drawScreenEffectRef.current = _drawScreenEffectImpl;
+
   // Armazena a implementação no ref para que draw() (useCallback) sempre acesse a versão mais recente
   drawTextBgEffectRef.current = _drawTextBgEffectImpl;
 
@@ -3159,8 +3458,12 @@ _setDragging(null);
       }
       ctx.restore();
     });
+    // Efeito de tela (overlay sobre tudo)
+    if (screenEffect && screenEffect !== 'none') {
+      drawScreenEffectRef.current?.(ctx, screenEffect, canvas.width, canvas.height, Date.now()/1000);
+    }
     // Não agenda mais RAF aqui — o loop unificado abaixo cuida disso
-  }, [activeImageId, activeVideoId, activeExtraTextId, activeLyricId, editingLyricId, drawRotatedElement, drawRoundedImage, drawRoundedRect, drawResizeHandles, extraTextColor, extraTextFontFamily, extraTextFontSize, extraTexts, fontFamily, fontSize, getImagesForTime, getVideosForTime, image, lyrics, textColor, wrapLyricText, videos, shadowEnabled, shadowBlur, shadowColor, shadowOffsetX, shadowOffsetY, gradientEnabled, gradientColor1, gradientColor2, zoom]);
+  }, [activeImageId, activeVideoId, activeExtraTextId, activeLyricId, editingLyricId, drawRotatedElement, drawRoundedImage, drawRoundedRect, drawResizeHandles, extraTextColor, extraTextFontFamily, extraTextFontSize, extraTexts, fontFamily, fontSize, getImagesForTime, getVideosForTime, image, lyrics, textColor, wrapLyricText, videos, shadowEnabled, shadowBlur, shadowColor, shadowOffsetX, shadowOffsetY, gradientEnabled, gradientColor1, gradientColor2, zoom, screenEffect]);
 
 
   // ── Sync de vídeos via função chamada pelo loop RAF ──────────────────────
@@ -3604,6 +3907,10 @@ _setDragging(null);
       ctx.fillText(stk.content, 0, 0);
       ctx.restore();
     });
+    // Efeito de tela no export
+    if (screenEffect && screenEffect !== 'none') {
+      drawScreenEffectRef.current?.(ctx, screenEffect, logicalW, logicalH, t);
+    }
   };
 
   // ── _renderAudioStretched: time-stretch preservando tom + volume ─────────────
@@ -4172,6 +4479,7 @@ _setDragging(null);
     audioMimeType: audioMimeType || null,
     projectVolume: projectVolume ?? 1,
     projectSpeed:  projectSpeed  ?? 1,
+    screenEffect:  screenEffect  || 'none',
   });
 
   const exportProject = async () => {
@@ -4314,6 +4622,7 @@ _setDragging(null);
         // Restaura áudio do projeto
         if (p.projectVolume !== undefined) setVolume(p.projectVolume);
         if (p.projectSpeed  !== undefined) setSpeed(p.projectSpeed);
+        if (p.screenEffect  !== undefined) setScreenEffect(p.screenEffect);
         if (p.audioBase64) {
           setAudioBase64(p.audioBase64);
           setAudioMimeType(p.audioMimeType || 'audio/mpeg');
@@ -4792,6 +5101,60 @@ _setDragging(null);
                   onClick={() => { const r = bgBtnRef.current?.getBoundingClientRect(); if (r) setShowBgPanel(v => !v); }}
                   style={{ background: showBgPanel ? 'rgba(0,191,255,0.2)' : 'rgba(0,191,255,0.07)', border: `1px solid ${showBgPanel ? 'rgba(0,191,255,0.6)' : 'rgba(0,191,255,0.25)'}`, borderRadius: 8, padding: '3px 9px', cursor: 'pointer', fontSize: 11, color: '#00BFFF', fontWeight: 700, whiteSpace: 'nowrap' }}
                 >🎨 Fundos</button>
+                {/* ── Efeitos de Tela ── */}
+                <button
+                  ref={fxBtnRef}
+                  onClick={() => setShowFxPanel(v => !v)}
+                  style={{ background: showFxPanel || screenEffect !== 'none' ? 'rgba(167,139,250,0.2)' : 'rgba(167,139,250,0.07)', border: `1px solid ${showFxPanel || screenEffect !== 'none' ? 'rgba(167,139,250,0.7)' : 'rgba(167,139,250,0.25)'}`, borderRadius: 8, padding: '3px 9px', cursor: 'pointer', fontSize: 11, color: '#a78bfa', fontWeight: 700, whiteSpace: 'nowrap' }}
+                >✨ Efeitos</button>
+                {showFxPanel && (() => {
+                  const rect2 = fxBtnRef.current?.getBoundingClientRect();
+                  const FX_LIST = [
+                    { id:'none',        label:'Nenhum',      icon:'🔲' },
+                    { id:'vignette',    label:'Vinheta',     icon:'🌑' },
+                    { id:'film_grain',  label:'Grão',        icon:'📽️' },
+                    { id:'vintage',     label:'Vintage',     icon:'🟤' },
+                    { id:'night',       label:'Noite',       icon:'🌌' },
+                    { id:'rain',        label:'Chuva',       icon:'🌧️' },
+                    { id:'smoke',       label:'Fumaça',      icon:'💨' },
+                    { id:'fire',        label:'Fogo',        icon:'🔥' },
+                    { id:'confetti',    label:'Confete',     icon:'🎉' },
+                    { id:'particles',   label:'Partículas',  icon:'✨' },
+                    { id:'aurora',      label:'Aurora',      icon:'🌈' },
+                    { id:'neon_glow',   label:'Neon',        icon:'💜' },
+                    { id:'matrix',      label:'Matrix',      icon:'💚' },
+                    { id:'cyberpunk',   label:'Cyberpunk',   icon:'🟢' },
+                    { id:'ice',         label:'Gelo',        icon:'❄️' },
+                    { id:'blur_fx',     label:'Desfoque',    icon:'🌫️' },
+                    { id:'vhs',         label:'VHS',         icon:'📼' },
+                    { id:'tv_static',   label:'TV Estático', icon:'📺' },
+                    { id:'glitch',      label:'Glitch',      icon:'⚡' },
+                  ];
+                  return createPortal(
+                    <div style={{ position:'fixed', top:(rect2?.bottom??60)+6, left:Math.max(8,(rect2?.left??0)), zIndex:99999, background:'#0f172a', border:'1px solid rgba(167,139,250,0.3)', borderRadius:16, width:360, maxHeight:'80vh', boxShadow:'0 20px 60px rgba(0,0,0,0.8)', display:'flex', flexDirection:'column', overflow:'hidden' }}>
+                      <div style={{ padding:'12px 16px 8px', borderBottom:'1px solid rgba(255,255,255,0.06)', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+                        <span style={{ fontWeight:800, fontSize:14, color:'#a78bfa' }}>✨ Efeitos de Tela</span>
+                        <div style={{ display:'flex', gap:8, alignItems:'center' }}>
+                          {screenEffect !== 'none' && <button onClick={() => setScreenEffect('none')} style={{ background:'rgba(239,68,68,0.15)', border:'1px solid rgba(239,68,68,0.3)', borderRadius:6, padding:'2px 8px', color:'#f87171', fontSize:10, cursor:'pointer' }}>✕ Remover</button>}
+                          <button onClick={() => setShowFxPanel(false)} style={{ background:'none', border:'none', color:'#555', cursor:'pointer', fontSize:16 }}>✕</button>
+                        </div>
+                      </div>
+                      <div style={{ padding:12, display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:8, overflowY:'auto', maxHeight:400 }}>
+                        {FX_LIST.map(fx => (
+                          <div key={fx.id} onClick={() => { setScreenEffect(fx.id); if(fx.id!=='none') setShowFxPanel(false); }}
+                            style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:4, padding:'10px 6px', borderRadius:10, cursor:'pointer', background:screenEffect===fx.id?'rgba(167,139,250,0.18)':'rgba(255,255,255,0.03)', border:`1px solid ${screenEffect===fx.id?'rgba(167,139,250,0.6)':'rgba(255,255,255,0.06)'}`, transition:'all 0.15s' }}
+                            onMouseEnter={e=>e.currentTarget.style.background='rgba(167,139,250,0.1)'}
+                            onMouseLeave={e=>e.currentTarget.style.background=screenEffect===fx.id?'rgba(167,139,250,0.18)':'rgba(255,255,255,0.03)'}
+                          >
+                            <span style={{ fontSize:22 }}>{fx.icon}</span>
+                            <span style={{ fontSize:10, color:screenEffect===fx.id?'#a78bfa':'#888', fontWeight:screenEffect===fx.id?700:400, textAlign:'center' }}>{fx.label}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>,
+                    document.body
+                  );
+                })()}
                 {showBgPanel && (() => {
                   const rect = bgBtnRef.current?.getBoundingClientRect();
                   return createPortal(
