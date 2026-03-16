@@ -2688,7 +2688,8 @@ _setDragging(null);
   useEffect(() => { stickersRef.current = stickers; }, [stickers]);
 
   // ── Desenha efeito de fundo atrás do texto ─────────────────────────────────
-  const drawTextBgEffect = (ctx, effect, lines, lFontSize, lineH, totalH) => {
+  const drawTextBgEffectRef = useRef(null);
+  const _drawTextBgEffectImpl = (ctx, effect, lines, lFontSize, lineH, totalH) => {
     if (!effect || effect === 'none') return;
     // Usa Date.now() para animações — funciona mesmo sem áudio tocando
     const phase = Date.now() / 1000;
@@ -2832,6 +2833,8 @@ _setDragging(null);
       ctx.restore();
     }
   };
+  // Armazena a implementação no ref para que draw() (useCallback) sempre acesse a versão mais recente
+  drawTextBgEffectRef.current = _drawTextBgEffectImpl;
 
   const draw = useCallback(() => {
     const canvas = canvasRef.current;
@@ -2930,7 +2933,7 @@ _setDragging(null);
         ctx.font = `bold ${tSize}px ${tFont}`;
         ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
         const _etotalH = lines.length * lineH;
-        drawTextBgEffect(ctx, txt.bgEffect, lines, tSize, lineH, _etotalH);
+        drawTextBgEffectRef.current?.(ctx, txt.bgEffect, lines, tSize, lineH, _etotalH);
         ctx.restore();
       }
       ctx.save();
@@ -2941,7 +2944,7 @@ _setDragging(null);
         ctx.font = `bold ${tSize}px ${tFont}`;
         ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
         const _etH = lines.length * lineH;
-        drawTextBgEffect(ctx, txt.bgEffect, lines, tSize, lineH, _etH);
+        drawTextBgEffectRef.current?.(ctx, txt.bgEffect, lines, tSize, lineH, _etH);
         ctx.restore();
       }
       ctx.translate(txt.x, txt.y);
@@ -3032,7 +3035,7 @@ _setDragging(null);
         ctx.rotate(lRot);
         ctx.font = `bold ${lFontSize}px ${lFontFamily}`;
         ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-        drawTextBgEffect(ctx, _bgFx, lines, lFontSize, lineH, totalH);
+        drawTextBgEffectRef.current?.(ctx, _bgFx, lines, lFontSize, lineH, totalH);
         ctx.restore();
       }
       ctx.save();
@@ -3529,7 +3532,7 @@ _setDragging(null);
         ctx.translate(lx, ly); ctx.rotate(lRot);
         ctx.font = `bold ${lFontSize}px ${lFontFamily}`;
         ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-        drawTextBgEffect(ctx, _bgFxR, lines, lFontSize, lineH, totalH);
+        drawTextBgEffectRef.current?.(ctx, _bgFxR, lines, lFontSize, lineH, totalH);
         ctx.restore();
       }
       ctx.save();
@@ -5706,12 +5709,13 @@ _setDragging(null);
           <div style={{ flex: 1, padding: '14px 18px 14px', display: 'flex', flexDirection: 'column', gap: '10px', minHeight: 0 }}>
             
             {/* Linha config letra — por lyric selecionada ou padrão global */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-              <label style={{ fontSize: '11px', color: '#00BFFF', fontWeight: '700', letterSpacing: '0.5px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '6px' }}>
+              <label style={{ fontSize: '11px', color: '#00BFFF', fontWeight: '700', letterSpacing: '0.6px' }}>
                 {t('ed_lyrics_title')}
                 {activeLyricId && <span style={{ marginLeft: 6, color: 'rgba(0,191,255,0.6)', fontWeight: 400, fontSize: 10 }}>({t('ed_selected')})</span>}
               </label>
-              <input type="color" value={textColor} onChange={(e) => setTextColor(e.target.value)} title="Cor da letra" style={{ width: '26px', height: '26px', padding: 0, border: '1px solid rgba(0,191,255,0.2)', background: '#111', borderRadius: '7px', cursor: 'pointer' }} />
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <input type="color" value={textColor} onChange={(e) => setTextColor(e.target.value)} title="Cor da letra" style={{ width: '28px', height: '28px', padding: 0, border: '1px solid rgba(0,191,255,0.2)', background: '#111', borderRadius: '8px', cursor: 'pointer' }} />
               <select
                 value={activeLyricId ? (lyrics.find(l => l.id === activeLyricId)?.fontFamily || fontFamily) : fontFamily}
                 onChange={(e) => {
@@ -5765,8 +5769,7 @@ _setDragging(null);
                   setFontSize(v);
                   if (activeLyricId) setLyrics(prev => prev.map(l => l.id === activeLyricId ? {...l, fontSize: v} : l));
                 }}
-                style={{ flex: 1, minWidth: '60px', accentColor: '#00BFFF' }} />
-              {/* Efeito de fundo */}
+                style={{ width: '90px', accentColor: '#00BFFF' }} />
               <select
                 value={activeLyricId ? (lyrics.find(l => l.id === activeLyricId)?.bgEffect ?? textBgEffect) : textBgEffect}
                 onChange={e => {
@@ -5786,6 +5789,7 @@ _setDragging(null);
                 <option value="rainbow">🌈 Arco-íris</option>
                 <option value="gold">🏆 Dourado</option>
               </select>
+              </div>
             </div>
 
             {/* Sombra + Gradiente + Upload fonte — por marcação quando selecionada */}
