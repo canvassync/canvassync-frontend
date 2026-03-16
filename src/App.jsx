@@ -118,6 +118,14 @@ const EMOJI_LIST = [
   ['🌍','🏔️','🏖️','🌅','🌃','🌆','🗼','🗽','🏯','🎠','🎡','🎢'],
 ];
 
+const STICKER_EMOJIS = [
+  '😀','😂','😍','🥰','😎','🤩','😭','😤','🥳','🤔','👍','👎','❤️','🔥','⭐','✨','🎉','🎊','🎶','🎵',
+  '🎸','🎤','🎧','🏆','💎','👑','🦋','🌸','🌺','🌈','☀️','🌙','⚡','💫','🌊','🍀','🎯','💯','🚀','💥',
+  '❄️','🌹','💝','🦄','🐉','🦁','🐺','🦊','🐸','🦋','🍎','🍕','🍦','☕','🍾','🥂','🏀','⚽','🎮','🕹️',
+  '💻','📱','📷','🎬','🎭','🎨','🖌️','✏️','📚','💡','🔮','🌍','🗺️','✈️','🚗','🏠','🎪','🎠','🎡','🎢',
+  '🌟','💫','⚡','🔥','💥','🌈','❤️','💙','💚','💛','💜','🖤','🤍','🎀','🎗️','🏅','🥇','🎖️','🌠','🌌',
+];
+
 const ANIMATED_STICKERS = [
   // ── Setas ──────────────────────────────────────────────────────────────────
   { key:'arrow_up',       emoji:'⬆️',  anim:'bounce', label:'↑ Cima'       },
@@ -1856,6 +1864,12 @@ function App() {
   };
 
   // Inicia o áudio Web Audio de um vídeo a partir de um offset no projeto
+
+  const addSfxToTimeline = (key) => {
+    const startTime = virtualTimeRef.current;
+    setSoundEffects(prev => [...prev, { id: Date.now(), key, startTime, volume: 1 }]);
+    setShowSfxPanel(false);
+  };
   const startVideoAudio = (v, tProject) => {
     if (!v.audioBuffer || v.muted) return;
     const ac = videoAudioACRef.current;
@@ -5021,7 +5035,7 @@ _setDragging(null);
 
         {/* ── Grupo MÍDIAS ── */}
         <div style={{ position:'relative', flexShrink:0 }}>
-          <button ref={midiaBtnRef}
+          <button ref={(el)=>{ midiaBtnRef.current=el; bgBtnRef.current=el; }}
             onClick={() => { setShowMidiasPanel(v=>!v); setShowExportPanel(false); setShowProjetoPanel(false); }}
             style={{ display:'flex', alignItems:'center', gap:5, padding:'6px 11px', borderRadius:8, background:showMidiasPanel?'rgba(0,191,255,0.18)':'transparent', border:`1px solid ${showMidiasPanel?'rgba(0,191,255,0.5)':'transparent'}`, cursor:'pointer', color:'#ccc', fontSize:12, fontWeight:600, transition:'all 0.15s', whiteSpace:'nowrap' }}
             onMouseEnter={e=>{if(!showMidiasPanel)e.currentTarget.style.background='rgba(255,255,255,0.05)'}}
@@ -5090,7 +5104,7 @@ _setDragging(null);
                   ))}
                 </div>
                 <div style={{ overflowY:'auto', flex:1, padding:16, display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(200px,1fr))', gap:12 }}>
-                  {TEMPLATES.filter(tp=>tp.format===templateFormatTab||!tp.format).map(tp=>(
+                  {CANVAS_TEMPLATES.filter(tp=>tp.format===templateFormatTab||!tp.format).map(tp=>(
                     <div key={tp.id} style={{ background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.07)', borderRadius:12, overflow:'hidden', cursor:'pointer', transition:'all 0.2s' }}
                       onMouseEnter={e=>{e.currentTarget.style.borderColor='rgba(16,185,129,0.5)';e.currentTarget.style.transform='translateY(-2px)';}}
                       onMouseLeave={e=>{e.currentTarget.style.borderColor='rgba(255,255,255,0.07)';e.currentTarget.style.transform='translateY(0)';}}
@@ -5422,7 +5436,7 @@ _setDragging(null);
                       <span style={{fontSize:11,color:'#00BFFF',fontWeight:700,textAlign:'center'}}>{t('ed_exporting')} {Math.round(exportProgress*100)}%</span>
                     </div>
                   ):(
-                    <button onClick={()=>{ handleSave(); setShowExportPanel(false); }} style={{ width:'100%', padding:'9px 0', background:'linear-gradient(135deg,#00BFFF,#0080ff)', border:'none', borderRadius:9, cursor:'pointer', fontWeight:800, fontSize:13, color:'#000', boxShadow:'0 4px 16px rgba(0,191,255,0.3)' }}>
+                    <button onClick={()=>{ handleSave(); }} style={{ width:'100%', padding:'9px 0', background:'linear-gradient(135deg,#00BFFF,#0080ff)', border:'none', borderRadius:9, cursor:'pointer', fontWeight:800, fontSize:13, color:'#000', boxShadow:'0 4px 16px rgba(0,191,255,0.3)' }}>
                       ⬇ {t('ed_save')}
                     </button>
                   )}
@@ -5441,6 +5455,116 @@ _setDragging(null);
         <input ref={videoInputRef}  type="file" onChange={handleVideoUpload}  accept="video/*" multiple style={{display:'none'}} />
         <input ref={fontInputRef}   type="file" accept=".ttf,.otf,.woff,.woff2" style={{display:'none'}} onChange={handleFontUpload} />
         <input ref={importInputRef} type="file" accept="application/json"       style={{display:'none'}} onChange={e=>importProjectFromFile(e.target.files[0])} />
+        {/* ── Painel de Fundos (portal independente) ── */}
+        {showBgPanel && (() => {
+          const rect = bgBtnRef.current?.getBoundingClientRect() || {bottom:60,left:100};
+          const applyGradient = (css) => {
+            const cw = 720, ch = 1280;
+            const c = document.createElement('canvas'); c.width = cw; c.height = ch;
+            const ctx2 = c.getContext('2d');
+            if (css.startsWith('linear')) {
+              const stops = css.match(/#[a-fA-F0-9]{3,6}|rgba?\([^)]+\)/g) || [];
+              const grad = ctx2.createLinearGradient(0, 0, cw * 0.3, ch);
+              stops.forEach((c2, i) => grad.addColorStop(i / Math.max(1, stops.length - 1), c2));
+              ctx2.fillStyle = grad;
+            } else { ctx2.fillStyle = css; }
+            ctx2.fillRect(0, 0, cw, ch);
+            const dataUrl = c.toDataURL('image/jpeg', 0.95);
+            setImageSrc(dataUrl);
+            const img = new Image(); img.onload = () => setImage(img); img.src = dataUrl;
+            setShowBgPanel(false);
+          };
+          const GRADIENTS = [
+            { id:'g1',  label:'Noite',    css:'linear-gradient(160deg,#0a0a2e 0%,#1a0a3e 50%,#0d1b4b 100%)' },
+            { id:'g2',  label:'Pôr Sol',  css:'linear-gradient(160deg,#ff6b6b 0%,#feca57 50%,#ff9ff3 100%)' },
+            { id:'g3',  label:'Oceano',   css:'linear-gradient(160deg,#0575e6 0%,#021b79 100%)' },
+            { id:'g4',  label:'Floresta', css:'linear-gradient(160deg,#134e5e 0%,#71b280 100%)' },
+            { id:'g5',  label:'Fogo',     css:'linear-gradient(160deg,#f83600 0%,#f9d423 100%)' },
+            { id:'g6',  label:'Aurora',   css:'linear-gradient(160deg,#00c3ff 0%,#7b2ff7 50%,#f64f59 100%)' },
+            { id:'g7',  label:'Rosa Neon',css:'linear-gradient(160deg,#f953c6 0%,#b91d73 100%)' },
+            { id:'g8',  label:'Menta',    css:'linear-gradient(160deg,#0ba360 0%,#3cba92 100%)' },
+            { id:'g9',  label:'Carvão',   css:'linear-gradient(160deg,#232526 0%,#414345 100%)' },
+            { id:'g10', label:'Roxo',     css:'linear-gradient(160deg,#4776e6 0%,#8e54e9 100%)' },
+            { id:'g11', label:'Cobre',    css:'linear-gradient(160deg,#b79891 0%,#94716b 100%)' },
+            { id:'g12', label:'Cyber',    css:'linear-gradient(160deg,#00f2fe 0%,#4facfe 50%,#0ef 100%)' },
+            { id:'s1',  label:'Preto',    css:'#000000' },
+            { id:'s2',  label:'Branco',   css:'#ffffff' },
+            { id:'s3',  label:'Cinza',    css:'#1a1a2e' },
+            { id:'s4',  label:'Azul',     css:'#0d1b2a' },
+          ];
+          return createPortal(
+            <div data-bg-portal="true" style={{ position:'fixed', top:(rect.bottom)+4, left:Math.max(8,(rect.left||100)), zIndex:99999, background:'#0f172a', border:'1px solid rgba(0,191,255,0.25)', borderRadius:16, width:400, maxHeight:'80vh', boxShadow:'0 20px 60px rgba(0,0,0,0.85)', display:'flex', flexDirection:'column', overflow:'hidden' }}>
+              <div style={{ padding:'12px 16px 8px', borderBottom:'1px solid rgba(255,255,255,0.06)', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+                <span style={{ fontWeight:800, fontSize:14, color:'#00BFFF' }}>🎨 Fundos</span>
+                <div style={{ display:'flex', gap:6 }}>
+                  {[['gradients','🎨 Gradientes'],['unsplash','🔍 Fotos'],['generate','⚡ Gerar']].map(([tab,label])=>(
+                    <button key={tab} onClick={()=>setBgTab(tab)} style={{ padding:'4px 10px', borderRadius:7, border:'none', cursor:'pointer', fontSize:10, fontWeight:700, background:bgTab===tab?'#00BFFF':'rgba(255,255,255,0.06)', color:bgTab===tab?'#000':'#888' }}>{label}</button>
+                  ))}
+                  <button onClick={()=>setShowBgPanel(false)} style={{ background:'none', border:'none', color:'#555', cursor:'pointer', fontSize:16 }}>✕</button>
+                </div>
+              </div>
+              <div style={{ overflowY:'auto', flex:1 }}>
+                {bgTab==='gradients'&&(
+                  <div style={{ padding:12, display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:8 }}>
+                    {GRADIENTS.map(g=>(
+                      <div key={g.id} onClick={()=>applyGradient(g.css)}
+                        style={{ aspectRatio:'9/16', background:g.css, borderRadius:8, cursor:'pointer', border:'2px solid rgba(255,255,255,0.08)', display:'flex', alignItems:'flex-end', justifyContent:'center', padding:4, transition:'border-color 0.15s' }}
+                        onMouseEnter={e=>e.currentTarget.style.borderColor='rgba(0,191,255,0.7)'}
+                        onMouseLeave={e=>e.currentTarget.style.borderColor='rgba(255,255,255,0.08)'}
+                      ><span style={{fontSize:8,color:'rgba(255,255,255,0.7)',fontWeight:700}}>{g.label}</span></div>
+                    ))}
+                  </div>
+                )}
+                {bgTab==='unsplash'&&(
+                  <div style={{ padding:12, display:'flex', flexDirection:'column', gap:10 }}>
+                    <div style={{ display:'flex', gap:6 }}>
+                      <input value={bgSearchQuery} onChange={e=>setBgSearchQuery(e.target.value)}
+                        onKeyDown={e=>e.key==='Enter'&&searchBgImages()}
+                        placeholder="Buscar fotos..." style={{ flex:1, background:'rgba(255,255,255,0.06)', border:'1px solid rgba(255,255,255,0.1)', borderRadius:8, padding:'7px 10px', color:'#fff', fontSize:12 }} />
+                      <button onClick={searchBgImages} disabled={bgSearchLoading} style={{ padding:'7px 14px', background:'rgba(0,191,255,0.15)', border:'1px solid rgba(0,191,255,0.3)', borderRadius:8, color:'#00BFFF', fontSize:12, cursor:'pointer', fontWeight:700 }}>
+                        {bgSearchLoading?'...':'Buscar'}
+                      </button>
+                    </div>
+                    <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:6, maxHeight:300, overflowY:'auto' }}>
+                      {bgSearchResults.map(r=>(
+                        <img key={r.id} src={r.thumb} onClick={()=>applyBgFromUrl(r.full)}
+                          style={{ width:'100%', aspectRatio:'9/16', objectFit:'cover', borderRadius:6, cursor:'pointer', border:'2px solid transparent', transition:'border 0.15s' }}
+                          onMouseEnter={e=>e.target.style.border='2px solid #00BFFF'}
+                          onMouseLeave={e=>e.target.style.border='2px solid transparent'}
+                          alt="" />
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {bgTab==='generate'&&(()=>{
+                  const GEN_LIST = [
+                    { id:'p1', label:'Partículas', preview:'radial-gradient(ellipse at 20% 30%,rgba(0,191,255,0.5) 0%,transparent 55%),#050510', gen:(c,w,h)=>{ c.fillStyle='#050510';c.fillRect(0,0,w,h);for(let i=0;i<300;i++){c.beginPath();c.arc(Math.random()*w,Math.random()*h,Math.random()*2.5+0.5,0,6.28);c.fillStyle=`rgba(0,191,255,${Math.random()*0.8+0.2})`;c.fill();} } },
+                    { id:'p2', label:'Grade Neon', preview:'linear-gradient(180deg,#000 0%,#001200 100%)', gen:(c,w,h)=>{ c.fillStyle='#000';c.fillRect(0,0,w,h);c.strokeStyle='rgba(0,255,100,0.3)';c.lineWidth=1;for(let x=0;x<w;x+=40){c.beginPath();c.moveTo(x,0);c.lineTo(x,h);c.stroke();}for(let y=0;y<h;y+=40){c.beginPath();c.moveTo(0,y);c.lineTo(w,y);c.stroke();} } },
+                    { id:'p3', label:'Bokeh',      preview:'radial-gradient(ellipse at 30% 40%,rgba(123,47,247,0.7) 0%,transparent 50%),#1a0533', gen:(c,w,h)=>{ const g=c.createLinearGradient(0,0,w,h);g.addColorStop(0,'#1a0533');g.addColorStop(1,'#0a1a4e');c.fillStyle=g;c.fillRect(0,0,w,h);for(let i=0;i<50;i++){const x=Math.random()*w,y=Math.random()*h,r=Math.random()*80+20;const cg=c.createRadialGradient(x,y,0,x,y,r);cg.addColorStop(0,`hsla(${Math.random()*80+200},80%,70%,${Math.random()*0.2+0.05})`);cg.addColorStop(1,'transparent');c.fillStyle=cg;c.beginPath();c.arc(x,y,r,0,6.28);c.fill();} } },
+                    { id:'p4', label:'Ondas',      preview:'linear-gradient(180deg,#000d1a 0%,#001a33 100%)', gen:(c,w,h)=>{ c.fillStyle='#000d1a';c.fillRect(0,0,w,h);for(let i=0;i<8;i++){c.beginPath();c.strokeStyle=`rgba(0,191,255,${0.05+i*0.05})`;c.lineWidth=2;for(let x=0;x<w;x+=2){const y2=h/2+Math.sin((x+i*50)/80)*60*(i+1)*0.3+i*30;x===0?c.moveTo(x,y2):c.lineTo(x,y2);}c.stroke();} } },
+                    { id:'p5', label:'Hexágonos',  preview:'linear-gradient(160deg,#0a0a1a 0%,#0a1040 100%)', gen:(c,w,h)=>{ c.fillStyle='#0a0a1a';c.fillRect(0,0,w,h);const s=50;for(let row=0;row<h/s+2;row++){for(let col=0;col<w/s+2;col++){const x2=col*s*1.5,y2=row*s*Math.sqrt(3)+(col%2)*s*Math.sqrt(3)/2;c.beginPath();for(let k=0;k<6;k++){const a2=Math.PI/3*k;c.lineTo(x2+s*0.45*Math.cos(a2),y2+s*0.45*Math.sin(a2));}c.closePath();c.strokeStyle='rgba(100,200,255,0.2)';c.lineWidth=1;c.stroke();}} } },
+                    { id:'p6', label:'Nebulosa',   preview:'radial-gradient(ellipse at 50% 50%,rgba(123,47,247,0.6) 0%,rgba(249,83,198,0.4) 40%,transparent 100%),#000', gen:(c,w,h)=>{ c.fillStyle='#000';c.fillRect(0,0,w,h);const cs=['#7b2ff7','#f953c6','#00c3ff','#ff6b6b'];for(let i=0;i<8;i++){const x2=Math.random()*w,y2=Math.random()*h,r=Math.random()*250+100;const rg=c.createRadialGradient(x2,y2,0,x2,y2,r);rg.addColorStop(0,cs[i%4]+'44');rg.addColorStop(1,'transparent');c.fillStyle=rg;c.fillRect(0,0,w,h);} } },
+                  ];
+                  return (
+                    <div style={{ padding:12, display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:8 }}>
+                      {GEN_LIST.map(p=>(
+                        <div key={p.id} onClick={()=>{ const cv=document.createElement('canvas');cv.width=720;cv.height=1280;p.gen(cv.getContext('2d'),720,1280);const url=cv.toDataURL('image/jpeg',0.95);setImageSrc(url);const img=new Image();img.onload=()=>setImage(img);img.src=url;setShowBgPanel(false); }}
+                          style={{ cursor:'pointer' }}>
+                          <div style={{ width:'100%', aspectRatio:'9/16', background:p.preview, borderRadius:8, border:'2px solid rgba(255,255,255,0.08)', transition:'border-color 0.15s' }}
+                            onMouseEnter={e=>e.currentTarget.style.borderColor='rgba(0,191,255,0.7)'}
+                            onMouseLeave={e=>e.currentTarget.style.borderColor='rgba(255,255,255,0.08)'}
+                          />
+                          <span style={{fontSize:9,color:'#888',display:'block',textAlign:'center',marginTop:3}}>{p.label}</span>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })()}
+              </div>
+            </div>,
+            document.body
+          );
+        })()}
 
       </div>{/* fim HEADER CONTROLS */}
 
