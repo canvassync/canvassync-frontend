@@ -2688,138 +2688,149 @@ _setDragging(null);
   useEffect(() => { stickersRef.current = stickers; }, [stickers]);
 
   // ── Desenha efeito de fundo atrás do texto ─────────────────────────────────
-  const drawTextBgEffect = (ctx, effect, lines, lFontSize, lineH, totalH, t) => {
+  const drawTextBgEffect = (ctx, effect, lines, lFontSize, lineH, totalH) => {
     if (!effect || effect === 'none') return;
-    const maxW = lines.reduce((m, l) => Math.max(m, ctx.measureText(l.toUpperCase ? l.toUpperCase() : l).width), 0);
-    const padX = lFontSize * 0.6, padY = lFontSize * 0.35;
+    // Usa Date.now() para animações — funciona mesmo sem áudio tocando
+    const phase = Date.now() / 1000;
+    const maxW = Math.max(20, lines.reduce((m, l) => {
+      const str = typeof l === 'string' ? l : String(l);
+      return Math.max(m, ctx.measureText(str.toUpperCase()).width);
+    }, 0));
+    const padX = lFontSize * 0.55, padY = lFontSize * 0.3;
     const bx = -maxW / 2 - padX, by = -totalH / 2 - padY;
     const bw = maxW + padX * 2,  bh = totalH + padY * 2;
-    const r  = lFontSize * 0.25;
-    const roundRect = (cx, cy, cw, ch, cr) => {
+    const r  = Math.min(lFontSize * 0.2, bw / 2, bh / 2);
+
+    // Cria o path arredondado
+    const rr = (cx, cy, cw, ch, cr) => {
+      const rr2 = Math.max(0, Math.min(cr, cw / 2, ch / 2));
       ctx.beginPath();
-      ctx.moveTo(cx + cr, cy);
-      ctx.arcTo(cx + cw, cy, cx + cw, cy + ch, cr);
-      ctx.arcTo(cx + cw, cy + ch, cx, cy + ch, cr);
-      ctx.arcTo(cx, cy + ch, cx, cy, cr);
-      ctx.arcTo(cx, cy, cx + cw, cy, cr);
+      ctx.moveTo(cx + rr2, cy);
+      ctx.arcTo(cx + cw, cy, cx + cw, cy + ch, rr2);
+      ctx.arcTo(cx + cw, cy + ch, cx, cy + ch, rr2);
+      ctx.arcTo(cx, cy + ch, cx, cy, rr2);
+      ctx.arcTo(cx, cy, cx + cw, cy, rr2);
       ctx.closePath();
     };
+
+    // Cada case usa save/restore próprio — garante que ctx fica limpo mesmo se houver erro
     ctx.save();
-    ctx.shadowBlur = 0; ctx.shadowColor = 'transparent';
-    switch (effect) {
-      case 'black': {
-        roundRect(bx, by, bw, bh, r);
-        ctx.fillStyle = 'rgba(0,0,0,0.75)';
-        ctx.fill();
-        break;
+    try {
+      ctx.shadowBlur = 0; ctx.shadowColor = 'transparent';
+      ctx.globalAlpha = 1; ctx.filter = 'none';
+      switch (effect) {
+        case 'black':
+          rr(bx, by, bw, bh, r);
+          ctx.fillStyle = 'rgba(0,0,0,0.78)'; ctx.fill(); break;
+
+        case 'white':
+          rr(bx, by, bw, bh, r);
+          ctx.fillStyle = 'rgba(255,255,255,0.84)'; ctx.fill(); break;
+
+        case 'blur': {
+          // Sem ctx.filter (pode vazar) — simula blur com camadas sobrepostas
+          for (let i = 3; i >= 0; i--) {
+            rr(bx - i, by - i, bw + i*2, bh + i*2, r + i);
+            ctx.fillStyle = `rgba(0,0,0,${0.08 + i * 0.06})`;
+            ctx.fill();
+          }
+          rr(bx, by, bw, bh, r);
+          ctx.fillStyle = 'rgba(0,0,0,0.55)'; ctx.fill();
+          break;
+        }
+
+        case 'dark_blur': {
+          for (let i = 4; i >= 0; i--) {
+            rr(bx - i, by - i, bw + i*2, bh + i*2, r + i);
+            ctx.fillStyle = `rgba(0,0,0,${0.1 + i * 0.07})`;
+            ctx.fill();
+          }
+          rr(bx, by, bw, bh, r);
+          ctx.fillStyle = 'rgba(0,0,0,0.7)'; ctx.fill();
+          break;
+        }
+
+        case 'fire': {
+          const p = phase * 2;
+          const mid1 = Math.max(0.05, Math.min(0.55, 0.35 + 0.12 * Math.sin(p)));
+          const mid2 = Math.max(mid1 + 0.1, Math.min(0.9, 0.65 + 0.08 * Math.cos(p * 1.3)));
+          const g = ctx.createLinearGradient(bx, by + bh, bx, by);
+          g.addColorStop(0,    '#cc0000');
+          g.addColorStop(mid1, '#ff5500');
+          g.addColorStop(mid2, '#ffaa00');
+          g.addColorStop(1,    '#ffee00');
+          rr(bx, by, bw, bh, r);
+          ctx.fillStyle = g; ctx.fill();
+          ctx.shadowBlur = 16; ctx.shadowColor = 'rgba(255,80,0,0.7)';
+          ctx.strokeStyle = 'rgba(255,150,0,0.5)'; ctx.lineWidth = 1.5; ctx.stroke();
+          break;
+        }
+
+        case 'water': {
+          const p2 = phase * 1.5;
+          const w1 = Math.max(0.05, Math.min(0.45, 0.25 + 0.1 * Math.sin(p2)));
+          const w2 = Math.max(w1 + 0.15, Math.min(0.85, 0.6 + 0.08 * Math.cos(p2 * 1.2)));
+          const g2 = ctx.createLinearGradient(bx, by, bx, by + bh);
+          g2.addColorStop(0,   'rgba(0,210,255,0.3)');
+          g2.addColorStop(w1,  'rgba(0,140,230,0.7)');
+          g2.addColorStop(w2,  'rgba(0,70,200,0.82)');
+          g2.addColorStop(1,   'rgba(0,20,140,0.9)');
+          rr(bx, by, bw, bh, r);
+          ctx.fillStyle = g2; ctx.fill();
+          ctx.shadowBlur = 12; ctx.shadowColor = 'rgba(0,180,255,0.6)';
+          ctx.strokeStyle = 'rgba(80,220,255,0.5)'; ctx.lineWidth = 1.5; ctx.stroke();
+          break;
+        }
+
+        case 'neon': {
+          rr(bx, by, bw, bh, r);
+          ctx.fillStyle = 'rgba(0,0,0,0.88)'; ctx.fill();
+          // Alterna cor com sin para animação suave sem flicker
+          const hue = ((phase * 60) % 360);
+          const nc = `hsl(${hue},100%,60%)`;
+          ctx.shadowBlur = 20; ctx.shadowColor = nc;
+          ctx.strokeStyle = nc; ctx.lineWidth = 2; ctx.stroke();
+          break;
+        }
+
+        case 'rainbow': {
+          // Gradiente linear ordenado — sem % que quebra a ordem
+          const shift = (phase * 0.25) % 1;
+          // Usa 7 stops ordenados 0→1, color shift via hue rotate
+          const rg = ctx.createLinearGradient(bx, by, bx + bw, by);
+          const hues = [0, 42, 60, 120, 210, 270, 300, 360];
+          hues.forEach((h, i) => {
+            const adjustedH = (h + shift * 360) % 360;
+            rg.addColorStop(i / (hues.length - 1), `hsl(${adjustedH},100%,55%)`);
+          });
+          rr(bx, by, bw, bh, r);
+          ctx.fillStyle = rg;
+          ctx.globalAlpha = 0.8; ctx.fill(); ctx.globalAlpha = 1;
+          break;
+        }
+
+        case 'gold': {
+          const gp = phase * 0.8;
+          const gs = Math.max(0.1, Math.min(0.45, 0.3 + 0.15 * Math.sin(gp)));
+          const gg = ctx.createLinearGradient(bx, by, bx + bw, by + bh);
+          gg.addColorStop(0,   'rgba(160,110,0,0.95)');
+          gg.addColorStop(gs,  'rgba(255,215,0,1)');
+          gg.addColorStop(1,   'rgba(160,110,0,0.95)');
+          rr(bx, by, bw, bh, r);
+          ctx.fillStyle = gg; ctx.fill();
+          ctx.shadowBlur = 10; ctx.shadowColor = 'rgba(255,200,0,0.7)';
+          ctx.strokeStyle = 'rgba(255,240,120,0.6)'; ctx.lineWidth = 1.5; ctx.stroke();
+          break;
+        }
+
+        default: break;
       }
-      case 'white': {
-        roundRect(bx, by, bw, bh, r);
-        ctx.fillStyle = 'rgba(255,255,255,0.82)';
-        ctx.fill();
-        break;
-      }
-      case 'blur': {
-        roundRect(bx, by, bw, bh, r);
-        ctx.filter = 'blur(12px)';
-        ctx.fillStyle = 'rgba(0,0,0,0.55)';
-        ctx.fill();
-        ctx.filter = 'none';
-        roundRect(bx, by, bw, bh, r);
-        ctx.fillStyle = 'rgba(0,0,0,0.25)';
-        ctx.fill();
-        break;
-      }
-      case 'fire': {
-        const phase = (t || 0) * 2;
-        const g = ctx.createLinearGradient(bx, by + bh, bx, by);
-        g.addColorStop(0, '#ff0a00');
-        g.addColorStop(0.4 + 0.1 * Math.sin(phase), '#ff6a00');
-        g.addColorStop(0.7 + 0.05 * Math.cos(phase * 1.3), '#ffb700');
-        g.addColorStop(1, 'rgba(255,200,0,0.15)');
-        roundRect(bx, by, bw, bh, r);
-        ctx.fillStyle = g;
-        ctx.fill();
-        // glow
-        ctx.shadowBlur = 18; ctx.shadowColor = '#ff4400';
-        ctx.strokeStyle = 'rgba(255,100,0,0.6)'; ctx.lineWidth = 1.5;
-        ctx.stroke();
-        ctx.shadowBlur = 0;
-        break;
-      }
-      case 'water': {
-        const phase2 = (t || 0) * 1.5;
-        const g2 = ctx.createLinearGradient(bx, by, bx, by + bh);
-        g2.addColorStop(0, 'rgba(0,180,255,0.15)');
-        g2.addColorStop(0.3 + 0.08 * Math.sin(phase2), 'rgba(0,120,220,0.65)');
-        g2.addColorStop(0.7 + 0.05 * Math.cos(phase2 * 1.2), 'rgba(0,60,180,0.75)');
-        g2.addColorStop(1, 'rgba(0,20,120,0.85)');
-        roundRect(bx, by, bw, bh, r);
-        ctx.fillStyle = g2;
-        ctx.fill();
-        ctx.shadowBlur = 14; ctx.shadowColor = 'rgba(0,150,255,0.6)';
-        ctx.strokeStyle = 'rgba(100,210,255,0.5)'; ctx.lineWidth = 1.5;
-        ctx.stroke();
-        ctx.shadowBlur = 0;
-        break;
-      }
-      case 'neon': {
-        roundRect(bx, by, bw, bh, r);
-        ctx.fillStyle = 'rgba(0,0,0,0.85)';
-        ctx.fill();
-        const colors = ['#ff00ff','#00ffff','#ff00aa'];
-        const c = colors[Math.floor((t || 0) * 1.5) % colors.length];
-        ctx.shadowBlur = 22; ctx.shadowColor = c;
-        ctx.strokeStyle = c; ctx.lineWidth = 2;
-        ctx.stroke();
-        ctx.shadowBlur = 0;
-        break;
-      }
-      case 'rainbow': {
-        const rg = ctx.createLinearGradient(bx, by, bx + bw, by);
-        const off = ((t || 0) * 0.3) % 1;
-        rg.addColorStop((0 + off) % 1,    '#ff0000');
-        rg.addColorStop((0.17 + off) % 1, '#ff8800');
-        rg.addColorStop((0.33 + off) % 1, '#ffff00');
-        rg.addColorStop((0.5 + off) % 1,  '#00ff00');
-        rg.addColorStop((0.67 + off) % 1, '#0088ff');
-        rg.addColorStop((0.83 + off) % 1, '#8800ff');
-        rg.addColorStop((1 + off) % 1,    '#ff0000');
-        roundRect(bx, by, bw, bh, r);
-        ctx.fillStyle = rg;
-        ctx.globalAlpha = 0.75;
-        ctx.fill();
-        ctx.globalAlpha = 1;
-        break;
-      }
-      case 'dark_blur': {
-        roundRect(bx - 4, by - 4, bw + 8, bh + 8, r + 2);
-        ctx.filter = 'blur(8px)';
-        ctx.fillStyle = 'rgba(0,0,0,0.7)';
-        ctx.fill();
-        ctx.filter = 'none';
-        roundRect(bx, by, bw, bh, r);
-        ctx.fillStyle = 'rgba(0,0,0,0.55)';
-        ctx.fill();
-        break;
-      }
-      case 'gold': {
-        const gg = ctx.createLinearGradient(bx, by, bx + bw, by + bh);
-        gg.addColorStop(0, 'rgba(180,130,0,0.9)');
-        gg.addColorStop(0.5, 'rgba(255,215,0,0.95)');
-        gg.addColorStop(1, 'rgba(180,130,0,0.9)');
-        roundRect(bx, by, bw, bh, r);
-        ctx.fillStyle = gg;
-        ctx.fill();
-        ctx.shadowBlur = 10; ctx.shadowColor = '#ffd700';
-        ctx.strokeStyle = 'rgba(255,240,100,0.7)'; ctx.lineWidth = 1.5;
-        ctx.stroke();
-        ctx.shadowBlur = 0;
-        break;
-      }
-      default: break;
+    } finally {
+      // Garante reset SEMPRE — mesmo se o switch lançar erro
+      ctx.shadowBlur = 0; ctx.shadowColor = 'transparent';
+      ctx.globalAlpha = 1; ctx.filter = 'none';
+      ctx.restore();
     }
-    ctx.restore();
   };
 
   const draw = useCallback(() => {
@@ -2919,7 +2930,7 @@ _setDragging(null);
         ctx.font = `bold ${tSize}px ${tFont}`;
         ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
         const _etotalH = lines.length * lineH;
-        drawTextBgEffect(ctx, txt.bgEffect, lines, tSize, lineH, _etotalH, time);
+        drawTextBgEffect(ctx, txt.bgEffect, lines, tSize, lineH, _etotalH);
         ctx.restore();
       }
       ctx.save();
@@ -2930,7 +2941,7 @@ _setDragging(null);
         ctx.font = `bold ${tSize}px ${tFont}`;
         ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
         const _etH = lines.length * lineH;
-        drawTextBgEffect(ctx, txt.bgEffect, lines, tSize, lineH, _etH, t);
+        drawTextBgEffect(ctx, txt.bgEffect, lines, tSize, lineH, _etH);
         ctx.restore();
       }
       ctx.translate(txt.x, txt.y);
@@ -3021,7 +3032,7 @@ _setDragging(null);
         ctx.rotate(lRot);
         ctx.font = `bold ${lFontSize}px ${lFontFamily}`;
         ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-        drawTextBgEffect(ctx, _bgFx, lines, lFontSize, lineH, totalH, time);
+        drawTextBgEffect(ctx, _bgFx, lines, lFontSize, lineH, totalH);
         ctx.restore();
       }
       ctx.save();
@@ -3518,7 +3529,7 @@ _setDragging(null);
         ctx.translate(lx, ly); ctx.rotate(lRot);
         ctx.font = `bold ${lFontSize}px ${lFontFamily}`;
         ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-        drawTextBgEffect(ctx, _bgFxR, lines, lFontSize, lineH, totalH, t);
+        drawTextBgEffect(ctx, _bgFxR, lines, lFontSize, lineH, totalH);
         ctx.restore();
       }
       ctx.save();
@@ -5628,7 +5639,7 @@ _setDragging(null);
                 <span style={{ fontSize: '10px', color: '#94a3b8' }}>
                   {activeExtraTextId ? (extraTexts.find(t=>t.id===activeExtraTextId)?.fontSize || extraTextFontSize) : (extraTexts.length ? extraTexts[extraTexts.length-1]?.fontSize || extraTextFontSize : extraTextFontSize)}px
                 </span>
-                <input type="range" min="10" max="60"
+                <input type="range" min="10" max="200"
                   value={activeExtraTextId ? (extraTexts.find(t=>t.id===activeExtraTextId)?.fontSize || extraTextFontSize) : (extraTexts.length ? extraTexts[extraTexts.length-1]?.fontSize || extraTextFontSize : extraTextFontSize)}
                   onChange={e => { const v=parseInt(e.target.value); setExtraTextFontSize(v); const tid = activeExtraTextId || (extraTexts.length ? extraTexts[extraTexts.length-1].id : null); if(tid) setExtraTexts(prev=>prev.map(t=>t.id===tid?{...t,fontSize:v}:t)); }}
                   style={{ width: '90px', accentColor: '#00BFFF' }} />
@@ -5747,7 +5758,7 @@ _setDragging(null);
               <span style={{ fontSize: '10px', color: '#94a3b8' }}>
                 {activeLyricId ? (lyrics.find(l => l.id === activeLyricId)?.fontSize || fontSize) : fontSize}px
               </span>
-              <input type="range" min="15" max="70"
+              <input type="range" min="15" max="200"
                 value={activeLyricId ? (lyrics.find(l => l.id === activeLyricId)?.fontSize || fontSize) : fontSize}
                 onChange={(e) => {
                   const v = parseInt(e.target.value);
