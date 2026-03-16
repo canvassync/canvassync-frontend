@@ -5664,7 +5664,7 @@ _setDragging(null);
           onMouseEnter={e=>{ e.currentTarget.style.background='rgba(239,68,68,0.08)'; e.currentTarget.style.borderColor='rgba(239,68,68,0.25)'; }}
           onMouseLeave={e=>{ e.currentTarget.style.background='transparent'; e.currentTarget.style.borderColor='transparent'; }}
         >
-          <span style={{fontSize:13}}>🗑️</span> {t('ed_clear_project')}
+          <span style={{fontSize:13}}>🗑️</span> {t('ed_clear_project').replace(/^🗑️\s*/,'')}
         </button>
 
         {/* ── Projeto ── */}
