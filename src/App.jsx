@@ -2729,25 +2729,28 @@ _setDragging(null);
           ctx.fillStyle = 'rgba(255,255,255,0.84)'; ctx.fill(); break;
 
         case 'blur': {
-          // Sem ctx.filter (pode vazar) — simula blur com camadas sobrepostas
-          for (let i = 3; i >= 0; i--) {
-            rr(bx - i, by - i, bw + i*2, bh + i*2, r + i);
-            ctx.fillStyle = `rgba(0,0,0,${0.08 + i * 0.06})`;
-            ctx.fill();
-          }
+          // ctx.filter seguro aqui — o try/finally garante ctx.filter='none' mesmo em erro
+          rr(bx - 8, by - 8, bw + 16, bh + 16, r + 8);
+          ctx.filter = 'blur(14px)';
+          ctx.fillStyle = 'rgba(30,30,30,0.9)';
+          ctx.fill();
+          ctx.filter = 'none';
+          // Camada fina semitransparente por cima para suavizar a borda
           rr(bx, by, bw, bh, r);
-          ctx.fillStyle = 'rgba(0,0,0,0.55)'; ctx.fill();
+          ctx.fillStyle = 'rgba(0,0,0,0.35)';
+          ctx.fill();
           break;
         }
 
         case 'dark_blur': {
-          for (let i = 4; i >= 0; i--) {
-            rr(bx - i, by - i, bw + i*2, bh + i*2, r + i);
-            ctx.fillStyle = `rgba(0,0,0,${0.1 + i * 0.07})`;
-            ctx.fill();
-          }
+          rr(bx - 10, by - 10, bw + 20, bh + 20, r + 10);
+          ctx.filter = 'blur(18px)';
+          ctx.fillStyle = 'rgba(0,0,0,0.95)';
+          ctx.fill();
+          ctx.filter = 'none';
           rr(bx, by, bw, bh, r);
-          ctx.fillStyle = 'rgba(0,0,0,0.7)'; ctx.fill();
+          ctx.fillStyle = 'rgba(0,0,0,0.6)';
+          ctx.fill();
           break;
         }
 
