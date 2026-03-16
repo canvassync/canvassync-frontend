@@ -2742,7 +2742,7 @@ _setDragging(null);
       ctx.globalAlpha = 1; ctx.filter = 'none';
       switch (effect) {
 
-        // ══ EFEITOS DE TEXTO ══════════════════════════
+        // ══ EFEITOS DE TEXTO ESTILO CAPCUT ══════════════════════════
 
         case 'outline_white': {
           // Outline branco espesso + sombra preta — máxima legibilidade
@@ -5734,8 +5734,8 @@ _setDragging(null);
 
       <div style={{ display: 'flex', flex: 1, width: '100%', overflow: 'hidden' }}>
         
-        {/* EDITOR ESQUERDA — 580PX */}
-        <div style={{ width: '580px', minWidth: '580px', borderRight: '1px solid rgba(255,255,255,0.07)', display: 'flex', flexDirection: 'column', background: '#0d0d0d', boxShadow: 'none', overflowY: 'auto' }}>
+        {/* EDITOR ESQUERDA — 520PX */}
+        <div style={{ width: '520px', minWidth: '520px', borderRight: '1px solid rgba(255,255,255,0.07)', display: 'flex', flexDirection: 'column', background: '#0d0d0d', boxShadow: 'none', overflowY: 'auto' }}>
 
           {/* ══ SEÇÃO SELEÇÃO IMAGEM/VÍDEO — rotação ══ */}
           {(activeImageId || activeVideoId) && (() => {
