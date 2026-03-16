@@ -690,13 +690,13 @@ const CANVAS_TEMPLATES = [
       { rx:0.5, ry:0.88, text:'@seucanal', textEn:'@yourchannel', fs:28, ff:'Poppins', color:'rgba(255,255,255,0.55)' },
     ]},
   { id:'169_lower3', format:'16:9', name:'Lower Third', accent:'#fbbf24',
-    desc:'Legenda inferior esquerda estilo noticiário',
-    descEn:'Lower-left caption, news broadcast style',
+    desc:'Legenda inferior centralizada estilo noticiário',
+    descEn:'Lower caption, news broadcast style',
     settings:{ fontSize:52, fontFamily:'Montserrat', textColor:'#ffffff',
       gradientEnabled:false, shadowEnabled:true, shadowBlur:16, shadowColor:'rgba(0,0,0,0.9)', shadowOffsetX:0, shadowOffsetY:2, zoom:55 },
     extraTexts:[
-      { rx:0.08, ry:0.84, text:'Nome do Artista', textEn:'Artist Name', fs:42, ff:'Bebas Neue', color:'#fbbf24' },
-      { rx:0.08, ry:0.93, text:'feat. Colaborador • 2024', textEn:'feat. Collaborator • 2024', fs:20, ff:'Poppins', color:'rgba(255,255,255,0.65)' },
+      { rx:0.5, ry:0.84, text:'Nome do Artista', textEn:'Artist Name', fs:42, ff:'Bebas Neue', color:'#fbbf24' },
+      { rx:0.5, ry:0.93, text:'feat. Colaborador • 2024', textEn:'feat. Collaborator • 2024', fs:20, ff:'Poppins', color:'rgba(255,255,255,0.65)' },
     ]},
   { id:'169_neon_split', format:'16:9', name:'Neon Split', accent:'#a78bfa',
     desc:'Dois blocos de texto, glow roxo vibrante',
@@ -1240,15 +1240,19 @@ function App() {
     setBgSearchLoading(true);
     setBgSearchResults([]);
     try {
-      // source.unsplash.com foi desativado em 2024 — usando picsum.photos
-      // seed = termo + índice → imagens diferentes a cada busca, sempre disponíveis
-      const terms = query.trim().toLowerCase().replace(/\s+/g, '-');
-      const results = Array.from({ length: 12 }, (_, i) => ({
-        id: `${terms}_${i}`,
-        thumb: `https://picsum.photos/seed/${terms}${i}/300/500`,
-        full:  `https://picsum.photos/seed/${terms}${i}/720/1280`,
-        credit: 'Picsum Photos',
-      }));
+      // loremflickr.com retorna imagens reais filtradas por palavra-chave
+      const terms = encodeURIComponent(query.trim());
+      const canvasW = CANVAS_FORMATS[canvasFormat]?.width  || 720;
+      const canvasH = CANVAS_FORMATS[canvasFormat]?.height || 1280;
+      const results = Array.from({ length: 12 }, (_, i) => {
+        const lock = Date.now() + i; // evita cache entre buscas
+        return {
+          id: `${terms}_${i}_${lock}`,
+          thumb: `https://loremflickr.com/300/500/${terms}?lock=${lock}`,
+          full:  `https://loremflickr.com/${canvasW}/${canvasH}/${terms}?lock=${lock}`,
+          credit: 'LoremFlickr / Flickr',
+        };
+      });
       setBgSearchResults(results);
     } catch(e) {
       console.error('[BgSearch]', e);
@@ -1264,13 +1268,18 @@ function App() {
     setBgSearchLoading(true);
     setBgSearchResults([]);
     try {
-      const terms = query.toLowerCase().replace(/\s+/g, '-');
-      const results = Array.from({ length: 12 }, (_, i) => ({
-        id: `${terms}_${i}`,
-        thumb: `https://picsum.photos/seed/${terms}${i}/300/500`,
-        full:  `https://picsum.photos/seed/${terms}${i}/720/1280`,
-        credit: 'Picsum Photos',
-      }));
+      const terms = encodeURIComponent(query);
+      const canvasW = CANVAS_FORMATS[canvasFormat]?.width  || 720;
+      const canvasH = CANVAS_FORMATS[canvasFormat]?.height || 1280;
+      const results = Array.from({ length: 12 }, (_, i) => {
+        const lock = Date.now() + i;
+        return {
+          id: `${terms}_${i}_${lock}`,
+          thumb: `https://loremflickr.com/300/500/${terms}?lock=${lock}`,
+          full:  `https://loremflickr.com/${canvasW}/${canvasH}/${terms}?lock=${lock}`,
+          credit: 'LoremFlickr / Flickr',
+        };
+      });
       setBgSearchResults(results);
     } catch(e) {
       console.error('[BgSearch]', e);
@@ -1404,6 +1413,121 @@ function App() {
     // Bottom-right
     ctx.strokeRect(x + width - handleSize / 2, y + height - handleSize / 2, handleSize, handleSize);
     ctx.fillRect(x + width - handleSize / 2, y + height - handleSize / 2, handleSize, handleSize);
+  }, []);
+
+  // ── Aplica clip de máscara a um elemento (vídeo ou imagem) ─────────────────
+  const applyElementMask = useCallback((ctx, item) => {
+    const mask = item.mask || 'none';
+    if (mask === 'none') return;
+    const { x, y, width: w, height: h } = item;
+    const cx = x + w / 2, cy = y + h / 2;
+    const rx = w / 2, ry = h / 2;
+    const feather = item.maskFeather || 0;
+    ctx.beginPath();
+    switch (mask) {
+      case 'circle':
+        ctx.arc(cx, cy, Math.min(rx, ry), 0, Math.PI * 2);
+        break;
+      case 'ellipse':
+        ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
+        break;
+      case 'diamond': {
+        ctx.moveTo(cx, y);
+        ctx.lineTo(x + w, cy);
+        ctx.lineTo(cx, y + h);
+        ctx.lineTo(x, cy);
+        ctx.closePath();
+        break;
+      }
+      case 'triangle':
+        ctx.moveTo(cx, y);
+        ctx.lineTo(x + w, y + h);
+        ctx.lineTo(x, y + h);
+        ctx.closePath();
+        break;
+      case 'star': {
+        const outer = Math.min(rx, ry), inner = outer * 0.45;
+        for (let i = 0; i < 10; i++) {
+          const r2 = i % 2 === 0 ? outer : inner;
+          const a = (Math.PI / 5) * i - Math.PI / 2;
+          i === 0 ? ctx.moveTo(cx + r2 * Math.cos(a), cy + r2 * Math.sin(a))
+                  : ctx.lineTo(cx + r2 * Math.cos(a), cy + r2 * Math.sin(a));
+        }
+        ctx.closePath();
+        break;
+      }
+      case 'heart': {
+        const s = Math.min(rx, ry);
+        ctx.moveTo(cx, cy + s * 0.7);
+        ctx.bezierCurveTo(cx - s * 1.1, cy, cx - s * 1.1, cy - s * 0.8, cx, cy - s * 0.3);
+        ctx.bezierCurveTo(cx + s * 1.1, cy - s * 0.8, cx + s * 1.1, cy, cx, cy + s * 0.7);
+        ctx.closePath();
+        break;
+      }
+      case 'hexagon': {
+        for (let i = 0; i < 6; i++) {
+          const a = (Math.PI / 3) * i - Math.PI / 6;
+          const r2 = Math.min(rx, ry);
+          i === 0 ? ctx.moveTo(cx + r2 * Math.cos(a), cy + r2 * Math.sin(a))
+                  : ctx.lineTo(cx + r2 * Math.cos(a), cy + r2 * Math.sin(a));
+        }
+        ctx.closePath();
+        break;
+      }
+      default: return;
+    }
+    if (feather > 0) {
+      ctx.save();
+      ctx.shadowBlur = feather * 2;
+      ctx.shadowColor = 'rgba(0,0,0,1)';
+    }
+    ctx.clip();
+    if (feather > 0) ctx.restore();
+  }, []);
+
+  // ── Aberração cromática por elemento ──────────────────────────────────────
+  const applyElementChromatic = useCallback((ctx, item, drawFn) => {
+    const ca = item.chromaticAberration || 0;
+    if (!ca) { drawFn(); return; }
+    // Desenha R, G, B com offsets ligeiramente diferentes e combina com globalCompositeOperation
+    const off = ca * 0.7;
+    const saved = ctx.globalAlpha;
+    ctx.globalAlpha = 0.85;
+
+    ctx.save();
+    ctx.translate(-off, 0);
+    ctx.globalCompositeOperation = 'screen';
+    // Filtro vermelho
+    const tmpCanvas = document.createElement('canvas');
+    tmpCanvas.width  = ctx.canvas.width;
+    tmpCanvas.height = ctx.canvas.height;
+    const tmpCtx = tmpCanvas.getContext('2d');
+    drawFn(tmpCtx);
+    // tint red
+    tmpCtx.globalCompositeOperation = 'multiply';
+    tmpCtx.fillStyle = 'rgba(255,0,0,1)';
+    tmpCtx.fillRect(item.x, item.y, item.width, item.height);
+    ctx.drawImage(tmpCanvas, 0, 0);
+    ctx.restore();
+
+    ctx.save();
+    ctx.translate(off, 0);
+    ctx.globalCompositeOperation = 'screen';
+    const tmpCanvas2 = document.createElement('canvas');
+    tmpCanvas2.width  = ctx.canvas.width;
+    tmpCanvas2.height = ctx.canvas.height;
+    const tmpCtx2 = tmpCanvas2.getContext('2d');
+    drawFn(tmpCtx2);
+    tmpCtx2.globalCompositeOperation = 'multiply';
+    tmpCtx2.fillStyle = 'rgba(0,0,255,1)';
+    tmpCtx2.fillRect(item.x, item.y, item.width, item.height);
+    ctx.drawImage(tmpCanvas2, 0, 0);
+    ctx.restore();
+
+    ctx.globalAlpha = saved;
+    ctx.globalCompositeOperation = 'source-over';
+    // Green channel — central, opacidade normal
+    drawFn(ctx);
   }, []);
 
   const getHandleCursor = useCallback((x, y, width, height, mouseX, mouseY) => {
@@ -3119,7 +3243,9 @@ _setDragging(null);
   };
   drawScreenEffectRef.current = _drawScreenEffectImpl;
 
-  const draw = useCallback(() => {
+
+
+    const draw = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
@@ -3154,7 +3280,9 @@ _setDragging(null);
       ctx.save();
       if (_vtr) { _applyTr(ctx, _vtr, _vf, v); }
       else if (_vf !== 'none') { ctx.filter = _vf; }
-      drawRotatedElement(ctx, () => drawRoundedImage(ctx, v.videoEl, v.x, v.y, v.width, v.height, v.radius ?? 12), v.x, v.y, v.width, v.height, v.rotation);
+      applyElementMask(ctx, v);
+      const drawVid = (tCtx) => drawRotatedElement(tCtx || ctx, () => drawRoundedImage(tCtx || ctx, v.videoEl, v.x, v.y, v.width, v.height, v.radius ?? 12), v.x, v.y, v.width, v.height, v.rotation);
+      applyElementChromatic(ctx, v, drawVid);
       ctx.filter = 'none'; ctx.restore();
       if (activeVideoId === v.id) {
         const cx = v.x + v.width / 2, cy = v.y + v.height / 2;
@@ -3468,7 +3596,7 @@ _setDragging(null);
       drawScreenEffectRef.current?.(ctx, screenEffect, canvas.width, canvas.height, Date.now()/1000);
     }
     // Não agenda mais RAF aqui — o loop unificado abaixo cuida disso
-  }, [activeImageId, activeVideoId, activeExtraTextId, activeLyricId, editingLyricId, drawRotatedElement, drawRoundedImage, drawRoundedRect, drawResizeHandles, extraTextColor, extraTextFontFamily, extraTextFontSize, extraTexts, fontFamily, fontSize, getImagesForTime, getVideosForTime, image, lyrics, textColor, wrapLyricText, videos, shadowEnabled, shadowBlur, shadowColor, shadowOffsetX, shadowOffsetY, gradientEnabled, gradientColor1, gradientColor2, zoom, screenEffect, colorCurves, chromaAberration]);
+  }, [activeImageId, activeVideoId, activeExtraTextId, activeLyricId, editingLyricId, drawRotatedElement, drawRoundedImage, drawRoundedRect, drawResizeHandles, applyElementMask, applyElementChromatic, extraTextColor, extraTextFontFamily, extraTextFontSize, extraTexts, fontFamily, fontSize, getImagesForTime, getVideosForTime, image, lyrics, textColor, wrapLyricText, videos, shadowEnabled, shadowBlur, shadowColor, shadowOffsetX, shadowOffsetY, gradientEnabled, gradientColor1, gradientColor2, zoom, screenEffect, colorCurves, chromaAberration]);
 
 
   // ── Sync de vídeos via função chamada pelo loop RAF ──────────────────────
@@ -3764,7 +3892,9 @@ _setDragging(null);
       const _etr = getTransitionTransform(v, t);
       ctx.save();
       if (_etr) { _applyTr(ctx, _etr, _evf, v); } else if(_evf!=='none'){ctx.filter=_evf;}
-      drawRotatedElement(ctx, () => drawRoundedImage(ctx, v.videoEl, v.x, v.y, v.width, v.height, v.radius ?? 12), v.x, v.y, v.width, v.height, v.rotation);
+      applyElementMask(ctx, v);
+      const drawVidE = (tCtx) => drawRotatedElement(tCtx || ctx, () => drawRoundedImage(tCtx || ctx, v.videoEl, v.x, v.y, v.width, v.height, v.radius ?? 12), v.x, v.y, v.width, v.height, v.rotation);
+      applyElementChromatic(ctx, v, drawVidE);
       ctx.filter='none'; ctx.restore();
     });
     // Renderiza TODAS as imagens ativas no instante t (usa ref para evitar closure stale)
@@ -4326,10 +4456,12 @@ _setDragging(null);
       // 5. Posiciona vídeos overlay no tempo correto e prepara playback
       const vidsToPlay = videosRef.current.filter(v => v.videoEl);
       for (const v of vidsToPlay) {
-        // Velocidade e volume individuais por vídeo
-        v.videoEl.playbackRate = Math.max(0.25, Math.min(4, _spd1 * (v.vidSpeed ?? 1)));
+        // Durante RT export, o virtualTimeRef já avança com _spd1 embutido.
+        // O videoEl deve tocar na velocidade NATURAL do clipe (vidSpeed apenas),
+        // caso contrário o vídeo aparece acelerado por projectSpeed no canvas capturado.
+        v.videoEl.playbackRate = Math.max(0.25, Math.min(4, v.vidSpeed ?? 1));
         v.videoEl.volume = Math.max(0, Math.min(1, _vol1 * (v.vidVolume ?? 1)));
-        v.videoEl.currentTime = 0;
+        v.videoEl.currentTime = v.trimStart ?? 0;
       }
 
       // 6. Inicia gravação
@@ -4359,8 +4491,10 @@ _setDragging(null);
         for (const v of vidsToPlay) {
           if (!v.videoEl) continue;
           if (vt >= v.start && vt <= v.end && v.videoEl.paused) {
-            const rel = Math.max(0, vt - v.start);
-            v.videoEl.currentTime = rel;
+            const trimSt = v.trimStart ?? 0;
+            const rel = trimSt + Math.max(0, vt - v.start) * (v.vidSpeed ?? 1);
+            v.videoEl.currentTime = Math.min(rel, v.videoEl.duration || rel);
+            v.videoEl.playbackRate = Math.max(0.25, Math.min(4, v.vidSpeed ?? 1));
             v.videoEl.play().catch(() => {});
           } else if ((vt < v.start || vt > v.end) && !v.videoEl.paused) {
             v.videoEl.pause();
@@ -4868,7 +5002,9 @@ _setDragging(null);
           if (!v.videoEl) return;
           v.videoEl.muted = false; // precisa de áudio se usar MediaElementSource
           v.videoEl.volume = 0;    // silencia saída do speaker — export captura via offscreen
-          v.videoEl.playbackRate = Math.max(0.25, Math.min(4, spd * (v.vidSpeed ?? 1)));
+          // Igual ao RT export: virtualTimeRef já embute projectSpeed,
+          // então o videoEl deve tocar em vidSpeed apenas para não acelerar.
+          v.videoEl.playbackRate = Math.max(0.25, Math.min(4, v.vidSpeed ?? 1));
           v.videoEl.currentTime = v.trimStart ?? 0;
         });
         // Inicia vídeos no range t=0
@@ -4886,6 +5022,10 @@ _setDragging(null);
           for (const v of videosRef.current) {
             if (!v.videoEl) continue;
             if (vt >= v.start && vt <= v.end && v.videoEl.paused) {
+              const trimSt = v.trimStart ?? 0;
+              const rel = trimSt + Math.max(0, vt - v.start) * (v.vidSpeed ?? 1);
+              v.videoEl.currentTime = Math.min(rel, v.videoEl.duration || rel);
+              v.videoEl.playbackRate = Math.max(0.25, Math.min(4, v.vidSpeed ?? 1));
               v.videoEl.play().catch(() => {});
             } else if ((vt < v.start || vt > v.end) && !v.videoEl.paused) {
               v.videoEl.pause();
