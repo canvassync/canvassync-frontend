@@ -32,7 +32,7 @@ const TRANSLATIONS = {
     tpl_count:        'templates',
 
     // Stickers
-    ed_sfx:           'Efeitos',
+    ed_sfx:           'Sons',
     stk_hint:         'Clique para selecionar · arraste para mover · botão direito remove',
     stk_clear_all:    'Limpar todos',
 
@@ -360,7 +360,7 @@ const TRANSLATIONS = {
     tpl_count:        'templates',
 
     // Stickers
-    ed_sfx:           'Effects',
+    ed_sfx:           'Sounds',
     stk_hint:         'Click to select · drag to move · right-click to remove',
     stk_clear_all:    'Clear all',
 
