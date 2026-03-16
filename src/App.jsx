@@ -2858,53 +2858,161 @@ _setDragging(null);
         }
 
         case 'rain': {
-          ctx.strokeStyle='rgba(140,200,255,0.35)'; ctx.lineWidth=1;
-          const seed=Math.floor(ph*30);
-          for(let i=0;i<120;i++){
-            const x=((i*137.5+seed*73)%W+W)%W;
-            const y=((i*97+seed*31)%H+H)%H;
-            const len=8+((i*53)%20);
-            ctx.beginPath(); ctx.moveTo(x,y); ctx.lineTo(x-1,y+len); ctx.stroke();
+          // ── Chuva profissional: gotas com velocidades variadas, inclinação, reflexo e splash ──
+          // Overlay escuro com névoa azulada
+          const rainFog = ctx.createLinearGradient(0,0,0,H);
+          rainFog.addColorStop(0,'rgba(10,20,40,0.18)');
+          rainFog.addColorStop(1,'rgba(10,20,40,0.08)');
+          ctx.fillStyle=rainFog; ctx.fillRect(0,0,W,H);
+
+          // Gotas em 3 camadas de profundidade (fundo→frente)
+          const rainLayers = [
+            { count:80, speed:0.6, len:12, lw:0.5, alpha:0.18, angle:-0.12 },
+            { count:60, speed:1.0, len:22, lw:0.8, alpha:0.28, angle:-0.15 },
+            { count:40, speed:1.5, len:35, lw:1.2, alpha:0.40, angle:-0.18 },
+          ];
+          rainLayers.forEach((layer,li) => {
+            ctx.lineWidth = layer.lw;
+            for(let i=0;i<layer.count;i++){
+              // posição determinística mas diferente por frame — pseudo-aleatória via hash
+              const hx = (i*127.1+li*311.7) % 1;
+              const hy = (i*91.3+li*173.9) % 1;
+              const spd = layer.speed*(0.8+((i*53.1)%1)*0.4);
+              const bx2 = (hx*W + ph*40*layer.angle + ph*spd*20) % W;
+              const by2 = ((hy*H + ph*spd*160) % H + H) % H;
+              const ex2 = bx2 + layer.len*layer.angle;
+              const ey2 = by2 + layer.len;
+              const alpha = layer.alpha*(0.6+((i*71.3)%1)*0.4);
+              ctx.strokeStyle=`rgba(160,210,255,${alpha})`;
+              ctx.beginPath(); ctx.moveTo(bx2,by2); ctx.lineTo(ex2,ey2); ctx.stroke();
+            }
+          });
+
+          // Splashes no fundo — círculos elípticos que aparecem e somem
+          const sTime = ph*3;
+          for(let i=0;i<25;i++){
+            const sx = ((i*197.3+Math.floor(sTime+i*0.4)*83.7)%W+W)%W;
+            const sy = H - 1 - ((i*113.1)%1)*H*0.15;
+            const sAge = (sTime+i*0.4)%1; // 0→1 lifecycle
+            const sR = sAge*6*(1+(i*53%1)*0.5);
+            const sA = (1-sAge)*0.35;
+            ctx.strokeStyle=`rgba(160,210,255,${sA})`;
+            ctx.lineWidth=0.8;
+            ctx.beginPath();
+            ctx.ellipse(sx,sy,sR,sR*0.3,0,0,Math.PI*2);
+            ctx.stroke();
           }
-          // splash drops
-          ctx.fillStyle='rgba(140,200,255,0.2)';
-          for(let i=0;i<20;i++){
-            const sx=((i*173+Math.floor(ph*10)*61)%W+W)%W;
-            const sy=((i*211+Math.floor(ph*10)*43)%H+H)%H;
-            ctx.beginPath(); ctx.arc(sx,sy,1.5,0,6.28); ctx.fill();
-          }
+
+          // Vinheta fria nas bordas
+          const rainVig = ctx.createRadialGradient(W/2,H/2,Math.min(W,H)*0.35,W/2,H/2,Math.max(W,H)*0.75);
+          rainVig.addColorStop(0,'transparent');
+          rainVig.addColorStop(1,'rgba(5,15,35,0.45)');
+          ctx.fillStyle=rainVig; ctx.fillRect(0,0,W,H);
           break;
         }
 
         case 'fire': {
-          // flames rising from bottom
-          for(let x=0;x<W;x+=6){
-            const flicker=Math.sin(ph*4+x*0.05)*0.5+0.5;
-            const fh=(40+flicker*60)*(H/480);
-            const fg=ctx.createLinearGradient(x,H,x,H-fh);
-            fg.addColorStop(0,`rgba(255,${Math.floor(60+flicker*60)},0,0.55)`);
-            fg.addColorStop(0.5,`rgba(255,120,0,0.3)`);
-            fg.addColorStop(1,'transparent');
-            ctx.fillStyle=fg; ctx.fillRect(x,H-fh,6,fh);
+          // ── Fogo profissional: chamas com turbulência, calor e reflexo no chão ──
+          const fph = ph;
+
+          // 1. Glow quente no fundo (reflexo do fogo no chão)
+          const heatH = H*0.18;
+          const heatG = ctx.createLinearGradient(0,H,0,H-heatH);
+          heatG.addColorStop(0,'rgba(255,60,0,0.35)');
+          heatG.addColorStop(0.5,'rgba(255,120,0,0.12)');
+          heatG.addColorStop(1,'transparent');
+          ctx.fillStyle=heatG; ctx.fillRect(0,H-heatH,W,heatH);
+
+          // 2. Chamas: múltiplas colunas com turbulência senoidal
+          const step = Math.max(3, Math.floor(W/70));
+          for(let xi=0;xi<W;xi+=step){
+            const nx = xi/W; // posição normalizada
+            // Turbulência com harmônicas múltiplas — mais realista
+            const t1 = Math.sin(fph*2.8+nx*8.5)*0.5+0.5;
+            const t2 = Math.sin(fph*4.1+nx*13.2)*0.3+0.3;
+            const t3 = Math.sin(fph*1.7+nx*5.8)*0.2+0.2;
+            const flicker = (t1*0.5+t2*0.3+t3*0.2);
+            const maxFH = H*(0.30+flicker*0.25); // altura máxima: 30-55% da tela
+            const fSteps = 6;
+            for(let s=0;s<fSteps;s++){
+              const frac = s/fSteps;
+              const fh2 = maxFH*(1-frac*frac); // forma parabólica
+              const fw = step*(1.4-frac*0.6);
+              const fx2 = xi - fw/2 + Math.sin(fph*3+nx*7+s)*step*0.3;
+              const fy2 = H - fh2;
+              const fg2 = ctx.createLinearGradient(fx2+fw/2,H,fx2+fw/2,fy2);
+              // Cores: branco-amarelo na base, laranja no meio, vermelho/transparente no topo
+              const baseA = 0.7-frac*0.5;
+              fg2.addColorStop(0,`rgba(255,240,180,${baseA})`);
+              fg2.addColorStop(0.25,`rgba(255,160,20,${baseA*0.8})`);
+              fg2.addColorStop(0.6,`rgba(255,60,0,${baseA*0.45})`);
+              fg2.addColorStop(1,'rgba(180,20,0,0)');
+              ctx.fillStyle=fg2;
+              ctx.beginPath();
+              ctx.moveTo(fx2+fw/2,H);
+              ctx.bezierCurveTo(fx2,H-fh2*0.5,fx2+fw,H-fh2*0.7,fx2+fw/2,fy2);
+              ctx.fill();
+            }
           }
-          // glow at base
-          const bg=ctx.createLinearGradient(0,H,0,H-60*(H/480));
-          bg.addColorStop(0,'rgba(255,80,0,0.25)'); bg.addColorStop(1,'transparent');
-          ctx.fillStyle=bg; ctx.fillRect(0,0,W,H);
+
+          // 3. Embers (fagulhas) subindo
+          for(let e=0;e<30;e++){
+            const eph = fph*1.5+e*0.7;
+            const ex3 = ((e*173.3+Math.sin(eph)*30)%W+W)%W;
+            const ey3 = H - ((eph*60*(1+(e%5)*0.2))%H+H)%H;
+            if(ey3<0||ey3>H) continue;
+            const ea = Math.max(0,(ey3/H)*0.8);
+            const er = 1+((e*53)%1)*1.5;
+            ctx.fillStyle=`rgba(255,${180+Math.floor((e*71)%75)},0,${ea})`;
+            ctx.beginPath(); ctx.arc(ex3,ey3,er,0,Math.PI*2); ctx.fill();
+          }
+
+          // 4. Calor atmosférico — sobreposição avermelhada tênue
+          const atmoG = ctx.createLinearGradient(0,H,0,H*0.5);
+          atmoG.addColorStop(0,'rgba(255,40,0,0.08)');
+          atmoG.addColorStop(1,'transparent');
+          ctx.fillStyle=atmoG; ctx.fillRect(0,H*0.5,W,H*0.5);
           break;
         }
 
         case 'smoke': {
-          const sc = Math.floor(ph*2);
-          for(let i=0;i<18;i++){
-            const bx=((i*197+sc*83)%W+W)%W;
-            const by=H-(((i*113+sc*61+ph*40)%H+H)%H);
-            const br=30+((i*71)%40);
-            const sg=ctx.createRadialGradient(bx,by,0,bx,by,br);
-            sg.addColorStop(0,'rgba(180,180,180,0.12)');
-            sg.addColorStop(1,'transparent');
-            ctx.fillStyle=sg; ctx.beginPath(); ctx.arc(bx,by,br,0,6.28); ctx.fill();
+          // ── Fumaça profissional: nuvens volumétricas com drift suave ──
+
+          // 1. Partículas de fumaça volumétricas — raio grande, múltiplas camadas
+          const smokeParticles = 28;
+          for(let i=0;i<smokeParticles;i++){
+            // Cada partícula tem uma fase de vida (0→1) e deriva lentamente para cima/lado
+            const lifeSpeed = 0.04+((i*71.3)%1)*0.04;
+            const life = ((ph*lifeSpeed+(i/smokeParticles))%1+1)%1; // 0=nasce, 1=some
+            const spawnX = ((i*197.3)%1)*W;
+            const spawnOffX = Math.sin(ph*0.3+i*1.4)*W*0.06;
+            const driftY = life*H*0.55; // sobe 55% da tela durante a vida
+            const driftX = Math.sin(life*Math.PI*1.5+i)*W*0.08;
+            const px = (spawnX+spawnOffX+driftX+W)%W;
+            const py = H*0.85 - driftY;
+            // Raio cresce com a vida (fumaça se expande)
+            const pr = (W*0.08)*(0.3+life*0.7)*((0.7+(i*53.1)%1)*0.6);
+            // Alpha: sobe rápido, some suave
+            const pa = life<0.2 ? life*5*0.22 : (1-life)*0.22*(1+(i*37.7)%1)*0.8;
+            if(pa<=0) continue;
+            // Cor varia: cinza mais claro no topo (mais frio), mais escuro na base
+            const grayVal = Math.floor(150+life*70);
+            const sg2 = ctx.createRadialGradient(px,py,0,px,py,pr);
+            sg2.addColorStop(0,`rgba(${grayVal},${grayVal},${grayVal},${pa})`);
+            sg2.addColorStop(0.5,`rgba(${grayVal},${grayVal},${grayVal},${pa*0.5})`);
+            sg2.addColorStop(1,'transparent');
+            ctx.fillStyle=sg2;
+            ctx.beginPath(); ctx.arc(px,py,pr,0,Math.PI*2); ctx.fill();
           }
+
+          // 2. Névoa densa na base (onde a fumaça nasce)
+          const baseSmoke = ctx.createLinearGradient(0,H,0,H*0.7);
+          baseSmoke.addColorStop(0,'rgba(100,100,100,0.15)');
+          baseSmoke.addColorStop(1,'transparent');
+          ctx.fillStyle=baseSmoke; ctx.fillRect(0,H*0.7,W,H*0.3);
+
+          // 3. Véu atmosférico global — sensação de ar pesado
+          ctx.fillStyle='rgba(80,80,90,0.06)'; ctx.fillRect(0,0,W,H);
           break;
         }
 
@@ -2995,14 +3103,70 @@ _setDragging(null);
         }
 
         case 'night': {
-          ctx.fillStyle='rgba(0,5,30,0.45)'; ctx.fillRect(0,0,W,H);
-          // Stars
-          for(let i=0;i<60;i++){
-            const sx2=((i*197)%W+W)%W, sy2=((i*137)%H+H)%H;
-            const sa=0.3+0.4*Math.abs(Math.sin(ph+i));
-            ctx.fillStyle=`rgba(255,255,255,${sa})`;
-            ctx.beginPath(); ctx.arc(sx2,sy2,0.8,0,6.28); ctx.fill();
-          }
+          // ── Noite profissional: céu profundo, estrelas com brilho variado, nebulosa e lua ──
+
+          // 1. Overlay de céu noturno profundo com gradiente vertical
+          const skyG = ctx.createLinearGradient(0,0,0,H);
+          skyG.addColorStop(0,'rgba(0,3,18,0.65)');
+          skyG.addColorStop(0.5,'rgba(0,5,25,0.40)');
+          skyG.addColorStop(1,'rgba(0,8,30,0.20)');
+          ctx.fillStyle=skyG; ctx.fillRect(0,0,W,H);
+
+          // 2. Nebulosa sutil — manchas coloridas difusas no céu
+          const nebula = [
+            { x:0.15,y:0.12,r:W*0.22, h:260, s:70, l:30, a:0.06 },
+            { x:0.75,y:0.08,r:W*0.18, h:200, s:60, l:25, a:0.05 },
+            { x:0.45,y:0.20,r:W*0.28, h:290, s:50, l:20, a:0.04 },
+          ];
+          nebula.forEach(nb => {
+            const ng2 = ctx.createRadialGradient(nb.x*W,nb.y*H,0,nb.x*W,nb.y*H,nb.r);
+            ng2.addColorStop(0,`hsla(${nb.h},${nb.s}%,${nb.l}%,${nb.a})`);
+            ng2.addColorStop(1,'transparent');
+            ctx.fillStyle=ng2; ctx.fillRect(0,0,W,H);
+          });
+
+          // 3. Estrelas em 3 tamanhos com cintilação independente
+          const starData = [
+            // [seed_x, seed_y, size, twinkle_phase]
+            ...Array.from({length:120},(_,i)=>[(i*127.1)%1,(i*91.3)%1,0.6+((i*53)%1)*0.5,i*2.3]),
+            ...Array.from({length:40}, (_,i)=>[(i*197.7+0.3)%1,(i*113.9+0.2)%1,1.0+((i*71)%1)*0.7,i*3.1]),
+            ...Array.from({length:15}, (_,i)=>[(i*311.3+0.5)%1,(i*173.7+0.4)%1,1.5+((i*37)%1)*0.8,i*1.7]),
+          ];
+          starData.forEach(([sx,sy,sr,sp]) => {
+            const twinkle = 0.35+0.65*Math.abs(Math.sin(ph*0.8+sp));
+            // Estrelas apenas na metade superior (céu)
+            if(sy>0.55) return;
+            ctx.globalAlpha=twinkle;
+            // Halo difuso
+            const sg3 = ctx.createRadialGradient(sx*W,sy*H,0,sx*W,sy*H,sr*3);
+            sg3.addColorStop(0,`rgba(220,230,255,${twinkle*0.4})`);
+            sg3.addColorStop(1,'transparent');
+            ctx.fillStyle=sg3; ctx.fillRect(sx*W-sr*3,sy*H-sr*3,sr*6,sr*6);
+            // Núcleo brilhante
+            ctx.fillStyle='rgba(240,245,255,1)';
+            ctx.beginPath(); ctx.arc(sx*W,sy*H,sr*0.5,0,Math.PI*2); ctx.fill();
+            ctx.globalAlpha=1;
+          });
+
+          // 4. Lua crescente (canto superior direito)
+          const moonX=W*0.82, moonY=H*0.12, moonR=Math.min(W,H)*0.048;
+          // Halo da lua
+          const moonHalo = ctx.createRadialGradient(moonX,moonY,moonR*0.8,moonX,moonY,moonR*2.5);
+          moonHalo.addColorStop(0,'rgba(255,248,200,0.15)');
+          moonHalo.addColorStop(1,'transparent');
+          ctx.fillStyle=moonHalo; ctx.fillRect(moonX-moonR*3,moonY-moonR*3,moonR*6,moonR*6);
+          // Disco lunar
+          ctx.fillStyle='rgba(255,250,220,0.88)';
+          ctx.beginPath(); ctx.arc(moonX,moonY,moonR,0,Math.PI*2); ctx.fill();
+          // Sombra para formar crescente
+          ctx.fillStyle='rgba(0,4,20,0.92)';
+          ctx.beginPath(); ctx.arc(moonX+moonR*0.45,moonY,moonR*0.88,0,Math.PI*2); ctx.fill();
+
+          // 5. Névoa noturna na base (horizonte)
+          const mist = ctx.createLinearGradient(0,H*0.55,0,H);
+          mist.addColorStop(0,'transparent');
+          mist.addColorStop(1,'rgba(0,10,35,0.35)');
+          ctx.fillStyle=mist; ctx.fillRect(0,H*0.55,W,H*0.45);
           break;
         }
 
