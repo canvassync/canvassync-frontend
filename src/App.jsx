@@ -118,24 +118,6 @@ const EMOJI_LIST = [
   ['🌍','🏔️','🏖️','🌅','🌃','🌆','🗼','🗽','🏯','🎠','🎡','🎢'],
 ];
 
-const EMOJI_LIST = [
-  // ── Setas (sem animação) ──────────────────────────────────────────────────
-  ['⬆️','⬇️','⬅️','➡️','↗️','↘️','↙️','↖️','↔️','↕️','↩️','↪️'],
-  ['🔄','⏫','⏬','⏩','⏪','⏭️','⏮️','🔃','🔁','🔂','▶️','◀️'],
-  ['👉','👈','👆','👇','☝️','🫵','👍','👎','✅','❌','⭕','❓'],
-  // ── Originais ─────────────────────────────────────────────────────────────
-  ['❤️','🧡','💛','💚','💙','💜','🖤','🤍','💕','💞','💓','💗'],
-  ['🔥','⭐','🌟','💫','✨','💥','🎉','🎊','🎈','🎀','🎁','🏅'],
-  ['😂','😍','🥳','😎','🤩','😘','🤣','😜','🥰','🫶','😆','🤪'],
-  ['👑','💎','🏆','🎸','🎤','🎬','🎯','🎲','🎨','🎭','🎪','🃏'],
-  ['🌈','🌊','⚡','🌙','☀️','❄️','🌸','🍀','🌺','🌻','🌹','🍄'],
-  ['💯','🔑','💪','🙌','👏','✌️','🤟','🤙','💰','💸','🔮','🧿'],
-  ['🐉','🦄','🦊','🦁','🐺','🦅','🐙','🦈','🐯','🦋','🦚','🦜'],
-  ['🍕','🎂','🍦','🍭','🍾','🥂','🧁','🍫','🍬','🍒','🍓','🫐'],
-  ['🚀','✈️','🏎️','⚽','🏀','🎮','🎵','🎶','📸','📱','💻','🕹️'],
-  ['🌍','🏔️','🏖️','🌅','🌃','🌆','🗼','🗽','🏯','🎠','🎡','🎢'],
-];
-
 const ANIMATED_STICKERS = [
   // ── Setas ──────────────────────────────────────────────────────────────────
   { key:'arrow_up',       emoji:'⬆️',  anim:'bounce', label:'↑ Cima'       },
@@ -191,63 +173,7 @@ const ANIMATED_STICKERS = [
   { key:'hundred',   emoji:'💯', anim:'bounce', label:'100'       },
   { key:'flex',      emoji:'💪', anim:'pulse',  label:'Força'     },
 ];
-  // ── Setas ──────────────────────────────────────────────────────────────────
-  { key:'arrow_up',       emoji:'⬆️',  anim:'bounce', label:'↑ Cima'       },
-  { key:'arrow_down',     emoji:'⬇️',  anim:'bounce', label:'↓ Baixo'      },
-  { key:'arrow_left',     emoji:'⬅️',  anim:'bounce', label:'← Esquerda'   },
-  { key:'arrow_right',    emoji:'➡️',  anim:'bounce', label:'→ Direita'    },
-  { key:'arrow_ne',       emoji:'↗️',  anim:'float',  label:'↗ Diagonal'   },
-  { key:'arrow_nw',       emoji:'↖️',  anim:'float',  label:'↖ Diagonal'   },
-  { key:'arrow_se',       emoji:'↘️',  anim:'float',  label:'↘ Diagonal'   },
-  { key:'arrow_sw',       emoji:'↙️',  anim:'float',  label:'↙ Diagonal'   },
-  { key:'arrow_lr',       emoji:'↔️',  anim:'pulse',  label:'↔ Horizontal' },
-  { key:'arrow_ud',       emoji:'↕️',  anim:'pulse',  label:'↕ Vertical'   },
-  { key:'arrow_curve_r',  emoji:'↩️',  anim:'spin',   label:'↩ Volta'      },
-  { key:'arrow_curve_l',  emoji:'↪️',  anim:'spin',   label:'↪ Volta'      },
-  { key:'arrow_loop',     emoji:'🔄',  anim:'spin',   label:'🔄 Loop'       },
-  { key:'arrow_dbl_up',   emoji:'⏫',  anim:'bounce', label:'⏫ Rápido ↑'   },
-  { key:'arrow_dbl_down', emoji:'⏬',  anim:'bounce', label:'⏬ Rápido ↓'   },
-  { key:'pointing_right', emoji:'👉',  anim:'bounce', label:'👉 Aponta →'   },
-  { key:'pointing_left',  emoji:'👈',  anim:'bounce', label:'👈 Aponta ←'   },
-  { key:'pointing_up',    emoji:'👆',  anim:'bounce', label:'👆 Aponta ↑'   },
-  { key:'pointing_down',  emoji:'👇',  anim:'bounce', label:'👇 Aponta ↓'   },
-  // ── Stickers originais ────────────────────────────────────────────────────
-  { key:'fire',      emoji:'🔥', anim:'bounce', label:'Fogo'      },
-  { key:'star',      emoji:'⭐', anim:'spin',   label:'Estrela'   },
-  { key:'heart',     emoji:'❤️', anim:'pulse',  label:'Coração'   },
-  { key:'party',     emoji:'🎉', anim:'shake',  label:'Festa'     },
-  { key:'sparkle',   emoji:'✨', anim:'float',  label:'Brilho'    },
-  { key:'crown',     emoji:'👑', anim:'bounce', label:'Coroa'     },
-  { key:'music',     emoji:'🎵', anim:'pulse',  label:'Música'    },
-  { key:'rainbow',   emoji:'🌈', anim:'float',  label:'Arco-íris' },
-  { key:'lightning', emoji:'⚡', anim:'spin',   label:'Raio'      },
-  { key:'diamond',   emoji:'💎', anim:'pulse',  label:'Diamante'  },
-  { key:'rocket',    emoji:'🚀', anim:'float',  label:'Foguete'   },
-  { key:'dragon',    emoji:'🐉', anim:'bounce', label:'Dragão'    },
-  { key:'trophy',    emoji:'🏆', anim:'shake',  label:'Troféu'    },
-  { key:'unicorn',   emoji:'🦄', anim:'bounce', label:'Unicórnio' },
-  { key:'explosion', emoji:'💥', anim:'pulse',  label:'Explosão'  },
-  { key:'confetti',  emoji:'🎊', anim:'shake',  label:'Confete'   },
-  { key:'money',     emoji:'💰', anim:'bounce', label:'Dinheiro'  },
-  { key:'mic',       emoji:'🎤', anim:'pulse',  label:'Microfone' },
-  { key:'camera',    emoji:'📸', anim:'shake',  label:'Câmera'    },
-  { key:'clapper',   emoji:'🎬', anim:'bounce', label:'Claquete'  },
-  { key:'notes',     emoji:'🎶', anim:'float',  label:'Notas'     },
-  { key:'sunflower', emoji:'🌻', anim:'spin',   label:'Girassol'  },
-  { key:'butterfly', emoji:'🦋', anim:'float',  label:'Borboleta' },
-  { key:'crystal',   emoji:'🔮', anim:'pulse',  label:'Cristal'   },
-  { key:'target',    emoji:'🎯', anim:'spin',   label:'Alvo'      },
-  { key:'alien',     emoji:'👽', anim:'float',  label:'Alien'     },
-  { key:'ghost',     emoji:'👻', anim:'bounce', label:'Fantasma'  },
-  { key:'skull',     emoji:'💀', anim:'shake',  label:'Caveira'   },
-  { key:'angel',     emoji:'😇', anim:'float',  label:'Anjo'      },
-  { key:'devil',     emoji:'😈', anim:'pulse',  label:'Diabo'     },
-  { key:'hundred',   emoji:'💯', anim:'bounce', label:'100'       },
-  { key:'flex',      emoji:'💪', anim:'pulse',  label:'Força'     },
-];
 
-
-// Calcula offset de animação de sticker baseado em tempo real
 const SFX_LIST = [
   // ── Reações / Público ─────────────────────────────────────────────────────
   { key:'applause',  emoji:'👏', name:'Aplausos',     dur:2.5 },
