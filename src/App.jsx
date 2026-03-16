@@ -964,11 +964,6 @@ function App() {
   const [canvasFormat, setCanvasFormat] = useState('9:16');
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [stickers, setStickers] = useState([]);           // [{id,type,content,animStyle,x,y,size,rotation}]
-  const [frames,   setFrames]   = useState([]);
-  const [activeFrameId, setActiveFrameId] = useState(null);
-  const [showFramePanel, setShowFramePanel] = useState(false);
-  const frameBtnRef = useRef(null);
-  const framesRef   = useRef([]);
   const [soundEffects, setSoundEffects] = useState([]);     // [{id,key,name,emoji,startTime,volume}]
   const [showSfxPanel, setShowSfxPanel] = useState(false);
   const [sfxPanelPos, setSfxPanelPos]   = useState({ top: 80, left: 0 });
@@ -1211,7 +1206,7 @@ function App() {
   // Fecha tela cheia com ESC; fecha painel sticker com ESC ou clique fora
   useEffect(() => {
     const onKey = (e) => {
-      if (e.key === 'Escape') { setIsFullscreen(false); setShowStickerPanel(false); setShowTemplatePanel(false); setShowFxPanel(false); setShowFramePanel(false); setActiveFrameId(null); }
+      if (e.key === 'Escape') { setIsFullscreen(false); setShowStickerPanel(false); setShowTemplatePanel(false); setShowFxPanel(false); }
     };
     const onClickOut = (e) => {
       if (showBgPanel && bgBtnRef.current && !bgBtnRef.current.contains(e.target) &&
@@ -1704,7 +1699,6 @@ function App() {
         if (p.projectVolume !== undefined) setVolume(p.projectVolume);
         if (p.projectSpeed  !== undefined) setSpeed(p.projectSpeed);
         if (p.screenEffect    !== undefined) setScreenEffect(p.screenEffect);
-        if (p.frames !== undefined) setFrames(p.frames);
         if (p.chromaAberration!== undefined) setChromaAberration(p.chromaAberration);
         if (p.colorCurves      !== undefined) setColorCurves(p.colorCurves);
         if (p.audioBase64) {
@@ -1950,7 +1944,6 @@ function App() {
     setAudioFile(null);
     setAudioBase64(null);
     setScreenEffect('none');
-    setFrames([]); setActiveFrameId(null);
     setChromaAberration(0);
     setColorCurves({r:1,g:1,b:1,midtone:1,shadows:0,highlights:0});
     setAudioMimeType(null);
@@ -2459,32 +2452,6 @@ function App() {
     }
 
     // Sticker move
-    if (dragging && dragging.type === 'frame') {
-      setFrames(prev => prev.map(f => f.id === dragging.id
-        ? { ...f, x: mouseX - dragging.offsetX, y: mouseY - dragging.offsetY }
-        : f));
-      return;
-    }
-    if (dragging && dragging.type === 'frame_rotate') {
-      const fr3 = framesRef.current.find(f => f.id === dragging.id);
-      if (fr3) {
-        const fcx3 = (fr3.x??100)+(fr3.width??200)/2, fcy3 = (fr3.y??100)+(fr3.height??200)/2;
-        const ang = Math.atan2(mouseY-fcy3, mouseX-fcx3);
-        const deg = ((dragging.startRot + (ang - dragging.startAngle)*180/Math.PI) % 360 + 360) % 360 - 180;
-        setFrames(prev => prev.map(f => f.id === dragging.id ? {...f, rotation: deg} : f));
-      }
-      return;
-    }
-    if (dragging && dragging.type === 'frame_resize') {
-      const dxr = mouseX - dragging.startX, dyr = mouseY - dragging.startY;
-      const cos4 = Math.cos(-(dragging.frot||0)), sin4 = Math.sin(-(dragging.frot||0));
-      const rx4 = dxr*cos4 - dyr*sin4, ry4 = dxr*sin4 + dyr*cos4;
-      const [sx, sy] = dragging.corner===0?[-1,-1]:dragging.corner===1?[1,-1]:dragging.corner===2?[-1,1]:[1,1];
-      const nW = Math.max(40, dragging.startW + sx*rx4);
-      const nH = Math.max(40, dragging.startH + sy*ry4);
-      setFrames(prev => prev.map(f => f.id === dragging.id ? {...f, width:nW, height:nH} : f));
-      return;
-    }
     if (dragging && dragging.type === 'sticker') {
       setStickers(prev => prev.map(s => s.id === dragging.id
         ? { ...s, x: mouseX - dragging.offsetX, y: mouseY - dragging.offsetY }
@@ -2732,7 +2699,6 @@ _setDragging(null);
 
   const stickersRef = useRef([]);
   useEffect(() => { stickersRef.current = stickers; }, [stickers]);
-  useEffect(() => { framesRef.current = frames; }, [frames]);
 
   // ── Desenha efeito de fundo atrás do texto ─────────────────────────────────
   const drawTextBgEffectRef = useRef(null);
@@ -3405,117 +3371,6 @@ _setDragging(null);
         ctx.putImageData(id,0,0);
       } catch(e) {}
     }
-    // ── Molduras ────────────────────────────────────────────────────────────────
-    framesRef.current.forEach(fr => {
-      const fx = fr.x ?? 100, fy = fr.y ?? 100;
-      const fw = fr.width ?? 200, fh = fr.height ?? 200;
-      const frot = (fr.rotation || 0) * Math.PI / 180;
-      const fcx = fx + fw/2, fcy = fy + fh/2;
-      ctx.save();
-      ctx.globalAlpha = fr.opacity ?? 1;
-      ctx.translate(fcx, fcy);
-      ctx.rotate(frot);
-      const lw2 = fr.lineWidth ?? 8;
-      ctx.lineWidth = lw2;
-      ctx.lineJoin = 'round';
-      ctx.lineCap  = 'round';
-      if (fr.shadow !== false) {
-        ctx.shadowBlur  = lw2 * 2; ctx.shadowColor = fr.shadowColor || 'rgba(0,0,0,0.65)';
-      }
-      const hw = fw/2, hh = fh/2;
-      const cr = fr.cornerRadius ?? Math.min(hw, hh) * 0.12;
-      switch (fr.type || 'rounded') {
-        case 'rect':
-          ctx.strokeStyle = fr.color || '#ffffff';
-          ctx.beginPath(); ctx.rect(-hw, -hh, fw, fh); ctx.stroke(); break;
-        case 'rounded':
-          ctx.strokeStyle = fr.color || '#ffffff';
-          ctx.beginPath(); ctx.roundRect(-hw, -hh, fw, fh, cr); ctx.stroke(); break;
-        case 'circle':
-          ctx.strokeStyle = fr.color || '#ffffff';
-          ctx.beginPath(); ctx.arc(0, 0, Math.min(hw, hh), 0, Math.PI*2); ctx.stroke(); break;
-        case 'double': {
-          ctx.strokeStyle = fr.color || '#ffffff';
-          ctx.lineWidth = lw2 * 0.5;
-          ctx.beginPath(); ctx.rect(-hw, -hh, fw, fh); ctx.stroke();
-          const g2 = lw2 * 2;
-          ctx.beginPath(); ctx.rect(-hw+g2, -hh+g2, fw-g2*2, fh-g2*2); ctx.stroke(); break;
-        }
-        case 'dashed':
-          ctx.setLineDash([lw2*2.5, lw2*1.5]);
-          ctx.strokeStyle = fr.color || '#ffffff';
-          ctx.beginPath(); ctx.rect(-hw, -hh, fw, fh); ctx.stroke();
-          ctx.setLineDash([]); break;
-        case 'film': {
-          ctx.strokeStyle = fr.color || '#ffffff';
-          ctx.lineWidth = lw2;
-          ctx.beginPath(); ctx.rect(-hw, -hh, fw, fh); ctx.stroke();
-          ctx.lineWidth = lw2 * 0.4;
-          const hW = lw2*1.2, hH = lw2*1.8, hGap = lw2*3;
-          const nH = Math.floor((fw - hGap) / (hW + hGap));
-          for (let hi=0; hi<nH; hi++) {
-            const hx = -hw + hGap + hi*(hW+hGap);
-            ctx.strokeRect(hx, -hh+lw2*0.3, hW, hH);
-            ctx.strokeRect(hx,  hh-lw2*0.3-hH, hW, hH);
-          }
-          break;
-        }
-        case 'polaroid': {
-          ctx.shadowBlur = lw2*2; ctx.shadowColor = 'rgba(0,0,0,0.5)';
-          ctx.fillStyle = fr.color || '#ffffff';
-          ctx.beginPath(); ctx.roundRect(-hw, -hh, fw, fh, cr*0.5); ctx.fill();
-          ctx.shadowBlur = 0;
-          const lblH = fh * 0.18;
-          ctx.fillStyle = 'rgba(240,240,240,0.95)';
-          ctx.beginPath(); ctx.roundRect(-hw, hh-lblH, fw, lblH, [0,0,cr*0.5,cr*0.5]); ctx.fill();
-          break;
-        }
-        case 'vintage': {
-          ctx.strokeStyle = fr.color || '#ffffff';
-          ctx.beginPath(); ctx.rect(-hw, -hh, fw, fh); ctx.stroke();
-          const cs = lw2 * 3.5;
-          [[-hw,-hh,'r','d'],[hw,-hh,'l','d'],[-hw,hh,'r','u'],[hw,hh,'l','u']].forEach(([cx3,cy3,xd,yd]) => {
-            const sx = xd==='r'?1:-1, sy = yd==='d'?1:-1;
-            ctx.lineWidth = lw2 * 0.7;
-            ctx.beginPath();
-            ctx.moveTo(cx3, cy3+sy*cs*0.8); ctx.lineTo(cx3, cy3); ctx.lineTo(cx3-sx*cs*0.8, cy3);
-            ctx.stroke();
-            ctx.fillStyle = fr.color || '#ffffff';
-            ctx.beginPath(); ctx.arc(cx3-sx*cs*0.3, cy3+sy*cs*0.3, lw2*0.7, 0, Math.PI*2); ctx.fill();
-          });
-          break;
-        }
-        case 'neon': {
-          const nH2 = (Date.now()/1000*55)%360;
-          const nc = `hsl(${nH2},100%,60%)`;
-          ctx.strokeStyle = nc; ctx.shadowBlur = lw2*3; ctx.shadowColor = nc;
-          ctx.lineWidth = lw2;
-          ctx.beginPath(); ctx.rect(-hw, -hh, fw, fh); ctx.stroke();
-          ctx.lineWidth = lw2*0.35; ctx.strokeStyle='rgba(255,255,255,0.65)'; ctx.shadowBlur=0;
-          ctx.beginPath(); ctx.rect(-hw, -hh, fw, fh); ctx.stroke();
-          break;
-        }
-      }
-      ctx.shadowBlur = 0; ctx.setLineDash([]);
-      // Selection indicator
-      if (activeFrameId === fr.id) {
-        ctx.globalAlpha = 1;
-        ctx.strokeStyle = '#00BFFF'; ctx.lineWidth = 1.5; ctx.setLineDash([4,3]);
-        ctx.beginPath(); ctx.rect(-hw-12, -hh-12, fw+24, fh+24); ctx.stroke();
-        ctx.setLineDash([]);
-        ctx.fillStyle = '#00BFFF';
-        [[-hw-12,-hh-12],[hw+12,-hh-12],[-hw-12,hh+12],[hw+12,hh+12]].forEach(([hx2,hy2]) => {
-          ctx.fillRect(hx2-4, hy2-4, 8, 8);
-        });
-        // Rotation handle
-        ctx.strokeStyle='rgba(0,191,255,0.8)'; ctx.lineWidth=1;
-        ctx.beginPath(); ctx.moveTo(0,-hh-12); ctx.lineTo(0,-hh-32); ctx.stroke();
-        ctx.beginPath(); ctx.arc(0,-hh-32,6,0,Math.PI*2);
-        ctx.fillStyle='#00BFFF'; ctx.fill();
-      }
-      ctx.restore();
-    });
-
     // Efeito de tela (overlay sobre tudo)
     if (screenEffect && screenEffect !== 'none') {
       drawScreenEffectRef.current?.(ctx, screenEffect, canvas.width, canvas.height, Date.now()/1000);
@@ -4558,7 +4413,6 @@ _setDragging(null);
     projectVolume: projectVolume ?? 1,
     projectSpeed:  projectSpeed  ?? 1,
     screenEffect:  screenEffect  || 'none',
-    frames: frames || [],
     chromaAberration: chromaAberration || 0,
     colorCurves: colorCurves || {r:1,g:1,b:1,midtone:1,shadows:0,highlights:0},
   });
@@ -4704,7 +4558,6 @@ _setDragging(null);
         if (p.projectVolume !== undefined) setVolume(p.projectVolume);
         if (p.projectSpeed  !== undefined) setSpeed(p.projectSpeed);
         if (p.screenEffect    !== undefined) setScreenEffect(p.screenEffect);
-        if (p.frames !== undefined) setFrames(p.frames);
         if (p.chromaAberration!== undefined) setChromaAberration(p.chromaAberration);
         if (p.colorCurves      !== undefined) setColorCurves(p.colorCurves);
         if (p.audioBase64) {
@@ -5876,129 +5729,13 @@ _setDragging(null);
               </div>
             , document.body)}
           </div>
-
-          {/* ── Molduras ── */}
-          <div style={{ position: 'relative' }}>
-            <button
-              ref={frameBtnRef}
-              onClick={() => setShowFramePanel(v => !v)}
-              style={{
-                background: showFramePanel || frames.length > 0 ? 'rgba(52,211,153,0.2)' : 'rgba(52,211,153,0.07)',
-                border: `1px solid ${showFramePanel || frames.length > 0 ? 'rgba(52,211,153,0.6)' : 'rgba(52,211,153,0.25)'}`,
-                borderRadius: 14, padding: '7px 14px', cursor: 'pointer',
-                fontWeight: 700, fontSize: 13, color: '#34d399',
-                display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap',
-              }}
-            >🖼️ Molduras {frames.length > 0 && <span style={{ background:'#34d399',color:'#000',borderRadius:8,padding:'1px 6px',fontSize:10,fontWeight:900 }}>{frames.length}</span>}</button>
-
-            {showFramePanel && (() => {
-              const rect = frameBtnRef.current?.getBoundingClientRect();
-              const FRAME_TYPES = [
-                { type:'rounded',  label:'Arredondada', icon:'▢' },
-                { type:'rect',     label:'Retângulo',   icon:'□' },
-                { type:'circle',   label:'Círculo',     icon:'○' },
-                { type:'double',   label:'Dupla',       icon:'⊡' },
-                { type:'dashed',   label:'Tracejada',   icon:'⬚' },
-                { type:'film',     label:'Cinema',      icon:'🎞️' },
-                { type:'polaroid', label:'Polaroid',    icon:'📷' },
-                { type:'vintage',  label:'Vintage',     icon:'🪄' },
-                { type:'neon',     label:'Neon',        icon:'💜' },
-              ];
-              const addFrame = (type) => {
-                const canvas = canvasRef.current;
-                const cw = canvas?.width || 720, ch = canvas?.height || 1280;
-                const fw = Math.round(cw * 0.55), fh = Math.round(ch * 0.35);
-                setFrames(prev => [...prev, {
-                  id: Date.now(), type,
-                  x: Math.round(cw/2 - fw/2), y: Math.round(ch/2 - fh/2),
-                  width: fw, height: fh,
-                  rotation: 0,
-                  color: '#ffffff',
-                  lineWidth: Math.max(4, Math.round(cw * 0.012)),
-                  opacity: 1, shadow: true,
-                  shadowColor: 'rgba(0,0,0,0.65)',
-                }]);
-                setActiveFrameId(null);
-                setShowFramePanel(false);
-              };
-              return createPortal(
-                <div style={{ position:'fixed', top:(rect?.bottom??60)+6, left:Math.max(8,(rect?.left??0)-20), zIndex:99999, background:'#0f172a', border:'1px solid rgba(52,211,153,0.3)', borderRadius:16, width:380, boxShadow:'0 20px 60px rgba(0,0,0,0.85)', display:'flex', flexDirection:'column', overflow:'hidden' }}>
-                  <div style={{ padding:'12px 16px 8px', borderBottom:'1px solid rgba(255,255,255,0.06)', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
-                    <span style={{ fontWeight:800, fontSize:14, color:'#34d399' }}>🖼️ Molduras</span>
-                    <div style={{ display:'flex', gap:8 }}>
-                      {frames.length > 0 && <button onClick={() => { setFrames([]); setActiveFrameId(null); }} style={{ background:'rgba(239,68,68,0.12)', border:'1px solid rgba(239,68,68,0.3)', borderRadius:6, padding:'2px 8px', color:'#f87171', fontSize:10, cursor:'pointer' }}>✕ Remover todas</button>}
-                      <button onClick={() => setShowFramePanel(false)} style={{ background:'none', border:'none', color:'#555', cursor:'pointer', fontSize:16 }}>✕</button>
-                    </div>
-                  </div>
-                  {/* Grid de tipos */}
-                  <div style={{ padding:12, display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:8 }}>
-                    {FRAME_TYPES.map(ft => (
-                      <div key={ft.type} onClick={() => addFrame(ft.type)}
-                        style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:5, padding:'10px 6px', borderRadius:10, cursor:'pointer', background:'rgba(255,255,255,0.03)', border:'1px solid rgba(52,211,153,0.10)', transition:'all 0.15s' }}
-                        onMouseEnter={e=>e.currentTarget.style.background='rgba(52,211,153,0.12)'}
-                        onMouseLeave={e=>e.currentTarget.style.background='rgba(255,255,255,0.03)'}
-                      >
-                        <span style={{ fontSize:22 }}>{ft.icon}</span>
-                        <span style={{ fontSize:10, color:'#888', textAlign:'center' }}>{ft.label}</span>
-                      </div>
-                    ))}
-                  </div>
-                  {/* Controles da moldura selecionada */}
-                  {activeFrameId && (() => {
-                    const selFr = frames.find(f => f.id === activeFrameId);
-                    if (!selFr) return null;
-                    const updFr = (patch) => setFrames(prev => prev.map(f => f.id === activeFrameId ? {...f,...patch} : f));
-                    const fControls = [
-                      { label:'Espessura', key:'lineWidth',  min:1,    max:60,   step:1,    def:8   },
-                      { label:'Opacidade', key:'opacity',    min:0,    max:1,    step:0.02, def:1   },
-                      { label:'Rotação',   key:'rotation',   min:-180, max:180,  step:1,    def:0   },
-                    ];
-                    return (
-                      <div style={{ borderTop:'1px solid rgba(255,255,255,0.06)', padding:'12px 14px', display:'flex', flexDirection:'column', gap:8 }}>
-                        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:2 }}>
-                          <span style={{ fontSize:11, color:'#34d399', fontWeight:700 }}>✏️ Editando: {selFr.type}</span>
-                          <button onClick={() => { setFrames(prev => prev.filter(f => f.id !== activeFrameId)); setActiveFrameId(null); }}
-                            style={{ background:'rgba(239,68,68,0.1)', border:'1px solid rgba(239,68,68,0.3)', borderRadius:6, padding:'2px 8px', fontSize:10, color:'#f87171', cursor:'pointer' }}>✕ Remover</button>
-                        </div>
-                        {/* Cor */}
-                        <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-                          <span style={{ fontSize:10, color:'#666', minWidth:72 }}>Cor</span>
-                          <input type='color' value={selFr.color||'#ffffff'} onChange={e=>updFr({color:e.target.value})}
-                            style={{ width:30, height:26, padding:0, border:'1px solid rgba(255,255,255,0.1)', borderRadius:6, cursor:'pointer', background:'none' }} />
-                          <span style={{ fontSize:9, color:'#555' }}>{selFr.color||'#ffffff'}</span>
-                        </div>
-                        {fControls.map(({label,key,min,max,step,def}) => (
-                          <div key={key} style={{ display:'flex', alignItems:'center', gap:8 }}>
-                            <span style={{ fontSize:10, color:'#666', minWidth:72 }}>{label}</span>
-                            <input type='range' min={min} max={max} step={step}
-                              value={selFr[key]??def}
-                              onChange={e=>updFr({[key]:+e.target.value})}
-                              style={{ flex:1, accentColor:'#34d399', height:3, cursor:'pointer' }} />
-                            <span style={{ fontSize:10, color:'#34d399', minWidth:38, textAlign:'right' }}>
-                              {key==='opacity' ? Math.round((selFr[key]??1)*100)+'%' : key==='rotation' ? (selFr[key]??0)+'°' : (selFr[key]??def)}
-                            </span>
-                          </div>
-                        ))}
-                        <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-                          <span style={{ fontSize:10, color:'#666', minWidth:72 }}>Sombra</span>
-                          <input type='checkbox' checked={selFr.shadow!==false} onChange={e=>updFr({shadow:e.target.checked})} style={{ accentColor:'#34d399', cursor:'pointer' }} />
-                        </div>
-                        <div style={{ fontSize:9, color:'#444', marginTop:2 }}>💡 Arraste no canvas para mover · Cantos para redimensionar · Alça circular para girar</div>
-                      </div>
-                    );
-                  })()}
-                </div>,
-                document.body
-              );
-            })()}
-          </div>
         </div>{/* fim Linha 2 */}
       </div>{/* fim HEADER CONTROLS */}
 
       <div style={{ display: 'flex', flex: 1, width: '100%', overflow: 'hidden' }}>
         
         {/* EDITOR ESQUERDA — 520PX */}
-        <div style={{ width: '580px', minWidth: '580px', borderRight: '1px solid rgba(255,255,255,0.07)', display: 'flex', flexDirection: 'column', background: '#0d0d0d', boxShadow: 'none', overflowY: 'auto' }}>
+        <div style={{ width: '520px', minWidth: '520px', borderRight: '1px solid rgba(255,255,255,0.07)', display: 'flex', flexDirection: 'column', background: '#0d0d0d', boxShadow: 'none', overflowY: 'auto' }}>
 
           {/* ══ SEÇÃO SELEÇÃO IMAGEM/VÍDEO — rotação ══ */}
           {(activeImageId || activeVideoId) && (() => {
@@ -6374,7 +6111,7 @@ _setDragging(null);
                   title='Efeito de fundo'
                   style={{ fontSize: '10px', backgroundColor: '#111', color: '#f0f0f0', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px', padding: '4px 6px' }}>
                   <option value='none'>— Sem efeito</option>
-                  <optgroup label='── Estilo de Texto ──'>
+                  <optgroup label='── Estilo Texto (CapCut) ──'>
                   <option value='outline_white'>◻ Outline Branco</option>
                   <option value='outline_black'>◼ Outline Preto</option>
                   <option value='double_stroke'>⬜ Duplo Stroke</option>
@@ -6514,7 +6251,7 @@ _setDragging(null);
                 title="Efeito de fundo"
                 style={{ fontSize: '10px', backgroundColor: '#111', color: '#f0f0f0', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px', padding: '4px 6px' }}>
                 <option value="none">— Sem efeito</option>
-                <optgroup label="── Estilo de Texto ──">
+                <optgroup label="── Estilo Texto (CapCut) ──">
                 <option value="outline_white">◻ Outline Branco</option>
                 <option value="outline_black">◼ Outline Preto</option>
                 <option value="double_stroke">⬜ Duplo Stroke</option>
@@ -6712,40 +6449,6 @@ _setDragging(null);
               const scaleY = canvas.height / rect.height;
               const mouseX = (e.clientX - rect.left) * scaleX;
               const mouseY = (e.clientY - rect.top) * scaleY;
-              // Frames: clique para selecionar, arrastar, redimensionar, girar
-              let hitFrame = false;
-              for (let i = framesRef.current.length - 1; i >= 0; i--) {
-                const fr = framesRef.current[i];
-                const fw3 = fr.width??200, fh3 = fr.height??200;
-                const fcx4 = (fr.x??100)+fw3/2, fcy4 = (fr.y??100)+fh3/2;
-                const frot4 = (fr.rotation||0)*Math.PI/180;
-                const dx5=mouseX-fcx4, dy5=mouseY-fcy4;
-                const rx5 = dx5*Math.cos(-frot4)-dy5*Math.sin(-frot4);
-                const ry5 = dx5*Math.sin(-frot4)+dy5*Math.cos(-frot4);
-                const hw5=fw3/2+12, hh5=fh3/2+12;
-                // Rotation handle
-                if (Math.abs(rx5)<8 && Math.abs(ry5-(-hh5-20))<8) {
-                  setActiveFrameId(fr.id);
-                  _setDragging({ type:'frame_rotate', id:fr.id, startAngle:Math.atan2(mouseY-fcy4,mouseX-fcx4), startRot:fr.rotation||0 });
-                  hitFrame = true; break;
-                }
-                // Resize corners
-                const corners5 = [[-hw5,-hh5],[hw5,-hh5],[-hw5,hh5],[hw5,hh5]];
-                let hitC = -1;
-                corners5.forEach(([cx5,cy5],ci) => { if(Math.abs(rx5-cx5)<10&&Math.abs(ry5-cy5)<10) hitC=ci; });
-                if (hitC >= 0) {
-                  setActiveFrameId(fr.id);
-                  _setDragging({ type:'frame_resize', id:fr.id, corner:hitC, startX:mouseX, startY:mouseY, startW:fw3, startH:fh3, frot:frot4 });
-                  hitFrame = true; break;
-                }
-                // Body
-                if (Math.abs(rx5)<=hw5 && Math.abs(ry5)<=hh5) {
-                  setActiveFrameId(fr.id);
-                  _setDragging({ type:'frame', id:fr.id, offsetX:mouseX-(fr.x??100), offsetY:mouseY-(fr.y??100) });
-                  hitFrame = true; break;
-                }
-              }
-              if (!hitFrame && activeFrameId) setActiveFrameId(null);
               // Stickers: botão direito remove
               for (let i = stickers.length - 1; i >= 0; i--) {
                 const stk = stickers[i];
@@ -6772,7 +6475,7 @@ _setDragging(null);
                 }
               });
             }}
-            style={{ border: '1px solid rgba(0,191,255,0.15)', borderRadius: '12px', maxWidth: '100%', maxHeight: '92%', cursor: 'move', boxShadow: '0 24px 50px rgba(10, 12, 24, 0.55)', objectFit: 'contain' }} 
+            style={{ border: '1px solid rgba(0,191,255,0.15)', borderRadius: '12px', maxWidth: '100%', maxHeight: '88%', cursor: 'move', boxShadow: '0 24px 50px rgba(10, 12, 24, 0.55)', objectFit: 'contain' }} 
           />
 
 
