@@ -915,6 +915,9 @@ const CANVAS_TEMPLATES = [
     ]},
 ];
 
+// ── 🔑 Chave da API Pixabay — substitua pelo seu valor ───────────────────────
+const PIXABAY_API_KEY = '55068631-9449770cc54d7b020d3cf5f1b';
+
 function App() {
   const { user, isLoggedIn, isPro, loading: authLoading } = useAuth();
   const { t, lang } = useLanguage();
@@ -991,6 +994,17 @@ function App() {
   const [bgSearchResults, setBgSearchResults] = useState([]);
   const [bgSearchLoading, setBgSearchLoading] = useState(false);
   const [bgTab, setBgTab] = useState('gradients');
+  // ── Trilhas Pixabay ────────────────────────────────────────────────────────
+  const [showTrilhasPanel, setShowTrilhasPanel]   = useState(false);
+  const [trilhasTab, setTrilhasTab]               = useState('lofi');
+  const [trilhasSearch, setTrilhasSearch]         = useState('');
+  const [trilhasResults, setTrilhasResults]       = useState([]);
+  const [trilhasLoading, setTrilhasLoading]       = useState(false);
+  const [trilhasPreviewId, setTrilhasPreviewId]   = useState(null);
+  const [trilhasPreviewTime, setTrilhasPreviewTime] = useState(0);
+  const [trilhasUsingId, setTrilhasUsingId]       = useState(null);
+  const trilhasPreviewRef = useRef(null);
+  const trilhasBtnRef     = useRef(null);
   const [stickerPanelPos, setStickerPanelPos] = useState({ top: 80, left: 0 });
   const [stickerTab, setStickerTab] = useState('emoji');  // 'emoji'|'sticker'|'gif'
   const activeStickerRef = useRef(null);                  // id do sticker selecionado (sem re-render)
@@ -1324,7 +1338,7 @@ function App() {
           e.preventDefault(); redoRef.current?.();
         }
       }
-      if (e.key === 'Escape') { setIsFullscreen(false); setShowStickerPanel(false); setShowTemplatePanel(false); setShowFxPanel(false); setShowMidiasPanel(false); setShowExportPanel(false); setShowProjetoPanel(false); }
+      if (e.key === 'Escape') { setIsFullscreen(false); setShowStickerPanel(false); setShowTemplatePanel(false); setShowFxPanel(false); setShowMidiasPanel(false); setShowExportPanel(false); setShowProjetoPanel(false); setShowTrilhasPanel(false); stopTrilhasPreview(); }
     };
     const onClickOut = (e) => {
       if (showBgPanel && bgBtnRef.current && !bgBtnRef.current.contains(e.target) &&
@@ -1899,6 +1913,106 @@ function App() {
       };
       decode();
     }
+  };
+
+  // ── Trilhas Pixabay ────────────────────────────────────────────────────────
+  const TRILHAS_CATS = [
+    { id:'lofi',       label:'Lo-fi',       q:'lofi chill'          },
+    { id:'hiphop',     label:'Hip-hop',     q:'hip hop'             },
+    { id:'trap',       label:'Trap',        q:'trap beat'           },
+    { id:'ambient',    label:'Ambient',     q:'ambient atmospheric' },
+    { id:'electronic', label:'Eletrônico',  q:'electronic'          },
+    { id:'cinematic',  label:'Cinemático',  q:'cinematic epic'      },
+    { id:'jazz',       label:'Jazz',        q:'jazz'                },
+    { id:'pop',        label:'Pop',         q:'pop upbeat'          },
+    { id:'rock',       label:'Rock',        q:'rock guitar'         },
+    { id:'rnb',        label:'R&B',         q:'rnb soul'            },
+  ];
+
+  const stopTrilhasPreview = () => {
+    if (trilhasPreviewRef.current) {
+      trilhasPreviewRef.current.pause();
+      trilhasPreviewRef.current.src = '';
+      trilhasPreviewRef.current = null;
+    }
+    setTrilhasPreviewId(null);
+    setTrilhasPreviewTime(0);
+  };
+
+  const searchTrilhas = async (query) => {
+    if (!query || !query.trim()) return;
+    setTrilhasLoading(true);
+    setTrilhasResults([]);
+    stopTrilhasPreview();
+    try {
+      const url  = `https://pixabay.com/api/music/?key=${PIXABAY_API_KEY}&q=${encodeURIComponent(query)}&per_page=30&min_duration=60&order=popular`;
+      const res  = await fetch(url);
+      const data = await res.json();
+      if (data.hits) {
+        setTrilhasResults(data.hits.map(h => ({
+          id:       h.id,
+          title:    h.title  || 'Sem titulo',
+          artist:   h.user   || '',
+          duration: h.duration || 0,
+          url:      h.audio,
+          tags:     h.tags   || '',
+        })));
+      }
+    } catch { setTrilhasResults([]); }
+    setTrilhasLoading(false);
+  };
+
+  const toggleTrilhasPreview = (track) => {
+    if (trilhasPreviewId === track.id) { stopTrilhasPreview(); return; }
+    stopTrilhasPreview();
+    const audio        = new Audio(track.url);
+    audio.crossOrigin  = 'anonymous';
+    audio.volume       = 0.75;
+    audio.ontimeupdate = () => setTrilhasPreviewTime(audio.currentTime);
+    audio.onended      = () => { setTrilhasPreviewId(null); setTrilhasPreviewTime(0); };
+    audio.play().catch(() => {});
+    trilhasPreviewRef.current = audio;
+    setTrilhasPreviewId(track.id);
+    setTrilhasPreviewTime(0);
+  };
+
+  const downloadTrilha = async (track) => {
+    try {
+      const res  = await fetch(track.url);
+      const blob = await res.blob();
+      const a    = document.createElement('a');
+      a.href     = URL.createObjectURL(blob);
+      a.download = `${track.title}.mp3`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    } catch { alert('Erro ao baixar. Tente novamente.'); }
+  };
+
+  const useTrilhaNoProject = async (track) => {
+    setTrilhasUsingId(track.id);
+    stopTrilhasPreview();
+    try {
+      const res       = await fetch(track.url);
+      const blob      = await res.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      setAudioSrc(objectUrl);
+      setAudioMimeType('audio/mpeg');
+      setAudioFile(new File([blob], `${track.title}.mp3`, { type: 'audio/mpeg' }));
+      const ab64Reader   = new FileReader();
+      ab64Reader.onload  = (ev) => setAudioBase64(ev.target.result);
+      ab64Reader.readAsDataURL(blob);
+      const arrayBuffer  = await blob.arrayBuffer();
+      await decodeWaveformFromBuffer(arrayBuffer);
+      setShowTrilhasPanel(false);
+      setShowMidiasPanel(false);
+    } catch { alert('Erro ao carregar trilha. Tente novamente.'); }
+    setTrilhasUsingId(null);
+  };
+
+  const fmtDur = (s) => {
+    const m  = Math.floor(s / 60);
+    const ss = String(s % 60).padStart(2, '0');
+    return `${m}:${ss}`;
   };
 
   useEffect(() => {
@@ -6024,7 +6138,7 @@ _setDragging(null);
 
         {/* ── Grupo MÍDIAS ── */}
         <div style={{ position:'relative', flexShrink:0 }}>
-          <button ref={(el)=>{ midiaBtnRef.current=el; bgBtnRef.current=el; }}
+          <button ref={(el)=>{ midiaBtnRef.current=el; bgBtnRef.current=el; trilhasBtnRef.current=el; }}
             onClick={() => { setShowMidiasPanel(v=>!v); setShowExportPanel(false); setShowProjetoPanel(false); }}
             style={{ display:'flex', alignItems:'center', gap:4, padding:'5px 8px', borderRadius:7, background:showMidiasPanel?'rgba(0,191,255,0.18)':'transparent', border:`1px solid ${showMidiasPanel?'rgba(0,191,255,0.5)':'transparent'}`, cursor:'pointer', color:'#ccc', fontSize:11, fontWeight:600, transition:'all 0.15s', whiteSpace:'nowrap' }}
             onMouseEnter={e=>{if(!showMidiasPanel)e.currentTarget.style.background='rgba(255,255,255,0.05)'}}
@@ -6044,6 +6158,7 @@ _setDragging(null);
                   { icon:'🏞️', label:'Imagens overlay',         color:'#00BFFF',  action:()=>{ imagesInputRef.current?.click(); setShowMidiasPanel(false); } },
                   { icon:'🎬', label:'Vídeo',                    color:'#a78bfa',  action:()=>{ videoInputRef.current?.click(); setShowMidiasPanel(false); } },
                   { icon:'🎵', label:'Música / Áudio',           color:'#10b981',  action:()=>{ audioInputRef.current?.click(); setShowMidiasPanel(false); } },
+                  { icon:'🎼', label:'Trilhas (Pixabay)',         color:'#a78bfa',  action:()=>{ setShowMidiasPanel(false); setShowTrilhasPanel(v=>!v); if(trilhasResults.length===0){ const def=TRILHAS_CATS[0]; setTrilhasTab(def.id); searchTrilhas(def.q); } } },
                 ].map(item=>(
                   <div key={item.label} onClick={item.action}
                     style={{ display:'flex', alignItems:'center', gap:10, padding:'9px 14px', cursor:'pointer', transition:'background 0.1s' }}
@@ -6843,6 +6958,184 @@ _setDragging(null);
             document.body
           );
         })()}
+
+        {/* ── Painel de Trilhas Pixabay ── */}
+        {showTrilhasPanel && createPortal(
+          <>
+            <div onClick={()=>{ setShowTrilhasPanel(false); stopTrilhasPreview(); }} style={{position:'fixed',inset:0,zIndex:99997}} />
+            <div style={{
+              position:'fixed',
+              top: (trilhasBtnRef.current?.getBoundingClientRect().bottom ?? 52) + 4,
+              left: Math.max(8, Math.min((trilhasBtnRef.current?.getBoundingClientRect().left ?? 200), window.innerWidth - 520)),
+              zIndex:99999, background:'#0f172a',
+              border:'1px solid rgba(167,139,250,0.3)', borderRadius:16, width:510,
+              maxHeight:'82vh', boxShadow:'0 20px 60px rgba(0,0,0,0.85)',
+              display:'flex', flexDirection:'column', overflow:'hidden'
+            }}>
+              {/* Header */}
+              <div style={{padding:'12px 16px 10px', borderBottom:'1px solid rgba(255,255,255,0.07)', display:'flex', alignItems:'center', justifyContent:'space-between', flexShrink:0}}>
+                <div style={{display:'flex', alignItems:'center', gap:8}}>
+                  <span style={{fontSize:18}}>🎼</span>
+                  <span style={{fontWeight:800, fontSize:14, color:'#a78bfa'}}>Trilhas — Pixabay Music</span>
+                </div>
+                <button onClick={()=>{ setShowTrilhasPanel(false); stopTrilhasPreview(); }}
+                  style={{background:'none', border:'none', color:'#555', cursor:'pointer', fontSize:18, lineHeight:1}}>✕</button>
+              </div>
+
+              {/* Busca */}
+              <div style={{padding:'10px 14px 8px', borderBottom:'1px solid rgba(255,255,255,0.06)', flexShrink:0}}>
+                <div style={{display:'flex', gap:6}}>
+                  <input
+                    value={trilhasSearch}
+                    onChange={e=>setTrilhasSearch(e.target.value)}
+                    onKeyDown={e=>{ if(e.key==='Enter') searchTrilhas(trilhasSearch); }}
+                    placeholder="Buscar por nome ou estilo…"
+                    style={{flex:1, background:'rgba(255,255,255,0.06)', border:'1px solid rgba(255,255,255,0.1)', borderRadius:8, padding:'7px 10px', color:'#fff', fontSize:12, outline:'none'}}
+                  />
+                  <button
+                    onClick={()=>searchTrilhas(trilhasSearch)}
+                    disabled={trilhasLoading}
+                    style={{padding:'7px 14px', background:'rgba(167,139,250,0.18)', border:'1px solid rgba(167,139,250,0.4)', borderRadius:8, color:'#a78bfa', fontSize:12, cursor:'pointer', fontWeight:700, opacity: trilhasLoading?0.6:1}}>
+                    {trilhasLoading ? '…' : 'Buscar'}
+                  </button>
+                </div>
+
+                {/* Filtros rápidos */}
+                <div style={{display:'flex', gap:5, marginTop:8, flexWrap:'wrap'}}>
+                  {TRILHAS_CATS.map(cat=>(
+                    <button key={cat.id}
+                      onClick={()=>{ setTrilhasTab(cat.id); setTrilhasSearch(''); searchTrilhas(cat.q); }}
+                      style={{
+                        padding:'3px 10px', borderRadius:20, border:'1px solid',
+                        borderColor: trilhasTab===cat.id ? 'rgba(167,139,250,0.8)' : 'rgba(255,255,255,0.1)',
+                        background:  trilhasTab===cat.id ? 'rgba(167,139,250,0.2)' : 'rgba(255,255,255,0.04)',
+                        color:       trilhasTab===cat.id ? '#c4b5fd' : '#666',
+                        fontSize:10, fontWeight:700, cursor:'pointer', transition:'all 0.15s'
+                      }}>
+                      {cat.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Lista de resultados */}
+              <div style={{overflowY:'auto', flex:1, padding:'8px 0'}}>
+                {trilhasLoading && (
+                  <div style={{display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', padding:'40px 0', gap:12}}>
+                    <div style={{width:28, height:28, border:'3px solid rgba(167,139,250,0.2)', borderTop:'3px solid #a78bfa', borderRadius:'50%', animation:'spin 0.8s linear infinite'}} />
+                    <span style={{fontSize:12, color:'#555'}}>Buscando trilhas…</span>
+                  </div>
+                )}
+
+                {!trilhasLoading && trilhasResults.length === 0 && (
+                  <div style={{display:'flex', flexDirection:'column', alignItems:'center', padding:'40px 0', gap:8}}>
+                    <span style={{fontSize:28}}>🎼</span>
+                    <span style={{fontSize:12, color:'#555'}}>Nenhuma trilha encontrada</span>
+                    <span style={{fontSize:11, color:'#444'}}>Tente outro estilo ou busca</span>
+                  </div>
+                )}
+
+                {!trilhasLoading && trilhasResults.map(track => {
+                  const isPlaying = trilhasPreviewId === track.id;
+                  const isUsing   = trilhasUsingId   === track.id;
+                  const progress  = isPlaying && track.duration > 0 ? (trilhasPreviewTime / track.duration) * 100 : 0;
+                  return (
+                    <div key={track.id}
+                      style={{
+                        display:'flex', alignItems:'center', gap:10,
+                        padding:'9px 14px', transition:'background 0.12s',
+                        borderBottom:'1px solid rgba(255,255,255,0.04)',
+                        background: isPlaying ? 'rgba(167,139,250,0.07)' : 'transparent'
+                      }}
+                      onMouseEnter={e=>{ if(!isPlaying) e.currentTarget.style.background='rgba(255,255,255,0.04)'; }}
+                      onMouseLeave={e=>{ if(!isPlaying) e.currentTarget.style.background='transparent'; }}
+                    >
+                      {/* Play/Pause */}
+                      <button onClick={()=>toggleTrilhasPreview(track)}
+                        style={{
+                          width:34, height:34, borderRadius:'50%', flexShrink:0,
+                          background: isPlaying ? 'rgba(167,139,250,0.35)' : 'rgba(255,255,255,0.07)',
+                          border:`1px solid ${isPlaying ? 'rgba(167,139,250,0.6)' : 'rgba(255,255,255,0.12)'}`,
+                          cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center',
+                          fontSize:13, color: isPlaying ? '#c4b5fd' : '#888', transition:'all 0.15s'
+                        }}>
+                        {isPlaying ? '⏸' : '▶'}
+                      </button>
+
+                      {/* Info + barra de progresso */}
+                      <div style={{flex:1, minWidth:0}}>
+                        <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:3}}>
+                          <span style={{fontSize:12, fontWeight:600, color: isPlaying ? '#c4b5fd' : '#ccc', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', maxWidth:200}}>
+                            {track.title}
+                          </span>
+                          <span style={{fontSize:10, color:'#555', flexShrink:0, marginLeft:6}}>
+                            {fmtDur(track.duration)}
+                          </span>
+                        </div>
+                        {track.artist && (
+                          <div style={{fontSize:10, color:'#555', marginBottom:4, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>
+                            {track.artist}
+                          </div>
+                        )}
+                        {/* Barra de progresso */}
+                        <div style={{height:3, background:'rgba(255,255,255,0.08)', borderRadius:2, overflow:'hidden'}}>
+                          <div style={{height:'100%', width:`${progress}%`, background:'linear-gradient(90deg,#a78bfa,#c4b5fd)', borderRadius:2, transition:'width 0.5s linear'}} />
+                        </div>
+                        {isPlaying && (
+                          <div style={{fontSize:9, color:'#a78bfa', marginTop:2}}>
+                            {fmtDur(Math.floor(trilhasPreviewTime))} / {fmtDur(track.duration)}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Botões: Baixar + Usar */}
+                      <div style={{display:'flex', gap:5, flexShrink:0}}>
+                        <button
+                          onClick={()=>downloadTrilha(track)}
+                          title="Baixar MP3"
+                          style={{
+                            padding:'5px 9px', borderRadius:7, border:'1px solid rgba(255,255,255,0.12)',
+                            background:'rgba(255,255,255,0.05)', color:'#888', fontSize:12,
+                            cursor:'pointer', transition:'all 0.15s', whiteSpace:'nowrap'
+                          }}
+                          onMouseEnter={e=>{ e.currentTarget.style.background='rgba(255,255,255,0.1)'; e.currentTarget.style.color='#fff'; }}
+                          onMouseLeave={e=>{ e.currentTarget.style.background='rgba(255,255,255,0.05)'; e.currentTarget.style.color='#888'; }}
+                        >⬇</button>
+
+                        <button
+                          onClick={()=>useTrilhaNoProject(track)}
+                          disabled={isUsing}
+                          title="Usar no projeto"
+                          style={{
+                            padding:'5px 10px', borderRadius:7, fontSize:11, fontWeight:700,
+                            border:'1px solid rgba(16,185,129,0.4)',
+                            background: isUsing ? 'rgba(16,185,129,0.25)' : 'rgba(16,185,129,0.15)',
+                            color: isUsing ? '#6ee7b7' : '#10b981',
+                            cursor: isUsing ? 'default' : 'pointer', transition:'all 0.15s', whiteSpace:'nowrap'
+                          }}
+                          onMouseEnter={e=>{ if(!isUsing){ e.currentTarget.style.background='rgba(16,185,129,0.28)'; e.currentTarget.style.color='#6ee7b7'; } }}
+                          onMouseLeave={e=>{ if(!isUsing){ e.currentTarget.style.background='rgba(16,185,129,0.15)'; e.currentTarget.style.color='#10b981'; } }}
+                        >
+                          {isUsing ? '…' : '✅ Usar'}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Footer */}
+              <div style={{padding:'8px 14px', borderTop:'1px solid rgba(255,255,255,0.06)', flexShrink:0, display:'flex', alignItems:'center', justifyContent:'space-between'}}>
+                <span style={{fontSize:9, color:'#444'}}>Áudios via Pixabay Music · Licença livre de royalties</span>
+                {trilhasResults.length > 0 && (
+                  <span style={{fontSize:9, color:'#555'}}>{trilhasResults.length} trilhas</span>
+                )}
+              </div>
+            </div>
+            <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+          </>,
+          document.body
+        )}
 
         {/* ── Lang Toggle ── */}
         <div style={{ flexShrink:0, marginLeft:2 }}>
