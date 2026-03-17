@@ -6011,12 +6011,12 @@ _setDragging(null);
       `}</style>
       
       {/* HEADER CONTROLS — Redesign profissional: barra única com grupos */}
-      <div style={{ display:'flex', alignItems:'center', gap:6, padding:'0 14px', height:52, background:'linear-gradient(180deg,#0d1117 0%,#090d13 100%)', borderBottom:'1px solid rgba(255,255,255,0.07)', width:'100%', boxSizing:'border-box', flexShrink:0, zIndex:100 }}>
+      <div style={{ display:'flex', alignItems:'center', gap:4, padding:'0 10px', height:52, background:'linear-gradient(180deg,#0d1117 0%,#090d13 100%)', borderBottom:'1px solid rgba(255,255,255,0.07)', width:'100%', boxSizing:'border-box', flexShrink:0, zIndex:100 }}>
 
         {/* ── Logo ── */}
-        <div style={{ display:'flex', alignItems:'center', gap:8, marginRight:10, flexShrink:0 }}>
-          <div style={{ width:28, height:28, borderRadius:8, background:'linear-gradient(135deg,#00BFFF,#7b2ff7)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:14 }}>▶</div>
-          <span style={{ fontSize:13, fontWeight:800, color:'#f0f0f0', letterSpacing:'-0.3px', whiteSpace:'nowrap' }}>Canvas<span style={{ color:'#00BFFF' }}>Sync</span></span>
+        <div style={{ display:'flex', alignItems:'center', gap:6, marginRight:6, flexShrink:0 }}>
+          <div style={{ width:24, height:24, borderRadius:7, background:'linear-gradient(135deg,#00BFFF,#7b2ff7)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:12 }}>▶</div>
+          <span style={{ fontSize:12, fontWeight:800, color:'#f0f0f0', letterSpacing:'-0.3px', whiteSpace:'nowrap' }}>Canvas<span style={{ color:'#00BFFF' }}>Sync</span></span>
         </div>
 
         {/* Divisor */}
@@ -6026,11 +6026,11 @@ _setDragging(null);
         <div style={{ position:'relative', flexShrink:0 }}>
           <button ref={(el)=>{ midiaBtnRef.current=el; bgBtnRef.current=el; }}
             onClick={() => { setShowMidiasPanel(v=>!v); setShowExportPanel(false); setShowProjetoPanel(false); }}
-            style={{ display:'flex', alignItems:'center', gap:5, padding:'6px 11px', borderRadius:8, background:showMidiasPanel?'rgba(0,191,255,0.18)':'transparent', border:`1px solid ${showMidiasPanel?'rgba(0,191,255,0.5)':'transparent'}`, cursor:'pointer', color:'#ccc', fontSize:12, fontWeight:600, transition:'all 0.15s', whiteSpace:'nowrap' }}
+            style={{ display:'flex', alignItems:'center', gap:4, padding:'5px 8px', borderRadius:7, background:showMidiasPanel?'rgba(0,191,255,0.18)':'transparent', border:`1px solid ${showMidiasPanel?'rgba(0,191,255,0.5)':'transparent'}`, cursor:'pointer', color:'#ccc', fontSize:11, fontWeight:600, transition:'all 0.15s', whiteSpace:'nowrap' }}
             onMouseEnter={e=>{if(!showMidiasPanel)e.currentTarget.style.background='rgba(255,255,255,0.05)'}}
             onMouseLeave={e=>{if(!showMidiasPanel)e.currentTarget.style.background='transparent'}}
           >
-            <span style={{fontSize:14}}>📂</span> Mídias <span style={{fontSize:9,opacity:0.6}}>▾</span>
+            <span style={{fontSize:13}}>📂</span> Mídias <span style={{fontSize:9,opacity:0.6}}>▾</span>
           </button>
           {showMidiasPanel && createPortal(
             <>
@@ -6066,11 +6066,11 @@ _setDragging(null);
         <div style={{ position:'relative', flexShrink:0 }}>
           <button ref={templateBtnRef}
             onClick={()=>{ const rect=templateBtnRef.current?.getBoundingClientRect(); if(rect) setTemplatePanelPos({top:rect.bottom+4,left:Math.max(10,Math.min(rect.left,window.innerWidth-750))}); setTemplateFormatTab(canvasFormat); setShowTemplatePanel(v=>!v); }}
-            style={{ display:'flex', alignItems:'center', gap:5, padding:'6px 11px', borderRadius:8, background:showTemplatePanel?'rgba(16,185,129,0.18)':'transparent', border:`1px solid ${showTemplatePanel?'rgba(16,185,129,0.5)':'transparent'}`, cursor:'pointer', color:'#ccc', fontSize:12, fontWeight:600, whiteSpace:'nowrap', transition:'all 0.15s' }}
+            style={{ display:'flex', alignItems:'center', gap:4, padding:'5px 8px', borderRadius:7, background:showTemplatePanel?'rgba(16,185,129,0.18)':'transparent', border:`1px solid ${showTemplatePanel?'rgba(16,185,129,0.5)':'transparent'}`, cursor:'pointer', color:'#ccc', fontSize:11, fontWeight:600, whiteSpace:'nowrap', transition:'all 0.15s' }}
             onMouseEnter={e=>{if(!showTemplatePanel)e.currentTarget.style.background='rgba(255,255,255,0.05)'}}
             onMouseLeave={e=>{if(!showTemplatePanel)e.currentTarget.style.background='transparent'}}
           >
-            <span style={{fontSize:14}}>⚡</span> Templates
+            <span style={{fontSize:13}}>⚡</span> Templates
           </button>
           {showTemplatePanel && createPortal(
             <>
@@ -6143,7 +6143,7 @@ _setDragging(null);
         <div style={{ position:'relative', flexShrink:0 }}>
           <button ref={stickerBtnRef}
             onClick={()=>{ const rect=stickerBtnRef.current?.getBoundingClientRect(); if(rect) setStickerPanelPos({top:rect.bottom+4,left:Math.min(rect.left,window.innerWidth-372)}); setShowStickerPanel(v=>!v); }}
-            style={{ display:'flex', alignItems:'center', gap:5, padding:'6px 11px', borderRadius:8, background:showStickerPanel?'rgba(251,191,36,0.18)':'transparent', border:`1px solid ${showStickerPanel?'rgba(251,191,36,0.5)':'transparent'}`, cursor:'pointer', color:'#ccc', fontSize:12, fontWeight:600, whiteSpace:'nowrap', transition:'all 0.15s' }}
+            style={{ display:'flex', alignItems:'center', gap:4, padding:'5px 8px', borderRadius:7, background:showStickerPanel?'rgba(251,191,36,0.18)':'transparent', border:`1px solid ${showStickerPanel?'rgba(251,191,36,0.5)':'transparent'}`, cursor:'pointer', color:'#ccc', fontSize:11, fontWeight:600, whiteSpace:'nowrap', transition:'all 0.15s' }}
             onMouseEnter={e=>{if(!showStickerPanel)e.currentTarget.style.background='rgba(255,255,255,0.05)'}}
             onMouseLeave={e=>{if(!showStickerPanel)e.currentTarget.style.background='transparent'}}
           >
@@ -6203,7 +6203,7 @@ _setDragging(null);
         <div style={{ position:'relative', flexShrink:0 }}>
           <button ref={sfxBtnRef}
             onClick={()=>{ const rect=sfxBtnRef.current?.getBoundingClientRect(); if(rect) setSfxPanelPos({top:rect.bottom+4,left:Math.min(rect.left,window.innerWidth-380)}); setShowSfxPanel(v=>!v); }}
-            style={{ display:'flex', alignItems:'center', gap:5, padding:'6px 11px', borderRadius:8, background:showSfxPanel?'rgba(16,185,129,0.18)':'transparent', border:`1px solid ${showSfxPanel?'rgba(16,185,129,0.5)':'transparent'}`, cursor:'pointer', color:'#ccc', fontSize:12, fontWeight:600, whiteSpace:'nowrap', transition:'all 0.15s' }}
+            style={{ display:'flex', alignItems:'center', gap:4, padding:'5px 8px', borderRadius:7, background:showSfxPanel?'rgba(16,185,129,0.18)':'transparent', border:`1px solid ${showSfxPanel?'rgba(16,185,129,0.5)':'transparent'}`, cursor:'pointer', color:'#ccc', fontSize:11, fontWeight:600, whiteSpace:'nowrap', transition:'all 0.15s' }}
             onMouseEnter={e=>{if(!showSfxPanel)e.currentTarget.style.background='rgba(255,255,255,0.05)'}}
             onMouseLeave={e=>{if(!showSfxPanel)e.currentTarget.style.background='transparent'}}
           >
@@ -6259,10 +6259,10 @@ _setDragging(null);
         <div style={{ position:'relative', flexShrink:0 }}>
           <button ref={frameBtnRef}
             onClick={()=>{ const rect=frameBtnRef.current?.getBoundingClientRect(); if(rect) setFramePanelPos({top:rect.bottom+4,left:Math.min(rect.left,window.innerWidth-420)}); setShowFramePanel(v=>!v); }}
-            style={{ display:'flex', alignItems:'center', gap:5, padding:'6px 11px', borderRadius:8,
+            style={{ display:'flex', alignItems:'center', gap:4, padding:'5px 8px', borderRadius:7,
               background:showFramePanel?'rgba(16,185,129,0.18)':'transparent',
               border:`1px solid ${showFramePanel?'rgba(16,185,129,0.5)':'transparent'}`,
-              cursor:'pointer', color:'#ccc', fontSize:12, fontWeight:600, whiteSpace:'nowrap', transition:'all 0.15s' }}
+              cursor:'pointer', color:'#ccc', fontSize:11, fontWeight:600, whiteSpace:'nowrap', transition:'all 0.15s' }}
             onMouseEnter={e=>{if(!showFramePanel)e.currentTarget.style.background='rgba(255,255,255,0.05)'}}
             onMouseLeave={e=>{if(!showFramePanel)e.currentTarget.style.background=showFramePanel?'rgba(16,185,129,0.18)':'transparent'}}
           >
@@ -6432,7 +6432,7 @@ _setDragging(null);
         <div style={{ position:'relative', flexShrink:0 }}>
           <button ref={fxBtnRef}
             onClick={()=>setShowFxPanel(v=>!v)}
-            style={{ display:'flex', alignItems:'center', gap:5, padding:'6px 11px', borderRadius:8, background:showFxPanel||screenEffect!=='none'?'rgba(167,139,250,0.18)':'transparent', border:`1px solid ${showFxPanel||screenEffect!=='none'?'rgba(167,139,250,0.5)':'transparent'}`, cursor:'pointer', color:'#ccc', fontSize:12, fontWeight:600, whiteSpace:'nowrap', transition:'all 0.15s' }}
+            style={{ display:'flex', alignItems:'center', gap:4, padding:'5px 8px', borderRadius:7, background:showFxPanel||screenEffect!=='none'?'rgba(167,139,250,0.18)':'transparent', border:`1px solid ${showFxPanel||screenEffect!=='none'?'rgba(167,139,250,0.5)':'transparent'}`, cursor:'pointer', color:'#ccc', fontSize:11, fontWeight:600, whiteSpace:'nowrap', transition:'all 0.15s' }}
             onMouseEnter={e=>{if(!showFxPanel)e.currentTarget.style.background='rgba(255,255,255,0.05)'}}
             onMouseLeave={e=>{if(!showFxPanel)e.currentTarget.style.background=showFxPanel||screenEffect!=='none'?'rgba(167,139,250,0.18)':'transparent'}}
           >
@@ -6534,11 +6534,11 @@ _setDragging(null);
         {/* ── Cor & Curvas ── */}
         <div style={{ position:'relative', flexShrink:0 }}>
           <button onClick={()=>setShowKeyframePanel(v=>!v)}
-            style={{ display:'flex', alignItems:'center', gap:5, padding:'6px 11px', borderRadius:8, background:showKeyframePanel?'rgba(251,191,36,0.18)':'transparent', border:`1px solid ${showKeyframePanel?'rgba(251,191,36,0.5)':'transparent'}`, cursor:'pointer', color:'#ccc', fontSize:12, fontWeight:600, whiteSpace:'nowrap', transition:'all 0.15s' }}
+            style={{ display:'flex', alignItems:'center', gap:4, padding:'5px 8px', borderRadius:7, background:showKeyframePanel?'rgba(251,191,36,0.18)':'transparent', border:`1px solid ${showKeyframePanel?'rgba(251,191,36,0.5)':'transparent'}`, cursor:'pointer', color:'#ccc', fontSize:11, fontWeight:600, whiteSpace:'nowrap', transition:'all 0.15s' }}
             onMouseEnter={e=>{if(!showKeyframePanel)e.currentTarget.style.background='rgba(255,255,255,0.05)'}}
             onMouseLeave={e=>{if(!showKeyframePanel)e.currentTarget.style.background=showKeyframePanel?'rgba(251,191,36,0.18)':'transparent'}}
           >
-            <span style={{fontSize:14}}>🎨</span> Cor & Curvas
+            <span style={{fontSize:13}}>🎨</span> Cor & Curvas
           </button>
           {showKeyframePanel && (() => {
             const r2 = fxBtnRef.current?.getBoundingClientRect();
@@ -6600,7 +6600,7 @@ _setDragging(null);
             onClick={undo}
             disabled={!canUndo}
             title="Desfazer (Ctrl+Z)"
-            style={{ display:'flex', alignItems:'center', justifyContent:'center', width:32, height:32, borderRadius:8, background:'transparent', border:'1px solid transparent', cursor:canUndo?'pointer':'not-allowed', color:canUndo?'#a78bfa':'#333', fontSize:16, transition:'all 0.15s', flexShrink:0 }}
+            style={{ display:'flex', alignItems:'center', justifyContent:'center', width:28, height:28, borderRadius:7, background:'transparent', border:'1px solid transparent', cursor:canUndo?'pointer':'not-allowed', color:canUndo?'#a78bfa':'#333', fontSize:14, transition:'all 0.15s', flexShrink:0 }}
             onMouseEnter={e=>{ if(canUndo){ e.currentTarget.style.background='rgba(167,139,250,0.1)'; e.currentTarget.style.borderColor='rgba(167,139,250,0.3)'; }}}
             onMouseLeave={e=>{ e.currentTarget.style.background='transparent'; e.currentTarget.style.borderColor='transparent'; }}
           >↩</button>
@@ -6608,7 +6608,7 @@ _setDragging(null);
             onClick={redo}
             disabled={!canRedo}
             title="Refazer (Ctrl+Y)"
-            style={{ display:'flex', alignItems:'center', justifyContent:'center', width:32, height:32, borderRadius:8, background:'transparent', border:'1px solid transparent', cursor:canRedo?'pointer':'not-allowed', color:canRedo?'#a78bfa':'#333', fontSize:16, transition:'all 0.15s', flexShrink:0 }}
+            style={{ display:'flex', alignItems:'center', justifyContent:'center', width:28, height:28, borderRadius:7, background:'transparent', border:'1px solid transparent', cursor:canRedo?'pointer':'not-allowed', color:canRedo?'#a78bfa':'#333', fontSize:14, transition:'all 0.15s', flexShrink:0 }}
             onMouseEnter={e=>{ if(canRedo){ e.currentTarget.style.background='rgba(167,139,250,0.1)'; e.currentTarget.style.borderColor='rgba(167,139,250,0.3)'; }}}
             onMouseLeave={e=>{ e.currentTarget.style.background='transparent'; e.currentTarget.style.borderColor='transparent'; }}
           >↪</button>
@@ -6617,7 +6617,7 @@ _setDragging(null);
         {/* ── Limpar tudo ── */}
         <button
           onClick={handleClearProject}
-          style={{ display:'flex', alignItems:'center', gap:5, padding:'6px 11px', borderRadius:8, background:'transparent', border:'1px solid transparent', cursor:'pointer', color:'#f87171', fontSize:12, fontWeight:600, whiteSpace:'nowrap', transition:'all 0.15s', flexShrink:0 }}
+          style={{ display:'flex', alignItems:'center', gap:4, padding:'5px 8px', borderRadius:7, background:'transparent', border:'1px solid transparent', cursor:'pointer', color:'#f87171', fontSize:11, fontWeight:600, whiteSpace:'nowrap', transition:'all 0.15s', flexShrink:0 }}
           onMouseEnter={e=>{ e.currentTarget.style.background='rgba(239,68,68,0.08)'; e.currentTarget.style.borderColor='rgba(239,68,68,0.25)'; }}
           onMouseLeave={e=>{ e.currentTarget.style.background='transparent'; e.currentTarget.style.borderColor='transparent'; }}
         >
@@ -6628,7 +6628,7 @@ _setDragging(null);
         <div style={{ position:'relative', flexShrink:0 }}>
           <button ref={projetoBtnRef}
             onClick={()=>{ setShowProjetoPanel(v=>!v); setShowExportPanel(false); }}
-            style={{ display:'flex', alignItems:'center', gap:5, padding:'6px 11px', borderRadius:8, background:showProjetoPanel?'rgba(255,255,255,0.12)':'transparent', border:`1px solid ${showProjetoPanel?'rgba(255,255,255,0.2)':'transparent'}`, cursor:'pointer', color:'#888', fontSize:12, fontWeight:600, whiteSpace:'nowrap', transition:'all 0.15s' }}
+            style={{ display:'flex', alignItems:'center', gap:4, padding:'5px 8px', borderRadius:7, background:showProjetoPanel?'rgba(255,255,255,0.12)':'transparent', border:`1px solid ${showProjetoPanel?'rgba(255,255,255,0.2)':'transparent'}`, cursor:'pointer', color:'#888', fontSize:11, fontWeight:600, whiteSpace:'nowrap', transition:'all 0.15s' }}
             onMouseEnter={e=>{if(!showProjetoPanel)e.currentTarget.style.background='rgba(255,255,255,0.05)'}}
             onMouseLeave={e=>{if(!showProjetoPanel)e.currentTarget.style.background='transparent'}}
           >
@@ -6662,7 +6662,7 @@ _setDragging(null);
         <div style={{ position:'relative', flexShrink:0 }}>
           <button ref={exportBtnRef}
             onClick={()=>{ setShowExportPanel(v=>!v); setShowProjetoPanel(false); }}
-            style={{ display:'flex', alignItems:'center', gap:5, padding:'6px 13px', borderRadius:8, background:showExportPanel?'rgba(0,191,255,0.22)':'rgba(0,191,255,0.1)', border:`1px solid ${showExportPanel?'rgba(0,191,255,0.6)':'rgba(0,191,255,0.25)'}`, cursor:'pointer', color:'#00BFFF', fontSize:12, fontWeight:700, whiteSpace:'nowrap', transition:'all 0.15s' }}
+            style={{ display:'flex', alignItems:'center', gap:4, padding:'5px 10px', borderRadius:7, background:showExportPanel?'rgba(0,191,255,0.22)':'rgba(0,191,255,0.1)', border:`1px solid ${showExportPanel?'rgba(0,191,255,0.6)':'rgba(0,191,255,0.25)'}`, cursor:'pointer', color:'#00BFFF', fontSize:11, fontWeight:700, whiteSpace:'nowrap', transition:'all 0.15s' }}
           >
             <span style={{fontSize:13}}>⬇</span> Exportar <span style={{fontSize:9,opacity:0.7}}>▾</span>
           </button>
@@ -6828,6 +6828,11 @@ _setDragging(null);
             document.body
           );
         })()}
+
+        {/* ── Lang Toggle ── */}
+        <div style={{ flexShrink:0, marginLeft:2 }}>
+          <LangToggle />
+        </div>
 
       </div>{/* fim HEADER CONTROLS */}
 
