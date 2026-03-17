@@ -6710,8 +6710,7 @@ _setDragging(null);
           )}
         </div>
 
-        {/* ── Lang + inputs ocultos ── */}
-        <LangToggle style={{ marginLeft:4 }} />
+        {/* ── inputs ocultos ── */}
         <input ref={bgInputRef}     type="file" onChange={handleImageChange}  accept="image/*"          style={{display:'none'}} />
         <input ref={imagesInputRef} type="file" onChange={handleImagesChange} accept="image/*" multiple style={{display:'none'}} />
         <input ref={audioInputRef}  type="file" onChange={handleAudioChange}  accept="audio/*"          style={{display:'none'}} />
