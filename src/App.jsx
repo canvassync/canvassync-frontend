@@ -1010,6 +1010,7 @@ function App() {
   const isUndoingRef      = useRef(false);// bloqueia gravação durante restauração
   const pendingHistoryRef = useRef(false);// sinaliza que próximo useEffect deve gravar
   const videoTrashRef     = useRef({});   // {id: {videoEl, src}} — videoEls preservados para undo
+  const allVideoEls       = useRef({});   // {id: {videoEl, audioBuffer}} — TODOS os videoEls, nunca destruídos
   const [canUndo, setCanUndo] = useState(false);
   const [canRedo, setCanRedo] = useState(false);
   const MAX_HISTORY = 60;
@@ -1744,7 +1745,9 @@ function App() {
         setVideos(prev => {
           if (prev.find(v => v.id === id)) return prev;
           const initSpeed = projectSpeedRef.current ?? 1;
-          return [...prev, { id, src: finalSrc || src, videoEl, audioBuffer, start, end, x, y, width: w, height: h, radius: 12, muted: false, vidVolume: projectVolumeRef.current ?? 1, vidSpeed: initSpeed, rawDuration: finalDuration }];
+          const newVid = { id, src: finalSrc || src, videoEl, audioBuffer, start, end, x, y, width: w, height: h, radius: 12, muted: false, vidVolume: projectVolumeRef.current ?? 1, vidSpeed: initSpeed, rawDuration: finalDuration };
+          allVideoEls.current[id] = { videoEl, audioBuffer };
+          return [...prev, newVid];
         });
       };
 
@@ -2020,30 +2023,36 @@ function App() {
       img.src = item.src || '';
       return { ...item, img };
     }));
-    // Videos — tenta na ordem: (1) ainda existe em videosRef, (2) está no trash
+    // Videos — usa allVideoEls como fonte definitiva (nunca perde um videoEl)
     const restoredVideos = snap.videos.map(v => {
-      // 1. Vídeo ainda ativo
-      const live = (videosRef.current || []).find(ev => ev.id === v.id);
-      if (live?.videoEl) return { ...v, videoEl: live.videoEl, audioBuffer: live.audioBuffer };
-      // 2. Vídeo foi deletado mas preservado no trash
-      const trashed = videoTrashRef.current[v.id];
-      if (trashed?.videoEl) {
-        const el = trashed.videoEl;
-        // Reanexa ao DOM se necessário
+      // Lookup no registry completo de todos os videos já carregados
+      const registered = allVideoEls.current[v.id];
+      if (registered?.videoEl) {
+        const el = registered.videoEl;
+        // Reanexa ao DOM se foi removido
         if (!el.parentNode) {
           el.style.cssText = 'position:fixed;width:1px;height:1px;visibility:hidden;pointer-events:none;top:-9999px;left:-9999px';
           document.body.appendChild(el);
         }
-        // Garante que o elemento está pronto para renderizar
         el.pause();
         el.muted = true;
-        // Volta ao início do clipe (trimStart)
-        el.currentTime = v.trimStart ?? 0;
-        // Remove do trash — voltou para estado ativo
+        // Se readyState zerou, força reload mantendo src
+        if (el.readyState === 0 && el.src) { el.load(); }
+        return { ...v, videoEl: el, audioBuffer: registered.audioBuffer };
+      }
+      // Fallback — também checa trash legacy
+      const trashed = videoTrashRef.current[v.id];
+      if (trashed?.videoEl) {
+        const el = trashed.videoEl;
+        if (!el.parentNode) {
+          el.style.cssText = 'position:fixed;width:1px;height:1px;visibility:hidden;pointer-events:none;top:-9999px;left:-9999px';
+          document.body.appendChild(el);
+        }
+        el.pause(); el.muted = true;
+        if (el.readyState === 0 && el.src) { el.load(); }
         delete videoTrashRef.current[v.id];
         return { ...v, videoEl: el, audioBuffer: trashed.audioBuffer };
       }
-      // 3. Fallback sem videoEl
       return v;
     });
     setVideos(restoredVideos);
@@ -3313,8 +3322,16 @@ _setDragging(null);
     ctx.save();
     try {
       switch(effect) {
-        case 'vignette': { const vg=ctx.createRadialGradient(W/2,H/2,Math.min(W,H)*0.3,W/2,H/2,Math.max(W,H)*0.75); vg.addColorStop(0,'transparent'); vg.addColorStop(1,'rgba(0,0,0,0.72)'); ctx.fillStyle=vg; ctx.fillRect(0,0,W,H); break; }
-        case 'film_grain': { for(let i=0;i<600;i++){const gx=Math.random()*W,gy=Math.random()*H;ctx.fillStyle=`rgba(255,255,255,${Math.random()*0.25})`;ctx.fillRect(gx,gy,1,1);} const fvg=ctx.createRadialGradient(W/2,H/2,Math.min(W,H)*0.4,W/2,H/2,Math.max(W,H)*0.75); fvg.addColorStop(0,'transparent'); fvg.addColorStop(1,'rgba(0,0,0,0.4)'); ctx.fillStyle=fvg; ctx.fillRect(0,0,W,H); break; }
+        case 'vignette': { const vg=ctx.createRadialGradient(W/2,H/2,Math.min(W,H)*0.15,W/2,H/2,Math.max(W,H)*0.72); vg.addColorStop(0,'rgba(0,0,0,0)'); vg.addColorStop(0.5,'rgba(0,0,0,0.3)'); vg.addColorStop(1,'rgba(0,0,0,0.92)'); ctx.fillStyle=vg; ctx.fillRect(0,0,W,H); break; }
+        case 'film_grain': {
+          // Grain visível em múltiplos tamanhos
+          for(let i=0;i<1500;i++){const gx=Math.random()*W,gy=Math.random()*H,gs=Math.random()<0.7?1:2;const gv=Math.random();ctx.fillStyle=gv>0.5?`rgba(255,255,255,${0.15+Math.random()*0.35})`:`rgba(0,0,0,${0.1+Math.random()*0.25})`;ctx.fillRect(gx,gy,gs,gs);}
+          // Vinheta
+          const fvg=ctx.createRadialGradient(W/2,H/2,Math.min(W,H)*0.3,W/2,H/2,Math.max(W,H)*0.75); fvg.addColorStop(0,'transparent'); fvg.addColorStop(1,'rgba(0,0,0,0.55)'); ctx.fillStyle=fvg; ctx.fillRect(0,0,W,H);
+          // Overlay sépia leve
+          ctx.fillStyle='rgba(40,25,5,0.12)'; ctx.fillRect(0,0,W,H);
+          break;
+        }
         case 'vintage': { ctx.fillStyle='rgba(100,60,0,0.18)'; ctx.fillRect(0,0,W,H); const vvg=ctx.createRadialGradient(W/2,H/2,Math.min(W,H)*0.3,W/2,H/2,Math.max(W,H)*0.75); vvg.addColorStop(0,'transparent'); vvg.addColorStop(1,'rgba(40,20,0,0.5)'); ctx.fillStyle=vvg; ctx.fillRect(0,0,W,H); ctx.strokeStyle='rgba(255,240,200,0.08)'; ctx.lineWidth=1; for(let i=0;i<3;i++){const sx=((i*317+Math.floor(ph*2)*89)%W+W)%W; ctx.beginPath(); ctx.moveTo(sx,0); ctx.lineTo(sx+2,H); ctx.stroke();} break; }
         case 'tv_static': { for(let y=0;y<H;y+=2){ctx.fillStyle=`rgba(0,0,0,${Math.random()*0.06})`;ctx.fillRect(0,y,W,1);} for(let i=0;i<400;i++){const nx=Math.random()*W,ny=Math.random()*H,nv=Math.floor(Math.random()*255);ctx.fillStyle=`rgba(${nv},${nv},${nv},0.4)`;ctx.fillRect(nx,ny,2,2);} if(Math.random()<0.15){ctx.fillStyle='rgba(255,255,255,0.08)';ctx.fillRect(0,Math.random()*H,W,1+Math.random()*3);} break; }
         case 'vhs': { for(let y=0;y<H;y+=3){ctx.fillStyle='rgba(0,0,0,0.18)';ctx.fillRect(0,y,W,1);} ctx.globalCompositeOperation='screen'; ctx.fillStyle='rgba(255,0,0,0.04)';ctx.fillRect(2,0,W,H); ctx.fillStyle='rgba(0,0,255,0.04)';ctx.fillRect(-2,0,W,H); ctx.globalCompositeOperation='source-over'; const barY=((ph*30)%H+H)%H; ctx.fillStyle='rgba(255,255,255,0.06)';ctx.fillRect(0,barY,W,12); break; }
