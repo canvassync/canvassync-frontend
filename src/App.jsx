@@ -915,9 +915,6 @@ const CANVAS_TEMPLATES = [
     ]},
 ];
 
-// ── 🔑 Chave da API Pixabay — substitua pelo seu valor ───────────────────────
-const PIXABAY_API_KEY = '55068631-9449770cc54d7b020d3cf5f1b';
-
 function App() {
   const { user, isLoggedIn, isPro, loading: authLoading } = useAuth();
   const { t, lang } = useLanguage();
@@ -994,12 +991,9 @@ function App() {
   const [bgSearchResults, setBgSearchResults] = useState([]);
   const [bgSearchLoading, setBgSearchLoading] = useState(false);
   const [bgTab, setBgTab] = useState('gradients');
-  // ── Trilhas Pixabay ────────────────────────────────────────────────────────
+  // ── Trilhas (biblioteca local) ─────────────────────────────────────────────
   const [showTrilhasPanel, setShowTrilhasPanel]   = useState(false);
-  const [trilhasTab, setTrilhasTab]               = useState('electronic');
   const [trilhasSearch, setTrilhasSearch]         = useState('');
-  const [trilhasResults, setTrilhasResults]       = useState([]);
-  const [trilhasLoading, setTrilhasLoading]       = useState(false);
   const [trilhasPreviewId, setTrilhasPreviewId]   = useState(null);
   const [trilhasPreviewTime, setTrilhasPreviewTime] = useState(0);
   const [trilhasUsingId, setTrilhasUsingId]       = useState(null);
@@ -1915,18 +1909,180 @@ function App() {
     }
   };
 
-  // ── Trilhas Pixabay ────────────────────────────────────────────────────────
-  const TRILHAS_CATS = [
-    { id:'electronic', label:'Eletrônico',  q:'electronic'    },
-    { id:'hiphop',     label:'Hip-hop',     q:'hip hop'       },
-    { id:'cinematic',  label:'Cinemático',  q:'cinematic'     },
-    { id:'pop',        label:'Pop',         q:'pop'           },
-    { id:'rock',       label:'Rock',        q:'rock'          },
-    { id:'jazz',       label:'Jazz',        q:'jazz'          },
-    { id:'rnb',        label:'R&B Soul',    q:'r&b soul'      },
-    { id:'classical',  label:'Clássico',    q:'classical'     },
-    { id:'folk',       label:'Folk',        q:'folk acoustic' },
-    { id:'ambient',    label:'Ambient',     q:'ambient'       },
+  // ── Trilhas — biblioteca local (/public/trilhas) ───────────────────────────
+  const BASE_URL = 'https://raw.githubusercontent.com/canvassync/canvassync-frontend/main/public/trilhas/';
+
+  const TRILHAS_LIST = [
+    { id:1,   title:'1st',                              artist:'',                          file:'1st.mp3' },
+    { id:2,   title:'Electric',                         artist:'Akacia',                    file:'akacia-electric-ncs-release.mp3' },
+    { id:3,   title:'AndreoBee Full Outro Song',        artist:'',                          file:'andreobee-full-outro-song.mp3' },
+    { id:4,   title:'Cyberpunk',                        artist:'Alex Productions',          file:'angry-dubstep-music-no-copyright-cyberpunk-by-alex-productions.mp3' },
+    { id:5,   title:'Arms Dealer',                      artist:'Anno Domini Beats',         file:'anno-domini-beats-arms-dealer.mp3' },
+    { id:6,   title:'Glass',                            artist:'Anno Domini Beats',         file:'anno-domini-beats-glass.mp3' },
+    { id:7,   title:'Sinister',                         artist:'Anno Domini Beats',         file:'anno-domini-beats-sinister.mp3' },
+    { id:8,   title:'Arms Dealer',                      artist:'Anno Domini Beats',         file:'arms-dealer-anno-domini-beats.mp3' },
+    { id:9,   title:'Arrival',                          artist:'',                          file:'arrival.mp3' },
+    { id:10,  title:'Tin Man',                          artist:'Ava Low',                   file:'ava-low-tin-man-royalty-free-music.mp3' },
+    { id:11,  title:'Awake',                            artist:'Sappheiros',                file:'awake-by-sappheiros-chinese-electronic-music-no-copyright.mp3' },
+    { id:12,  title:'Back To 1981',                     artist:'Iaio',                      file:'back-to-1981-iaio-free-background-music-audio-library-release.mp3' },
+    { id:13,  title:'Bathtub Explorations',             artist:'',                          file:'bathtub-explorations.m4a' },
+    { id:14,  title:'Alone',                            artist:'BEAUZ & Heleen',            file:'beauz-heleen-alone-ncs-release.mp3' },
+    { id:15,  title:'Book The Rental Wit It',           artist:'RAGE',                      file:'book-the-rental-wit-it-rage.mp3' },
+    { id:16,  title:'Breakpoint',                       artist:'Eoin Mantell',              file:'breakpoint-eoin-mantell.mp3' },
+    { id:17,  title:'CarryMinati Background Music 2',   artist:'',                          file:'carryminati-background-music-2.mp3' },
+    { id:18,  title:'CarryMinati BackGround Music',     artist:'',                          file:'carryminati-background-music.mp3' },
+    { id:19,  title:'Traveller',                        artist:'Unfeel',                    file:'chill-electronic-calm-by-unfeel-no-copyright-music-traveller.mp3' },
+    { id:20,  title:'Breakfast In Paris',               artist:'Alex-Productions',          file:'chilling-stylish-lo-fi-hip-hop-by-alex-productions-no-copyright-music-breakfast-in-paris.mp3' },
+    { id:21,  title:'Chosen One',                       artist:'Verified Picasso',          file:'chosen-one-verified-picasso.mp3' },
+    { id:22,  title:'Tales From The Grave',             artist:'Christoffer Moe Ditlevsen', file:'christoffer-moe-ditlevsen-tales-from-the-grave-royalty-free-music.mp3' },
+    { id:23,  title:'Cinema',                           artist:'',                          file:'cinematic-background-music-for-videos-no-copyright-music-cinema.mp3' },
+    { id:24,  title:'Epic Shield',                      artist:'Alex-Productions',          file:'cinematic-epic-orchestra-by-alex-productions-no-copyright-music-epic-shield.mp3' },
+    { id:25,  title:'Call Of Duty Black Ops Main Theme',artist:'Cold War',                  file:'cold-war-call-of-duty-black-ops-cold-war-main-theme.mp3' },
+    { id:26,  title:'Comedy Music Background',          artist:'',                          file:'comedy-music-background-instrumental-no-copyright-background-music.mp3' },
+    { id:27,  title:'Comical Question Mark',            artist:'',                          file:'comical-question-mark-sound-effect-for-editing-free-copyright.mp3' },
+    { id:28,  title:'Contrast',                         artist:'Anno Domini Beats',         file:'contrast-anno-domini-beats.mp3' },
+    { id:29,  title:'Eastridge Turnstile',              artist:'The Loyalist',              file:'copyright-free-aesthetic-music-eastridge-turnstile-by-the-loyalist.mp3' },
+    { id:30,  title:'Reality',                          artist:'ASHUTOSH',                  file:'copyright-free-indian-music-chill-trap-reality-by-ashutosh.mp3' },
+    { id:31,  title:'Night City',                       artist:'MokkaMusic',                file:'cozy-lo-fi-background-calm-music-by-mokkamusic-night-city.mp3' },
+    { id:32,  title:'Crazy',                            artist:'Patrick Patrikios',         file:'crazy-patrick-patrikios.mp3' },
+    { id:33,  title:'Culture',                          artist:'Anno Domini Beats',         file:'culture-anno-domini-beats.mp3' },
+    { id:34,  title:'Cutting It Close',                 artist:'DJ Freedem',                file:'cutting-it-close-dj-freedem.mp3' },
+    { id:35,  title:'Risky Business',                   artist:'Infraction',                file:'cyberpunk-electro-retro-by-infraction-no-copyright-music-risky-business.mp3' },
+    { id:36,  title:'Big Plans',                        artist:'Dancehall Riddim',          file:'dancehall-riddim-instrumental-2023-big-plans.mp3' },
+    { id:37,  title:'Dark Tranquility',                 artist:'Anno Domini Beats',         file:'dark-tranquility-anno-domini-beats.mp3' },
+    { id:38,  title:'Dark Zephyr',                      artist:'Audio Hertz',               file:'dark-zephyr-audio-hertz.mp3' },
+    { id:39,  title:'Deathtown',                        artist:'',                          file:'deathtown-free-no-copyright-beat-2023.mp3' },
+    { id:40,  title:'Darix Togni',                      artist:'Digi G Alessio',            file:'digi-g-alessio-darix-togni.mp3' },
+    { id:41,  title:'Doraemon No Uta',                  artist:'Doraemon Lofi',             file:'doraemon-lofi-doraemon-no-uta-theme-song.mp3' },
+    { id:42,  title:'Doraemon',                         artist:'',                          file:'doraemon.mp3' },
+    { id:43,  title:'Drop',                             artist:'Anno Domini Beats',         file:'drop-anno-domini-beats.mp3' },
+    { id:44,  title:'Eine Kleine Nachtmusik',           artist:'Mozart',                    file:'eine-kleine-nachtmusik-mozart.mp3' },
+    { id:45,  title:'El Secreto',                       artist:'Yung Logos',                file:'el-secreto-yung-logos.mp3' },
+    { id:46,  title:'How Many Times',                   artist:'Alex-Productions',          file:'electronic-hybrid-future-bass-by-alex-productions-no-copyright-music-how-many-times.mp3' },
+    { id:47,  title:'Warrior',                          artist:'Yoitrax',                   file:'electronic-japanese-music-royalty-free-warrior-by-yoitrax.mp3' },
+    { id:48,  title:'Cinematic',                        artist:'Aylex',                     file:'epic-trailer-build-up-free-no-copyright-legendary-movie-film-background-music-cinematic-by-aylex.mp3' },
+    { id:49,  title:'Ritmo',                            artist:'Alex-Productions',          file:'extreme-electronic-stomp-trailer-by-alex-productions-no-copyright-music-ritmo.mp3' },
+    { id:50,  title:'Fight',                            artist:'Alex-Productions',          file:'extreme-powerful-energetic-midtempo-cyberpunk-music-by-alex-productions-no-copyright-music-fight.mp3' },
+    { id:51,  title:'Push',                             artist:'Alex-Productions',          file:'extreme-sport-electronic-stomp-by-alex-productions-no-copyright-music-push.mp3' },
+    { id:52,  title:'Faraway',                          artist:'Lucjo',                     file:'faraway-lucjo-free-background-music-audio-library-release.mp3' },
+    { id:53,  title:'Magazines',                        artist:'Infraction',                file:'fashion-calm-technology-by-infraction-no-copyright-music-magazines.mp3' },
+    { id:54,  title:'Stand Up',                         artist:'Infraction',                file:'fashion-saxophone-rnb-beat-by-infraction-no-copyright-music-stand-up.mp3' },
+    { id:55,  title:'Feelin Fine',                      artist:'Infraction',                file:'fashion-saxophone-trap-by-infraction-copyright-free-music-feelin-fine.mp3' },
+    { id:56,  title:'Sunset Lounge',                    artist:'Infraction',                file:'fashion-stylish-house-by-infraction-oddvision-no-copyright-music-sunset-lounge.mp3' },
+    { id:57,  title:'Whistling Rap',                    artist:'Infraction',                file:'fashion-stylish-r-b-by-infraction-no-copyright-music-whistling-rap.mp3' },
+    { id:58,  title:'Chilling Time',                    artist:'Infraction',                file:'fashion-vlog-lo-fi-hip-hop-by-oddvision-infraction-no-copyright-music-chilling-time.mp3' },
+    { id:59,  title:'Matrix',                           artist:'FAYZED',                    file:'fayzed-matrix-hard-flute-type-beat-trap-instrumental-beat.mp3' },
+    { id:60,  title:'Feel',                             artist:'Land Of Fire',              file:'feel-land-of-fire-no-copyright-music-release-preview.mp3' },
+    { id:61,  title:'Finally The Sun',                  artist:'NCS FF',                    file:'finally-the-sun-fact-background-music-ncs-ff.mp3' },
+    { id:62,  title:'Flute Beat',                       artist:'BeatboX',                   file:'flute-beat-copyright-free-music-beatbox.mp3' },
+    { id:63,  title:'Heads Up',                         artist:'',                          file:'free-beats-no-copyright-heads-up-free-type-beat-hype-type-trap-beat-instrumental.mp3' },
+    { id:64,  title:'Cutthroat',                        artist:'Syndrome',                  file:'free-old-school-dark-rap-beat-cutthroat-prod-by-syndrome.mp3' },
+    { id:65,  title:'Swoosh Whoosh',                    artist:'',                          file:'free-transition-sounds-effects-swoosh-swish-whoosh.mp3' },
+    { id:66,  title:'Funky Thing',                      artist:'Infraction',                file:'funk-stylish-groove-by-infraction-no-copyright-music-funky-thing.mp3' },
+    { id:67,  title:'Funky Background Music',           artist:'',                          file:'funky-background-music-for-video-royalty-free-funk-music.mp3' },
+    { id:68,  title:'Scheming Weasel',                  artist:'Kevin MacLeod',             file:'funny-background-music-music-04-scheming-weasel-kevin-macleod-no-copyright-ss-1912.mp3' },
+    { id:69,  title:'AndreoBee Song',                   artist:'Funny Background Song',     file:'funny-background-song-andreobee-song.mp3' },
+    { id:70,  title:'Glass',                            artist:'Anno Domini Beats',         file:'glass-anno-domini-beats.mp3' },
+    { id:71,  title:'Gully Dreams',                     artist:'Hanu Dixit',                file:'gully-dreams-hanu-dixit.mp3' },
+    { id:72,  title:'Whistle',                          artist:'Alex Productions',          file:'happy-lofi-music-for-videos-whistle-by-alex-productions.mp3' },
+    { id:73,  title:'Russian Slav',                     artist:'Leo',                       file:'hard-bass-type-beat-russian-slav-prod-leo-hard-bass-type-beat.mp3' },
+    { id:74,  title:'Hidden',                           artist:'Alex-Productions',          file:'hidden-alex-productions-no-copyright-music.mp3' },
+    { id:75,  title:'Hopeless',                         artist:'Jimena Contreras',          file:'hopeless-jimena-contreras.mp3' },
+    { id:76,  title:'Horror Background Music',          artist:'',                          file:'horror-music-no-copyright-horror-background-music-no-copyright-non-copyrighted-scary-music.mp3' },
+    { id:77,  title:'Illusions',                        artist:'Anno Domini Beats',         file:'illusions-anno-domini-beats.mp3' },
+    { id:78,  title:'Indian Bollywood Sampled',         artist:'',                          file:'indian-bollywood-sampled-x-west.mp3' },
+    { id:79,  title:'Ethereal Dream',                   artist:'Artificial Music',          file:'indian-r-b-electronic-music-for-videos-ethereal-dream-by-artificial-music-ashutosh.mp3' },
+    { id:80,  title:'Inspire',                          artist:'ASHUTOSH',                  file:'inspire-by-ashutosh.mp3' },
+    { id:81,  title:'Instrumental Trap 11',             artist:'',                          file:'instrumental-trap-11.mp3' },
+    { id:82,  title:'Instrumental Trap 8',              artist:'',                          file:'instrumental-trap-8.mp3' },
+    { id:83,  title:'Intense Action',                   artist:'Argsound',                  file:'intense-action-background-music-cinematic-music-by-argsound.mp3' },
+    { id:84,  title:'It Takes Two To Tango',            artist:'Vanoss Gaming',             file:'it-takes-two-to-tango-vanoss-gaming-background-music-hd.mp3' },
+    { id:85,  title:'Jazz In Paris',                    artist:'',                          file:'jazz-in-paris.mp3' },
+    { id:86,  title:'Jazz Hip Hop',                     artist:'Cosimo Fogg',               file:'jazzaddicts-by-cosimo-fogg-jazz-hip-hop-no-copyright-music.mp3' },
+    { id:87,  title:'Bus Rider',                        artist:'John Swihart',              file:'john-swihart-bus-rider.mp3' },
+    { id:88,  title:'Klondike',                         artist:'Audio Hertz',               file:'klondike-audio-hertz.mp3' },
+    { id:89,  title:'Late Night Driving',               artist:'Broke In Summer',           file:'late-night-driving-broke-in-summer-free-background-music-audio-library-release.mp3' },
+    { id:90,  title:'Heroic',                           artist:'Alex-Productions',          file:'legendary-epic-heroic- cinematic-music-by-alex-productions-no-copyright-music-free-music-heroic.mp3' },
+    { id:91,  title:'Less Rake',                        artist:'Tubebackr',                 file:'less-rake-tubebackr-no-copyright-music.mp3' },
+    { id:92,  title:'Chill Vibes',                      artist:'Pufino',                    file:'lofi-hip-hop-beat-no-copyright-free-soft-calm-aesthetic-background-music-chill-vibes-by-pufino.mp3' },
+    { id:93,  title:'Forgive Me',                       artist:'Italics',                   file:'lofi-hip-hop-instrumental-rap-free-no-copyright-sound-chill-type-beat-italics-forgive-me.mp3' },
+    { id:94,  title:'Blue Moon',                        artist:'Lo-fi Type Beat',           file:'lo-fi-type-beat-blue-moon.mp3' },
+    { id:95,  title:'Lottery',                          artist:'Anno Domini Beats',         file:'lottery-anno-domini-beats.mp3' },
+    { id:96,  title:'Luck Witch',                       artist:'Audio Hertz',               file:'luck-witch-audio-hertz.mp3' },
+    { id:97,  title:'Mario Jump Sound Effect',          artist:'',                          file:'mario-jump-sound-effect-download.m4a' },
+    { id:98,  title:'Take It Easy',                     artist:'MBB',                       file:'mbb-take-it-easy.mp3' },
+    { id:99,  title:'Mission Start',                    artist:'The Brothers Records',      file:'mission-start-the-brothers-records.mp3' },
+    { id:100, title:'Mission To Mars',                  artist:'Audio Hertz',               file:'mission-to-mars-audio-hertz.mp3' },
+    { id:101, title:'Mixkit CBPD 400',                  artist:'',                          file:'mixkit-cbpd-400.mp3' },
+    { id:102, title:'Mr Gyani Fact',                    artist:'NCS FF',                    file:'mr-gyani-fact-fact-background-music-ncs-ff.mp3' },
+    { id:103, title:'Never Surrender',                  artist:'Anno Domini Beats',         file:'never-surrender-anno-domini-beats.mp3' },
+    { id:104, title:'Ember',                            artist:'Kubbi',                     file:'no-copyright-music-kubbi-ember-chiptune.mp3' },
+    { id:105, title:'Circles',                          artist:'Lensko',                    file:'no-copyright-music-lensko-circles-norwegian-house.mp3' },
+    { id:106, title:'Groove Day Hip Hop Beat',          artist:'',                          file:'no-copyright-groove-day-hip-hop-beat-groove-and-modern-background.mp3' },
+    { id:107, title:'Resonate',                         artist:'Aoeris',                    file:'non-copyrighted-music-aoeris-resonate-bc-release.mp3' },
+    { id:108, title:'Herbal Tea',                       artist:'SmartToaster',              file:'non-copyrighted-music-smarttoaster-herbal-tea-lo-fi.mp3' },
+    { id:109, title:'Not For Nothing',                  artist:'Otis McDonald',             file:'not-for-nothing-otis-mcdonald-no-copyright-music.mp3' },
+    { id:110, title:'Chase',                            artist:'Alexander Nakarada',        file:'royalty-free-chase-fast-music-chase-by-alexander-nakarada.mp3' },
+    { id:111, title:'Oh What A Whirl',                  artist:'',                          file:'oh-what-a-whirl.mp3' },
+    { id:112, title:'Okay Energy',                      artist:'',                          file:'okay-energy.mp3' },
+    { id:113, title:'Her Name Is Edith',                artist:'OTE',                       file:'ote-her-name-is-edith-instrumental-version-royalty-free-music.mp3' },
+    { id:114, title:'Orange Marmalade',                 artist:'OTE',                       file:'ote-orange-marmalade-royalty-free-music.mp3' },
+    { id:115, title:'Sea Lion',                         artist:'OTE',                       file:'ote-sea-lion-royalty-free-music.mp3' },
+    { id:116, title:'Out Of The Blue',                  artist:'Aldenmark Niklasson',       file:'out-of-the-blue-instrumental-version-by-aldenmark-niklasson-2010s-pop-music.mp3' },
+    { id:117, title:'Palm City Getaway',                artist:'',                          file:'palm-city-getaway-instrumental-ryan-trahan-donation-list-music.mp3' },
+    { id:118, title:'Past',                             artist:'Alex-Productions',          file:'past-alex-productions-no-copyright-music.mp3' },
+    { id:119, title:'Forget Me Not',                    artist:'Patrick Patrikios',         file:'patrick-patrikios-forget-me-not.mp3' },
+    { id:120, title:'Powerful Indie Rock',              artist:'Alex-Productions',          file:'powerful-indie-rock-music-by-alex-productions-no-copyright-music-promotional-video.mp3' },
+    { id:121, title:'Strong',                           artist:'Alex-Productions',          file:'powerful-trap-beat-by-alex-productions-no-copyright-music-extreme-car-trap-music-strong.mp3' },
+    { id:122, title:'The Goat',                         artist:'Alex-Productions',          file:'powerful-upbeat-energetic-lo-fi-hip-hop-by-alex-productions-no-copyright-music-the-goat.mp3' },
+    { id:123, title:'Pray',                             artist:'Anno Domini Beats',         file:'pray-anno-domini-beats.mp3' },
+    { id:124, title:'ProBoiz 95 Outro Song',            artist:'',                          file:'proboiz-95-outro-song.mp3' },
+    { id:125, title:'Firefly',                          artist:'Quincas Moreira',           file:'quincas-moreira-firefly.mp3' },
+    { id:126, title:'Racing',                           artist:'Alex-Productions',          file:'racing-sport-gaming-by-alex-productions-no-copyright-music-racing-free-music-download.mp3' },
+    { id:127, title:'Funny Background Music',           artist:'NCS FF',                    file:'raost-funny-background-music-ncs-ff.mp3' },
+    { id:128, title:'Funny Background Music 1',         artist:'NCS FF',                    file:'raost-funny-background-music-ncs-ff-1.mp3' },
+    { id:129, title:'Rebel',                            artist:'Alex-Productions',          file:'rebel-alex-productions-no-copyright-music.mp3' },
+    { id:130, title:'Game Over',                        artist:'',                          file:'royalty-free-heavy-metal-instrumental-game-over.mp3' },
+    { id:131, title:'Runaway Deer',                     artist:'',                          file:'runaway-deer.mp3' },
+    { id:132, title:'Schizo',                           artist:'Anno Domini Beats',         file:'schizo-anno-domini-beats.mp3' },
+    { id:133, title:'Ave Maria',                        artist:'Schubert',                  file:'schubert-ave-maria.mp3' },
+    { id:134, title:'Pleasant',                         artist:'SebastiAn',                 file:'sebastian-pleasant.mp3' },
+    { id:135, title:'Serial Killer Music',              artist:'',                          file:'serial-killer-music-no-copyright-background-music-royalty-free-background-music-audio-instore.mp3' },
+    { id:136, title:'Shake',                            artist:'Anno Domini Beats',         file:'shake-anno-domini-beats.mp3' },
+    { id:137, title:'Sinister',                         artist:'Anno Domini Beats',         file:'sinister-anno-domini-beats.mp3' },
+    { id:138, title:'Skylines',                         artist:'Anno Domini Beats',         file:'skylines-anno-domini-beats.mp3' },
+    { id:139, title:'Spaceship',                        artist:'',                          file:'spaceship.mp3' },
+    { id:140, title:'Happy Go Lively',                  artist:'SpongeBob Music',           file:'spongebob-music-happy-go-lively.mp3' },
+    { id:141, title:'House Of Horror',                  artist:'SpongeBob Production Music',file:'spongebob-production-music-house-of-horror.mp3' },
+    { id:142, title:'Digital Love',                     artist:'Alex-Productions',          file:'sport-future-bass-energy-by-alex-productions-no-copyright-music-digital-love.mp3' },
+    { id:143, title:'Bubbles',                          artist:'Alex-Productions',          file:'sport-percussive-rap-by-alex-productions-no-copyright-music-bubbles.mp3' },
+    { id:144, title:'Full Speed',                       artist:'Infraction',                file:'sport-racing-electro-punk-by-infraction-no-copyright-music-full-speed.mp3' },
+    { id:145, title:'Rock And Ride',                    artist:'Infraction',                file:'sport-racing-rock-by-infraction-no-copyright-music-rock-and-ride.mp3' },
+    { id:146, title:'Punch',                            artist:'Infraction',                file:'sport-rock-racing-workout-by-infraction-no-copyright-music-punch.mp3' },
+    { id:147, title:'Stand',                            artist:'Anno Domini Beats',         file:'stand-anno-domini-beats.mp3' },
+    { id:148, title:'Street Rhapsody',                  artist:'DJ Freedem',                file:'street-rhapsody-dj-freedem.mp3' },
+    { id:149, title:'Sunny Days',                       artist:'Anno Domini Beats',         file:'sunny-days-anno-domini-beats.mp3' },
+    { id:150, title:'Tension Music',                    artist:'',                          file:'suspense-copyright-free-music-royalty-free-background-music-tension-music.mp3' },
+    { id:151, title:'Teddy Gaming Cinematic',           artist:'',                          file:'teddy-gaming-cinematic-background-music-download-teddy-gaming-cinematic-background-song.mp3' },
+    { id:152, title:'Unreal',                           artist:'Infraction',                file:'trap-futuristic-stylish-technology-by-infraction-no-copyright-music-unreal.mp3' },
+    { id:153, title:'T-Rexed',                          artist:'Audio Hertz',               file:'t-rexed-audio-hertz.mp3' },
+    { id:154, title:'Triple Six',                       artist:'',                          file:'triple-six.mp3' },
+    { id:155, title:'Tropic',                           artist:'Anno Domini Beats',         file:'tropic-anno-domini-beats.mp3' },
+    { id:156, title:'Tropic Fuse',                      artist:'French Fuse',               file:'tropic-fuse-french-fuse.mp3' },
+    { id:157, title:'The Disc',                         artist:'Infraction',                file:'upbeat-dance-funk-pop-by-infraction-no-copyright-music-the-disc.mp3' },
+    { id:158, title:'Jazzy',                            artist:'Infraction',                file:'upbeat-energetic-hip-hop-by-infraction-no-copyright-music-jazzy.mp3' },
+    { id:159, title:'Groovy Town',                      artist:'Infraction',                file:'upbeat-funk-positive-by-infraction-no-copyright-music-groovy-town.mp3' },
+    { id:160, title:'Upbeat Funky Background Music',    artist:'',                          file:'upbeat-funky-background-music-for-video-royalty-free-funk-music-for-commercial-use.mp3' },
+    { id:161, title:'Upbeat Hip Hop',                   artist:'',                          file:'upbeat-hip-hop-background-music-for-videos-no-copyright.mp3' },
+    { id:162, title:'Shake Head',                       artist:'Infraction',                file:'upbeat-reggaeton-latin-by-infraction-no-copyright-music-shake-head.mp3' },
+    { id:163, title:'Uplifting Hip Hop',                artist:'',                          file:'uplifting-hip-hop-background-music-for-videos-free-for-non-commercial-use.mp3' },
+    { id:164, title:'Violin Instrumental',              artist:'',                          file:'violin-instrumental-no-copyright-music-royalty-free-violin-music-no-copyright-free-download-320kbps.mp3' },
+    { id:165, title:'Violin Instrumental 2',            artist:'',                          file:'violin-instrumental-no-copyright-music-royalty-free-violin-music-no-copyright-free-download.mp3' },
+    { id:166, title:'Warzone',                          artist:'Anno Domini Beats',         file:'warzone-anno-domini-beats.mp3' },
+    { id:167, title:'Where The Trap Is',                artist:'Audio Hertz',               file:'where-the-trap-is-audio-hertz.mp3' },
+    { id:168, title:'Wii Shop Channel Main Theme',      artist:'',                          file:'wii-shop-channel-main-theme-hq.mp3' },
+    { id:169, title:'World War Outerspace',             artist:'Audio Hertz',               file:'world-war-outerspace-audio-hertz.mp3' },
+    { id:170, title:'Mind Heist',                       artist:'Zack Hemsey',               file:'zack-hemsey-mind-heist.mp3' },
   ];
 
   const stopTrilhasPreview = () => {
@@ -1939,45 +2095,11 @@ function App() {
     setTrilhasPreviewTime(0);
   };
 
-  const searchTrilhas = async (query) => {
-    if (!query || !query.trim()) return;
-    setTrilhasLoading(true);
-    setTrilhasResults([]);
-    stopTrilhasPreview();
-    try {
-      // Pixabay Music API — parâmetros válidos: key, q, music_genre, page, per_page
-      // min_duration e order NÃO são suportados nesta API
-      const url  = `https://pixabay.com/api/music/?key=${PIXABAY_API_KEY}&q=${encodeURIComponent(query)}&per_page=50`;
-      const res  = await fetch(url);
-      if (!res.ok) { setTrilhasResults([]); setTrilhasLoading(false); return; }
-      const data = await res.json();
-      if (data.hits && data.hits.length > 0) {
-        const mapped = data.hits
-          .map(h => ({
-            id:       h.id,
-            title:    h.title    || 'Sem título',
-            artist:   h.user     || '',
-            duration: h.duration || 0,
-            url:      h.audio    || h.audioDownload || '',
-            tags:     h.tags     || '',
-          }))
-          .filter(t => t.url && t.duration >= 30); // filtra no cliente, aceita 30s+
-        setTrilhasResults(mapped);
-      } else {
-        setTrilhasResults([]);
-      }
-    } catch (err) {
-      console.error('[Trilhas] Erro na busca:', err);
-      setTrilhasResults([]);
-    }
-    setTrilhasLoading(false);
-  };
-
   const toggleTrilhasPreview = (track) => {
     if (trilhasPreviewId === track.id) { stopTrilhasPreview(); return; }
     stopTrilhasPreview();
-    const audio        = new Audio(track.url);
-    audio.crossOrigin  = 'anonymous';
+    const url   = BASE_URL + encodeURIComponent(track.file);
+    const audio = new Audio(url);
     audio.volume       = 0.75;
     audio.ontimeupdate = () => setTrilhasPreviewTime(audio.currentTime);
     audio.onended      = () => { setTrilhasPreviewId(null); setTrilhasPreviewTime(0); };
@@ -1987,36 +2109,26 @@ function App() {
     setTrilhasPreviewTime(0);
   };
 
-  const downloadTrilha = async (track) => {
-    try {
-      const res  = await fetch(track.url);
-      const blob = await res.blob();
-      const a    = document.createElement('a');
-      a.href     = URL.createObjectURL(blob);
-      a.download = `${track.title}.mp3`;
-      a.click();
-      URL.revokeObjectURL(a.href);
-    } catch { alert('Erro ao baixar. Tente novamente.'); }
-  };
-
   const useTrilhaNoProject = async (track) => {
     setTrilhasUsingId(track.id);
     stopTrilhasPreview();
     try {
-      const res       = await fetch(track.url);
-      const blob      = await res.blob();
+      const url  = BASE_URL + encodeURIComponent(track.file);
+      const res  = await fetch(url);
+      const blob = await res.blob();
+      const mime = track.file.endsWith('.m4a') ? 'audio/mp4' : 'audio/mpeg';
       const objectUrl = URL.createObjectURL(blob);
       setAudioSrc(objectUrl);
-      setAudioMimeType('audio/mpeg');
-      setAudioFile(new File([blob], `${track.title}.mp3`, { type: 'audio/mpeg' }));
-      const ab64Reader   = new FileReader();
-      ab64Reader.onload  = (ev) => setAudioBase64(ev.target.result);
+      setAudioMimeType(mime);
+      setAudioFile(new File([blob], track.file, { type: mime }));
+      const ab64Reader  = new FileReader();
+      ab64Reader.onload = (ev) => setAudioBase64(ev.target.result);
       ab64Reader.readAsDataURL(blob);
-      const arrayBuffer  = await blob.arrayBuffer();
+      const arrayBuffer = await blob.arrayBuffer();
       await decodeWaveformFromBuffer(arrayBuffer);
       setShowTrilhasPanel(false);
       setShowMidiasPanel(false);
-    } catch { alert('Erro ao carregar trilha. Tente novamente.'); }
+    } catch { alert('Erro ao carregar trilha. Verifique sua conexão.'); }
     setTrilhasUsingId(null);
   };
 
@@ -6169,7 +6281,7 @@ _setDragging(null);
                   { icon:'🏞️', label:'Imagens overlay',         color:'#00BFFF',  action:()=>{ imagesInputRef.current?.click(); setShowMidiasPanel(false); } },
                   { icon:'🎬', label:'Vídeo',                    color:'#a78bfa',  action:()=>{ videoInputRef.current?.click(); setShowMidiasPanel(false); } },
                   { icon:'🎵', label:'Música / Áudio',           color:'#10b981',  action:()=>{ audioInputRef.current?.click(); setShowMidiasPanel(false); } },
-                  { icon:'🎼', label:'Trilhas (Pixabay)',         color:'#a78bfa',  action:()=>{ setShowMidiasPanel(false); setShowTrilhasPanel(v=>!v); if(trilhasResults.length===0){ const def=TRILHAS_CATS[0]; setTrilhasTab(def.id); searchTrilhas(def.q); } } },
+                  { icon:'🎼', label:'Trilhas',                        color:'#a78bfa',  action:()=>{ setShowMidiasPanel(false); setShowTrilhasPanel(v=>!v); } },
                 ].map(item=>(
                   <div key={item.label} onClick={item.action}
                     style={{ display:'flex', alignItems:'center', gap:10, padding:'9px 14px', cursor:'pointer', transition:'background 0.1s' }}
@@ -6970,7 +7082,7 @@ _setDragging(null);
           );
         })()}
 
-        {/* ── Painel de Trilhas Pixabay ── */}
+        {/* ── Painel de Trilhas ── */}
         {showTrilhasPanel && createPortal(
           <>
             <div onClick={()=>{ setShowTrilhasPanel(false); stopTrilhasPreview(); }} style={{position:'fixed',inset:0,zIndex:99997}} />
@@ -6987,7 +7099,8 @@ _setDragging(null);
               <div style={{padding:'12px 16px 10px', borderBottom:'1px solid rgba(255,255,255,0.07)', display:'flex', alignItems:'center', justifyContent:'space-between', flexShrink:0}}>
                 <div style={{display:'flex', alignItems:'center', gap:8}}>
                   <span style={{fontSize:18}}>🎼</span>
-                  <span style={{fontWeight:800, fontSize:14, color:'#a78bfa'}}>Trilhas — Pixabay Music</span>
+                  <span style={{fontWeight:800, fontSize:14, color:'#a78bfa'}}>Trilhas — 170 músicas</span>
+                  <span style={{fontSize:10, color:'#666', background:'rgba(255,255,255,0.05)', borderRadius:20, padding:'2px 8px'}}>Royalty-free</span>
                 </div>
                 <button onClick={()=>{ setShowTrilhasPanel(false); stopTrilhasPreview(); }}
                   style={{background:'none', border:'none', color:'#555', cursor:'pointer', fontSize:18, lineHeight:1}}>✕</button>
@@ -6995,155 +7108,97 @@ _setDragging(null);
 
               {/* Busca */}
               <div style={{padding:'10px 14px 8px', borderBottom:'1px solid rgba(255,255,255,0.06)', flexShrink:0}}>
-                <div style={{display:'flex', gap:6}}>
-                  <input
-                    value={trilhasSearch}
-                    onChange={e=>setTrilhasSearch(e.target.value)}
-                    onKeyDown={e=>{ if(e.key==='Enter') searchTrilhas(trilhasSearch); }}
-                    placeholder="Buscar por nome ou estilo…"
-                    style={{flex:1, background:'rgba(255,255,255,0.06)', border:'1px solid rgba(255,255,255,0.1)', borderRadius:8, padding:'7px 10px', color:'#fff', fontSize:12, outline:'none'}}
-                  />
-                  <button
-                    onClick={()=>searchTrilhas(trilhasSearch)}
-                    disabled={trilhasLoading}
-                    style={{padding:'7px 14px', background:'rgba(167,139,250,0.18)', border:'1px solid rgba(167,139,250,0.4)', borderRadius:8, color:'#a78bfa', fontSize:12, cursor:'pointer', fontWeight:700, opacity: trilhasLoading?0.6:1}}>
-                    {trilhasLoading ? '…' : 'Buscar'}
-                  </button>
-                </div>
-
-                {/* Filtros rápidos */}
-                <div style={{display:'flex', gap:5, marginTop:8, flexWrap:'wrap'}}>
-                  {TRILHAS_CATS.map(cat=>(
-                    <button key={cat.id}
-                      onClick={()=>{ setTrilhasTab(cat.id); setTrilhasSearch(''); searchTrilhas(cat.q); }}
-                      style={{
-                        padding:'3px 10px', borderRadius:20, border:'1px solid',
-                        borderColor: trilhasTab===cat.id ? 'rgba(167,139,250,0.8)' : 'rgba(255,255,255,0.1)',
-                        background:  trilhasTab===cat.id ? 'rgba(167,139,250,0.2)' : 'rgba(255,255,255,0.04)',
-                        color:       trilhasTab===cat.id ? '#c4b5fd' : '#666',
-                        fontSize:10, fontWeight:700, cursor:'pointer', transition:'all 0.15s'
-                      }}>
-                      {cat.label}
-                    </button>
-                  ))}
-                </div>
+                <input
+                  value={trilhasSearch}
+                  onChange={e=>setTrilhasSearch(e.target.value)}
+                  placeholder="Buscar por título ou artista…"
+                  style={{width:'100%', boxSizing:'border-box', background:'rgba(255,255,255,0.06)', border:'1px solid rgba(255,255,255,0.1)', borderRadius:8, padding:'7px 10px', color:'#fff', fontSize:12, outline:'none'}}
+                />
               </div>
 
-              {/* Lista de resultados */}
-              <div style={{overflowY:'auto', flex:1, padding:'8px 0'}}>
-                {trilhasLoading && (
-                  <div style={{display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', padding:'40px 0', gap:12}}>
-                    <div style={{width:28, height:28, border:'3px solid rgba(167,139,250,0.2)', borderTop:'3px solid #a78bfa', borderRadius:'50%', animation:'spin 0.8s linear infinite'}} />
-                    <span style={{fontSize:12, color:'#555'}}>Buscando trilhas…</span>
-                  </div>
-                )}
-
-                {!trilhasLoading && trilhasResults.length === 0 && (
-                  <div style={{display:'flex', flexDirection:'column', alignItems:'center', padding:'40px 0', gap:8}}>
-                    <span style={{fontSize:28}}>🎼</span>
-                    <span style={{fontSize:12, color:'#555'}}>Nenhuma trilha encontrada</span>
-                    <span style={{fontSize:11, color:'#444'}}>Tente outro estilo ou busca</span>
-                  </div>
-                )}
-
-                {!trilhasLoading && trilhasResults.map(track => {
-                  const isPlaying = trilhasPreviewId === track.id;
-                  const isUsing   = trilhasUsingId   === track.id;
-                  const progress  = isPlaying && track.duration > 0 ? (trilhasPreviewTime / track.duration) * 100 : 0;
-                  return (
-                    <div key={track.id}
-                      style={{
-                        display:'flex', alignItems:'center', gap:10,
-                        padding:'9px 14px', transition:'background 0.12s',
-                        borderBottom:'1px solid rgba(255,255,255,0.04)',
-                        background: isPlaying ? 'rgba(167,139,250,0.07)' : 'transparent'
-                      }}
-                      onMouseEnter={e=>{ if(!isPlaying) e.currentTarget.style.background='rgba(255,255,255,0.04)'; }}
-                      onMouseLeave={e=>{ if(!isPlaying) e.currentTarget.style.background='transparent'; }}
-                    >
-                      {/* Play/Pause */}
-                      <button onClick={()=>toggleTrilhasPreview(track)}
+              {/* Lista de trilhas */}
+              <div style={{overflowY:'auto', flex:1, padding:'4px 0'}}>
+                {(() => {
+                  const q = trilhasSearch.toLowerCase().trim();
+                  const filtered = q
+                    ? TRILHAS_LIST.filter(t => t.title.toLowerCase().includes(q) || t.artist.toLowerCase().includes(q))
+                    : TRILHAS_LIST;
+                  if (filtered.length === 0) return (
+                    <div style={{display:'flex', flexDirection:'column', alignItems:'center', padding:'40px 0', gap:8}}>
+                      <span style={{fontSize:28}}>🎼</span>
+                      <span style={{fontSize:12, color:'#555'}}>Nenhuma trilha encontrada</span>
+                    </div>
+                  );
+                  return filtered.map(track => {
+                    const isPlaying = trilhasPreviewId === track.id;
+                    const isUsing   = trilhasUsingId   === track.id;
+                    const progress  = isPlaying && trilhasPreviewRef.current?.duration > 0
+                      ? (trilhasPreviewTime / trilhasPreviewRef.current.duration) * 100 : 0;
+                    return (
+                      <div key={track.id}
                         style={{
-                          width:34, height:34, borderRadius:'50%', flexShrink:0,
-                          background: isPlaying ? 'rgba(167,139,250,0.35)' : 'rgba(255,255,255,0.07)',
-                          border:`1px solid ${isPlaying ? 'rgba(167,139,250,0.6)' : 'rgba(255,255,255,0.12)'}`,
-                          cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center',
-                          fontSize:13, color: isPlaying ? '#c4b5fd' : '#888', transition:'all 0.15s'
-                        }}>
-                        {isPlaying ? '⏸' : '▶'}
-                      </button>
-
-                      {/* Info + barra de progresso */}
-                      <div style={{flex:1, minWidth:0}}>
-                        <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:3}}>
-                          <span style={{fontSize:12, fontWeight:600, color: isPlaying ? '#c4b5fd' : '#ccc', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', maxWidth:200}}>
-                            {track.title}
-                          </span>
-                          <span style={{fontSize:10, color:'#555', flexShrink:0, marginLeft:6}}>
-                            {fmtDur(track.duration)}
-                          </span>
-                        </div>
-                        {track.artist && (
-                          <div style={{fontSize:10, color:'#555', marginBottom:4, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>
-                            {track.artist}
-                          </div>
-                        )}
-                        {/* Barra de progresso */}
-                        <div style={{height:3, background:'rgba(255,255,255,0.08)', borderRadius:2, overflow:'hidden'}}>
-                          <div style={{height:'100%', width:`${progress}%`, background:'linear-gradient(90deg,#a78bfa,#c4b5fd)', borderRadius:2, transition:'width 0.5s linear'}} />
-                        </div>
-                        {isPlaying && (
-                          <div style={{fontSize:9, color:'#a78bfa', marginTop:2}}>
-                            {fmtDur(Math.floor(trilhasPreviewTime))} / {fmtDur(track.duration)}
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Botões: Baixar + Usar */}
-                      <div style={{display:'flex', gap:5, flexShrink:0}}>
-                        <button
-                          onClick={()=>downloadTrilha(track)}
-                          title="Baixar MP3"
+                          display:'flex', alignItems:'center', gap:10,
+                          padding:'8px 14px', transition:'background 0.12s',
+                          borderBottom:'1px solid rgba(255,255,255,0.04)',
+                          background: isPlaying ? 'rgba(167,139,250,0.07)' : 'transparent'
+                        }}
+                        onMouseEnter={e=>{ if(!isPlaying) e.currentTarget.style.background='rgba(255,255,255,0.04)'; }}
+                        onMouseLeave={e=>{ if(!isPlaying) e.currentTarget.style.background=isPlaying?'rgba(167,139,250,0.07)':'transparent'; }}
+                      >
+                        {/* Play/Pause */}
+                        <button onClick={()=>toggleTrilhasPreview(track)}
                           style={{
-                            padding:'5px 9px', borderRadius:7, border:'1px solid rgba(255,255,255,0.12)',
-                            background:'rgba(255,255,255,0.05)', color:'#888', fontSize:12,
-                            cursor:'pointer', transition:'all 0.15s', whiteSpace:'nowrap'
-                          }}
-                          onMouseEnter={e=>{ e.currentTarget.style.background='rgba(255,255,255,0.1)'; e.currentTarget.style.color='#fff'; }}
-                          onMouseLeave={e=>{ e.currentTarget.style.background='rgba(255,255,255,0.05)'; e.currentTarget.style.color='#888'; }}
-                        >⬇</button>
+                            width:34, height:34, borderRadius:'50%', flexShrink:0,
+                            background: isPlaying ? 'rgba(167,139,250,0.35)' : 'rgba(255,255,255,0.07)',
+                            border:`1px solid ${isPlaying ? 'rgba(167,139,250,0.6)' : 'rgba(255,255,255,0.12)'}`,
+                            cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center',
+                            fontSize:13, color: isPlaying ? '#c4b5fd' : '#888', transition:'all 0.15s'
+                          }}>
+                          {isPlaying ? '⏸' : '▶'}
+                        </button>
 
+                        {/* Info + barra de progresso */}
+                        <div style={{flex:1, minWidth:0}}>
+                          <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:2}}>
+                            <span style={{fontSize:12, fontWeight:600, color: isPlaying ? '#c4b5fd' : '#ccc', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', maxWidth:240}}>
+                              {track.title}
+                            </span>
+                          </div>
+                          {track.artist && (
+                            <div style={{fontSize:10, color:'#555', marginBottom:3, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>
+                              {track.artist}
+                            </div>
+                          )}
+                          {/* Barra de progresso */}
+                          <div style={{height:2, background:'rgba(255,255,255,0.08)', borderRadius:2, overflow:'hidden'}}>
+                            <div style={{height:'100%', width:`${progress}%`, background:'linear-gradient(90deg,#a78bfa,#c4b5fd)', borderRadius:2, transition:'width 0.5s linear'}} />
+                          </div>
+                          {isPlaying && (
+                            <div style={{fontSize:9, color:'#a78bfa', marginTop:2}}>
+                              {fmtDur(Math.floor(trilhasPreviewTime))}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Botão Usar */}
                         <button
                           onClick={()=>useTrilhaNoProject(track)}
                           disabled={isUsing}
-                          title="Usar no projeto"
                           style={{
-                            padding:'5px 10px', borderRadius:7, fontSize:11, fontWeight:700,
-                            border:'1px solid rgba(16,185,129,0.4)',
-                            background: isUsing ? 'rgba(16,185,129,0.25)' : 'rgba(16,185,129,0.15)',
-                            color: isUsing ? '#6ee7b7' : '#10b981',
-                            cursor: isUsing ? 'default' : 'pointer', transition:'all 0.15s', whiteSpace:'nowrap'
-                          }}
-                          onMouseEnter={e=>{ if(!isUsing){ e.currentTarget.style.background='rgba(16,185,129,0.28)'; e.currentTarget.style.color='#6ee7b7'; } }}
-                          onMouseLeave={e=>{ if(!isUsing){ e.currentTarget.style.background='rgba(16,185,129,0.15)'; e.currentTarget.style.color='#10b981'; } }}
-                        >
-                          {isUsing ? '…' : '✅ Usar'}
+                            padding:'5px 12px', borderRadius:7,
+                            border:'1px solid rgba(167,139,250,0.4)',
+                            background: isUsing ? 'rgba(167,139,250,0.3)' : 'rgba(167,139,250,0.15)',
+                            color:'#c4b5fd', fontSize:11, cursor: isUsing ? 'wait' : 'pointer',
+                            fontWeight:700, transition:'all 0.15s', flexShrink:0, whiteSpace:'nowrap'
+                          }}>
+                          {isUsing ? '⏳' : '✓ Usar'}
                         </button>
                       </div>
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* Footer */}
-              <div style={{padding:'8px 14px', borderTop:'1px solid rgba(255,255,255,0.06)', flexShrink:0, display:'flex', alignItems:'center', justifyContent:'space-between'}}>
-                <span style={{fontSize:9, color:'#444'}}>Áudios via Pixabay Music · Licença livre de royalties</span>
-                {trilhasResults.length > 0 && (
-                  <span style={{fontSize:9, color:'#555'}}>{trilhasResults.length} trilhas</span>
-                )}
+                    );
+                  });
+                })()}
               </div>
             </div>
-            <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
           </>,
           document.body
         )}
