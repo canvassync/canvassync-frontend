@@ -1005,12 +1005,15 @@ function App() {
   useEffect(() => { soundEffectsRef.current = soundEffects; }, [soundEffects]);
 
   // ── Histórico Undo/Redo ───────────────────────────────────────────────────
-  const historyRef      = useRef([]);   // pilha de snapshots
-  const historyIdxRef   = useRef(-1);   // posição atual na pilha
-  const isUndoingRef    = useRef(false);// evita loop ao restaurar estado
+  const historyRef        = useRef([]);   // pilha de snapshots (estado APÓS cada ação)
+  const historyIdxRef     = useRef(-1);   // posição atual na pilha
+  const isUndoingRef      = useRef(false);// bloqueia gravação durante restauração
+  const pendingHistoryRef = useRef(false);// sinaliza que próximo useEffect deve gravar
+  const videoTrashRef     = useRef({});   // {id: {videoEl, src}} — videoEls preservados para undo
   const [canUndo, setCanUndo] = useState(false);
   const [canRedo, setCanRedo] = useState(false);
   const MAX_HISTORY = 60;
+  const [historyTrigger, setHistoryTrigger] = useState(0); // força render inicial para snapshot
   const [imageSrc, setImageSrc] = useState(null);
   const [images, setImages] = useState([]);
   const [activeImageId, setActiveImageId] = useState(null);
@@ -1986,30 +1989,16 @@ function App() {
 
   // ── Undo/Redo helpers ────────────────────────────────────────────────────
   // Captura um snapshot do estado atual para o histórico
-  const pushHistory = useCallback(() => {
-    if (isUndoingRef.current) return;
-    const snap = {
-      imageSrc:     imageSrcRef.current,
-      images:       (imagesRef.current || []).map(({ img, ...rest }) => rest),
-      extraTexts:   [...(extraTextsRef.current || [])],
-      lyrics:       [...(lyricsRef.current || [])],
-      stickers:     [...(stickersRef.current || [])],
-      screenEffect: screenEffectRef.current,
-      videos:       (videosRef.current || []).map(({ videoEl, ...rest }) => rest),
-      soundEffects: [...(soundEffectsRef.current || [])],
-      colorCurves:  { ...colorCurvesRef.current },
-    };
-    const history  = historyRef.current;
-    const idx      = historyIdxRef.current;
-    // Remove qualquer futuros (redo) após um novo push
-    const newHist  = history.slice(0, idx + 1);
-    newHist.push(snap);
-    if (newHist.length > MAX_HISTORY) newHist.shift();
-    historyRef.current    = newHist;
-    historyIdxRef.current = newHist.length - 1;
-    setCanUndo(historyIdxRef.current > 0);
-    setCanRedo(false);
+  // requestHistory: sinaliza que a PRÓXIMA renderização deve gravar um snapshot.
+  // O snapshot é capturado no useEffect abaixo, DEPOIS que o React comita o estado —
+  // isso garante que os valores gravados são exatamente os do estado pós-ação,
+  // independente de batching ou timing de useEffects de sincronização de refs.
+  const requestHistory = useCallback(() => {
+    if (!isUndoingRef.current) pendingHistoryRef.current = true;
   }, []);
+
+  // Alias para compatibilidade com chamadas que ainda usam pushHistory
+  const pushHistory = requestHistory;
 
   const applySnapshot = useCallback((snap) => {
     isUndoingRef.current = true;
@@ -2031,11 +2020,21 @@ function App() {
       img.src = item.src || '';
       return { ...item, img };
     }));
-    // Videos — reusa videoEl se id bater
+    // Videos — tenta na ordem: (1) ainda existe em videosRef, (2) está no trash, (3) recria do src
     setVideos(snap.videos.map(v => {
-      const existing = (videosRef.current || []).find(ev => ev.id === v.id);
-      if (existing?.videoEl) return { ...v, videoEl: existing.videoEl };
-      return v; // vídeo removido — sem videoEl
+      // 1. Vídeo ainda ativo
+      const live = (videosRef.current || []).find(ev => ev.id === v.id);
+      if (live?.videoEl) return { ...v, videoEl: live.videoEl, audioBuffer: live.audioBuffer };
+      // 2. Vídeo foi deletado mas preservado no trash
+      const trashed = videoTrashRef.current[v.id];
+      if (trashed?.videoEl) {
+        // Reanexa ao DOM se necessário
+        if (!trashed.videoEl.parentNode) document.body.appendChild(trashed.videoEl);
+        trashed.videoEl.currentTime = 0;
+        return { ...v, videoEl: trashed.videoEl, audioBuffer: trashed.audioBuffer };
+      }
+      // 3. Fallback: sem videoEl (não renderizável mas preserva metadados)
+      return v;
     }));
     setExtraTexts(snap.extraTexts);
     setLyrics(snap.lyrics);
@@ -2043,8 +2042,8 @@ function App() {
     setScreenEffect(snap.screenEffect);
     setSoundEffects(snap.soundEffects);
     setColorCurves(snap.colorCurves);
-    // Libera o lock após um tick para que os useEffects de sync rodem
-    setTimeout(() => { isUndoingRef.current = false; }, 50);
+    // Libera o lock após dois ticks para que todos os useEffects de sync rodem
+    setTimeout(() => { isUndoingRef.current = false; }, 80);
   }, []);
 
   const undo = useCallback(() => {
@@ -2197,6 +2196,7 @@ function App() {
     setLyrics([]);
     setImages([]);
     setVideos(prev => { prev.forEach(v => { if (v.videoEl) { v.videoEl.pause(); if (v.videoEl.parentNode) v.videoEl.parentNode.removeChild(v.videoEl); URL.revokeObjectURL(v.src); } }); return []; });
+    videoTrashRef.current = {}; // limpa o trash também no clear total
     setActiveVideoId(null);
     setExtraTexts([]);
     setStickers([]);
@@ -2879,7 +2879,16 @@ _setDragging(null);
       // Jamais deleta vídeo se o que está selecionado é uma lyric/imagem/texto
       if (activeVideoId && !activeImageId && !activeLyricId && !activeExtraTextId) {
         pushHistory();
-        setVideos(prev => { const v = prev.find(vv => vv.id === activeVideoId); if (v?.videoEl) { v.videoEl.pause(); if (v.videoEl.parentNode) v.videoEl.parentNode.removeChild(v.videoEl); URL.revokeObjectURL(v.src); } return prev.filter(vv => vv.id !== activeVideoId); });
+        setVideos(prev => {
+          const v = prev.find(vv => vv.id === activeVideoId);
+          if (v?.videoEl) {
+            v.videoEl.pause();
+            // Preserva no trash para undo/redo poderem restaurar
+            videoTrashRef.current[v.id] = { videoEl: v.videoEl, audioBuffer: v.audioBuffer, src: v.src };
+            // NÃO revoga nem remove do DOM — apenas pausa e desanexa visualmente
+          }
+          return prev.filter(vv => vv.id !== activeVideoId);
+        });
         setActiveVideoId(null);
         return;
       }
@@ -3806,15 +3815,14 @@ _setDragging(null);
     }
   }, [canvasFormat]); // eslint-disable-line
 
-  // Push snapshot inicial (estado vazio) para que undo funcione desde o primeiro item
+  // Grava snapshot inicial (estado vazio) via pendingHistory flag
   useEffect(() => {
-    // Pequeno delay para que todos os refs estejam sincronizados
     const t = setTimeout(() => {
-      if (historyRef.current.length === 0) {
-        isUndoingRef.current = false;
-        pushHistory();
+      if (historyRef.current.length === 0 && !isUndoingRef.current) {
+        pendingHistoryRef.current = true;
+        setHistoryTrigger(1); // força re-render para o useEffect de captura rodar
       }
-    }, 200);
+    }, 300);
     return () => clearTimeout(t);
   }, []); // eslint-disable-line
 
@@ -3848,6 +3856,50 @@ _setDragging(null);
   useEffect(() => { imageSrcRef.current = imageSrc; }, [imageSrc]);
   const colorCurvesRef = useRef(colorCurves);
   useEffect(() => { colorCurvesRef.current = colorCurves; }, [colorCurves]);
+
+  // ── Captura de snapshot APÓS React comitar o estado ─────────────────────
+  // Este useEffect roda depois de cada render onde os estados relevantes mudaram.
+  // Quando pendingHistoryRef=true, grava o estado atual (já commitado) na pilha.
+  // Isso garante que cada snapshot reflete exatamente um estado coerente,
+  // sem o problema de refs desatualizadas que ocorria ao capturar antes do render.
+  useEffect(() => {
+    if (!pendingHistoryRef.current || isUndoingRef.current) return;
+    pendingHistoryRef.current = false;
+    const snap = {
+      imageSrc,
+      images:       images.map(({ img, ...rest }) => rest),
+      extraTexts:   [...extraTexts],
+      lyrics:       [...lyrics],
+      stickers:     [...stickers],
+      screenEffect,
+      videos:       videos.map(({ videoEl, audioBuffer, ...rest }) => rest),
+      soundEffects: [...soundEffects],
+      colorCurves:  { ...colorCurves },
+    };
+    const history = historyRef.current;
+    const idx     = historyIdxRef.current;
+    // Descarta snapshots idênticos ao último (evita duplicatas por double-render)
+    if (idx >= 0) {
+      const last = history[idx];
+      const sameVideos = JSON.stringify(snap.videos) === JSON.stringify(last.videos);
+      const sameImages = JSON.stringify(snap.images) === JSON.stringify(last.images);
+      const sameLyrics = JSON.stringify(snap.lyrics) === JSON.stringify(last.lyrics);
+      const sameExtras = JSON.stringify(snap.extraTexts) === JSON.stringify(last.extraTexts);
+      const sameStickers = JSON.stringify(snap.stickers) === JSON.stringify(last.stickers);
+      const sameSfx = JSON.stringify(snap.soundEffects) === JSON.stringify(last.soundEffects);
+      const sameEffect = snap.screenEffect === last.screenEffect;
+      const sameBg = snap.imageSrc === last.imageSrc;
+      if (sameVideos && sameImages && sameLyrics && sameExtras && sameStickers && sameSfx && sameEffect && sameBg) return;
+    }
+    const newHist = history.slice(0, idx + 1);
+    newHist.push(snap);
+    if (newHist.length > MAX_HISTORY) newHist.shift();
+    historyRef.current    = newHist;
+    historyIdxRef.current = newHist.length - 1;
+    setCanUndo(historyIdxRef.current > 0);
+    setCanRedo(false);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [images, extraTexts, lyrics, stickers, screenEffect, videos, soundEffects, colorCurves, imageSrc, historyTrigger]);
 
   // ── Waveform estático em canvas (sem re-renders do React) ─────────────────
   useEffect(() => {
@@ -7591,7 +7643,15 @@ _setDragging(null);
               <div
                 key={v.id}
                 onMouseDown={(e) => handleVideoTimelineMouseDown(v.id, 'move', e)}
-                onContextMenu={(e) => { e.preventDefault(); pushHistory(); if (v.videoEl) { v.videoEl.pause(); if (v.videoEl.parentNode) v.videoEl.parentNode.removeChild(v.videoEl); } URL.revokeObjectURL(v.src); setVideos(prev => prev.filter(vv => vv.id !== v.id)); if (activeVideoId === v.id) setActiveVideoId(null); }}
+                onContextMenu={(e) => {
+  e.preventDefault(); pushHistory();
+  if (v.videoEl) {
+    v.videoEl.pause();
+    videoTrashRef.current[v.id] = { videoEl: v.videoEl, audioBuffer: v.audioBuffer, src: v.src };
+  }
+  setVideos(prev => prev.filter(vv => vv.id !== v.id));
+  if (activeVideoId === v.id) setActiveVideoId(null);
+}}
                 style={{
                   position: 'absolute',
                   left: v.start * zoom + 'px',
