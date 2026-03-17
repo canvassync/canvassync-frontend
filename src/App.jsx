@@ -996,7 +996,7 @@ function App() {
   const [bgTab, setBgTab] = useState('gradients');
   // ── Trilhas Pixabay ────────────────────────────────────────────────────────
   const [showTrilhasPanel, setShowTrilhasPanel]   = useState(false);
-  const [trilhasTab, setTrilhasTab]               = useState('lofi');
+  const [trilhasTab, setTrilhasTab]               = useState('electronic');
   const [trilhasSearch, setTrilhasSearch]         = useState('');
   const [trilhasResults, setTrilhasResults]       = useState([]);
   const [trilhasLoading, setTrilhasLoading]       = useState(false);
@@ -1917,16 +1917,16 @@ function App() {
 
   // ── Trilhas Pixabay ────────────────────────────────────────────────────────
   const TRILHAS_CATS = [
-    { id:'lofi',       label:'Lo-fi',       q:'lofi chill'          },
-    { id:'hiphop',     label:'Hip-hop',     q:'hip hop'             },
-    { id:'trap',       label:'Trap',        q:'trap beat'           },
-    { id:'ambient',    label:'Ambient',     q:'ambient atmospheric' },
-    { id:'electronic', label:'Eletrônico',  q:'electronic'          },
-    { id:'cinematic',  label:'Cinemático',  q:'cinematic epic'      },
-    { id:'jazz',       label:'Jazz',        q:'jazz'                },
-    { id:'pop',        label:'Pop',         q:'pop upbeat'          },
-    { id:'rock',       label:'Rock',        q:'rock guitar'         },
-    { id:'rnb',        label:'R&B',         q:'rnb soul'            },
+    { id:'electronic', label:'Eletrônico',  q:'electronic'    },
+    { id:'hiphop',     label:'Hip-hop',     q:'hip hop'       },
+    { id:'cinematic',  label:'Cinemático',  q:'cinematic'     },
+    { id:'pop',        label:'Pop',         q:'pop'           },
+    { id:'rock',       label:'Rock',        q:'rock'          },
+    { id:'jazz',       label:'Jazz',        q:'jazz'          },
+    { id:'rnb',        label:'R&B Soul',    q:'r&b soul'      },
+    { id:'classical',  label:'Clássico',    q:'classical'     },
+    { id:'folk',       label:'Folk',        q:'folk acoustic' },
+    { id:'ambient',    label:'Ambient',     q:'ambient'       },
   ];
 
   const stopTrilhasPreview = () => {
@@ -1945,20 +1945,31 @@ function App() {
     setTrilhasResults([]);
     stopTrilhasPreview();
     try {
-      const url  = `https://pixabay.com/api/music/?key=${PIXABAY_API_KEY}&q=${encodeURIComponent(query)}&per_page=30&min_duration=60&order=popular`;
+      // Pixabay Music API — parâmetros válidos: key, q, music_genre, page, per_page
+      // min_duration e order NÃO são suportados nesta API
+      const url  = `https://pixabay.com/api/music/?key=${PIXABAY_API_KEY}&q=${encodeURIComponent(query)}&per_page=50`;
       const res  = await fetch(url);
+      if (!res.ok) { setTrilhasResults([]); setTrilhasLoading(false); return; }
       const data = await res.json();
-      if (data.hits) {
-        setTrilhasResults(data.hits.map(h => ({
-          id:       h.id,
-          title:    h.title  || 'Sem titulo',
-          artist:   h.user   || '',
-          duration: h.duration || 0,
-          url:      h.audio,
-          tags:     h.tags   || '',
-        })));
+      if (data.hits && data.hits.length > 0) {
+        const mapped = data.hits
+          .map(h => ({
+            id:       h.id,
+            title:    h.title    || 'Sem título',
+            artist:   h.user     || '',
+            duration: h.duration || 0,
+            url:      h.audio    || h.audioDownload || '',
+            tags:     h.tags     || '',
+          }))
+          .filter(t => t.url && t.duration >= 30); // filtra no cliente, aceita 30s+
+        setTrilhasResults(mapped);
+      } else {
+        setTrilhasResults([]);
       }
-    } catch { setTrilhasResults([]); }
+    } catch (err) {
+      console.error('[Trilhas] Erro na busca:', err);
+      setTrilhasResults([]);
+    }
     setTrilhasLoading(false);
   };
 
