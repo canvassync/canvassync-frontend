@@ -1050,6 +1050,88 @@ function App() {
     ctx.translate(-cx, -cy);
   };
 
+  // ── Interpolação de Keyframes (Zoom Animado / Dinâmico) ──────────────────
+  // Retorna o estado interpolado (x, y, width, height, opacity, rotation) num instante t,
+  // considerando os keyframes definidos no item. Suporta easing configurável.
+  const getKfState = useCallback((item, t) => {
+    const kfs = item.keyframes;
+    if (!kfs || kfs.length === 0) return null;
+
+    // Easing functions
+    const ease = (progress, type) => {
+      const p = Math.max(0, Math.min(1, progress));
+      switch(type) {
+        case 'ease_in':      return p * p * p;
+        case 'ease_out':     return 1 - Math.pow(1 - p, 3);
+        case 'ease_in_out':  return p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2;
+        case 'spring': {
+          // Overshoot elástico — similar ao Premiere/AE
+          const c4 = (2 * Math.PI) / 3;
+          if (p <= 0) return 0;
+          if (p >= 1) return 1;
+          return Math.pow(2, -10 * p) * Math.sin((p * 10 - 0.75) * c4) + 1;
+        }
+        case 'bounce': {
+          const n1 = 7.5625, d1 = 2.75;
+          let r = p;
+          if (r < 1/d1)        return n1*r*r;
+          else if (r < 2/d1)   { r -= 1.5/d1;  return n1*r*r + 0.75; }
+          else if (r < 2.5/d1) { r -= 2.25/d1; return n1*r*r + 0.9375; }
+          else                 { r -= 2.625/d1; return n1*r*r + 0.984375; }
+        }
+        default: return p; // linear
+      }
+    };
+
+    const lerp = (a, b, p) => a + (b - a) * p;
+
+    // Antes do primeiro keyframe: usa valores do primeiro KF
+    if (t <= kfs[0].t) {
+      const k = kfs[0];
+      return { x: k.x ?? item.x, y: k.y ?? item.y,
+               w: (k.scale ?? 1) * item.width, h: (k.scale ?? 1) * item.height,
+               opacity: k.opacity ?? 1, rotation: k.rotation ?? item.rotation ?? 0,
+               anchorX: k.anchorX ?? 0.5, anchorY: k.anchorY ?? 0.5 };
+    }
+    // Depois do último keyframe: usa valores do último KF
+    if (t >= kfs[kfs.length - 1].t) {
+      const k = kfs[kfs.length - 1];
+      return { x: k.x ?? item.x, y: k.y ?? item.y,
+               w: (k.scale ?? 1) * item.width, h: (k.scale ?? 1) * item.height,
+               opacity: k.opacity ?? 1, rotation: k.rotation ?? item.rotation ?? 0,
+               anchorX: k.anchorX ?? 0.5, anchorY: k.anchorY ?? 0.5 };
+    }
+    // Interpola entre dois keyframes
+    for (let i = 0; i < kfs.length - 1; i++) {
+      const k0 = kfs[i], k1 = kfs[i + 1];
+      if (t >= k0.t && t <= k1.t) {
+        const rawP = (t - k0.t) / (k1.t - k0.t);
+        const easingType = k0.easing || 'ease_in_out';
+        const p = ease(rawP, easingType);
+
+        const sc0 = k0.scale ?? 1, sc1 = k1.scale ?? 1;
+        const cx0 = (k0.x ?? item.x) + item.width  * (k0.anchorX ?? 0.5);
+        const cy0 = (k0.y ?? item.y) + item.height * (k0.anchorY ?? 0.5);
+        const cx1 = (k1.x ?? item.x) + item.width  * (k1.anchorX ?? 0.5);
+        const cy1 = (k1.y ?? item.y) + item.height * (k1.anchorY ?? 0.5);
+        const scI = lerp(sc0, sc1, p);
+        const cxI = lerp(cx0, cx1, p);
+        const cyI = lerp(cy0, cy1, p);
+        return {
+          x: cxI - item.width  * scI / 2,
+          y: cyI - item.height * scI / 2,
+          w: item.width  * scI,
+          h: item.height * scI,
+          opacity:  lerp(k0.opacity  ?? 1, k1.opacity  ?? 1, p),
+          rotation: lerp(k0.rotation ?? (item.rotation||0), k1.rotation ?? (item.rotation||0), p),
+          anchorX: lerp(k0.anchorX ?? 0.5, k1.anchorX ?? 0.5, p),
+          anchorY: lerp(k0.anchorY ?? 0.5, k1.anchorY ?? 0.5, p),
+        };
+      }
+    }
+    return null;
+  }, []);
+
   const getTransitionTransform = (item, t) => {
     // Suporta formato antigo (transition) e novo (transitionIn/Out)
     const trIn   = item.transitionIn  || item.transition || 'none';
@@ -3533,25 +3615,34 @@ _setDragging(null);
     // Desenha TODOS os vídeos ativos (abaixo das imagens)
     getVideosForTime(time).forEach(v => {
       if (!v.videoEl || v.videoEl.readyState < 1 || v.videoEl.videoWidth === 0) return;
-      const vRot = (v.rotation || 0) * Math.PI / 180;
+      // Aplica keyframes de zoom animado se existirem
+      const kfState = getKfState(v, time);
+      const vx = kfState ? kfState.x : v.x;
+      const vy = kfState ? kfState.y : v.y;
+      const vw = kfState ? kfState.w : v.width;
+      const vh = kfState ? kfState.h : v.height;
+      const vRot = kfState ? kfState.rotation * Math.PI / 180 : (v.rotation || 0) * Math.PI / 180;
+      const vOp  = kfState ? kfState.opacity : 1;
       const _vf  = buildFilterString(v.filters);
       const _vtr = getTransitionTransform(v, time);
+      const vProxy = { ...v, x: vx, y: vy, width: vw, height: vh };
       ctx.save();
-      if (_vtr) { _applyTr(ctx, _vtr, _vf, v); }
+      if (kfState) ctx.globalAlpha = Math.max(0, Math.min(1, vOp));
+      if (_vtr) { _applyTr(ctx, _vtr, _vf, vProxy); }
       else if (_vf !== 'none') { ctx.filter = _vf; }
-      applyElementMask(ctx, v);
-      const drawVid = (tCtx) => drawRotatedElement(tCtx || ctx, () => drawRoundedImage(tCtx || ctx, v.videoEl, v.x, v.y, v.width, v.height, v.radius ?? 12), v.x, v.y, v.width, v.height, v.rotation);
-      applyElementChromatic(ctx, v, drawVid);
-      ctx.filter = 'none'; ctx.restore();
+      applyElementMask(ctx, vProxy);
+      const drawVid = (tCtx) => drawRotatedElement(tCtx || ctx, () => drawRoundedImage(tCtx || ctx, v.videoEl, vx, vy, vw, vh, v.radius ?? 12), vx, vy, vw, vh, kfState ? kfState.rotation : v.rotation);
+      applyElementChromatic(ctx, vProxy, drawVid);
+      ctx.filter = 'none'; ctx.globalAlpha = 1; ctx.restore();
       if (activeVideoId === v.id) {
-        const cx = v.x + v.width / 2, cy = v.y + v.height / 2;
+        const cx = vx + vw / 2, cy = vy + vh / 2;
         ctx.save();
         ctx.translate(cx, cy); ctx.rotate(vRot); ctx.translate(-cx, -cy);
         ctx.strokeStyle = 'rgba(167,139,250,0.9)';
         ctx.lineWidth = 2;
-        drawRoundedRect(ctx, v.x, v.y, v.width, v.height, (v.radius ?? 12) + 2);
+        drawRoundedRect(ctx, vx, vy, vw, vh, (v.radius ?? 12) + 2);
         ctx.stroke();
-        drawResizeHandles(ctx, v.x, v.y, v.width, v.height);
+        drawResizeHandles(ctx, vx, vy, vw, vh);
         ctx.restore();
       }
     });
@@ -3559,23 +3650,31 @@ _setDragging(null);
     // Desenha TODAS as imagens ativas no instante (camadas simultâneas)
     const overlayImages = getImagesForTime(time);
     overlayImages.forEach(overlayImage => {
-      const iRot = (overlayImage.rotation || 0) * Math.PI / 180;
+      const kfStateI = getKfState(overlayImage, time);
+      const ix = kfStateI ? kfStateI.x : overlayImage.x;
+      const iy = kfStateI ? kfStateI.y : overlayImage.y;
+      const iw = kfStateI ? kfStateI.w : overlayImage.width;
+      const ih = kfStateI ? kfStateI.h : overlayImage.height;
+      const iRot = kfStateI ? kfStateI.rotation * Math.PI / 180 : (overlayImage.rotation || 0) * Math.PI / 180;
+      const iOp  = kfStateI ? kfStateI.opacity : 1;
       const _if  = buildFilterString(overlayImage.filters);
       const _itr = getTransitionTransform(overlayImage, time);
+      const iProxy = { ...overlayImage, x: ix, y: iy, width: iw, height: ih };
       ctx.save();
-      if (_itr) { _applyTr(ctx, _itr, _if, overlayImage); }
+      if (kfStateI) ctx.globalAlpha = Math.max(0, Math.min(1, iOp));
+      if (_itr) { _applyTr(ctx, _itr, _if, iProxy); }
       else if (_if !== 'none') { ctx.filter = _if; }
-      drawRotatedElement(ctx, () => drawRoundedImage(ctx, overlayImage.img, overlayImage.x, overlayImage.y, overlayImage.width, overlayImage.height, overlayImage.radius ?? 18), overlayImage.x, overlayImage.y, overlayImage.width, overlayImage.height, overlayImage.rotation);
-      ctx.filter = 'none'; ctx.restore();
+      drawRotatedElement(ctx, () => drawRoundedImage(ctx, overlayImage.img, ix, iy, iw, ih, overlayImage.radius ?? 18), ix, iy, iw, ih, kfStateI ? kfStateI.rotation : overlayImage.rotation);
+      ctx.filter = 'none'; ctx.globalAlpha = 1; ctx.restore();
       if (activeImageId === overlayImage.id) {
-        const cx = overlayImage.x + overlayImage.width / 2, cy = overlayImage.y + overlayImage.height / 2;
+        const cx = ix + iw / 2, cy = iy + ih / 2;
         ctx.save();
         ctx.translate(cx, cy); ctx.rotate(iRot); ctx.translate(-cx, -cy);
         ctx.strokeStyle = 'rgba(248, 250, 252, 0.9)';
         ctx.lineWidth = 2;
-        drawRoundedRect(ctx, overlayImage.x, overlayImage.y, overlayImage.width, overlayImage.height, (overlayImage.radius ?? 18) + 2);
+        drawRoundedRect(ctx, ix, iy, iw, ih, (overlayImage.radius ?? 18) + 2);
         ctx.stroke();
-        drawResizeHandles(ctx, overlayImage.x, overlayImage.y, overlayImage.width, overlayImage.height);
+        drawResizeHandles(ctx, ix, iy, iw, ih);
         ctx.restore();
       }
     });
@@ -3860,7 +3959,7 @@ _setDragging(null);
       drawScreenEffectRef.current?.(ctx, screenEffect, canvas.width, canvas.height, Date.now()/1000);
     }
     // Não agenda mais RAF aqui — o loop unificado abaixo cuida disso
-  }, [activeImageId, activeVideoId, activeExtraTextId, activeLyricId, editingLyricId, drawRotatedElement, drawRoundedImage, drawRoundedRect, drawResizeHandles, applyElementMask, applyElementChromatic, extraTextColor, extraTextFontFamily, extraTextFontSize, extraTexts, fontFamily, fontSize, getImagesForTime, getVideosForTime, image, lyrics, textColor, wrapLyricText, videos, shadowEnabled, shadowBlur, shadowColor, shadowOffsetX, shadowOffsetY, gradientEnabled, gradientColor1, gradientColor2, zoom, screenEffect, colorCurves, chromaAberration]);
+  }, [activeImageId, activeVideoId, activeExtraTextId, activeLyricId, editingLyricId, drawRotatedElement, drawRoundedImage, drawRoundedRect, drawResizeHandles, applyElementMask, applyElementChromatic, getKfState, extraTextColor, extraTextFontFamily, extraTextFontSize, extraTexts, fontFamily, fontSize, getImagesForTime, getVideosForTime, image, lyrics, textColor, wrapLyricText, videos, shadowEnabled, shadowBlur, shadowColor, shadowOffsetX, shadowOffsetY, gradientEnabled, gradientColor1, gradientColor2, zoom, screenEffect, colorCurves, chromaAberration]);
 
 
   // ── Sync de vídeos via função chamada pelo loop RAF ──────────────────────
@@ -4247,24 +4346,34 @@ _setDragging(null);
     // readyState >= 2 = frame atual disponível para drawImage
     activeVids.forEach(v => {
       if (!v.videoEl || v.videoEl.readyState < 2 || v.videoEl.videoWidth === 0) return;
+      const kfEV = getKfState(v, t);
+      const evx = kfEV ? kfEV.x : v.x, evy = kfEV ? kfEV.y : v.y;
+      const evw = kfEV ? kfEV.w : v.width, evh = kfEV ? kfEV.h : v.height;
+      const evProxy = { ...v, x: evx, y: evy, width: evw, height: evh };
       const _evf = buildFilterString(v.filters);
-      const _etr = getTransitionTransform(v, t);
+      const _etr = getTransitionTransform(evProxy, t);
       ctx.save();
-      if (_etr) { _applyTr(ctx, _etr, _evf, v); } else if(_evf!=='none'){ctx.filter=_evf;}
-      applyElementMask(ctx, v);
-      const drawVidE = (tCtx) => drawRotatedElement(tCtx || ctx, () => drawRoundedImage(tCtx || ctx, v.videoEl, v.x, v.y, v.width, v.height, v.radius ?? 12), v.x, v.y, v.width, v.height, v.rotation);
-      applyElementChromatic(ctx, v, drawVidE);
-      ctx.filter='none'; ctx.restore();
+      if (kfEV) ctx.globalAlpha = Math.max(0, Math.min(1, kfEV.opacity));
+      if (_etr) { _applyTr(ctx, _etr, _evf, evProxy); } else if(_evf!=='none'){ctx.filter=_evf;}
+      applyElementMask(ctx, evProxy);
+      const drawVidE = (tCtx) => drawRotatedElement(tCtx || ctx, () => drawRoundedImage(tCtx || ctx, v.videoEl, evx, evy, evw, evh, v.radius ?? 12), evx, evy, evw, evh, kfEV ? kfEV.rotation : v.rotation);
+      applyElementChromatic(ctx, evProxy, drawVidE);
+      ctx.filter='none'; ctx.globalAlpha=1; ctx.restore();
     });
     // Renderiza TODAS as imagens ativas no instante t (usa ref para evitar closure stale)
     const activeImgs = (imagesRef.current || []).filter(item => item?.img && t >= item.start && t <= item.end);
     activeImgs.forEach(overlayImage => {
+      const kfEI = getKfState(overlayImage, t);
+      const eix = kfEI ? kfEI.x : overlayImage.x, eiy = kfEI ? kfEI.y : overlayImage.y;
+      const eiw = kfEI ? kfEI.w : overlayImage.width, eih = kfEI ? kfEI.h : overlayImage.height;
+      const eiProxy = { ...overlayImage, x: eix, y: eiy, width: eiw, height: eih };
       const _eif = buildFilterString(overlayImage.filters);
-      const _eit = getTransitionTransform(overlayImage, t);
+      const _eit = getTransitionTransform(eiProxy, t);
       ctx.save();
-      if (_eit) { _applyTr(ctx, _eit, _eif, overlayImage); } else if(_eif!=='none'){ctx.filter=_eif;}
-      drawRotatedElement(ctx, () => drawRoundedImage(ctx, overlayImage.img, overlayImage.x, overlayImage.y, overlayImage.width, overlayImage.height, overlayImage.radius ?? 18), overlayImage.x, overlayImage.y, overlayImage.width, overlayImage.height, overlayImage.rotation);
-      ctx.filter='none'; ctx.restore();
+      if (kfEI) ctx.globalAlpha = Math.max(0, Math.min(1, kfEI.opacity));
+      if (_eit) { _applyTr(ctx, _eit, _eif, eiProxy); } else if(_eif!=='none'){ctx.filter=_eif;}
+      drawRotatedElement(ctx, () => drawRoundedImage(ctx, overlayImage.img, eix, eiy, eiw, eih, overlayImage.radius ?? 18), eix, eiy, eiw, eih, kfEI ? kfEI.rotation : overlayImage.rotation);
+      ctx.filter='none'; ctx.globalAlpha=1; ctx.restore();
     });
     ctx.fillStyle = textColor;
     ctx.textAlign = 'center';
@@ -6537,43 +6646,173 @@ _setDragging(null);
                     {(sel.chromaticAberration||0)>0 && <button onClick={() => upd({chromaticAberration:0})} style={{ background:'none',border:'none',color:'#555',cursor:'pointer',fontSize:12 }}>↺</button>}
                   </div>
                 </div>
-                {/* ── Keyframes ── */}
-                <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
+                {/* ── Zoom Animado / Keyframes ── */}
+                <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
                   <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
-                    <span style={{ fontSize:11, color: accent, fontWeight:700, letterSpacing:'0.5px' }}>🎞️ Keyframes</span>
-                    <div style={{ display:'flex', gap:6 }}>
+                    <div>
+                      <span style={{ fontSize:11, color: accent, fontWeight:700, letterSpacing:'0.5px' }}>🎬 Zoom Animado</span>
+                      {kfs.length > 0 && <span style={{ marginLeft:6, fontSize:9, background:`${accentBg}0.2)`, border:`1px solid ${accentBg}0.4)`, borderRadius:10, padding:'1px 6px', color:accent }}>{kfs.length} KF</span>}
+                    </div>
+                    <div style={{ display:'flex', gap:5 }}>
                       <button
                         onClick={() => {
-                          const kf = { t: parseFloat(tNow.toFixed(3)), x: sel.x, y: sel.y, scale: 1, opacity: sel._kfOpacity ?? 1, rotation: sel.rotation || 0 };
+                          // Captura posição e escala atuais (incluindo kfState se já há KFs)
+                          const kfNow = getKfState(sel, tNow);
+                          const scNow = kfNow ? kfNow.w / sel.width : 1;
+                          const xNow  = kfNow ? kfNow.x : sel.x;
+                          const yNow  = kfNow ? kfNow.y : sel.y;
+                          const kf = {
+                            t: parseFloat(tNow.toFixed(3)),
+                            x: xNow, y: yNow,
+                            scale: parseFloat(scNow.toFixed(3)),
+                            opacity: 1,
+                            rotation: sel.rotation || 0,
+                            anchorX: 0.5, anchorY: 0.5,
+                            easing: 'ease_in_out',
+                          };
                           const existing = kfs.filter(k => Math.abs(k.t - kf.t) > 0.05);
                           upd({ keyframes: [...existing, kf].sort((a,b) => a.t - b.t) });
                         }}
-                        style={{ background:`${accentBg}0.15)`, border:`1px solid ${accentBg}0.4)`, borderRadius:8, padding:'3px 10px', fontSize:10, color: accent, cursor:'pointer', fontWeight:700 }}
-                      >+ KF em {tNow.toFixed(1)}s</button>
+                        style={{ background:`${accentBg}0.15)`, border:`1px solid ${accentBg}0.4)`, borderRadius:7, padding:'3px 9px', fontSize:10, color:accent, cursor:'pointer', fontWeight:700 }}
+                      >+ KF {tNow.toFixed(1)}s</button>
                       {kfs.length > 0 && <button onClick={() => upd({keyframes:[]})}
-                        style={{ background:'rgba(239,68,68,0.08)', border:'1px solid rgba(239,68,68,0.25)', borderRadius:8, padding:'3px 8px', fontSize:10, color:'#f87171', cursor:'pointer' }}>✕ Limpar</button>}
+                        style={{ background:'rgba(239,68,68,0.08)', border:'1px solid rgba(239,68,68,0.2)', borderRadius:7, padding:'3px 7px', fontSize:10, color:'#f87171', cursor:'pointer' }}>✕</button>}
                     </div>
                   </div>
+
+                  {/* Presets de zoom rápido */}
+                  <div style={{ display:'flex', gap:4, flexWrap:'wrap' }}>
+                    {[
+                      { label:'Ken Burns', title:'Zoom suave de entrada', fn:() => {
+                        const dur = (sel.end||5) - (sel.start||0);
+                        upd({ keyframes: [
+                          { t: sel.start||0, x: sel.x, y: sel.y, scale:1,    opacity:1, rotation:sel.rotation||0, anchorX:0.5, anchorY:0.5, easing:'ease_in_out' },
+                          { t: (sel.start||0)+dur, x: sel.x - sel.width*0.1, y: sel.y - sel.height*0.1, scale:1.2, opacity:1, rotation:sel.rotation||0, anchorX:0.5, anchorY:0.5, easing:'ease_in_out' },
+                        ]});
+                      }},
+                      { label:'Punch In', title:'Zoom rápido de aproximação', fn:() => {
+                        const s = sel.start||0;
+                        upd({ keyframes: [
+                          { t: s,      x: sel.x, y: sel.y, scale:1,   opacity:1, rotation:sel.rotation||0, anchorX:0.5, anchorY:0.5, easing:'ease_out' },
+                          { t: s+0.6,  x: sel.x - sel.width*0.15, y: sel.y - sel.height*0.15, scale:1.3, opacity:1, rotation:sel.rotation||0, anchorX:0.5, anchorY:0.5, easing:'ease_out' },
+                        ]});
+                      }},
+                      { label:'Zoom Out', title:'Zoom suave de afastamento', fn:() => {
+                        const dur = (sel.end||5) - (sel.start||0);
+                        upd({ keyframes: [
+                          { t: sel.start||0, x: sel.x - sel.width*0.15, y: sel.y - sel.height*0.15, scale:1.3, opacity:1, rotation:sel.rotation||0, anchorX:0.5, anchorY:0.5, easing:'ease_in_out' },
+                          { t: (sel.start||0)+dur, x: sel.x, y: sel.y, scale:1, opacity:1, rotation:sel.rotation||0, anchorX:0.5, anchorY:0.5, easing:'ease_in_out' },
+                        ]});
+                      }},
+                      { label:'Pulse', title:'Pulso rítmico de escala', fn:() => {
+                        const s = sel.start||0;
+                        upd({ keyframes: [
+                          { t: s,      x:sel.x, y:sel.y, scale:1,    opacity:1, rotation:sel.rotation||0, anchorX:0.5, anchorY:0.5, easing:'ease_in_out' },
+                          { t: s+0.5,  x:sel.x - sel.width*0.06, y:sel.y - sel.height*0.06, scale:1.12, opacity:1, rotation:sel.rotation||0, anchorX:0.5, anchorY:0.5, easing:'ease_in_out' },
+                          { t: s+1.0,  x:sel.x, y:sel.y, scale:1,    opacity:1, rotation:sel.rotation||0, anchorX:0.5, anchorY:0.5, easing:'ease_in_out' },
+                          { t: s+1.5,  x:sel.x - sel.width*0.06, y:sel.y - sel.height*0.06, scale:1.12, opacity:1, rotation:sel.rotation||0, anchorX:0.5, anchorY:0.5, easing:'ease_in_out' },
+                          { t: s+2.0,  x:sel.x, y:sel.y, scale:1,    opacity:1, rotation:sel.rotation||0, anchorX:0.5, anchorY:0.5, easing:'ease_in_out' },
+                        ]});
+                      }},
+                      { label:'Fade In', title:'Aparece gradualmente', fn:() => {
+                        const s = sel.start||0;
+                        upd({ keyframes: [
+                          { t: s,     x:sel.x, y:sel.y, scale:1, opacity:0, rotation:sel.rotation||0, anchorX:0.5, anchorY:0.5, easing:'ease_out' },
+                          { t: s+0.8, x:sel.x, y:sel.y, scale:1, opacity:1, rotation:sel.rotation||0, anchorX:0.5, anchorY:0.5, easing:'ease_out' },
+                        ]});
+                      }},
+                      { label:'Limpar', title:'Remove todos os keyframes', fn:() => upd({keyframes:[]}) },
+                    ].map(p => (
+                      <button key={p.label} onClick={p.fn} title={p.title}
+                        style={{ padding:'3px 8px', fontSize:9, borderRadius:6, cursor:'pointer', fontWeight:700,
+                          background: p.label==='Limpar' ? 'rgba(239,68,68,0.08)' : `${accentBg}0.1)`,
+                          border: `1px solid ${p.label==='Limpar' ? 'rgba(239,68,68,0.25)' : accentBg+'0.3)'}`,
+                          color: p.label==='Limpar' ? '#f87171' : accent }}>{p.label}</button>
+                    ))}
+                  </div>
+
+                  {/* Lista de keyframes com controles */}
                   {kfs.length > 0 ? (
-                    <div style={{ display:'flex', flexDirection:'column', gap:3, maxHeight:140, overflowY:'auto' }}>
+                    <div style={{ display:'flex', flexDirection:'column', gap:4, maxHeight:200, overflowY:'auto' }}>
+                      {/* Mini timeline visual */}
+                      <div style={{ position:'relative', height:18, background:'rgba(255,255,255,0.04)', borderRadius:6, margin:'0 0 2px', overflow:'visible' }}>
+                        <div style={{ position:'absolute', left:0, top:'50%', right:0, height:1, background:'rgba(255,255,255,0.08)', transform:'translateY(-50%)' }} />
+                        {(() => {
+                          const tMin = kfs[0].t, tMax = kfs[kfs.length-1].t || (tMin+1);
+                          const range = Math.max(0.5, tMax - tMin);
+                          return kfs.map((kf, ki) => {
+                            const pct = range > 0 ? ((kf.t - tMin) / range) * 92 + 4 : 4;
+                            return (
+                              <div key={ki} style={{ position:'absolute', left:`${pct}%`, top:'50%', transform:'translate(-50%,-50%)', width:8, height:8, borderRadius:'50%', background:accent, border:'2px solid #0d1117', cursor:'pointer', zIndex:2 }} title={`KF ${kf.t.toFixed(2)}s — escala ${(kf.scale||1).toFixed(2)}×`} />
+                            );
+                          });
+                        })()}
+                        {/* Playhead */}
+                        {(() => {
+                          const tMin = kfs[0].t, tMax = kfs[kfs.length-1].t || (tMin+1);
+                          const range = Math.max(0.5, tMax - tMin);
+                          const pct = range > 0 ? Math.max(0,Math.min(100,((tNow - tMin) / range) * 92 + 4)) : 4;
+                          return <div style={{ position:'absolute', left:`${pct}%`, top:0, bottom:0, width:1, background:'rgba(0,191,255,0.6)', transform:'translateX(-50%)', pointerEvents:'none' }} />;
+                        })()}
+                      </div>
                       {kfs.map((kf, ki) => (
-                        <div key={ki} style={{ display:'flex', alignItems:'center', gap:6, background:'rgba(255,255,255,0.03)', borderRadius:8, padding:'5px 8px' }}>
-                          <span style={{ fontSize:10, color: accent, fontWeight:700, minWidth:36 }}>{kf.t.toFixed(1)}s</span>
-                          <span style={{ fontSize:9, color:'#555', flex:1 }}>x:{Math.round(kf.x||0)} y:{Math.round(kf.y||0)} sc:{(kf.scale||1).toFixed(2)} op:{Math.round((kf.opacity??1)*100)}%</span>
-                          <input type="range" min={0} max={2} step={0.05} value={kf.scale||1}
-                            onChange={e => upd({keyframes: kfs.map((k,i) => i===ki?{...k,scale:+e.target.value}:k)})}
-                            style={{ width:45, accentColor:accent, height:2 }} title={`Escala: ${(kf.scale||1).toFixed(2)}`} />
-                          <input type="range" min={0} max={1} step={0.05} value={kf.opacity??1}
-                            onChange={e => upd({keyframes: kfs.map((k,i) => i===ki?{...k,opacity:+e.target.value}:k)})}
-                            style={{ width:45, accentColor:accent, height:2 }} title={`Opacidade: ${Math.round((kf.opacity??1)*100)}%`} />
-                          <button onClick={() => upd({keyframes: kfs.filter((_,i) => i!==ki)})}
-                            style={{ background:'none', border:'none', color:'#555', cursor:'pointer', fontSize:12 }}>✕</button>
+                        <div key={ki} style={{ background:'rgba(255,255,255,0.03)', border:`1px solid ${accentBg}0.15)`, borderRadius:9, padding:'7px 10px', display:'flex', flexDirection:'column', gap:5 }}>
+                          <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+                            <div style={{ width:6, height:6, borderRadius:'50%', background:accent, flexShrink:0 }} />
+                            <span style={{ fontSize:11, color:accent, fontWeight:800, minWidth:36 }}>{kf.t.toFixed(2)}s</span>
+                            {/* Easing selector */}
+                            <select value={kf.easing||'ease_in_out'}
+                              onChange={e => upd({keyframes: kfs.map((k,i) => i===ki?{...k,easing:e.target.value}:k)})}
+                              style={{ flex:1, fontSize:9, background:'#0a0a0a', color:'#888', border:`1px solid ${accentBg}0.2)`, borderRadius:5, padding:'2px 4px', cursor:'pointer' }}>
+                              <option value="linear">Linear</option>
+                              <option value="ease_in">Ease In</option>
+                              <option value="ease_out">Ease Out</option>
+                              <option value="ease_in_out">Ease In-Out</option>
+                              <option value="spring">Spring</option>
+                              <option value="bounce">Bounce</option>
+                            </select>
+                            <button onClick={() => upd({keyframes: kfs.filter((_,i) => i!==ki)})}
+                              style={{ background:'none', border:'none', color:'#555', cursor:'pointer', fontSize:13, lineHeight:1 }}>✕</button>
+                          </div>
+                          {/* Escala */}
+                          <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+                            <span style={{ fontSize:9, color:'#666', minWidth:46 }}>Escala</span>
+                            <input type="range" min={0.1} max={3} step={0.01} value={kf.scale||1}
+                              onMouseDown={e => e.stopPropagation()} onPointerDown={e => e.stopPropagation()}
+                              onChange={e => upd({keyframes: kfs.map((k,i) => i===ki?{...k,scale:+e.target.value}:k)})}
+                              style={{ flex:1, accentColor:accent, height:3 }} />
+                            <span style={{ fontSize:10, color:accent, fontWeight:700, minWidth:30, textAlign:'right' }}>{(kf.scale||1).toFixed(2)}×</span>
+                            {(kf.scale||1) !== 1 && <button onClick={() => upd({keyframes:kfs.map((k,i)=>i===ki?{...k,scale:1}:k)})}
+                              style={{ background:'none',border:'none',color:'#555',cursor:'pointer',fontSize:11,padding:0 }}>↺</button>}
+                          </div>
+                          {/* Opacidade */}
+                          <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+                            <span style={{ fontSize:9, color:'#666', minWidth:46 }}>Opacidade</span>
+                            <input type="range" min={0} max={1} step={0.01} value={kf.opacity??1}
+                              onMouseDown={e => e.stopPropagation()} onPointerDown={e => e.stopPropagation()}
+                              onChange={e => upd({keyframes: kfs.map((k,i) => i===ki?{...k,opacity:+e.target.value}:k)})}
+                              style={{ flex:1, accentColor:accent, height:3 }} />
+                            <span style={{ fontSize:10, color:accent, fontWeight:700, minWidth:30, textAlign:'right' }}>{Math.round((kf.opacity??1)*100)}%</span>
+                          </div>
+                          {/* Ancora (ponto de zoom) */}
+                          <div style={{ display:'flex', gap:4, alignItems:'center' }}>
+                            <span style={{ fontSize:9, color:'#666', minWidth:46 }}>Âncora</span>
+                            {[['↖','0,0'],['↑','0.5,0'],['↗','1,0'],['←','0,0.5'],['⊙','0.5,0.5'],['→','1,0.5'],['↙','0,1'],['↓','0.5,1'],['↘','1,1']].map(([lbl,val]) => {
+                              const [ax,ay] = val.split(',').map(Number);
+                              const isActive = Math.abs((kf.anchorX??0.5)-ax)<0.01 && Math.abs((kf.anchorY??0.5)-ay)<0.01;
+                              return (
+                                <button key={val} onClick={() => upd({keyframes:kfs.map((k,i)=>i===ki?{...k,anchorX:ax,anchorY:ay}:k)})}
+                                  style={{ width:20, height:20, borderRadius:4, border:`1px solid ${isActive?accentBg+'0.7)':'rgba(255,255,255,0.08)'}`, background:isActive?`${accentBg}0.2)`:'rgba(255,255,255,0.03)', color:isActive?accent:'#555', fontSize:10, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', padding:0 }}>{lbl}</button>
+                              );
+                            })}
+                          </div>
                         </div>
                       ))}
                     </div>
                   ) : (
-                    <div style={{ fontSize:10, color:'#444', textAlign:'center', padding:'4px 0' }}>
-                      Clique "+ KF" enquanto o play roda para animar posição, escala e opacidade
+                    <div style={{ background:'rgba(255,255,255,0.02)', borderRadius:8, padding:'10px 12px', fontSize:10, color:'#444', textAlign:'center', lineHeight:1.6 }}>
+                      Use um preset acima ou clique <strong style={{color:accent}}>+ KF</strong> para adicionar keyframes manualmente.<br/>
+                      <span style={{fontSize:9}}>Pausa o play, ajuste o tempo e clique + KF para capturar.</span>
                     </div>
                   )}
                 </div>
