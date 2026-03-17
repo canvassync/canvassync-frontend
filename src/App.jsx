@@ -962,6 +962,12 @@ function App() {
   const [canvasFormat, setCanvasFormat] = useState('9:16');
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [stickers, setStickers] = useState([]);           // [{id,type,content,animStyle,x,y,size,rotation}]
+  const [frames, setFrames]       = useState([]);           // [{id,style,x,y,width,height,color,thickness,opacity,rotation,cornerRadius}]
+  const [activeFrameId, setActiveFrameId] = useState(null);
+  const [showFramePanel, setShowFramePanel] = useState(false);
+  const [framePanelPos, setFramePanelPos]   = useState({ top: 80, left: 0 });
+  const frameBtnRef = useRef(null);
+  const framesRef   = useRef([]);
   const [soundEffects, setSoundEffects] = useState([]);     // [{id,key,name,emoji,startTime,volume}]
   const [showSfxPanel, setShowSfxPanel] = useState(false);
   const [sfxPanelPos, setSfxPanelPos]   = useState({ top: 80, left: 0 });
@@ -1943,6 +1949,7 @@ function App() {
         if (Array.isArray(p.stickers)) {
           setStickers(p.stickers);
         }
+        if (Array.isArray(p.frames)) setFrames(p.frames);
         if (Array.isArray(p.soundEffects)) setSoundEffects(p.soundEffects);
         if (p.fontSize !== undefined) setFontSize(p.fontSize);
         if (p.textColor) setTextColor(p.textColor);
@@ -2151,6 +2158,7 @@ function App() {
     setExtraTexts(snap.extraTexts);
     setLyrics(snap.lyrics);
     setStickers(snap.stickers);
+    if (snap.frames) setFrames(snap.frames);
     setScreenEffect(snap.screenEffect);
     setSoundEffects(snap.soundEffects);
     setColorCurves(snap.colorCurves);
@@ -2312,6 +2320,8 @@ function App() {
     setActiveVideoId(null);
     setExtraTexts([]);
     setStickers([]);
+    setFrames([]);
+    setActiveFrameId(null);
     setNewExtraInput('');
     setTextLines([]);
     setCurrentLineIndex(0);
@@ -2512,6 +2522,33 @@ function App() {
     const mouseX = (e.clientX - rect.left) * scaleX;
     const mouseY = (e.clientY - rect.top) * scaleY;
     const ctx = canvas.getContext('2d');
+
+    // ── Verifica colisão com molduras ────────────────────────────────────────
+    for (let i = framesRef.current.length - 1; i >= 0; i--) {
+      const fr = framesRef.current[i];
+      const fw = fr.width || 200, fh = fr.height || 200;
+      const fx = fr.x || 0, fy = fr.y || 0;
+      const hs2 = 12; // handle size
+      // Check resize corner handles (only when selected)
+      if (activeFrameId === fr.id) {
+        const corners = [[fx,fy],[fx+fw,fy],[fx,fy+fh],[fx+fw,fy+fh]];
+        for (const [hx2,hy2] of corners) {
+          if (Math.abs(mouseX-hx2) <= hs2 && Math.abs(mouseY-hy2) <= hs2) {
+            const corner = `${mouseY<=fy+fh/2?'n':'s'}${mouseX<=fx+fw/2?'w':'e'}`;
+            _setDragging({ type:'frame-resize', id:fr.id, corner, startX:mouseX, startY:mouseY,
+              startW:fw, startH:fh, startFx:fx, startFy:fy });
+            return;
+          }
+        }
+      }
+      // Check if inside frame bounding box
+      if (mouseX >= fx-8 && mouseX <= fx+fw+8 && mouseY >= fy-8 && mouseY <= fy+fh+8) {
+        setActiveFrameId(fr.id);
+        _setDragging({ type:'frame-move', id:fr.id, offsetX:mouseX-fx, offsetY:mouseY-fy });
+        return;
+      }
+    }
+    setActiveFrameId(null);
 
     // ── Verifica colisão com stickers (do último para o primeiro) ────────────
     for (let i = stickers.length - 1; i >= 0; i--) {
@@ -2836,6 +2873,28 @@ function App() {
       return;
     }
 
+    // Frame move
+    if (dragging && dragging.type === 'frame-move') {
+      setFrames(prev => prev.map(fr => fr.id === dragging.id
+        ? { ...fr, x: mouseX - dragging.offsetX, y: mouseY - dragging.offsetY }
+        : fr));
+      return;
+    }
+    // Frame resize
+    if (dragging && dragging.type === 'frame-resize') {
+      const { id, corner, startX, startY, startW, startH, startFx, startFy } = dragging;
+      const dx = mouseX - startX, dy = mouseY - startY;
+      let newX = startFx, newY = startFy, newW = startW, newH = startH;
+      if (corner.includes('e')) newW = Math.max(30, startW + dx);
+      if (corner.includes('s')) newH = Math.max(30, startH + dy);
+      if (corner.includes('w')) { newW = Math.max(30, startW - dx); newX = startFx + startW - newW; }
+      if (corner.includes('n')) { newH = Math.max(30, startH - dy); newY = startFy + startH - newH; }
+      setFrames(prev => prev.map(fr => fr.id === id
+        ? { ...fr, x: newX, y: newY, width: newW, height: newH }
+        : fr));
+      return;
+    }
+
 
     // Extra text move
     if (dragging && dragging.type === 'extra' && draggingExtraIndex !== null) {
@@ -2989,6 +3048,12 @@ _setDragging(null);
       if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA' || activeEl.tagName === 'SELECT' || activeEl.isContentEditable)) return;
       // Prioridade estrita: só deleta o item explicitamente selecionado
       // Jamais deleta vídeo se o que está selecionado é uma lyric/imagem/texto
+      if (activeFrameId) {
+        pushHistory();
+        setFrames(prev => prev.filter(fr => fr.id !== activeFrameId));
+        setActiveFrameId(null);
+        return;
+      }
       if (activeVideoId && !activeImageId && !activeLyricId && !activeExtraTextId) {
         pushHistory();
         setVideos(prev => {
@@ -3088,6 +3153,7 @@ _setDragging(null);
 
   const stickersRef = useRef([]);
   useEffect(() => { stickersRef.current = stickers; }, [stickers]);
+  useEffect(() => { framesRef.current = frames; }, [frames]);
 
   // ── Desenha efeito de fundo atrás do texto ─────────────────────────────────
   const drawTextBgEffectRef = useRef(null);
@@ -3924,6 +3990,201 @@ _setDragging(null);
       }
       ctx.restore();
     });
+    // ── Molduras (desenhadas sobre tudo, antes dos efeitos globais) ────────────
+    framesRef.current.forEach(fr => {
+      const fw = fr.width || 200, fh = fr.height || 200;
+      const fx = fr.x || 0, fy = fr.y || 0;
+      const frot = (fr.rotation || 0) * Math.PI / 180;
+      const th = fr.thickness || 6;
+      const col = fr.color || '#ffffff';
+      const cr = fr.cornerRadius || 0;
+      const op = fr.opacity ?? 1;
+      ctx.save();
+      ctx.globalAlpha = op;
+      if (frot) {
+        const fcx = fx + fw/2, fcy = fy + fh/2;
+        ctx.translate(fcx, fcy); ctx.rotate(frot); ctx.translate(-fcx, -fcy);
+      }
+      ctx.strokeStyle = col;
+      ctx.lineWidth = th;
+      ctx.shadowBlur = 0;
+      const isActive = activeFrameId === fr.id;
+
+      switch (fr.style) {
+        case 'solid': {
+          if (cr > 0) {
+            ctx.beginPath();
+            ctx.moveTo(fx+cr, fy); ctx.lineTo(fx+fw-cr, fy);
+            ctx.arcTo(fx+fw, fy, fx+fw, fy+cr, cr);
+            ctx.lineTo(fx+fw, fy+fh-cr);
+            ctx.arcTo(fx+fw, fy+fh, fx+fw-cr, fy+fh, cr);
+            ctx.lineTo(fx+cr, fy+fh);
+            ctx.arcTo(fx, fy+fh, fx, fy+fh-cr, cr);
+            ctx.lineTo(fx, fy+cr);
+            ctx.arcTo(fx, fy, fx+cr, fy, cr);
+            ctx.closePath(); ctx.stroke();
+          } else {
+            ctx.strokeRect(fx, fy, fw, fh);
+          }
+          break;
+        }
+        case 'double': {
+          const off = th * 1.5;
+          ctx.lineWidth = th * 0.6;
+          ctx.strokeRect(fx, fy, fw, fh);
+          ctx.strokeRect(fx+off, fy+off, fw-off*2, fh-off*2);
+          break;
+        }
+        case 'dashed': {
+          ctx.setLineDash([th*3, th*2]);
+          if (cr > 0) {
+            ctx.beginPath(); ctx.moveTo(fx+cr, fy); ctx.lineTo(fx+fw-cr, fy);
+            ctx.arcTo(fx+fw, fy, fx+fw, fy+cr, cr); ctx.lineTo(fx+fw, fy+fh-cr);
+            ctx.arcTo(fx+fw, fy+fh, fx+fw-cr, fy+fh, cr); ctx.lineTo(fx+cr, fy+fh);
+            ctx.arcTo(fx, fy+fh, fx, fy+fh-cr, cr); ctx.lineTo(fx, fy+cr);
+            ctx.arcTo(fx, fy, fx+cr, fy, cr); ctx.closePath(); ctx.stroke();
+          } else { ctx.strokeRect(fx, fy, fw, fh); }
+          ctx.setLineDash([]);
+          break;
+        }
+        case 'dotted': {
+          ctx.setLineDash([th, th*2]);
+          ctx.lineCap = 'round';
+          ctx.strokeRect(fx, fy, fw, fh);
+          ctx.setLineDash([]); ctx.lineCap = 'butt';
+          break;
+        }
+        case 'neon': {
+          ctx.shadowBlur = th * 4; ctx.shadowColor = col;
+          ctx.strokeRect(fx, fy, fw, fh);
+          ctx.shadowBlur = th * 8; ctx.shadowColor = col;
+          ctx.lineWidth = th * 0.5;
+          ctx.strokeRect(fx, fy, fw, fh);
+          ctx.shadowBlur = 0;
+          break;
+        }
+        case 'neon_double': {
+          const col2 = fr.color2 || '#ff00ff';
+          ctx.shadowBlur = th*5; ctx.shadowColor = col;
+          ctx.strokeRect(fx, fy, fw, fh);
+          ctx.shadowBlur = th*5; ctx.shadowColor = col2;
+          ctx.strokeStyle = col2; ctx.lineWidth = th * 0.4;
+          ctx.strokeRect(fx+th*1.2, fy+th*1.2, fw-th*2.4, fh-th*2.4);
+          ctx.shadowBlur = 0;
+          break;
+        }
+        case 'gradient': {
+          const gg = ctx.createLinearGradient(fx, fy, fx+fw, fy+fh);
+          gg.addColorStop(0, col);
+          gg.addColorStop(0.5, fr.color2 || '#00bfff');
+          gg.addColorStop(1, col);
+          ctx.strokeStyle = gg;
+          ctx.strokeRect(fx, fy, fw, fh);
+          break;
+        }
+        case 'corners': {
+          const cl = Math.min(fw, fh) * 0.22;
+          ctx.lineCap = 'square';
+          // TL
+          ctx.beginPath(); ctx.moveTo(fx, fy+cl); ctx.lineTo(fx, fy); ctx.lineTo(fx+cl, fy); ctx.stroke();
+          // TR
+          ctx.beginPath(); ctx.moveTo(fx+fw-cl, fy); ctx.lineTo(fx+fw, fy); ctx.lineTo(fx+fw, fy+cl); ctx.stroke();
+          // BL
+          ctx.beginPath(); ctx.moveTo(fx, fy+fh-cl); ctx.lineTo(fx, fy+fh); ctx.lineTo(fx+cl, fy+fh); ctx.stroke();
+          // BR
+          ctx.beginPath(); ctx.moveTo(fx+fw-cl, fy+fh); ctx.lineTo(fx+fw, fy+fh); ctx.lineTo(fx+fw, fy+fh-cl); ctx.stroke();
+          ctx.lineCap = 'butt';
+          break;
+        }
+        case 'corners_round': {
+          const cl = Math.min(fw, fh) * 0.2;
+          ctx.lineCap = 'round';
+          ctx.beginPath(); ctx.moveTo(fx, fy+cl); ctx.quadraticCurveTo(fx, fy, fx+cl, fy); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(fx+fw-cl, fy); ctx.quadraticCurveTo(fx+fw, fy, fx+fw, fy+cl); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(fx, fy+fh-cl); ctx.quadraticCurveTo(fx, fy+fh, fx+cl, fy+fh); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(fx+fw-cl, fy+fh); ctx.quadraticCurveTo(fx+fw, fy+fh, fx+fw, fy+fh-cl); ctx.stroke();
+          ctx.lineCap = 'butt';
+          break;
+        }
+        case 'film': {
+          ctx.fillStyle = col;
+          const hp = fh * 0.06, pw = fw * 0.035, gap = pw * 1.6;
+          const count = Math.floor((fw * 0.8) / (pw + gap));
+          const total = count * (pw + gap) - gap;
+          const startX = fx + (fw - total) / 2;
+          for (let i = 0; i < count; i++) {
+            const px = startX + i * (pw + gap);
+            ctx.fillRect(px, fy + hp*0.3, pw, hp);
+            ctx.fillRect(px, fy + fh - hp*1.3, pw, hp);
+          }
+          ctx.lineWidth = th; ctx.strokeStyle = col;
+          ctx.strokeRect(fx, fy + hp*1.8, fw, fh - hp*3.6);
+          break;
+        }
+        case 'polaroid': {
+          ctx.fillStyle = col;
+          ctx.globalAlpha = op * 0.92;
+          const bw = th * 1.5;
+          ctx.fillRect(fx, fy, fw, bw);
+          ctx.fillRect(fx, fy+fh-bw*3, fw, bw*3);
+          ctx.fillRect(fx, fy+bw, bw, fh-bw*4);
+          ctx.fillRect(fx+fw-bw, fy+bw, bw, fh-bw*4);
+          break;
+        }
+        case 'art_deco': {
+          ctx.lineWidth = th * 0.5;
+          ctx.strokeRect(fx, fy, fw, fh);
+          ctx.strokeRect(fx+th*2, fy+th*2, fw-th*4, fh-th*4);
+          const cdl = Math.min(fw,fh)*0.08;
+          [[fx,fy],[fx+fw,fy],[fx,fy+fh],[fx+fw,fy+fh]].forEach(([cx2,cy2]) => {
+            ctx.beginPath();
+            ctx.arc(cx2, cy2, cdl, 0, Math.PI*2);
+            ctx.stroke();
+          });
+          break;
+        }
+        case 'vintage': {
+          ctx.lineWidth = th*0.7; ctx.strokeRect(fx+th, fy+th, fw-th*2, fh-th*2);
+          ctx.lineWidth = th*1.4; ctx.setLineDash([th*1.5,th]);
+          ctx.strokeRect(fx, fy, fw, fh);
+          ctx.setLineDash([]);
+          break;
+        }
+        case 'shadow': {
+          ctx.shadowColor = col; ctx.shadowBlur = th*3;
+          ctx.shadowOffsetX = th; ctx.shadowOffsetY = th;
+          ctx.lineWidth = th * 0.5; ctx.strokeRect(fx, fy, fw, fh);
+          ctx.shadowBlur=0; ctx.shadowOffsetX=0; ctx.shadowOffsetY=0;
+          break;
+        }
+        case 'glitch_frame': {
+          const off2 = th * 0.8;
+          ctx.strokeStyle = '#ff0040'; ctx.strokeRect(fx+off2, fy-off2*0.5, fw, fh);
+          ctx.strokeStyle = '#00ffcc'; ctx.strokeRect(fx-off2*0.5, fy+off2, fw, fh);
+          ctx.strokeStyle = col; ctx.lineWidth = th*0.5;
+          if (Math.sin(Date.now()/80)>0.3) { ctx.strokeRect(fx-1, fy+Math.random()*fh*0.3, fw+2, fh*0.05); }
+          break;
+        }
+        default:
+          ctx.strokeRect(fx, fy, fw, fh);
+      }
+
+      // Selection indicator
+      if (isActive) {
+        ctx.globalAlpha = 1; ctx.strokeStyle = 'rgba(0,191,255,0.9)';
+        ctx.lineWidth = 1.5; ctx.setLineDash([4,3]);
+        ctx.strokeRect(fx-6, fy-6, fw+12, fh+12);
+        ctx.setLineDash([]);
+        // Resize handles
+        ctx.fillStyle = '#00BFFF';
+        const hs2 = 8;
+        [[fx,fy],[fx+fw,fy],[fx,fy+fh],[fx+fw,fy+fh]].forEach(([hx2,hy2]) => {
+          ctx.fillRect(hx2-hs2/2, hy2-hs2/2, hs2, hs2);
+        });
+      }
+      ctx.restore();
+    });
+
     // ── Curvas de Cor (pós-processamento global) ──────────────────────────────
     const cc = colorCurves;
     const hasCC = cc && (Math.abs(cc.r-1)>0.01||Math.abs(cc.g-1)>0.01||Math.abs(cc.b-1)>0.01||
@@ -3959,7 +4220,7 @@ _setDragging(null);
       drawScreenEffectRef.current?.(ctx, screenEffect, canvas.width, canvas.height, Date.now()/1000);
     }
     // Não agenda mais RAF aqui — o loop unificado abaixo cuida disso
-  }, [activeImageId, activeVideoId, activeExtraTextId, activeLyricId, editingLyricId, drawRotatedElement, drawRoundedImage, drawRoundedRect, drawResizeHandles, applyElementMask, applyElementChromatic, getKfState, extraTextColor, extraTextFontFamily, extraTextFontSize, extraTexts, fontFamily, fontSize, getImagesForTime, getVideosForTime, image, lyrics, textColor, wrapLyricText, videos, shadowEnabled, shadowBlur, shadowColor, shadowOffsetX, shadowOffsetY, gradientEnabled, gradientColor1, gradientColor2, zoom, screenEffect, colorCurves, chromaAberration]);
+  }, [activeImageId, activeVideoId, activeExtraTextId, activeLyricId, editingLyricId, drawRotatedElement, drawRoundedImage, drawRoundedRect, drawResizeHandles, applyElementMask, applyElementChromatic, getKfState, extraTextColor, extraTextFontFamily, extraTextFontSize, extraTexts, fontFamily, fontSize, getImagesForTime, getVideosForTime, image, lyrics, textColor, wrapLyricText, videos, shadowEnabled, shadowBlur, shadowColor, shadowOffsetX, shadowOffsetY, gradientEnabled, gradientColor1, gradientColor2, zoom, screenEffect, colorCurves, chromaAberration, activeFrameId, frames]);
 
 
   // ── Sync de vídeos via função chamada pelo loop RAF ──────────────────────
@@ -4108,6 +4369,7 @@ _setDragging(null);
       extraTexts:   [...extraTexts],
       lyrics:       [...lyrics],
       stickers:     [...stickers],
+      frames:       frames.map(f => ({...f})),
       screenEffect,
       videos:       videos.map(({ videoEl, audioBuffer, ...rest }) => rest),
       soundEffects: [...soundEffects],
@@ -4511,6 +4773,27 @@ _setDragging(null);
       ctx.restore();
     });
     // ── Curvas de Cor no export ──────────────────────────────────────────────
+    // Molduras no export
+    framesRef.current.forEach(fr => {
+      const fw=fr.width||200,fh=fr.height||200,fx=fr.x||0,fy=fr.y||0;
+      const frot=(fr.rotation||0)*Math.PI/180,th=fr.thickness||6,col=fr.color||'#ffffff',op=fr.opacity??1,cr=fr.cornerRadius||0;
+      ctx.save(); ctx.globalAlpha=op; ctx.strokeStyle=col; ctx.lineWidth=th;
+      if(frot){const fcx=fx+fw/2,fcy=fy+fh/2;ctx.translate(fcx,fcy);ctx.rotate(frot);ctx.translate(-fcx,-fcy);}
+      switch(fr.style){
+        case 'solid':if(cr>0){ctx.beginPath();ctx.moveTo(fx+cr,fy);ctx.lineTo(fx+fw-cr,fy);ctx.arcTo(fx+fw,fy,fx+fw,fy+cr,cr);ctx.lineTo(fx+fw,fy+fh-cr);ctx.arcTo(fx+fw,fy+fh,fx+fw-cr,fy+fh,cr);ctx.lineTo(fx+cr,fy+fh);ctx.arcTo(fx,fy+fh,fx,fy+fh-cr,cr);ctx.lineTo(fx,fy+cr);ctx.arcTo(fx,fy,fx+cr,fy,cr);ctx.closePath();ctx.stroke();}else ctx.strokeRect(fx,fy,fw,fh);break;
+        case 'double':ctx.lineWidth=th*0.6;ctx.strokeRect(fx,fy,fw,fh);ctx.strokeRect(fx+th*1.5,fy+th*1.5,fw-th*3,fh-th*3);break;
+        case 'dashed':ctx.setLineDash([th*3,th*2]);ctx.strokeRect(fx,fy,fw,fh);ctx.setLineDash([]);break;
+        case 'dotted':ctx.setLineDash([th,th*2]);ctx.lineCap='round';ctx.strokeRect(fx,fy,fw,fh);ctx.setLineDash([]);ctx.lineCap='butt';break;
+        case 'neon':ctx.shadowBlur=th*4;ctx.shadowColor=col;ctx.strokeRect(fx,fy,fw,fh);ctx.shadowBlur=0;break;
+        case 'gradient':{const gg=ctx.createLinearGradient(fx,fy,fx+fw,fy+fh);gg.addColorStop(0,col);gg.addColorStop(0.5,fr.color2||'#00bfff');gg.addColorStop(1,col);ctx.strokeStyle=gg;ctx.strokeRect(fx,fy,fw,fh);break;}
+        case 'corners':{const cl=Math.min(fw,fh)*0.22;ctx.lineCap='square';[[fx,fy+cl,fx,fy,fx+cl,fy],[fx+fw-cl,fy,fx+fw,fy,fx+fw,fy+cl],[fx,fy+fh-cl,fx,fy+fh,fx+cl,fy+fh],[fx+fw-cl,fy+fh,fx+fw,fy+fh,fx+fw,fy+fh-cl]].forEach(([x1,y1,x2,y2,x3,y3])=>{ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.lineTo(x3,y3);ctx.stroke();});ctx.lineCap='butt';break;}
+        case 'film':{ctx.fillStyle=col;const hp=fh*0.06,pw=fw*0.035,gap=pw*1.6,count=Math.floor(fw*0.8/(pw+gap)),total=count*(pw+gap)-gap,startX=fx+(fw-total)/2;for(let i=0;i<count;i++){const px=startX+i*(pw+gap);ctx.fillRect(px,fy+hp*0.3,pw,hp);ctx.fillRect(px,fy+fh-hp*1.3,pw,hp);}ctx.lineWidth=th;ctx.strokeStyle=col;ctx.strokeRect(fx,fy+hp*1.8,fw,fh-hp*3.6);break;}
+        case 'polaroid':{ctx.fillStyle=col;const bw=th*1.5;ctx.fillRect(fx,fy,fw,bw);ctx.fillRect(fx,fy+fh-bw*3,fw,bw*3);ctx.fillRect(fx,fy+bw,bw,fh-bw*4);ctx.fillRect(fx+fw-bw,fy+bw,bw,fh-bw*4);break;}
+        default:ctx.strokeRect(fx,fy,fw,fh);
+      }
+      ctx.restore();
+    });
+
     const ccE = colorCurves;
     const hasCCE = ccE && (Math.abs(ccE.r-1)>0.01||Math.abs(ccE.g-1)>0.01||Math.abs(ccE.b-1)>0.01||
                            Math.abs(ccE.midtone-1)>0.01||Math.abs(ccE.shadows)>0.01||Math.abs(ccE.highlights)>0.01);
@@ -5102,6 +5385,7 @@ _setDragging(null);
     })),
     extraTexts,
     stickers: stickers.map(s => ({ ...s })),
+    frames:   frames.map(f => ({ ...f })),
     soundEffects: soundEffects.map(s => ({ ...s })),
     fontSize,
     textColor,
@@ -5189,6 +5473,7 @@ _setDragging(null);
         if (Array.isArray(p.stickers)) {
           setStickers(p.stickers);
         }
+        if (Array.isArray(p.frames)) setFrames(p.frames);
         if (Array.isArray(p.soundEffects)) setSoundEffects(p.soundEffects);
         if (p.fontSize !== undefined) setFontSize(p.fontSize);
         if (p.textColor) setTextColor(p.textColor);
@@ -5968,6 +6253,179 @@ _setDragging(null);
             </div>,
             document.body
           )}
+        </div>
+
+        {/* ── Molduras ── */}
+        <div style={{ position:'relative', flexShrink:0 }}>
+          <button ref={frameBtnRef}
+            onClick={()=>{ const rect=frameBtnRef.current?.getBoundingClientRect(); if(rect) setFramePanelPos({top:rect.bottom+4,left:Math.min(rect.left,window.innerWidth-420)}); setShowFramePanel(v=>!v); }}
+            style={{ display:'flex', alignItems:'center', gap:5, padding:'6px 11px', borderRadius:8,
+              background:showFramePanel?'rgba(16,185,129,0.18)':'transparent',
+              border:`1px solid ${showFramePanel?'rgba(16,185,129,0.5)':'transparent'}`,
+              cursor:'pointer', color:'#ccc', fontSize:12, fontWeight:600, whiteSpace:'nowrap', transition:'all 0.15s' }}
+            onMouseEnter={e=>{if(!showFramePanel)e.currentTarget.style.background='rgba(255,255,255,0.05)'}}
+            onMouseLeave={e=>{if(!showFramePanel)e.currentTarget.style.background=showFramePanel?'rgba(16,185,129,0.18)':'transparent'}}
+          >
+            <span style={{fontSize:14}}>🖼</span> Molduras {frames.length>0&&<span style={{background:'#10b981',borderRadius:8,padding:'1px 5px',fontSize:9,color:'#000',fontWeight:900}}>{frames.length}</span>}
+          </button>
+          {showFramePanel && (() => {
+            const FRAME_CATALOG = [
+              { style:'solid',       label:'Sólida',         icon:'⬜', desc:'Borda simples' },
+              { style:'solid',       label:'Arredondada',    icon:'🔘', desc:'Cantos suaves', cornerRadius:30 },
+              { style:'double',      label:'Dupla',          icon:'⏹', desc:'Duas bordas' },
+              { style:'dashed',      label:'Tracejada',      icon:'▭',  desc:'Linha tracejada' },
+              { style:'dotted',      label:'Pontilhada',     icon:'··', desc:'Pontos' },
+              { style:'corners',     label:'Cantos',         icon:'⌐',  desc:'Apenas cantos' },
+              { style:'corners_round',label:'Cantos Curvos', icon:'⌒',  desc:'Cantos arredondados' },
+              { style:'neon',        label:'Neon',           icon:'💡', desc:'Brilho neon', color:'#00BFFF' },
+              { style:'neon_double', label:'Neon Duplo',     icon:'🌈', desc:'Dois neons', color:'#00BFFF', color2:'#ff00ff' },
+              { style:'gradient',    label:'Gradiente',      icon:'🌅', desc:'Cor degradê', color:'#a78bfa', color2:'#00bfff' },
+              { style:'film',        label:'Tira de Filme',  icon:'🎬', desc:'Estilo filme' },
+              { style:'polaroid',    label:'Polaroid',       icon:'📷', desc:'Estilo foto' },
+              { style:'art_deco',    label:'Art Déco',       icon:'✦',  desc:'Ornamental' },
+              { style:'vintage',     label:'Vintage',        icon:'🎞', desc:'Dupla tracejada' },
+              { style:'shadow',      label:'Sombra',         icon:'🌑', desc:'Sombra suave' },
+              { style:'glitch_frame',label:'Glitch',         icon:'📺', desc:'Frame glitchado', color:'#00ffcc' },
+            ];
+            const addFrame = (tmpl) => {
+              const canvas = canvasRef.current;
+              const cw = canvas?.width||720, ch = canvas?.height||1280;
+              const w = Math.round(cw*0.7), h = Math.round(ch*0.5);
+              pushHistory();
+              const newFrame = {
+                id: Date.now()+Math.random(), style: tmpl.style,
+                x: Math.round((cw-w)/2), y: Math.round((ch-h)/2),
+                width: w, height: h, color: tmpl.color||'#ffffff',
+                color2: tmpl.color2||null, thickness: 8, opacity: 1,
+                rotation: 0, cornerRadius: tmpl.cornerRadius||0,
+              };
+              setFrames(prev=>[...prev, newFrame]);
+              setActiveFrameId(newFrame.id);
+              setShowFramePanel(false);
+            };
+            return createPortal(
+              <div onClick={e=>e.stopPropagation()} style={{ position:'fixed', top:framePanelPos.top, left:framePanelPos.left,
+                zIndex:99999, background:'#0d1117', border:'1px solid rgba(16,185,129,0.3)',
+                borderRadius:18, width:415, maxHeight:'80vh', boxShadow:'0 20px 60px rgba(0,0,0,0.85)',
+                display:'flex', flexDirection:'column', overflow:'hidden' }}>
+                <div style={{ padding:'12px 16px 10px', borderBottom:'1px solid rgba(255,255,255,0.06)',
+                  display:'flex', alignItems:'center', justifyContent:'space-between', flexShrink:0 }}>
+                  <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                    <span style={{ fontWeight:800, fontSize:15, color:'#10b981' }}>🖼 Molduras</span>
+                    {frames.length>0&&<span style={{ fontSize:10, background:'rgba(16,185,129,0.2)', border:'1px solid rgba(16,185,129,0.4)', borderRadius:20, padding:'2px 8px', color:'#10b981' }}>{frames.length} ativa{frames.length>1?'s':''}</span>}
+                  </div>
+                  <button onClick={()=>setShowFramePanel(false)} style={{ background:'none',border:'none',color:'#555',cursor:'pointer',fontSize:18,lineHeight:1 }}>✕</button>
+                </div>
+                <div style={{ padding:'12px', overflowY:'auto', flex:1 }}>
+                  <div style={{ fontSize:10, color:'#555', fontWeight:700, letterSpacing:'0.8px', textTransform:'uppercase', marginBottom:8 }}>Adicionar moldura</div>
+                  <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:7, marginBottom:14 }}>
+                    {FRAME_CATALOG.map((tmpl,i)=>(
+                      <div key={i} onClick={()=>addFrame(tmpl)}
+                        style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:4, padding:'9px 6px 7px',
+                          borderRadius:10, cursor:'pointer', background:'rgba(255,255,255,0.03)',
+                          border:'1px solid rgba(255,255,255,0.07)', transition:'all 0.15s' }}
+                        onMouseEnter={e=>{e.currentTarget.style.background='rgba(16,185,129,0.1)';e.currentTarget.style.borderColor='rgba(16,185,129,0.35)';}}
+                        onMouseLeave={e=>{e.currentTarget.style.background='rgba(255,255,255,0.03)';e.currentTarget.style.borderColor='rgba(255,255,255,0.07)';}}
+                      >
+                        <div style={{ width:'100%', height:38, borderRadius:7, background:'rgba(255,255,255,0.04)',
+                          display:'flex', alignItems:'center', justifyContent:'center', fontSize:18,
+                          border:'1px solid rgba(255,255,255,0.06)' }}>{tmpl.icon}</div>
+                        <span style={{ fontSize:9, color:'#aaa', fontWeight:600, textAlign:'center', lineHeight:1.2 }}>{tmpl.label}</span>
+                      </div>
+                    ))}
+                  </div>
+                  {frames.length>0&&(
+                    <div style={{ borderTop:'1px solid rgba(255,255,255,0.06)', paddingTop:12 }}>
+                      <div style={{ fontSize:10, color:'#555', fontWeight:700, letterSpacing:'0.8px', textTransform:'uppercase', marginBottom:8 }}>Molduras no projeto</div>
+                      <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
+                        {frames.map((fr,fi)=>{
+                          const isAct=activeFrameId===fr.id;
+                          return(
+                            <div key={fr.id} onClick={()=>setActiveFrameId(fr.id)}
+                              style={{ background:isAct?'rgba(16,185,129,0.1)':'rgba(255,255,255,0.02)',
+                                border:`1px solid ${isAct?'rgba(16,185,129,0.4)':'rgba(255,255,255,0.06)'}`,
+                                borderRadius:10, padding:'8px 10px', display:'flex', flexDirection:'column', gap:7, cursor:'pointer' }}>
+                              <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                                <span style={{ fontSize:11, color:'#10b981', fontWeight:700, flex:1 }}>🖼 Moldura {fi+1} — {fr.style}</span>
+                                <button onClick={e=>{e.stopPropagation();pushHistory();setFrames(prev=>prev.filter(f=>f.id!==fr.id));if(activeFrameId===fr.id)setActiveFrameId(null);}}
+                                  style={{ background:'rgba(239,68,68,0.1)',border:'1px solid rgba(239,68,68,0.25)',borderRadius:7,padding:'2px 8px',fontSize:11,color:'#f87171',cursor:'pointer' }}>✕ Remover</button>
+                              </div>
+                              {isAct&&(
+                                <div style={{ display:'flex', flexDirection:'column', gap:5 }}>
+                                  <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                                    <span style={{ fontSize:10, color:'#666', minWidth:60 }}>Cor</span>
+                                    <input type="color" value={fr.color||'#ffffff'}
+                                      onChange={e=>setFrames(prev=>prev.map(f=>f.id===fr.id?{...f,color:e.target.value}:f))}
+                                      style={{ width:28,height:28,padding:0,border:'none',background:'none',cursor:'pointer',borderRadius:6 }} />
+                                    {(fr.style==='gradient'||fr.style==='neon_double')&&<>
+                                      <span style={{ fontSize:10, color:'#666' }}>Cor 2</span>
+                                      <input type="color" value={fr.color2||'#00bfff'}
+                                        onChange={e=>setFrames(prev=>prev.map(f=>f.id===fr.id?{...f,color2:e.target.value}:f))}
+                                        style={{ width:28,height:28,padding:0,border:'none',background:'none',cursor:'pointer',borderRadius:6 }} />
+                                    </>}
+                                  </div>
+                                  {[
+                                    {label:'Espessura',min:1,max:40,step:1,key:'thickness',unit:'px',def:8,accent:'#10b981'},
+                                    {label:'Opacidade',min:0,max:1,step:0.01,key:'opacity',unit:'%',def:1,accent:'#10b981',fmt:v=>Math.round(v*100)+'%'},
+                                    {label:'Rotação',min:-180,max:180,step:1,key:'rotation',unit:'°',def:0,accent:'#10b981',fmt:v=>v+'°'},
+                                  ].map(({label,min,max,step,key,def,accent,fmt})=>(
+                                    <div key={key} style={{ display:'flex', alignItems:'center', gap:8 }}>
+                                      <span style={{ fontSize:10, color:'#666', minWidth:60 }}>{label}</span>
+                                      <input type="range" min={min} max={max} step={step} value={fr[key]??def}
+                                        onChange={e=>setFrames(prev=>prev.map(f=>f.id===fr.id?{...f,[key]:+e.target.value}:f))}
+                                        onMouseDown={ev=>ev.stopPropagation()} onPointerDown={ev=>ev.stopPropagation()}
+                                        style={{ flex:1, accentColor:accent, height:3 }} />
+                                      <span style={{ fontSize:10, color:accent, minWidth:30, textAlign:'right' }}>{fmt?fmt(fr[key]??def):(fr[key]??def)}</span>
+                                    </div>
+                                  ))}
+                                  {fr.style==='solid'&&(
+                                    <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                                      <span style={{ fontSize:10, color:'#666', minWidth:60 }}>Cantos</span>
+                                      <input type="range" min={0} max={200} value={fr.cornerRadius||0}
+                                        onChange={e=>setFrames(prev=>prev.map(f=>f.id===fr.id?{...f,cornerRadius:+e.target.value}:f))}
+                                        onMouseDown={ev=>ev.stopPropagation()} onPointerDown={ev=>ev.stopPropagation()}
+                                        style={{ flex:1, accentColor:'#10b981', height:3 }} />
+                                      <span style={{ fontSize:10, color:'#10b981', minWidth:30, textAlign:'right' }}>{fr.cornerRadius||0}px</span>
+                                    </div>
+                                  )}
+                                  <div style={{ display:'flex', gap:4, flexWrap:'wrap', marginTop:2 }}>
+                                    <span style={{ fontSize:10, color:'#555', alignSelf:'center', marginRight:2 }}>Tamanho:</span>
+                                    {[['Tela cheia','full'],['Quadrado','square'],['16:9','wide'],['9:16','tall']].map(([lbl,preset])=>(
+                                      <button key={preset} onClick={e=>{
+                                        e.stopPropagation();
+                                        const cv=canvasRef.current;
+                                        const cw=cv?.width||720,ch=cv?.height||1280;
+                                        let nw,nh;
+                                        if(preset==='full'){nw=cw;nh=ch;}
+                                        else if(preset==='square'){const s=Math.min(cw,ch)*0.8;nw=s;nh=s;}
+                                        else if(preset==='wide'){nw=cw*0.9;nh=nw*9/16;}
+                                        else{nh=ch*0.85;nw=nh*9/16;}
+                                        setFrames(prev=>prev.map(f=>f.id===fr.id?{...f,x:Math.round((cw-nw)/2),y:Math.round((ch-nh)/2),width:Math.round(nw),height:Math.round(nh)}:f));
+                                      }}
+                                        style={{ fontSize:9,padding:'2px 7px',borderRadius:5,cursor:'pointer',fontWeight:600,
+                                          background:'rgba(16,185,129,0.08)',border:'1px solid rgba(16,185,129,0.25)',color:'#10b981' }}>
+                                        {lbl}
+                                      </button>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                        <button onClick={()=>{pushHistory();setFrames([]);setActiveFrameId(null);}}
+                          style={{ marginTop:2,background:'rgba(239,68,68,0.07)',border:'1px solid rgba(239,68,68,0.2)',
+                            borderRadius:8,padding:'5px 0',fontSize:11,color:'#f87171',cursor:'pointer',width:'100%',fontWeight:700 }}>
+                          ✕ Remover todas as molduras
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>,
+              document.body
+            );
+          })()}
         </div>
 
         {/* ── Visual (Efeitos + Cor) ── */}
