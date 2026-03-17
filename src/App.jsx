@@ -3228,6 +3228,380 @@ _setDragging(null);
           const steps=5;for(let s=1;s<=steps;s++){const t2=s/steps;ctx.globalAlpha=0.12*(1-t2*0.6);ctx.drawImage(ctx.canvas,dx*t2,dy*t2);ctx.drawImage(ctx.canvas,-dx*t2*0.5,-dy*t2*0.5);}ctx.globalAlpha=1;
           break;
         }
+
+        // ── NOVOS EFEITOS PROFISSIONAIS ─────────────────────────────────────
+
+        case 'glitch_pro': {
+          // Glitch HD: cortes horizontais com separação RGB real
+          const numSlices = 6 + Math.floor(Math.sin(ph * 7.3) * 3);
+          for (let s = 0; s < numSlices; s++) {
+            const sy = ((s * 173.1 + Math.floor(ph * 12) * 97.3) % H + H) % H;
+            const sh = 2 + ((s * 53.7) % 1) * 22;
+            const ox = (Math.sin(ph * 23 + s * 5.1) * W * 0.06);
+            const oy = 0;
+            if (Math.random() < 0.65) {
+              // Fatia com deslocamento RGB
+              ctx.save();
+              ctx.globalCompositeOperation = 'screen';
+              ctx.globalAlpha = 0.7;
+              ctx.drawImage(ctx.canvas, ox * 1.4, oy, W, H, 0, sy, W, sh);
+              ctx.globalAlpha = 0.5;
+              ctx.fillStyle = `rgba(${Math.random()<0.5?255:0},0,${Math.random()<0.5?255:0},0.12)`;
+              ctx.fillRect(0, sy, W, sh);
+              ctx.restore();
+            }
+          }
+          // Linha horizontal brilhante ocasional
+          if (Math.floor(ph * 15) % 4 === 0) {
+            const gy = Math.random() * H;
+            const gl = ctx.createLinearGradient(0, gy, 0, gy + 3);
+            gl.addColorStop(0, 'rgba(0,255,200,0.5)'); gl.addColorStop(1, 'transparent');
+            ctx.fillStyle = gl; ctx.fillRect(0, gy, W, 3);
+          }
+          // Scan lines sutis
+          ctx.fillStyle = 'rgba(0,0,0,0.07)';
+          for (let y = 0; y < H; y += 4) ctx.fillRect(0, y, W, 1);
+          break;
+        }
+
+        case 'pixel_sort': {
+          // Pixel sort: faixas verticais deslocadas para cima estilo CapCut
+          const cols = Math.floor(W / 3);
+          for (let c = 0; c < cols; c++) {
+            const cx2 = c * 3;
+            const drift = Math.sin(ph * 1.8 + c * 0.3) * 0.5 + 0.5;
+            const shiftY = -Math.floor(drift * H * 0.4);
+            if (Math.abs(shiftY) < 2) continue;
+            ctx.drawImage(ctx.canvas, cx2, 0, 3, H, cx2, shiftY, 3, H);
+          }
+          ctx.globalAlpha = 0.12;
+          ctx.fillStyle = 'rgba(0,255,180,1)';
+          ctx.fillRect(0, 0, W, H);
+          ctx.globalAlpha = 1;
+          break;
+        }
+
+        case 'zoom_blur': {
+          // Zoom blur radial — velocidade com centro pulsante
+          const cx2 = W / 2, cy2 = H / 2;
+          const pulse = 0.5 + 0.5 * Math.sin(ph * 2.5);
+          const steps2 = 6;
+          for (let s = 1; s <= steps2; s++) {
+            const sc = 1 + (s / steps2) * 0.06 * pulse;
+            const alpha = (0.12 - s * 0.015) * pulse;
+            ctx.globalAlpha = Math.max(0, alpha);
+            ctx.save();
+            ctx.translate(cx2, cy2);
+            ctx.scale(sc, sc);
+            ctx.translate(-cx2, -cy2);
+            ctx.drawImage(ctx.canvas, 0, 0);
+            ctx.restore();
+          }
+          ctx.globalAlpha = 1;
+          break;
+        }
+
+        case 'speed_lines': {
+          // Linhas de velocidade radiais estilo mangá/CapCut
+          const cx2 = W / 2 + Math.sin(ph * 0.7) * W * 0.05;
+          const cy2 = H / 2 + Math.cos(ph * 0.5) * H * 0.04;
+          const N = 60;
+          const spd2 = 0.3 + 0.7 * Math.abs(Math.sin(ph * 1.5));
+          for (let i = 0; i < N; i++) {
+            const angle = (i / N) * Math.PI * 2 + ph * 0.4;
+            const len = (0.3 + ((i * 73.1) % 1) * 0.7) * Math.max(W, H) * 0.6;
+            const startR = Math.min(W, H) * 0.05 * spd2;
+            const lw = 0.4 + ((i * 53.3) % 1) * 1.2;
+            const alpha = (0.15 + ((i * 37.7) % 1) * 0.25) * spd2;
+            const x1 = cx2 + Math.cos(angle) * startR;
+            const y1 = cy2 + Math.sin(angle) * startR;
+            const x2 = cx2 + Math.cos(angle) * (startR + len);
+            const y2 = cy2 + Math.sin(angle) * (startR + len);
+            const sg2 = ctx.createLinearGradient(x1, y1, x2, y2);
+            sg2.addColorStop(0, `rgba(255,255,255,${alpha})`);
+            sg2.addColorStop(1, 'transparent');
+            ctx.strokeStyle = sg2; ctx.lineWidth = lw;
+            ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+          }
+          break;
+        }
+
+        case 'shockwave': {
+          // Onda de choque radial pulsante
+          const cx2 = W / 2, cy2 = H / 2;
+          const phase2 = ph % 1.8;
+          const maxR = Math.max(W, H) * 0.8;
+          for (let ring = 0; ring < 3; ring++) {
+            const rph = (phase2 + ring * 0.6) % 1.8;
+            const r = rph * maxR;
+            const alpha = Math.max(0, 0.5 - rph * 0.27) * (1 - ring * 0.25);
+            const lw = (3 - ring) * 2 * (1 - rph * 0.5);
+            if (alpha < 0.01) continue;
+            ctx.strokeStyle = `rgba(200,230,255,${alpha})`;
+            ctx.lineWidth = lw;
+            ctx.shadowBlur = lw * 6;
+            ctx.shadowColor = `rgba(150,200,255,${alpha * 0.7})`;
+            ctx.beginPath();
+            ctx.ellipse(cx2, cy2, r, r * (H / W), 0, 0, Math.PI * 2);
+            ctx.stroke();
+          }
+          ctx.shadowBlur = 0;
+          break;
+        }
+
+        case 'duotone': {
+          // Duotone: escala de cinza + duas cores dominantes
+          const hue1 = (ph * 20) % 360;
+          const hue2 = (hue1 + 150) % 360;
+          // Camada escura (sombras)
+          ctx.globalCompositeOperation = 'multiply';
+          ctx.globalAlpha = 0.55;
+          const dg = ctx.createLinearGradient(0, 0, W, H);
+          dg.addColorStop(0, `hsl(${hue1},80%,25%)`);
+          dg.addColorStop(1, `hsl(${hue2},80%,25%)`);
+          ctx.fillStyle = dg; ctx.fillRect(0, 0, W, H);
+          // Camada clara (altas luzes)
+          ctx.globalCompositeOperation = 'screen';
+          ctx.globalAlpha = 0.35;
+          const lg2 = ctx.createLinearGradient(W, 0, 0, H);
+          lg2.addColorStop(0, `hsl(${hue1},100%,70%)`);
+          lg2.addColorStop(1, `hsl(${hue2},100%,70%)`);
+          ctx.fillStyle = lg2; ctx.fillRect(0, 0, W, H);
+          ctx.globalCompositeOperation = 'source-over';
+          ctx.globalAlpha = 1;
+          break;
+        }
+
+        case 'hologram': {
+          // Holograma: scan lines + aberração cyan/magenta + brilho
+          const scanY = ((ph * 60) % H + H) % H;
+          // Scan lines
+          ctx.fillStyle = 'rgba(0,0,0,0.15)';
+          for (let y = 0; y < H; y += 3) ctx.fillRect(0, y, W, 1);
+          // Barra de scan brilhante
+          const barG = ctx.createLinearGradient(0, scanY - 10, 0, scanY + 10);
+          barG.addColorStop(0, 'transparent');
+          barG.addColorStop(0.5, 'rgba(0,255,220,0.18)');
+          barG.addColorStop(1, 'transparent');
+          ctx.fillStyle = barG; ctx.fillRect(0, scanY - 10, W, 20);
+          // Aberração RGB lateral
+          ctx.globalCompositeOperation = 'screen';
+          ctx.globalAlpha = 0.08;
+          ctx.fillStyle = 'rgba(0,255,220,1)'; ctx.fillRect(2, 0, W, H);
+          ctx.fillStyle = 'rgba(255,0,180,1)'; ctx.fillRect(-2, 0, W, H);
+          ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
+          // Grade de pontos
+          ctx.fillStyle = 'rgba(0,255,200,0.06)';
+          for (let gx = 0; gx < W; gx += 8) for (let gy = 0; gy < H; gy += 8) {
+            ctx.fillRect(gx, gy, 1, 1);
+          }
+          // Borda brilhante
+          const bg2 = 0.3 + 0.2 * Math.sin(ph * 3);
+          ctx.strokeStyle = `rgba(0,255,200,${bg2})`; ctx.lineWidth = 2;
+          ctx.shadowBlur = 12; ctx.shadowColor = 'rgba(0,255,200,0.5)';
+          ctx.strokeRect(3, 3, W - 6, H - 6); ctx.shadowBlur = 0;
+          break;
+        }
+
+        case 'retrowave': {
+          // RetroWave / Synthwave: grade de perspectiva + sol
+          const horizon = H * 0.55;
+          // Gradiente de céu
+          const sky2 = ctx.createLinearGradient(0, 0, 0, horizon);
+          sky2.addColorStop(0, 'rgba(20,0,40,0.7)');
+          sky2.addColorStop(1, 'rgba(80,0,80,0.4)');
+          ctx.fillStyle = sky2; ctx.fillRect(0, 0, W, horizon);
+          // Sol com gradiente
+          const sunY = H * 0.42, sunR = Math.min(W, H) * 0.14;
+          const sunG = ctx.createRadialGradient(W / 2, sunY, 0, W / 2, sunY, sunR);
+          sunG.addColorStop(0, 'rgba(255,240,50,0.9)');
+          sunG.addColorStop(0.4, 'rgba(255,100,20,0.7)');
+          sunG.addColorStop(1, 'rgba(200,0,80,0)');
+          ctx.fillStyle = sunG; ctx.fillRect(W / 2 - sunR, sunY - sunR, sunR * 2, sunR * 2);
+          // Linhas horizontais no sol
+          ctx.fillStyle = 'rgba(20,0,40,0.65)';
+          for (let i = 0; i < 8; i++) {
+            const ly = sunY - sunR + i * sunR * 0.28;
+            if (ly < sunY - sunR || ly > sunY + sunR * 0.1) continue;
+            ctx.fillRect(W / 2 - sunR, ly, sunR * 2, sunR * 0.1 * (i * 0.3 + 0.5));
+          }
+          // Grade de chão em perspectiva
+          ctx.strokeStyle = 'rgba(255,0,180,0.35)'; ctx.lineWidth = 1;
+          const vp = { x: W / 2, y: horizon };
+          const gridStep = W / 10;
+          for (let i = -10; i <= 10; i++) {
+            const bx = W / 2 + i * gridStep;
+            ctx.beginPath(); ctx.moveTo(vp.x, vp.y); ctx.lineTo(bx, H); ctx.stroke();
+          }
+          const hLines = 8;
+          for (let i = 0; i <= hLines; i++) {
+            const prog = Math.pow(i / hLines, 2);
+            const hy = horizon + (H - horizon) * prog;
+            const lAlpha = 0.15 + prog * 0.4;
+            const perspX = W / 2 + (W / 2) * prog;
+            ctx.strokeStyle = `rgba(255,0,180,${lAlpha})`;
+            ctx.beginPath(); ctx.moveTo(W / 2 - perspX, hy); ctx.lineTo(W / 2 + perspX, hy); ctx.stroke();
+          }
+          // Offset de animação no chão
+          const animOffset = ((ph * 0.3) % 1);
+          ctx.strokeStyle = 'rgba(0,220,255,0.2)'; ctx.lineWidth = 1;
+          for (let i = 0; i <= hLines; i++) {
+            const progA = Math.pow(((i + animOffset) % (hLines + 1)) / hLines, 2);
+            const hyA = horizon + (H - horizon) * progA;
+            const perspXA = W / 2 + (W / 2) * progA;
+            ctx.beginPath(); ctx.moveTo(W / 2 - perspXA, hyA); ctx.lineTo(W / 2 + perspXA, hyA); ctx.stroke();
+          }
+          break;
+        }
+
+        case 'bokeh': {
+          // Bokeh: círculos de luz desfocados flutuantes
+          const N = 40;
+          for (let i = 0; i < N; i++) {
+            const fx = ((i * 197.3 + Math.sin(ph * 0.3 + i * 0.7) * 0.05) % 1 + 1) % 1;
+            const fy = ((i * 113.7 + ph * (0.02 + ((i * 53) % 1) * 0.03)) % 1 + 1) % 1;
+            const r = 8 + ((i * 71.3) % 1) * 40;
+            const alpha = 0.04 + Math.abs(Math.sin(ph * 0.8 + i * 1.3)) * 0.1;
+            const hue2 = (i * 37 + ph * 15) % 360;
+            const bg2 = ctx.createRadialGradient(fx * W, fy * H, 0, fx * W, fy * H, r);
+            bg2.addColorStop(0, `hsla(${hue2},80%,75%,${alpha * 2})`);
+            bg2.addColorStop(0.4, `hsla(${hue2},80%,75%,${alpha})`);
+            bg2.addColorStop(0.8, `hsla(${hue2},80%,75%,${alpha * 0.3})`);
+            bg2.addColorStop(1, 'transparent');
+            ctx.fillStyle = bg2;
+            ctx.beginPath(); ctx.arc(fx * W, fy * H, r, 0, Math.PI * 2); ctx.fill();
+            // Anel brilhante
+            ctx.strokeStyle = `hsla(${hue2},90%,85%,${alpha * 1.5})`;
+            ctx.lineWidth = 0.8;
+            ctx.beginPath(); ctx.arc(fx * W, fy * H, r * 0.85, 0, Math.PI * 2); ctx.stroke();
+          }
+          break;
+        }
+
+        case 'snow': {
+          // Neve realista com profundidade
+          const layers2 = [
+            { n: 60, size: 1.2, spd: 40, drift: 0.3, alpha: 0.5 },
+            { n: 40, size: 2.2, spd: 70, drift: 0.5, alpha: 0.7 },
+            { n: 20, size: 3.5, spd: 100, drift: 0.8, alpha: 0.9 },
+          ];
+          layers2.forEach((L, li) => {
+            for (let i = 0; i < L.n; i++) {
+              const hx = ((i * (127.1 + li * 50) + li * 311.7) % 1 + 1) % 1;
+              const hy = ((i * (91.3 + li * 30) + li * 173.9) % 1 + 1) % 1;
+              const px2 = ((hx * W + Math.sin(ph * 0.4 + i * 0.9 + li) * W * L.drift * 0.1) + W) % W;
+              const py2 = ((hy * H + ph * L.spd) % H + H) % H;
+              const flicker = 0.7 + 0.3 * Math.sin(ph * 3 + i * 1.7);
+              ctx.globalAlpha = L.alpha * flicker;
+              const sg2 = ctx.createRadialGradient(px2, py2, 0, px2, py2, L.size);
+              sg2.addColorStop(0, 'rgba(255,255,255,1)');
+              sg2.addColorStop(1, 'rgba(220,235,255,0)');
+              ctx.fillStyle = sg2;
+              ctx.beginPath(); ctx.arc(px2, py2, L.size, 0, Math.PI * 2); ctx.fill();
+            }
+          });
+          ctx.globalAlpha = 1;
+          break;
+        }
+
+        case 'sparkles': {
+          // Faíscas / estrelas brilhantes
+          const N2 = 25;
+          for (let i = 0; i < N2; i++) {
+            const life = ((ph * (0.5 + ((i * 53.1) % 1) * 1.0) + i * 0.4) % 1 + 1) % 1;
+            const fx = ((i * 197.3 + Math.sin(i * 2.3 + ph * 0.2) * 0.1) % 1 + 1) % 1;
+            const fy = ((i * 113.7 + Math.cos(i * 1.9 + ph * 0.15) * 0.08) % 1 + 1) % 1;
+            const r = (2 + ((i * 71.3) % 1) * 6) * Math.sin(life * Math.PI);
+            const alpha = Math.sin(life * Math.PI) * 0.9;
+            if (alpha < 0.05 || r < 0.5) continue;
+            const hue2 = (i * 47 + 40) % 60 + 30; // dourado/branco
+            // Cruz de 4 pontas
+            ctx.strokeStyle = `hsla(${hue2},100%,90%,${alpha})`;
+            ctx.lineWidth = r * 0.25;
+            ctx.shadowBlur = r * 3; ctx.shadowColor = `hsla(${hue2},100%,80%,${alpha})`;
+            const cx2 = fx * W, cy2 = fy * H;
+            ctx.beginPath(); ctx.moveTo(cx2 - r, cy2); ctx.lineTo(cx2 + r, cy2); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(cx2, cy2 - r); ctx.lineTo(cx2, cy2 + r); ctx.stroke();
+            ctx.lineWidth = r * 0.12;
+            ctx.beginPath(); ctx.moveTo(cx2 - r * 0.7, cy2 - r * 0.7); ctx.lineTo(cx2 + r * 0.7, cy2 + r * 0.7); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(cx2 + r * 0.7, cy2 - r * 0.7); ctx.lineTo(cx2 - r * 0.7, cy2 + r * 0.7); ctx.stroke();
+          }
+          ctx.shadowBlur = 0;
+          break;
+        }
+
+        case 'mirror': {
+          // Espelho animado: divide a tela e espelha metade
+          const flip = Math.floor(ph * 0.4) % 2;
+          const prog = (ph * 0.4) % 1;
+          const alpha2 = flip === 0 ? Math.min(1, prog * 5) : Math.min(1, (1 - prog) * 5);
+          if (alpha2 > 0.1) {
+            ctx.save();
+            ctx.globalAlpha = alpha2;
+            // Espelho horizontal
+            ctx.save();
+            ctx.translate(W, 0); ctx.scale(-1, 1);
+            ctx.drawImage(ctx.canvas, 0, 0, W / 2, H, 0, 0, W / 2, H);
+            ctx.restore();
+            // Linha central brilhante
+            const mg = ctx.createLinearGradient(W / 2 - 4, 0, W / 2 + 4, 0);
+            mg.addColorStop(0, 'transparent');
+            mg.addColorStop(0.5, 'rgba(255,255,255,0.5)');
+            mg.addColorStop(1, 'transparent');
+            ctx.fillStyle = mg; ctx.fillRect(W / 2 - 4, 0, 8, H);
+            ctx.restore();
+          }
+          break;
+        }
+
+        case 'neon_lines': {
+          // Linhas neon diagonais animadas
+          const lineCount = 8;
+          for (let i = 0; i < lineCount; i++) {
+            const progress = ((ph * 0.25 + i / lineCount) % 1 + 1) % 1;
+            const hue2 = (i * 45 + ph * 20) % 360;
+            const x1 = -W * 0.2 + (W * 1.4) * progress;
+            const alpha = Math.sin(progress * Math.PI) * 0.6;
+            if (alpha < 0.05) continue;
+            ctx.strokeStyle = `hsla(${hue2},100%,65%,${alpha})`;
+            ctx.lineWidth = 2;
+            ctx.shadowBlur = 16; ctx.shadowColor = `hsla(${hue2},100%,70%,${alpha})`;
+            ctx.beginPath();
+            ctx.moveTo(x1, 0); ctx.lineTo(x1 + H * 0.4, H);
+            ctx.stroke();
+          }
+          ctx.shadowBlur = 0;
+          break;
+        }
+
+        case 'old_film': {
+          // Filme antigo: grain pesado + scratches verticais + cor amarelada + flicker
+          const flicker = 0.88 + 0.12 * Math.random();
+          ctx.fillStyle = `rgba(180,140,60,${0.12 * flicker})`;
+          ctx.fillRect(0, 0, W, H);
+          // Grain denso
+          for (let i = 0; i < 1200; i++) {
+            const gx = Math.random() * W, gy = Math.random() * H;
+            const gv = Math.floor(Math.random() * 180);
+            ctx.fillStyle = `rgba(${gv},${gv},${gv * 0.7},${Math.random() * 0.35})`;
+            ctx.fillRect(gx, gy, 1, 1);
+          }
+          // Riscos verticais
+          for (let s = 0; s < 3; s++) {
+            const sx = ((s * 317 + Math.floor(ph * 12) * 89) % W + W) % W;
+            const slen = H * (0.3 + Math.random() * 0.7);
+            const sy = Math.random() * (H - slen);
+            ctx.strokeStyle = `rgba(255,240,200,${0.15 + Math.random() * 0.25})`;
+            ctx.lineWidth = 0.5 + Math.random();
+            ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(sx + 0.5, sy + slen); ctx.stroke();
+          }
+          // Vinheta forte
+          const ovg = ctx.createRadialGradient(W/2, H/2, Math.min(W,H)*0.2, W/2, H/2, Math.max(W,H)*0.75);
+          ovg.addColorStop(0, 'transparent'); ovg.addColorStop(1, 'rgba(20,10,0,0.65)');
+          ctx.fillStyle = ovg; ctx.fillRect(0, 0, W, H);
+          break;
+        }
+
         default: break;
       }
     } finally {
@@ -5544,47 +5918,111 @@ _setDragging(null);
           </button>
           {showFxPanel && (() => {
             const rect2 = fxBtnRef.current?.getBoundingClientRect();
-            const FX_LIST = [
-              { id:'none',        label:'Nenhum',      icon:'🔲' },
-              { id:'vignette',    label:'Vinheta',     icon:'🌑' },
-              { id:'film_grain',  label:'Grão',        icon:'📽️' },
-              { id:'vintage',     label:'Vintage',     icon:'🟤' },
-              { id:'night',       label:'Noite',       icon:'🌌' },
-              { id:'rain',        label:'Chuva',       icon:'🌧️' },
-              { id:'smoke',       label:'Fumaça',      icon:'💨' },
-              { id:'fire',        label:'Fogo',        icon:'🔥' },
-              { id:'lightning',   label:'Raios',       icon:'⚡' },
-              { id:'shake',       label:'Tremor',      icon:'📳' },
-              { id:'confetti',    label:'Confete',     icon:'🎉' },
-              { id:'particles',   label:'Partículas',  icon:'✨' },
-              { id:'aurora',      label:'Aurora',      icon:'🌈' },
-              { id:'neon_glow',   label:'Neon',        icon:'💜' },
-              { id:'matrix',      label:'Matrix',      icon:'💚' },
-              { id:'cyberpunk',   label:'Cyberpunk',   icon:'🟢' },
-              { id:'ice',         label:'Gelo',        icon:'❄️' },
-              { id:'blur_fx',     label:'Desfoque',    icon:'🌫️' },
-              { id:'vhs',         label:'VHS',         icon:'📼' },
-              { id:'tv_static',   label:'TV Estático', icon:'📺' },
-              { id:'glitch',      label:'Glitch',      icon:'⚡' },
+            const FX_CATS = [
+              {
+                cat: '✨ Populares',
+                items: [
+                  { id:'none',        label:'Nenhum',      icon:'🔲', preview:'#111' },
+                  { id:'vignette',    label:'Vinheta',     icon:'🌑', preview:'radial-gradient(#111,#000)' },
+                  { id:'film_grain',  label:'Grão Filme',  icon:'📽️', preview:'#1a1a1a' },
+                  { id:'old_film',    label:'Filme Antigo',icon:'🎞️', preview:'linear-gradient(135deg,#3a2a0a,#1a1200)' },
+                  { id:'bokeh',       label:'Bokeh',       icon:'🔮', preview:'radial-gradient(#1a1a3a,#000)' },
+                  { id:'sparkles',    label:'Faíscas',     icon:'⭐', preview:'linear-gradient(135deg,#1a1a00,#0a0a0a)' },
+                ],
+              },
+              {
+                cat: '⚡ Ação',
+                items: [
+                  { id:'shockwave',   label:'Shockwave',   icon:'💥', preview:'radial-gradient(#1a1a2a,#000)' },
+                  { id:'speed_lines', label:'Velocidade',  icon:'🏎️', preview:'radial-gradient(#1a1a1a,#000)' },
+                  { id:'zoom_blur',   label:'Zoom Blur',   icon:'🔍', preview:'radial-gradient(#111,#000)' },
+                  { id:'shake',       label:'Tremor',      icon:'📳', preview:'#111' },
+                  { id:'lightning',   label:'Raios',       icon:'⚡', preview:'linear-gradient(135deg,#0a0a1a,#000)' },
+                  { id:'confetti',    label:'Confete',     icon:'🎉', preview:'linear-gradient(135deg,#1a0a0a,#0a1a0a)' },
+                ],
+              },
+              {
+                cat: '🎨 Estilo',
+                items: [
+                  { id:'duotone',     label:'Duotone',     icon:'🎭', preview:'linear-gradient(135deg,#1a003a,#003a1a)' },
+                  { id:'hologram',    label:'Holograma',   icon:'👾', preview:'linear-gradient(#001a1a,#000)' },
+                  { id:'retrowave',   label:'RetroWave',   icon:'🌅', preview:'linear-gradient(#1a003a,#3a0066)' },
+                  { id:'neon_glow',   label:'Neon',        icon:'💜', preview:'radial-gradient(#1a001a,#000)' },
+                  { id:'neon_lines',  label:'Neon Lines',  icon:'🌈', preview:'linear-gradient(135deg,#001a1a,#1a001a)' },
+                  { id:'cyberpunk',   label:'Cyberpunk',   icon:'🟢', preview:'linear-gradient(#001a0a,#000)' },
+                ],
+              },
+              {
+                cat: '📺 Glitch',
+                items: [
+                  { id:'glitch_pro',  label:'Glitch Pro',  icon:'📺', preview:'#0a0a0a' },
+                  { id:'glitch',      label:'Glitch',      icon:'⚡', preview:'#0a0a0a' },
+                  { id:'pixel_sort',  label:'Pixel Sort',  icon:'🔀', preview:'linear-gradient(135deg,#001a1a,#1a0010)' },
+                  { id:'vhs',         label:'VHS',         icon:'📼', preview:'#0a0a0a' },
+                  { id:'tv_static',   label:'TV Estático', icon:'📡', preview:'#0a0a0a' },
+                  { id:'mirror',      label:'Espelho',     icon:'🪞', preview:'linear-gradient(#0a0a0a,#1a1a1a)' },
+                ],
+              },
+              {
+                cat: '🌊 Natureza',
+                items: [
+                  { id:'rain',        label:'Chuva',       icon:'🌧️', preview:'linear-gradient(#000d1a,#001530)' },
+                  { id:'fire',        label:'Fogo',        icon:'🔥', preview:'linear-gradient(#0a0000,#1a0500)' },
+                  { id:'smoke',       label:'Fumaça',      icon:'💨', preview:'linear-gradient(#0a0a0a,#1a1a1a)' },
+                  { id:'snow',        label:'Neve',        icon:'❄️', preview:'linear-gradient(#05050f,#0a0a20)' },
+                  { id:'lightning',   label:'Tempestade',  icon:'🌩️', preview:'linear-gradient(#000510,#000a20)' },
+                  { id:'night',       label:'Noite',       icon:'🌌', preview:'linear-gradient(#00020e,#000420)' },
+                ],
+              },
+              {
+                cat: '🔵 Overlay',
+                items: [
+                  { id:'aurora',      label:'Aurora',      icon:'🌈', preview:'linear-gradient(#001a0a,#0a001a)' },
+                  { id:'particles',   label:'Partículas',  icon:'✨', preview:'#050510' },
+                  { id:'matrix',      label:'Matrix',      icon:'💚', preview:'#000a00' },
+                  { id:'vintage',     label:'Vintage',     icon:'🟤', preview:'linear-gradient(#1a0f00,#0f0800)' },
+                  { id:'ice',         label:'Gelo',        icon:'❄️', preview:'linear-gradient(#050f1a,#0a1520)' },
+                  { id:'blur_fx',     label:'Desfoque',    icon:'🌫️', preview:'#0a0a0a' },
+                ],
+              },
             ];
             return createPortal(
-              <div style={{ position:'fixed', top:(rect2?.bottom??52)+4, left:Math.max(8,(rect2?.left??0)), zIndex:99999, background:'#0f172a', border:'1px solid rgba(167,139,250,0.3)', borderRadius:16, width:360, maxHeight:'80vh', boxShadow:'0 20px 60px rgba(0,0,0,0.8)', display:'flex', flexDirection:'column', overflow:'hidden' }}>
-                <div style={{ padding:'12px 16px 8px', borderBottom:'1px solid rgba(255,255,255,0.06)', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
-                  <span style={{ fontWeight:800, fontSize:14, color:'#a78bfa' }}>🎬 Efeitos de Tela</span>
+              <div style={{ position:'fixed', top:(rect2?.bottom??52)+4, left:Math.max(8,(rect2?.left??0)), zIndex:99999, background:'#0d1117', border:'1px solid rgba(167,139,250,0.25)', borderRadius:18, width:400, maxHeight:'82vh', boxShadow:'0 24px 64px rgba(0,0,0,0.85)', display:'flex', flexDirection:'column', overflow:'hidden' }}>
+                {/* Header */}
+                <div style={{ padding:'14px 16px 10px', borderBottom:'1px solid rgba(255,255,255,0.06)', display:'flex', alignItems:'center', justifyContent:'space-between', flexShrink:0 }}>
+                  <div>
+                    <span style={{ fontWeight:800, fontSize:15, color:'#a78bfa' }}>🎬 Efeitos</span>
+                    {screenEffect!=='none'&&<span style={{ marginLeft:8, fontSize:10, background:'rgba(167,139,250,0.2)', border:'1px solid rgba(167,139,250,0.4)', borderRadius:20, padding:'2px 8px', color:'#a78bfa' }}>Ativo</span>}
+                  </div>
                   <div style={{ display:'flex', gap:8, alignItems:'center' }}>
-                    {screenEffect!=='none'&&<button onClick={()=>setScreenEffect('none')} style={{ background:'rgba(239,68,68,0.15)', border:'1px solid rgba(239,68,68,0.3)', borderRadius:6, padding:'2px 8px', color:'#f87171', fontSize:10, cursor:'pointer' }}>✕ Remover</button>}
-                    <button onClick={()=>setShowFxPanel(false)} style={{ background:'none', border:'none', color:'#555', cursor:'pointer', fontSize:16 }}>✕</button>
+                    {screenEffect!=='none'&&<button onClick={()=>setScreenEffect('none')} style={{ background:'rgba(239,68,68,0.15)', border:'1px solid rgba(239,68,68,0.3)', borderRadius:6, padding:'3px 10px', color:'#f87171', fontSize:10, cursor:'pointer', fontWeight:700 }}>✕ Remover</button>}
+                    <button onClick={()=>setShowFxPanel(false)} style={{ background:'none', border:'none', color:'#555', cursor:'pointer', fontSize:18, lineHeight:1 }}>✕</button>
                   </div>
                 </div>
-                <div style={{ padding:12, display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:8, overflowY:'auto', maxHeight:400 }}>
-                  {FX_LIST.map(fx=>(
-                    <div key={fx.id} onClick={()=>{ setScreenEffect(fx.id); if(fx.id!=='none') setShowFxPanel(false); }}
-                      style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:4, padding:'10px 6px', borderRadius:10, cursor:'pointer', background:screenEffect===fx.id?'rgba(167,139,250,0.18)':'rgba(255,255,255,0.03)', border:`1px solid ${screenEffect===fx.id?'rgba(167,139,250,0.6)':'rgba(255,255,255,0.06)'}`, transition:'all 0.15s' }}
-                      onMouseEnter={e=>e.currentTarget.style.background='rgba(167,139,250,0.1)'}
-                      onMouseLeave={e=>e.currentTarget.style.background=screenEffect===fx.id?'rgba(167,139,250,0.18)':'rgba(255,255,255,0.03)'}
-                    >
-                      <span style={{fontSize:22}}>{fx.icon}</span>
-                      <span style={{fontSize:10,color:screenEffect===fx.id?'#a78bfa':'#888',fontWeight:screenEffect===fx.id?700:400,textAlign:'center'}}>{fx.label}</span>
+                {/* Categories + Grid */}
+                <div style={{ overflowY:'auto', flex:1, padding:'12px 12px 16px' }}>
+                  {FX_CATS.map(cat => (
+                    <div key={cat.cat} style={{ marginBottom:16 }}>
+                      <div style={{ fontSize:10, fontWeight:700, color:'#555', letterSpacing:'0.8px', textTransform:'uppercase', marginBottom:8, paddingLeft:2 }}>{cat.cat}</div>
+                      <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:7 }}>
+                        {cat.items.map(fx => {
+                          const isActive = screenEffect === fx.id;
+                          return (
+                            <div key={fx.id} onClick={()=>{ setScreenEffect(fx.id); if(fx.id!=='none') setShowFxPanel(false); }}
+                              style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:5, padding:'10px 6px 8px', borderRadius:12, cursor:'pointer', background:isActive?'rgba(167,139,250,0.18)':'rgba(255,255,255,0.03)', border:`1px solid ${isActive?'rgba(167,139,250,0.6)':'rgba(255,255,255,0.07)'}`, transition:'all 0.15s', position:'relative' }}
+                              onMouseEnter={e=>{ if(!isActive) e.currentTarget.style.background='rgba(167,139,250,0.08)'; e.currentTarget.style.borderColor=isActive?'rgba(167,139,250,0.6)':'rgba(167,139,250,0.3)'; }}
+                              onMouseLeave={e=>{ e.currentTarget.style.background=isActive?'rgba(167,139,250,0.18)':'rgba(255,255,255,0.03)'; e.currentTarget.style.borderColor=isActive?'rgba(167,139,250,0.6)':'rgba(255,255,255,0.07)'; }}
+                            >
+                              {/* Mini preview */}
+                              <div style={{ width:'100%', height:44, borderRadius:8, background:fx.preview||'#111', marginBottom:2, overflow:'hidden', display:'flex', alignItems:'center', justifyContent:'center', fontSize:24, border:'1px solid rgba(255,255,255,0.04)' }}>
+                                {fx.icon}
+                              </div>
+                              <span style={{ fontSize:10, color:isActive?'#a78bfa':'#999', fontWeight:isActive?700:400, textAlign:'center', lineHeight:1.2 }}>{fx.label}</span>
+                              {isActive && <div style={{ position:'absolute', top:5, right:5, width:7, height:7, borderRadius:'50%', background:'#a78bfa' }} />}
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
                   ))}
                 </div>
