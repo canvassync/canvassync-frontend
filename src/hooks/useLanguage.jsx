@@ -119,7 +119,7 @@ const TRANSLATIONS = {
     chat_faq3_q:          'Como adicionar vídeos?',
     chat_faq3_a:          'No editor Pro há a opção 🎬 Vídeos no topo. Adicione vídeos, ajuste posição, tamanho, rotação e áudio na timeline.',
     chat_faq4_q:          'Diferença Free vs Pro?',
-    chat_faq4_a:          'Free: imagens estáticas (PNG/JPG). Pro: vídeo com áudio, HD 1080p, sincronização de letras, vídeos e sem marca d'água.',
+    chat_faq4_a:          "Free: imagens estáticas (PNG/JPG). Pro: vídeo com áudio, HD 1080p, sincronização de letras, vídeos e sem marca d'água.",
     chat_faq5_q:          'Problemas com pagamento',
     chat_faq5_a:          'Pagamentos são processados pelo Stripe. Para problemas, entre em contato pelo e-mail abaixo.',
 
