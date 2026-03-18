@@ -174,746 +174,148 @@ const ANIMATED_STICKERS = [
   { key:'flex',      emoji:'💪', anim:'pulse',  label:'Força'     },
 ];
 
-const SFX_LIST = [
-  // ── Reações / Público ─────────────────────────────────────────────────────
-  { key:'applause',  emoji:'👏', name:'Aplausos',     dur:2.5 },
-  { key:'crowd',     emoji:'🎉', name:'Multidão',     dur:2.5 },
-  { key:'laugh',     emoji:'😂', name:'Risadas',      dur:2.2 },
-  { key:'boo',       emoji:'👎', name:'Vaias',        dur:1.8 },
-  { key:'gasp',      emoji:'😱', name:'Suspiro',      dur:0.8 },
-  { key:'woah',      emoji:'😮', name:'Woah',         dur:0.9 },
-  // ── Música / Ritmo ────────────────────────────────────────────────────────
-  { key:'kick',      emoji:'🥁', name:'Bumbo',        dur:0.6 },
-  { key:'drums',     emoji:'🎵', name:'Bateria',      dur:1.6 },
-  { key:'snare',     emoji:'🪘', name:'Caixa',        dur:0.4 },
-  { key:'hihat',     emoji:'🎶', name:'Hi-Hat',       dur:0.3 },
-  { key:'bass',      emoji:'🎸', name:'Baixo',        dur:1.0 },
-  { key:'fanfare',   emoji:'🎺', name:'Fanfarra',     dur:2.2 },
-  { key:'horn',      emoji:'📯', name:'Buzina',       dur:1.0 },
-  { key:'vinyl',     emoji:'💿', name:'Vinil',        dur:1.2 },
-  // ── Ações / Impacto ───────────────────────────────────────────────────────
-  { key:'explosion', emoji:'💥', name:'Explosão',     dur:2.0 },
-  { key:'punch',     emoji:'👊', name:'Soco',         dur:0.4 },
-  { key:'whoosh',    emoji:'💨', name:'Whoosh',       dur:0.8 },
-  { key:'swoosh',    emoji:'⚡', name:'Swoosh',       dur:0.4 },
-  { key:'thunder',   emoji:'⛈️', name:'Trovão',      dur:3.0 },
-  { key:'gunshot',   emoji:'🔫', name:'Tiro',         dur:0.5 },
-  { key:'glass_break',emoji:'🔨',name:'Vidro',        dur:1.0 },
-  { key:'thud',      emoji:'🪨', name:'Impacto',      dur:0.5 },
-  // ── Interface / Feedback ──────────────────────────────────────────────────
-  { key:'success',   emoji:'✅', name:'Sucesso',      dur:1.0 },
-  { key:'error',     emoji:'❌', name:'Erro',         dur:0.6 },
-  { key:'notify',    emoji:'🔕', name:'Notificação',  dur:0.5 },
-  { key:'bell',      emoji:'🔔', name:'Sino',         dur:1.8 },
-  { key:'coin',      emoji:'🪙', name:'Moeda',        dur:0.6 },
-  { key:'powerup',   emoji:'🎮', name:'Power Up',     dur:1.2 },
-  { key:'levelup',   emoji:'⬆️', name:'Level Up',    dur:1.5 },
-  { key:'pop',       emoji:'🎈', name:'Pop',          dur:0.3 },
-  { key:'click',     emoji:'🖱️', name:'Click',       dur:0.15 },
-  { key:'swipe',     emoji:'👆', name:'Swipe',        dur:0.3 },
-  // ── Natureza / Ambiente ───────────────────────────────────────────────────
-  { key:'drop',      emoji:'💧', name:'Gota',         dur:0.6 },
-  { key:'rain',      emoji:'🌧️', name:'Chuva',       dur:2.0 },
-  { key:'wind',      emoji:'🌬️', name:'Vento',       dur:2.0 },
-  { key:'fire',      emoji:'🔥', name:'Fogo',         dur:2.0 },
-  { key:'ocean',     emoji:'🌊', name:'Oceano',       dur:3.0 },
-  // ── Especiais ─────────────────────────────────────────────────────────────
-  { key:'laser',     emoji:'🔆', name:'Laser',        dur:0.7 },
-  { key:'glitch',    emoji:'📺', name:'Glitch',       dur:0.6 },
-  { key:'rewind',    emoji:'⏪', name:'Rebobinar',    dur:0.8 },
-  { key:'heartbeat', emoji:'💓', name:'Coração',      dur:1.2 },
-  { key:'glass',     emoji:'🥂', name:'Brinde',       dur:2.0 },
-  { key:'cash',      emoji:'💰', name:'Dinheiro',     dur:1.0 },
+// ── Efeitos Sonoros — biblioteca local /public/sfx/ ──────────────────────────
+const SFX_CATS = [
+  {
+    cat: '🌊 Ambiente', color: '#00BFFF',
+    items: [
+      { key:'vento_rapido',   emoji:'💨', name:'Vento Rápido',   file:'2- Vento Rápido.mp3' },
+      { key:'vento_rapido2',  emoji:'💨', name:'Vento Rápido 2', file:'3- Vento Rápido 2.mp3' },
+      { key:'vento_lento',    emoji:'🌬️', name:'Vento Lento',    file:'4- Vento Lento.mp3' },
+      { key:'gota',           emoji:'💧', name:'Gota',           file:'23- Gota.mp3' },
+      { key:'agua1',          emoji:'🌊', name:'Água 1',         file:'34- Água 1.mp3' },
+      { key:'agua2',          emoji:'🌊', name:'Água 2',         file:'35- Água 2.mp3' },
+      { key:'grilo',          emoji:'🦗', name:'Grilo',          file:'22- Grilo.mp3' },
+      { key:'grilos',         emoji:'🦗', name:'Grilos',         file:'60- Grilos.mp3' },
+    ],
+  },
+  {
+    cat: '⚡ Ação', color: '#f59e0b',
+    items: [
+      { key:'arma1',          emoji:'🔫', name:'Arma 1',         file:'10 - Arma 1.mp3' },
+      { key:'arma2',          emoji:'🔫', name:'Arma 2',         file:'11 - Arma 2.mp3' },
+      { key:'pulo',           emoji:'🦘', name:'Pulo',           file:'16- Pulo.mp3' },
+      { key:'chicote',        emoji:'⚡', name:'Chicote',        file:'37- Chicote.mp3' },
+      { key:'punch',          emoji:'👊', name:'Punch',          file:'42- Punch1.mp3' },
+      { key:'nave',           emoji:'🚀', name:'Nave',           file:'18- Nave.mp3' },
+      { key:'nave2',          emoji:'🚀', name:'Nave 2',         file:'19- Nave 2.mp3' },
+      { key:'raio',           emoji:'⚡', name:'Raio Logo',      file:'15- Raio Logo.mp3' },
+    ],
+  },
+  {
+    cat: '😱 Suspense', color: '#a78bfa',
+    items: [
+      { key:'suspense',       emoji:'😰', name:'Suspense',       file:'8- Suspense.mp3' },
+      { key:'suspense2',      emoji:'😨', name:'Suspense 2',     file:'9- Suspense 2.mp3' },
+      { key:'experimentos',   emoji:'🔬', name:'Experimentos',   file:'44- Experimentos Secretos.mp3' },
+      { key:'sirene',         emoji:'🚨', name:'Sirene',         file:'62- Sirene.mp3' },
+      { key:'magica',         emoji:'✨', name:'Mágica',         file:'21- Mágica.mp3' },
+      { key:'warpy',          emoji:'🌀', name:'Warpy',          file:'63- Warpy.mp3' },
+    ],
+  },
+  {
+    cat: '😂 Comédia', color: '#f87171',
+    items: [
+      { key:'pegadinha',      emoji:'😜', name:'Pegadinha',      file:'17- Pegadinha.mp3' },
+      { key:'derp',           emoji:'😵', name:'Derp',           file:'38- Derp - Gaming Sound Effect (HD).mp3' },
+      { key:'morri',          emoji:'💀', name:'MORRI',          file:'39- MORRI.mp3' },
+      { key:'plun',           emoji:'🪣', name:'PLUN',           file:'41- PLUN.mp3' },
+      { key:'nope',           emoji:'🙅', name:'Nope',           file:'40- Nope (Construction Worker TF2) - Gaming Sound Effect (HD).mp3' },
+      { key:'sumiu',          emoji:'👻', name:'SUMIU!',         file:'43- SUMIU!!!.mp3' },
+      { key:'whaaat',         emoji:'😦', name:'Whaaat',         file:'45- Whaaat - Sound Effect.mp3' },
+      { key:'fail',           emoji:'❌', name:'Fail',           file:'46- Fail Sound.wav' },
+      { key:'peido',          emoji:'💨', name:'Peido',          file:'57- PEIDO.mp3' },
+      { key:'naoconsegue',    emoji:'🤦', name:'Não consegue',   file:'61- Não consegue né-.mp3' },
+      { key:'humwaa',         emoji:'😩', name:'Hu Waa Waa',     file:'66- Hu Waa Waa - Gaming Sound Effect (HD).mp3' },
+      { key:'cartoon_slip',   emoji:'🤸', name:'Cartoon Slip',   file:'64- Cartoon Slip - Gaming Sound Effect (HD).mp3' },
+    ],
+  },
+  {
+    cat: '🖥️ UI / Tech', color: '#10b981',
+    items: [
+      { key:'click',          emoji:'🖱️', name:'Click',          file:'29- Click.mp3' },
+      { key:'digitando',      emoji:'⌨️', name:'Digitando',      file:'28- Digitando.mp3' },
+      { key:'mouse',          emoji:'🖱️', name:'Mouse',          file:'20- Mouse.mp3' },
+      { key:'foto',           emoji:'📷', name:'Foto',           file:'24- Foto.mp3' },
+      { key:'bip_longo',      emoji:'📳', name:'Bip Longo',      file:'31- Bip Longo.mp3' },
+      { key:'bip_longo2',     emoji:'📳', name:'Bip Longo 2',    file:'32- Bip Longo 2.mp3' },
+      { key:'errou',          emoji:'❌', name:'Errou',          file:'25- Errou.mp3' },
+      { key:'erro_windows',   emoji:'💻', name:'Erro Windows',   file:'65- (erro no windows).mp3' },
+      { key:'aparecendo',     emoji:'✨', name:'Aparecendo',     file:'33- Aparecendo.mp3' },
+      { key:'voltando',       emoji:'⏪', name:'Voltando Vídeo', file:'1- Voltando Vídeo.mp3' },
+    ],
+  },
+  {
+    cat: '🔔 Notificação', color: '#fbbf24',
+    items: [
+      { key:'sino_longo',     emoji:'🔔', name:'Sino Longo',     file:'12- Sino Longo.mp3' },
+      { key:'sino_longo2',    emoji:'🔔', name:'Sino Longo 2',   file:'13- Sino Longo 2.mp3' },
+      { key:'sino_escola',    emoji:'🏫', name:'Sino Escola',    file:'14- Sino Escola.mp3' },
+      { key:'tadaah',         emoji:'🎊', name:'TADAAH!',        file:'48- TADAAH Sound Effect.mp3' },
+      { key:'buzzer',         emoji:'🔴', name:'Buzzer',         file:'58- Buzzer.mp3' },
+      { key:'price_right',    emoji:'📺', name:'Price is Right', file:'49- The Price is Right Losing Horn - Gaming Sound Effect (HD).mp3' },
+    ],
+  },
+  {
+    cat: '💰 Dinheiro', color: '#d4af37',
+    items: [
+      { key:'dinheiro1',      emoji:'💸', name:'Dinheiro 1',     file:'27- Dinheiro 1.mp3' },
+      { key:'dinheiro2',      emoji:'💵', name:'Dinheiro 2',     file:'26- Dinheiro 2.mp3' },
+      { key:'tchan',          emoji:'🎉', name:'Tchan!',         file:'7- Tchan.mp3' },
+      { key:'buzina',         emoji:'📯', name:'Buzina',         file:'30- Buzina.mp3' },
+    ],
+  },
+  {
+    cat: '🎭 Meme', color: '#e879f9',
+    items: [
+      { key:'john_cena',      emoji:'🤼', name:'John Cena',      file:'55- And His Name is JOHN CENA - Sound Effect (HD).mp3' },
+      { key:'turn_down',      emoji:'🔥', name:'Turn Down',      file:'47- Turn down for what.mp3' },
+      { key:'female_scream',  emoji:'😱', name:'Scream',         file:'50- Female Scream - Sound Effect.mp3' },
+      { key:'e_morreu',       emoji:'💀', name:'E Morreu Didi',  file:'51- E Morreu - Didi.mp3' },
+      { key:'cego',           emoji:'🙈', name:'Tu é Cego',      file:'52- tu é cego.mp3' },
+      { key:'really',         emoji:'😤', name:'Really Nigga',   file:'53- Really Nigga Sound Effect.mp3' },
+      { key:'surprise',       emoji:'😤', name:'Surprise MF',    file:'54- Suprise Mother Fuck.mp3' },
+      { key:'taffarel',       emoji:'🥅', name:'Taffarel',       file:'68- Sai que é sua TAFFAREL!!!!!.mp3' },
+      { key:'whatcha_say',    emoji:'🎤', name:'Whatcha Say',    file:'67- Whatcha Say - MLG Sound Effects (HD).mp3' },
+      { key:'banana_song',    emoji:'🍌', name:'Banana Song',    file:'59- Banana Song.mp3' },
+      { key:'ops',            emoji:'😬', name:'Ops',            file:'56- Ops.mp3' },
+      { key:'triste',         emoji:'😢', name:'Triste',         file:'5- Triste.mp3' },
+      { key:'tempo_passando', emoji:'⏰', name:'Tempo Passando', file:'6- Tempo Passando.mp3' },
+      { key:'exclamacao',     emoji:'❗', name:'!',              file:'36- !.mp3' },
+    ],
+  },
 ];
 
+// Flat list for lookup (key → {emoji, name, file})
+const SFX_LIST = SFX_CATS.flatMap(c => c.items);
+
+// Cache de AudioBuffers decodificados
+const _sfxBufferCache = {};
+
+const loadSfxBuffer = async (file) => {
+  if (_sfxBufferCache[file]) return _sfxBufferCache[file];
+  try {
+    const url = '/sfx/' + encodeURIComponent(file);
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const arrayBuf = await res.arrayBuffer();
+    const offlineCtx = new OfflineAudioContext(2, 44100 * 10, 44100);
+    const decoded = await offlineCtx.decodeAudioData(arrayBuf);
+    _sfxBufferCache[file] = decoded;
+    return decoded;
+  } catch (e) {
+    console.warn('[SFX] Erro ao carregar:', file, e.message);
+    return null;
+  }
+};
+
+// Alias para compatibilidade com o código existente que chama synthesizeSfxBuffer(key)
 const synthesizeSfxBuffer = async (key) => {
-  const SR = 44100;
-  const dur = (SFX_LIST.find(s => s.key === key) || {dur:1}).dur;
-  const len = Math.ceil(SR * dur);
-  const ctx = new OfflineAudioContext(2, len, SR);
-  const dest = ctx.destination;
-
-  const osc = (type, freq, gainVal, startT, stopT, freqEnd) => {
-    const o = ctx.createOscillator();
-    const g = ctx.createGain();
-    o.type = type;
-    o.frequency.setValueAtTime(freq, startT);
-    if (freqEnd !== undefined) o.frequency.exponentialRampToValueAtTime(Math.max(1, freqEnd), stopT);
-    g.gain.setValueAtTime(gainVal, startT);
-    o.connect(g); g.connect(dest);
-    o.start(startT); o.stop(stopT);
-    return g;
-  };
-  const env = (gainNode, a, d, s, r, startT) => {
-    const g = gainNode.gain;
-    g.setValueAtTime(0, startT);
-    g.linearRampToValueAtTime(1, startT + a);
-    g.linearRampToValueAtTime(s, startT + a + d);
-    g.setValueAtTime(s, startT + a + d);
-    g.linearRampToValueAtTime(0, startT + a + d + r);
-  };
-  const noise = (gainVal, startT, stopT, filterType, filterFreq) => {
-    const bufLen = Math.ceil(SR * (stopT - startT));
-    const nb = ctx.createBuffer(1, bufLen, SR);
-    const nd = nb.getChannelData(0);
-    for (let i = 0; i < bufLen; i++) nd[i] = Math.random() * 2 - 1;
-    const src = ctx.createBufferSource();
-    src.buffer = nb;
-    const g = ctx.createGain(); g.gain.value = gainVal;
-    if (filterType) {
-      const f = ctx.createBiquadFilter();
-      f.type = filterType; f.frequency.value = filterFreq || 1000;
-      src.connect(f); f.connect(g);
-    } else { src.connect(g); }
-    g.connect(dest);
-    src.start(startT); src.stop(stopT);
-    return g;
-  };
-
-  switch (key) {
-    case 'applause': {
-      const g = noise(0, 0, dur, 'bandpass', 2200);
-      g.gain.setValueAtTime(0, 0);
-      g.gain.linearRampToValueAtTime(0.5, 0.4);
-      g.gain.setValueAtTime(0.5, dur - 0.6);
-      g.gain.linearRampToValueAtTime(0, dur);
-      noise(0.15, 0, dur, 'highpass', 4000);
-      break;
-    }
-    case 'explosion': {
-      const g = noise(0, 0, dur, 'lowpass', 300);
-      g.gain.setValueAtTime(0.8, 0);
-      g.gain.exponentialRampToValueAtTime(0.01, dur);
-      const g2 = noise(0, 0, 0.2, null, 0);
-      g2.gain.setValueAtTime(0.6, 0);
-      g2.gain.exponentialRampToValueAtTime(0.01, 0.2);
-      const og = osc('sine', 80, 0.6, 0, 0.3, 30);
-      og.gain.exponentialRampToValueAtTime(0.01, 0.3);
-      break;
-    }
-    case 'whoosh': {
-      const g = noise(0.5, 0, dur, 'bandpass', 3000);
-      g.gain.setValueAtTime(0, 0);
-      g.gain.linearRampToValueAtTime(0.6, dur * 0.3);
-      g.gain.linearRampToValueAtTime(0, dur);
-      break;
-    }
-    case 'bell': {
-      const freqs = [880, 1320, 2200, 3520];
-      const vols  = [0.5, 0.25, 0.12, 0.06];
-      freqs.forEach((f, i) => {
-        const g = osc('sine', f, vols[i], 0, dur);
-        g.gain.setValueAtTime(vols[i], 0);
-        g.gain.exponentialRampToValueAtTime(0.001, dur);
-      });
-      break;
-    }
-    case 'kick': {
-      const og = osc('sine', 150, 0.8, 0, 0.5, 40);
-      og.gain.setValueAtTime(0.8, 0);
-      og.gain.exponentialRampToValueAtTime(0.01, 0.4);
-      const ng = noise(0, 0, 0.06, 'highpass', 3000);
-      ng.gain.setValueAtTime(0.4, 0);
-      ng.gain.exponentialRampToValueAtTime(0.01, 0.06);
-      break;
-    }
-    case 'fanfare': {
-      const notes = [[523,0],[659,0.3],[784,0.6],[1047,0.9]];
-      notes.forEach(([f,t]) => {
-        const g = osc('sawtooth', f, 0.15, t, t+0.6);
-        g.gain.setValueAtTime(0, t);
-        g.gain.linearRampToValueAtTime(0.2, t+0.05);
-        g.gain.setValueAtTime(0.2, t+0.4);
-        g.gain.linearRampToValueAtTime(0, t+0.6);
-      });
-      // final chord
-      [523,659,784].forEach(f => {
-        const g = osc('sawtooth', f, 0.12, 1.2, dur);
-        g.gain.setValueAtTime(0.12, 1.2);
-        g.gain.linearRampToValueAtTime(0, dur);
-      });
-      break;
-    }
-    case 'laser': {
-      const g = osc('sawtooth', 1200, 0.4, 0, dur, 150);
-      g.gain.setValueAtTime(0.4, 0);
-      g.gain.exponentialRampToValueAtTime(0.01, dur);
-      break;
-    }
-    case 'success': {
-      [[523,0],[659,0.15],[784,0.3],[1047,0.45]].forEach(([f,t]) => {
-        const g = osc('sine', f, 0.4, t, t+0.35);
-        g.gain.setValueAtTime(0.4, t);
-        g.gain.linearRampToValueAtTime(0, t+0.35);
-      });
-      break;
-    }
-    case 'error': {
-      [[440,0],[330,0.2]].forEach(([f,t]) => {
-        const g = osc('sawtooth', f, 0.35, t, t+0.25);
-        g.gain.setValueAtTime(0.35, t);
-        g.gain.linearRampToValueAtTime(0, t+0.25);
-        noise(0.05, t, t+0.25, 'highpass', 2000);
-      });
-      break;
-    }
-    case 'notify': {
-      [[880,0],[1047,0.18]].forEach(([f,t]) => {
-        const g = osc('sine', f, 0.4, t, t+0.15);
-        g.gain.setValueAtTime(0.4, t);
-        g.gain.linearRampToValueAtTime(0, t+0.15);
-      });
-      break;
-    }
-    case 'coin': {
-      [[1200,0],[1400,0.08],[1600,0.16]].forEach(([f,t]) => {
-        const g = osc('sine', f, 0.35, t, t+0.2);
-        g.gain.setValueAtTime(0.35, t);
-        g.gain.exponentialRampToValueAtTime(0.001, t+0.2);
-      });
-      break;
-    }
-    case 'punch': {
-      const og = osc('sine', 120, 0.6, 0, 0.3, 40);
-      og.gain.setValueAtTime(0.6, 0);
-      og.gain.exponentialRampToValueAtTime(0.01, 0.3);
-      const ng = noise(0, 0, 0.08, 'lowpass', 500);
-      ng.gain.setValueAtTime(0.5, 0);
-      ng.gain.exponentialRampToValueAtTime(0.01, 0.08);
-      break;
-    }
-    case 'glass': {
-      [2093,2637,3136].forEach((f,i) => {
-        const g = osc('sine', f, 0.2-i*0.05, 0, dur);
-        g.gain.setValueAtTime(0.2-i*0.05, 0.005);
-        g.gain.exponentialRampToValueAtTime(0.001, dur);
-      });
-      noise(0.08, 0, 0.05, 'highpass', 5000);
-      break;
-    }
-    case 'powerup': {
-      const g = osc('square', 220, 0.2, 0, 0.8, 880);
-      g.gain.setValueAtTime(0.2, 0);
-      g.gain.setValueAtTime(0.2, 0.7);
-      g.gain.linearRampToValueAtTime(0, 0.8);
-      [[880,0.8],[1047,0.9],[1319,1.0]].forEach(([f,t]) => {
-        const g2 = osc('square', f, 0.25, t, t+0.2);
-        g2.gain.setValueAtTime(0.25, t);
-        g2.gain.linearRampToValueAtTime(0, t+0.2);
-      });
-      break;
-    }
-    case 'pop': {
-      const og = osc('sine', 800, 0.6, 0, 0.15, 80);
-      og.gain.setValueAtTime(0.6, 0);
-      og.gain.exponentialRampToValueAtTime(0.01, 0.15);
-      noise(0.3, 0, 0.04, null, 0);
-      break;
-    }
-    case 'thunder': {
-      const g1 = noise(0, 0, dur, 'lowpass', 200);
-      g1.gain.setValueAtTime(0.01, 0);
-      g1.gain.linearRampToValueAtTime(0.9, 0.05);
-      g1.gain.exponentialRampToValueAtTime(0.1, 1.5);
-      g1.gain.linearRampToValueAtTime(0, dur);
-      noise(0.4, 0, 0.1, 'highpass', 2000);
-      osc('sine', 60, 0.3, 0, 0.8, 30);
-      break;
-    }
-    case 'heartbeat': {
-      const beat = (t) => {
-        const og = osc('sine', 100, 0.5, t, t+0.12, 40);
-        og.gain.setValueAtTime(0.5, t);
-        og.gain.exponentialRampToValueAtTime(0.01, t+0.12);
-        const og2 = osc('sine', 80, 0.3, t+0.14, t+0.24, 35);
-        og2.gain.setValueAtTime(0.3, t+0.14);
-        og2.gain.exponentialRampToValueAtTime(0.01, t+0.24);
-      };
-      beat(0); beat(0.6);
-      break;
-    }
-    case 'swoosh': {
-      const g = noise(0, 0, dur, 'bandpass', 5000);
-      g.gain.setValueAtTime(0, 0);
-      g.gain.linearRampToValueAtTime(0.7, dur * 0.2);
-      g.gain.linearRampToValueAtTime(0, dur);
-      break;
-    }
-    case 'horn': {
-      const g = osc('sawtooth', 220, 0, 0, dur);
-      g.gain.setValueAtTime(0, 0);
-      g.gain.linearRampToValueAtTime(0.4, 0.1);
-      g.gain.setValueAtTime(0.4, dur-0.2);
-      g.gain.linearRampToValueAtTime(0, dur);
-      osc('sawtooth', 330, 0.15, 0, dur);
-      break;
-    }
-    case 'crowd': {
-      const g = noise(0, 0, dur, 'bandpass', 1800);
-      g.gain.setValueAtTime(0.2, 0);
-      g.gain.linearRampToValueAtTime(0.55, 0.5);
-      g.gain.setValueAtTime(0.55, dur-0.5);
-      g.gain.linearRampToValueAtTime(0.1, dur);
-      noise(0.1, 0, dur, 'highpass', 3500);
-      break;
-    }
-    case 'drop': {
-      const g = osc('sine', 880, 0.5, 0, dur, 110);
-      g.gain.setValueAtTime(0.5, 0);
-      g.gain.exponentialRampToValueAtTime(0.001, dur);
-      break;
-    }
-    case 'drums': {
-      // kick at 0, 0.4, 0.8; snare at 0.2, 0.6, 1.0, 1.4
-      [0, 0.4, 0.8, 1.2].forEach(t => {
-        const og = osc('sine', 150, 0.7, t, t+0.3, 40);
-        og.gain.setValueAtTime(0.7, t);
-        og.gain.exponentialRampToValueAtTime(0.01, t+0.25);
-      });
-      [0.2, 0.6, 1.0, 1.4].forEach(t => {
-        const ng = noise(0, t, t+0.15, 'bandpass', 3000);
-        ng.gain.setValueAtTime(0.4, t);
-        ng.gain.exponentialRampToValueAtTime(0.01, t+0.15);
-      });
-      break;
-    }
-    case 'woah': {
-      const g = osc('sine', 200, 0.4, 0, dur, 800);
-      g.gain.setValueAtTime(0, 0);
-      g.gain.linearRampToValueAtTime(0.4, 0.05);
-      g.gain.setValueAtTime(0.4, dur-0.1);
-      g.gain.linearRampToValueAtTime(0, dur);
-      break;
-    }
-    case 'cash': {
-      [[800,0],[1000,0.1],[1200,0.2],[1600,0.35],[2000,0.5]].forEach(([f,t]) => {
-        const g = osc('triangle', f, 0.3, t, t+0.15);
-        g.gain.setValueAtTime(0.3, t);
-        g.gain.exponentialRampToValueAtTime(0.001, t+0.15);
-      });
-      noise(0.1, 0, 0.05, 'highpass', 5000);
-      break;
-    }
-    // ── Novos sons ────────────────────────────────────────────────────────────
-    case 'laugh': {
-      // Risadas: modulação de frequência em grupos de 3
-      for (let i = 0; i < 6; i++) {
-        const t0 = i * 0.35; const f = 300 + Math.random() * 200;
-        const g = noise(0, t0, t0 + 0.25, 'bandpass', f);
-        g.gain.setValueAtTime(0, t0);
-        g.gain.linearRampToValueAtTime(0.4, t0 + 0.06);
-        g.gain.linearRampToValueAtTime(0, t0 + 0.25);
-      }
-      break;
-    }
-    case 'boo': {
-      const g = noise(0, 0, dur, 'bandpass', 800);
-      g.gain.setValueAtTime(0, 0);
-      g.gain.linearRampToValueAtTime(0.5, 0.3);
-      g.gain.setValueAtTime(0.5, dur - 0.4);
-      g.gain.linearRampToValueAtTime(0, dur);
-      const og = osc('sawtooth', 180, 0.15, 0, dur);
-      og.gain.setValueAtTime(0.15, 0);
-      og.gain.linearRampToValueAtTime(0, dur);
-      break;
-    }
-    case 'gasp': {
-      const g = noise(0, 0, 0.4, 'highpass', 1200);
-      g.gain.setValueAtTime(0, 0);
-      g.gain.linearRampToValueAtTime(0.5, 0.1);
-      g.gain.linearRampToValueAtTime(0, 0.4);
-      osc('sine', 600, 0.2, 0.1, 0.4, 400);
-      break;
-    }
-    case 'snare': {
-      const ng = noise(0, 0, 0.2, 'bandpass', 3000);
-      ng.gain.setValueAtTime(0.6, 0); ng.gain.exponentialRampToValueAtTime(0.001, 0.2);
-      const og = osc('sine', 200, 0.4, 0, 0.1, 60);
-      og.gain.setValueAtTime(0.4, 0); og.gain.exponentialRampToValueAtTime(0.001, 0.1);
-      break;
-    }
-    case 'hihat': {
-      const ng = noise(0, 0, 0.08, 'highpass', 8000);
-      ng.gain.setValueAtTime(0.5, 0); ng.gain.exponentialRampToValueAtTime(0.001, 0.08);
-      break;
-    }
-    case 'bass': {
-      const og = osc('sine', 60, 0.7, 0, dur, 40);
-      og.gain.setValueAtTime(0, 0);
-      og.gain.linearRampToValueAtTime(0.7, 0.02);
-      og.gain.setValueAtTime(0.7, 0.4);
-      og.gain.linearRampToValueAtTime(0, dur);
-      osc('sawtooth', 60, 0.1, 0, 0.05);
-      break;
-    }
-    case 'vinyl': {
-      // Crackle de vinil
-      noise(0.15, 0, dur, 'highpass', 3000);
-      for (let i = 0; i < 8; i++) {
-        const t0 = i * dur / 8;
-        const ng = noise(0, t0, t0 + 0.05, 'bandpass', 2000 + Math.random() * 3000);
-        ng.gain.setValueAtTime(0.3 * Math.random(), t0);
-        ng.gain.exponentialRampToValueAtTime(0.001, t0 + 0.05);
-      }
-      break;
-    }
-    case 'gunshot': {
-      const ng = noise(0, 0, 0.3, 'lowpass', 400);
-      ng.gain.setValueAtTime(0.9, 0); ng.gain.exponentialRampToValueAtTime(0.001, 0.3);
-      noise(0.4, 0, 0.08, null, 0);
-      osc('sine', 100, 0.5, 0, 0.15, 30);
-      break;
-    }
-    case 'glass_break': {
-      noise(0.5, 0, 0.1, null, 0);
-      for (let i = 0; i < 5; i++) {
-        const t0 = 0.05 + i * 0.15; const f = 2000 + Math.random() * 4000;
-        const ng = noise(0, t0, t0 + 0.2, 'highpass', f);
-        ng.gain.setValueAtTime(0.3, t0); ng.gain.exponentialRampToValueAtTime(0.001, t0 + 0.2);
-      }
-      break;
-    }
-    case 'thud': {
-      const og = osc('sine', 100, 0.7, 0, 0.4, 30);
-      og.gain.setValueAtTime(0.7, 0); og.gain.exponentialRampToValueAtTime(0.001, 0.4);
-      noise(0.3, 0, 0.08, 'lowpass', 300);
-      break;
-    }
-    case 'levelup': {
-      [[261,0],[329,0.2],[392,0.4],[523,0.6],[659,0.8],[784,1.0]].forEach(([f,t]) => {
-        const g = osc('square', f, 0.2, t, t + 0.25);
-        g.gain.setValueAtTime(0.2, t); g.gain.linearRampToValueAtTime(0, t + 0.25);
-      });
-      break;
-    }
-    case 'click': {
-      const og = osc('sine', 1200, 0.5, 0, 0.05);
-      og.gain.setValueAtTime(0.5, 0); og.gain.exponentialRampToValueAtTime(0.001, 0.05);
-      break;
-    }
-    case 'swipe': {
-      const g = noise(0.4, 0, 0.2, 'bandpass', 2000);
-      g.gain.setValueAtTime(0, 0);
-      g.gain.linearRampToValueAtTime(0.4, 0.05);
-      g.gain.linearRampToValueAtTime(0, 0.2);
-      const og = osc('sine', 800, 0.2, 0, 0.2, 1600);
-      og.gain.setValueAtTime(0.2, 0); og.gain.linearRampToValueAtTime(0, 0.2);
-      break;
-    }
-    case 'rain': {
-      noise(0.25, 0, dur, 'highpass', 4000);
-      noise(0.1, 0, dur, 'bandpass', 1500);
-      for (let i = 0; i < 12; i++) {
-        const t0 = Math.random() * dur;
-        const ng = noise(0, t0, t0 + 0.04, 'highpass', 5000 + Math.random() * 3000);
-        ng.gain.setValueAtTime(0.15, t0); ng.gain.exponentialRampToValueAtTime(0.001, t0 + 0.04);
-      }
-      break;
-    }
-    case 'wind': {
-      const g = noise(0.3, 0, dur, 'bandpass', 600);
-      g.gain.setValueAtTime(0.1, 0);
-      g.gain.linearRampToValueAtTime(0.4, dur * 0.3);
-      g.gain.linearRampToValueAtTime(0.2, dur * 0.7);
-      g.gain.linearRampToValueAtTime(0.1, dur);
-      noise(0.1, 0, dur, 'highpass', 2000);
-      break;
-    }
-    case 'fire': {
-      noise(0.25, 0, dur, 'bandpass', 800);
-      noise(0.1, 0, dur, 'bandpass', 300);
-      for (let i = 0; i < 10; i++) {
-        const t0 = Math.random() * dur;
-        const ng = noise(0, t0, t0 + 0.1, 'bandpass', 1000 + Math.random() * 1000);
-        ng.gain.setValueAtTime(0.2, t0); ng.gain.exponentialRampToValueAtTime(0.001, t0 + 0.1);
-      }
-      break;
-    }
-    case 'ocean': {
-      const g = noise(0.3, 0, dur, 'bandpass', 400);
-      // Onda lenta
-      for (let i = 0; i < 3; i++) {
-        const t0 = i * (dur / 3);
-        g.gain.setValueAtTime(0.15, t0);
-        g.gain.linearRampToValueAtTime(0.35, t0 + dur/6);
-        g.gain.linearRampToValueAtTime(0.15, t0 + dur/3);
-      }
-      noise(0.1, 0, dur, 'highpass', 2000);
-      break;
-    }
-    case 'glitch': {
-      for (let i = 0; i < 8; i++) {
-        const t0 = i * 0.07; const f = 200 + Math.random() * 2000;
-        const g = osc(i%2===0?'square':'sawtooth', f, 0.3, t0, t0 + 0.05);
-        g.gain.setValueAtTime(0.3, t0); g.gain.exponentialRampToValueAtTime(0.001, t0+0.05);
-      }
-      noise(0.2, 0, 0.1, 'highpass', 3000);
-      break;
-    }
-    case 'rewind': {
-      const g = noise(0.3, 0, 0.6, 'bandpass', 2000);
-      g.gain.setValueAtTime(0, 0);
-      g.gain.linearRampToValueAtTime(0.4, 0.1);
-      g.gain.setValueAtTime(0.4, 0.5);
-      g.gain.linearRampToValueAtTime(0, 0.6);
-      const og = osc('sawtooth', 1200, 0.15, 0, 0.6, 200);
-      og.gain.setValueAtTime(0.15, 0); og.gain.linearRampToValueAtTime(0, 0.6);
-      break;
-    }
-  }
-
-  try { return await ctx.startRendering(); }
-  catch(e) { console.error('[SFX synth]', key, e); return null; }
+  const sfx = SFX_LIST.find(s => s.key === key);
+  if (!sfx) return null;
+  return loadSfxBuffer(sfx.file);
 };
 
-const getStickerAnimTransform = (anim, t, size) => {
-  switch (anim) {
-    case 'bounce':  return { dy: Math.sin(t * 5) * size * 0.12, s: 1, r: 0, a: 1 };
-    case 'pulse':   return { dy: 0, s: 1 + Math.sin(t * 3.5) * 0.18, r: 0, a: 1 };
-    case 'spin':    return { dy: 0, s: 1, r: t * 1.8, a: 1 };
-    case 'shake':   return { dy: 0, s: 1, r: Math.sin(t * 9) * 0.25, a: 1 };
-    case 'float':   return { dy: Math.sin(t * 2) * size * 0.08, s: 1, r: 0, a: 0.82 + Math.sin(t * 2.5) * 0.18 };
-    default:        return { dy: 0, s: 1, r: 0, a: 1 };
-  }
-};
-
-// ── DADOS DOS TEMPLATES ────────────────────────────────────────────────────
-const CANVAS_TEMPLATES = [
-  // ─── 16:9 ──────────────────────────────────────────────────────────────
-  { id:'169_bold', format:'16:9', name:'Bold Center', accent:'#00BFFF',
-    desc:'Texto central com máximo impacto, glow azul',
-    descEn:'Center text with maximum impact, blue glow',
-    settings:{ fontSize:72, fontFamily:'Bebas Neue', textColor:'#ffffff',
-      gradientEnabled:true, gradientColor1:'#ffffff', gradientColor2:'#00BFFF',
-      shadowEnabled:true, shadowBlur:28, shadowColor:'rgba(0,191,255,0.65)', shadowOffsetX:0, shadowOffsetY:4, zoom:60 },
-    extraTexts:[
-      { rx:0.5, ry:0.88, text:'@seucanal', textEn:'@yourchannel', fs:28, ff:'Poppins', color:'rgba(255,255,255,0.55)' },
-    ]},
-  { id:'169_lower3', format:'16:9', name:'Lower Third', accent:'#fbbf24',
-    desc:'Legenda inferior centralizada estilo noticiário',
-    descEn:'Lower caption, news broadcast style',
-    settings:{ fontSize:52, fontFamily:'Montserrat', textColor:'#ffffff',
-      gradientEnabled:false, shadowEnabled:true, shadowBlur:16, shadowColor:'rgba(0,0,0,0.9)', shadowOffsetX:0, shadowOffsetY:2, zoom:55 },
-    extraTexts:[
-      { rx:0.5, ry:0.84, text:'Nome do Artista', textEn:'Artist Name', fs:42, ff:'Bebas Neue', color:'#fbbf24' },
-      { rx:0.5, ry:0.93, text:'feat. Colaborador • 2024', textEn:'feat. Collaborator • 2024', fs:20, ff:'Poppins', color:'rgba(255,255,255,0.65)' },
-    ]},
-  { id:'169_neon_split', format:'16:9', name:'Neon Split', accent:'#a78bfa',
-    desc:'Dois blocos de texto, glow roxo vibrante',
-    descEn:'Two text blocks, vibrant purple glow',
-    settings:{ fontSize:58, fontFamily:'Poppins', textColor:'#ffffff',
-      gradientEnabled:true, gradientColor1:'#a78bfa', gradientColor2:'#f0abfc',
-      shadowEnabled:true, shadowBlur:32, shadowColor:'rgba(167,139,250,0.75)', shadowOffsetX:0, shadowOffsetY:0, zoom:55 },
-    extraTexts:[
-      { rx:0.5, ry:0.12, text:'✦ TRACK TITLE ✦', textEn:'✦ TRACK TITLE ✦', fs:34, ff:'Bebas Neue', color:'#a78bfa' },
-      { rx:0.5, ry:0.92, text:'Álbum • Ano • Gravadora', textEn:'Album • Year • Label', fs:22, ff:'Poppins', color:'rgba(255,255,255,0.45)' },
-    ]},
-  { id:'169_minimal', format:'16:9', name:'Minimal Dark', accent:'#e2e8f0',
-    desc:'Layout limpo com tipografia elegante',
-    descEn:'Clean layout with elegant typography',
-    settings:{ fontSize:48, fontFamily:'Raleway', textColor:'#ffffff',
-      gradientEnabled:false, shadowEnabled:false, shadowBlur:12, shadowColor:'rgba(0,0,0,0.9)', shadowOffsetX:0, shadowOffsetY:2, zoom:50 },
-    extraTexts:[
-      { rx:0.5, ry:0.10, text:'──────────────────', textEn:'──────────────────', fs:16, ff:'Poppins', color:'rgba(255,255,255,0.18)' },
-      { rx:0.5, ry:0.90, text:'──────────────────', textEn:'──────────────────', fs:16, ff:'Poppins', color:'rgba(255,255,255,0.18)' },
-      { rx:0.5, ry:0.96, text:'stream agora • todas as plataformas', textEn:'stream now • all platforms', fs:17, ff:'Raleway', color:'rgba(255,255,255,0.38)' },
-    ]},
-  { id:'169_fire', format:'16:9', name:'Fire Hype', accent:'#ff6b00',
-    desc:'Trap/rap com gradiente de fogo explosivo',
-    descEn:'Trap/rap with explosive fire gradient',
-    settings:{ fontSize:82, fontFamily:'Bebas Neue', textColor:'#ff6b00',
-      gradientEnabled:true, gradientColor1:'#ff6b00', gradientColor2:'#ffd700',
-      shadowEnabled:true, shadowBlur:42, shadowColor:'rgba(255,107,0,0.85)', shadowOffsetX:0, shadowOffsetY:0, zoom:62 },
-    extraTexts:[
-      { rx:0.5, ry:0.09, text:'🔥 NEW MUSIC 🔥', textEn:'🔥 NEW MUSIC 🔥', fs:28, ff:'Bebas Neue', color:'#ffd700' },
-      { rx:0.5, ry:0.92, text:'DISPONÍVEL AGORA', textEn:'AVAILABLE NOW', fs:24, ff:'Montserrat', color:'rgba(255,255,255,0.75)' },
-    ]},
-  { id:'169_gold', format:'16:9', name:'Classic Gold', accent:'#d4af37',
-    desc:'Elegante dourado para MPB/clássico',
-    descEn:'Elegant gold for classic/acoustic music',
-    settings:{ fontSize:58, fontFamily:'Playfair Display', textColor:'#d4af37',
-      gradientEnabled:true, gradientColor1:'#d4af37', gradientColor2:'#fff8dc',
-      shadowEnabled:true, shadowBlur:22, shadowColor:'rgba(212,175,55,0.5)', shadowOffsetX:0, shadowOffsetY:2, zoom:56 },
-    extraTexts:[
-      { rx:0.5, ry:0.08, text:'◆  ◆  ◆', textEn:'◆  ◆  ◆', fs:22, ff:'Poppins', color:'rgba(212,175,55,0.5)' },
-      { rx:0.5, ry:0.93, text:'◆  ◆  ◆', textEn:'◆  ◆  ◆', fs:22, ff:'Poppins', color:'rgba(212,175,55,0.5)' },
-    ]},
-  // ─── 9:16 ──────────────────────────────────────────────────────────────
-  { id:'916_viral', format:'9:16', name:'Viral Reels', accent:'#ff4081',
-    desc:'Texto grande + CTA no rodapé, Reels/TikTok',
-    descEn:'Big text + CTA at the bottom, Reels/TikTok',
-    settings:{ fontSize:80, fontFamily:'Bebas Neue', textColor:'#ffffff',
-      gradientEnabled:true, gradientColor1:'#ff4081', gradientColor2:'#ff80ab',
-      shadowEnabled:true, shadowBlur:32, shadowColor:'rgba(255,64,129,0.75)', shadowOffsetX:0, shadowOffsetY:4, zoom:42 },
-    extraTexts:[
-      { rx:0.5, ry:0.06, text:'🎵 OUÇA AGORA', textEn:'🎵 LISTEN NOW', fs:30, ff:'Poppins', color:'rgba(255,255,255,0.9)' },
-      { rx:0.5, ry:0.95, text:'▸ segue pra mais', textEn:'▸ follow for more', fs:26, ff:'Poppins', color:'rgba(255,255,255,0.65)' },
-    ]},
-  { id:'916_neon', format:'9:16', name:'Center Neon', accent:'#00e5ff',
-    desc:'Texto centralizado com glow ciano forte',
-    descEn:'Centered text with strong cyan glow',
-    settings:{ fontSize:88, fontFamily:'Bebas Neue', textColor:'#00e5ff',
-      gradientEnabled:false, shadowEnabled:true, shadowBlur:52, shadowColor:'rgba(0,229,255,0.92)', shadowOffsetX:0, shadowOffsetY:0, zoom:42 },
-    extraTexts:[
-      { rx:0.5, ry:0.11, text:'◈  LANÇAMENTO  ◈', textEn:'◈  NEW RELEASE  ◈', fs:26, ff:'Montserrat', color:'rgba(0,229,255,0.55)' },
-      { rx:0.5, ry:0.90, text:'@artista • todas as plataformas', textEn:'@artist • all platforms', fs:22, ff:'Poppins', color:'rgba(255,255,255,0.45)' },
-    ]},
-  { id:'916_gradient', format:'9:16', name:'Gradient Wave', accent:'#c084fc',
-    desc:'Roxo/rosa vibrante, Stories premium',
-    descEn:'Vibrant purple/pink, premium Stories',
-    settings:{ fontSize:82, fontFamily:'Poppins', textColor:'#ffffff',
-      gradientEnabled:true, gradientColor1:'#c084fc', gradientColor2:'#f9a8d4',
-      shadowEnabled:true, shadowBlur:36, shadowColor:'rgba(192,132,252,0.72)', shadowOffsetX:0, shadowOffsetY:0, zoom:42 },
-    extraTexts:[
-      { rx:0.5, ry:0.07, text:'✦ nova música ✦', textEn:'✦ new music ✦', fs:26, ff:'Raleway', color:'rgba(255,255,255,0.55)' },
-      { rx:0.5, ry:0.93, text:'🎧 disponível agora', textEn:'🎧 available now', fs:26, ff:'Poppins', color:'rgba(255,255,255,0.65)' },
-    ]},
-  { id:'916_clean', format:'9:16', name:'Stories Clean', accent:'#f1f5f9',
-    desc:'Minimalista elegante, indie/pop',
-    descEn:'Elegant minimalist, indie/pop',
-    settings:{ fontSize:72, fontFamily:'Raleway', textColor:'#ffffff',
-      gradientEnabled:false, shadowEnabled:false, shadowBlur:12, shadowColor:'rgba(0,0,0,0.9)', shadowOffsetX:0, shadowOffsetY:2, zoom:40 },
-    extraTexts:[
-      { rx:0.5, ry:0.07, text:'N O V O  S I N G L E', textEn:'N E W  S I N G L E', fs:22, ff:'Raleway', color:'rgba(255,255,255,0.38)' },
-      { rx:0.5, ry:0.94, text:'ouça • salve • compartilhe', textEn:'listen • save • share', fs:20, ff:'Poppins', color:'rgba(255,255,255,0.32)' },
-    ]},
-  { id:'916_hype', format:'9:16', name:'Dark Hype', accent:'#39ff14',
-    desc:'Trap/drill urbano agressivo, verde neon',
-    descEn:'Aggressive urban trap/drill, neon green',
-    settings:{ fontSize:92, fontFamily:'Bebas Neue', textColor:'#39ff14',
-      gradientEnabled:false, shadowEnabled:true, shadowBlur:48, shadowColor:'rgba(57,255,20,0.85)', shadowOffsetX:0, shadowOffsetY:0, zoom:42 },
-    extraTexts:[
-      { rx:0.5, ry:0.05, text:'OUT NOW', textEn:'OUT NOW', fs:28, ff:'Montserrat', color:'rgba(255,255,255,0.88)' },
-      { rx:0.5, ry:0.96, text:'▶ STREAM ▶', textEn:'▶ STREAM ▶', fs:26, ff:'Bebas Neue', color:'rgba(57,255,20,0.75)' },
-    ]},
-  { id:'916_lofi', format:'9:16', name:'Lo-Fi Vibes', accent:'#f59e0b',
-    desc:'Chill, cores quentes, vibe café',
-    descEn:'Chill, warm tones, coffee shop vibe',
-    settings:{ fontSize:66, fontFamily:'Lora', textColor:'#f59e0b',
-      gradientEnabled:true, gradientColor1:'#f59e0b', gradientColor2:'#fde68a',
-      shadowEnabled:true, shadowBlur:22, shadowColor:'rgba(245,158,11,0.45)', shadowOffsetX:0, shadowOffsetY:2, zoom:40 },
-    extraTexts:[
-      { rx:0.5, ry:0.07, text:'lo-fi  •  chill  •  beats', textEn:'lo-fi  •  chill  •  beats', fs:24, ff:'Lora', color:'rgba(253,230,138,0.6)' },
-      { rx:0.5, ry:0.93, text:'☕  relaxa e ouve', textEn:'☕  chill and vibe', fs:24, ff:'Lora', color:'rgba(255,255,255,0.5)' },
-    ]},
-  // ─── 1:1 ───────────────────────────────────────────────────────────────
-  { id:'11_impact', format:'1:1', name:'Impact Square', accent:'#ff3d00',
-    desc:'Máximo impacto para feed quadrado',
-    descEn:'Maximum impact for square feed',
-    settings:{ fontSize:94, fontFamily:'Bebas Neue', textColor:'#ffffff',
-      gradientEnabled:true, gradientColor1:'#ff3d00', gradientColor2:'#ff9100',
-      shadowEnabled:true, shadowBlur:42, shadowColor:'rgba(255,61,0,0.82)', shadowOffsetX:0, shadowOffsetY:0, zoom:50 },
-    extraTexts:[
-      { rx:0.5, ry:0.07, text:'🔥 NOVO LANÇAMENTO 🔥', textEn:'🔥 NEW RELEASE 🔥', fs:28, ff:'Montserrat', color:'rgba(255,145,0,0.9)' },
-      { rx:0.5, ry:0.94, text:'disponível em todas as plataformas', textEn:'available on all platforms', fs:22, ff:'Poppins', color:'rgba(255,255,255,0.48)' },
-    ]},
-  { id:'11_blue_neon', format:'1:1', name:'Blue Neon', accent:'#00BFFF',
-    desc:'Azul neon, estilo eletrônico/pop',
-    descEn:'Neon blue, electronic/pop style',
-    settings:{ fontSize:84, fontFamily:'Bebas Neue', textColor:'#00BFFF',
-      gradientEnabled:false, shadowEnabled:true, shadowBlur:52, shadowColor:'rgba(0,191,255,0.92)', shadowOffsetX:0, shadowOffsetY:0, zoom:50 },
-    extraTexts:[
-      { rx:0.5, ry:0.07, text:'◈  SINGLE  ◈', textEn:'◈  SINGLE  ◈', fs:26, ff:'Bebas Neue', color:'rgba(0,191,255,0.48)' },
-      { rx:0.5, ry:0.94, text:'@artista  ·  link na bio', textEn:'@artist  ·  link in bio', fs:22, ff:'Poppins', color:'rgba(255,255,255,0.42)' },
-    ]},
-  { id:'11_gold', format:'1:1', name:'Gold Feed', accent:'#d4af37',
-    desc:'Elegante dourado para feed premium',
-    descEn:'Elegant gold for premium feed',
-    settings:{ fontSize:78, fontFamily:'Playfair Display', textColor:'#d4af37',
-      gradientEnabled:true, gradientColor1:'#d4af37', gradientColor2:'#fff8dc',
-      shadowEnabled:true, shadowBlur:26, shadowColor:'rgba(212,175,55,0.62)', shadowOffsetX:0, shadowOffsetY:2, zoom:50 },
-    extraTexts:[
-      { rx:0.5, ry:0.07, text:'—  —  —  —  —  —', textEn:'—  —  —  —  —  —', fs:18, ff:'Poppins', color:'rgba(212,175,55,0.38)' },
-      { rx:0.5, ry:0.93, text:'—  —  —  —  —  —', textEn:'—  —  —  —  —  —', fs:18, ff:'Poppins', color:'rgba(212,175,55,0.38)' },
-      { rx:0.5, ry:0.97, text:'ouça agora em todos os streamings', textEn:'listen now on all platforms', fs:18, ff:'Raleway', color:'rgba(255,255,255,0.32)' },
-    ]},
-  { id:'11_minimal', format:'1:1', name:'Minimal Square', accent:'#e2e8f0',
-    desc:'Clean e moderno, ótimo para pop/indie',
-    descEn:'Clean and modern, great for pop/indie',
-    settings:{ fontSize:72, fontFamily:'Raleway', textColor:'#ffffff',
-      gradientEnabled:false, shadowEnabled:false, shadowBlur:12, shadowColor:'rgba(0,0,0,0.9)', shadowOffsetX:0, shadowOffsetY:2, zoom:50 },
-    extraTexts:[
-      { rx:0.5, ry:0.06, text:'novo  single', textEn:'new  single', fs:22, ff:'Raleway', color:'rgba(255,255,255,0.28)' },
-      { rx:0.5, ry:0.95, text:'2024', textEn:'2024', fs:20, ff:'Raleway', color:'rgba(255,255,255,0.22)' },
-    ]},
-  { id:'11_trap', format:'1:1', name:'Trap Vibes', accent:'#00ff87',
-    desc:'Urbano agressivo, trap/rap verde neon',
-    descEn:'Aggressive urban trap/rap neon green',
-    settings:{ fontSize:90, fontFamily:'Bebas Neue', textColor:'#00ff87',
-      gradientEnabled:false, shadowEnabled:true, shadowBlur:52, shadowColor:'rgba(0,255,135,0.88)', shadowOffsetX:0, shadowOffsetY:0, zoom:50 },
-    extraTexts:[
-      { rx:0.5, ry:0.05, text:'OUT NOW', textEn:'OUT NOW', fs:26, ff:'Montserrat', color:'rgba(255,255,255,0.82)' },
-      { rx:0.5, ry:0.96, text:'🔊 ESCUTA AGORA 🔊', textEn:'🔊 LISTEN NOW 🔊', fs:24, ff:'Bebas Neue', color:'rgba(0,255,135,0.68)' },
-    ]},
-  { id:'11_retro', format:'1:1', name:'Retro Pop', accent:'#ff6eb4',
-    desc:'Anos 80/90 com cores retrô vibrantes',
-    descEn:'80s/90s with vibrant retro colors',
-    settings:{ fontSize:76, fontFamily:'Bebas Neue', textColor:'#ffffff',
-      gradientEnabled:true, gradientColor1:'#ff6eb4', gradientColor2:'#ffe44d',
-      shadowEnabled:true, shadowBlur:22, shadowColor:'rgba(255,110,180,0.52)', shadowOffsetX:4, shadowOffsetY:4, zoom:50 },
-    extraTexts:[
-      { rx:0.5, ry:0.07, text:'✦ VIDEOCLIPE OFICIAL ✦', textEn:'✦ OFFICIAL MUSIC VIDEO ✦', fs:24, ff:'Bebas Neue', color:'#ffe44d' },
-      { rx:0.5, ry:0.94, text:'inscreva-se  •  ative o sino 🔔', textEn:'subscribe  •  hit the bell 🔔', fs:20, ff:'Poppins', color:'rgba(255,228,77,0.68)' },
-    ]},
-  // ─── 4:3 ───────────────────────────────────────────────────────────────
-  { id:'43_classic', format:'4:3', name:'Classic TV', accent:'#e2e8f0',
-    desc:'Layout tradicional estilo apresentação TV',
-    descEn:'Traditional layout, TV presentation style',
-    settings:{ fontSize:66, fontFamily:'Oswald', textColor:'#ffffff',
-      gradientEnabled:false, shadowEnabled:true, shadowBlur:16, shadowColor:'rgba(0,0,0,0.9)', shadowOffsetX:0, shadowOffsetY:3, zoom:55 },
-    extraTexts:[
-      { rx:0.5, ry:0.10, text:'VIDEOCLIPE OFICIAL', textEn:'OFFICIAL MUSIC VIDEO', fs:28, ff:'Oswald', color:'rgba(255,255,255,0.48)' },
-      { rx:0.5, ry:0.92, text:'Inscreva-se no Canal', textEn:'Subscribe to the Channel', fs:22, ff:'Poppins', color:'rgba(255,255,255,0.38)' },
-    ]},
-  { id:'43_gold', format:'4:3', name:'Gold Broadcast', accent:'#d4af37',
-    desc:'Profissional com dourado, MPB/sertanejo',
-    descEn:'Professional gold, acoustic/country style',
-    settings:{ fontSize:70, fontFamily:'Playfair Display', textColor:'#d4af37',
-      gradientEnabled:true, gradientColor1:'#d4af37', gradientColor2:'#fff8dc',
-      shadowEnabled:true, shadowBlur:22, shadowColor:'rgba(212,175,55,0.52)', shadowOffsetX:0, shadowOffsetY:2, zoom:55 },
-    extraTexts:[
-      { rx:0.5, ry:0.09, text:'◆  A U T O R  ◆', textEn:'◆  A R T I S T  ◆', fs:26, ff:'Raleway', color:'rgba(212,175,55,0.58)' },
-      { rx:0.5, ry:0.92, text:'disponível em todos os streamings', textEn:'available on all streaming platforms', fs:20, ff:'Raleway', color:'rgba(255,255,255,0.32)' },
-    ]},
-  { id:'43_neon', format:'4:3', name:'Neon Screen', accent:'#00e5ff',
-    desc:'Tela neon eletrônica, lyric video',
-    descEn:'Electronic neon screen, lyric video',
-    settings:{ fontSize:72, fontFamily:'Bebas Neue', textColor:'#00e5ff',
-      gradientEnabled:false, shadowEnabled:true, shadowBlur:48, shadowColor:'rgba(0,229,255,0.92)', shadowOffsetX:0, shadowOffsetY:0, zoom:55 },
-    extraTexts:[
-      { rx:0.5, ry:0.10, text:'▶  LYRIC VIDEO  ◀', textEn:'▶  LYRIC VIDEO  ◀', fs:26, ff:'Bebas Neue', color:'rgba(0,229,255,0.48)' },
-      { rx:0.5, ry:0.92, text:'@artista  ·  link na bio', textEn:'@artist  ·  link in bio', fs:20, ff:'Poppins', color:'rgba(255,255,255,0.38)' },
-    ]},
-  { id:'43_minimal', format:'4:3', name:'Minimal 4:3', accent:'#94a3b8',
-    desc:'Moderno e limpo para apresentações',
-    descEn:'Modern and clean for presentations',
-    settings:{ fontSize:60, fontFamily:'Raleway', textColor:'#ffffff',
-      gradientEnabled:false, shadowEnabled:false, shadowBlur:12, shadowColor:'rgba(0,0,0,0.9)', shadowOffsetX:0, shadowOffsetY:2, zoom:55 },
-    extraTexts:[
-      { rx:0.5, ry:0.09, text:'N O V A  M Ú S I C A', textEn:'N E W  M U S I C', fs:22, ff:'Raleway', color:'rgba(148,163,184,0.48)' },
-      { rx:0.5, ry:0.92, text:'ouça agora', textEn:'listen now', fs:22, ff:'Raleway', color:'rgba(148,163,184,0.38)' },
-    ]},
-  { id:'43_fire', format:'4:3', name:'Fire Stage', accent:'#ff6b00',
-    desc:'Rock/metal com energia explosiva',
-    descEn:'Rock/metal with explosive energy',
-    settings:{ fontSize:78, fontFamily:'Bebas Neue', textColor:'#ff6b00',
-      gradientEnabled:true, gradientColor1:'#ff6b00', gradientColor2:'#ffd700',
-      shadowEnabled:true, shadowBlur:42, shadowColor:'rgba(255,107,0,0.82)', shadowOffsetX:0, shadowOffsetY:0, zoom:56 },
-    extraTexts:[
-      { rx:0.5, ry:0.09, text:'🔥 AO VIVO 🔥', textEn:'🔥 LIVE 🔥', fs:26, ff:'Bebas Neue', color:'#ffd700' },
-      { rx:0.5, ry:0.92, text:'INSCREVA-SE E ATIVE O SINO', textEn:'SUBSCRIBE AND HIT THE BELL', fs:18, ff:'Montserrat', color:'rgba(255,107,0,0.68)' },
-    ]},
-  { id:'43_retro', format:'4:3', name:'Retro Vintage', accent:'#c9a84c',
-    desc:'Anos 70/80 vintage para clássicos',
-    descEn:'70s/80s vintage for classic tracks',
-    settings:{ fontSize:68, fontFamily:'Lora', textColor:'#c9a84c',
-      gradientEnabled:true, gradientColor1:'#c9a84c', gradientColor2:'#f5deb3',
-      shadowEnabled:true, shadowBlur:18, shadowColor:'rgba(201,168,76,0.42)', shadowOffsetX:2, shadowOffsetY:2, zoom:55 },
-    extraTexts:[
-      { rx:0.5, ry:0.09, text:'✦  C L Á S S I C O  ✦', textEn:'✦  C L A S S I C  ✦', fs:24, ff:'Lora', color:'rgba(201,168,76,0.58)' },
-      { rx:0.5, ry:0.92, text:'remasterizado  •  alta qualidade', textEn:'remastered  •  high quality', fs:18, ff:'Lora', color:'rgba(255,255,255,0.28)' },
-    ]},
-];
 
 function App() {
   const { user, isLoggedIn, isPro, loading: authLoading } = useAuth();
@@ -6448,26 +5850,33 @@ _setDragging(null);
             <span style={{fontSize:14}}>🔊</span> {t('ed_sfx')} {soundEffects.length>0&&<span style={{background:'#10b981',color:'#000',borderRadius:6,padding:'0 5px',fontSize:10,fontWeight:900,marginLeft:2}}>{soundEffects.length}</span>}
           </button>
           {showSfxPanel && createPortal(
-            <div data-sfx-portal onClick={e=>e.stopPropagation()} style={{ position:'fixed', top:sfxPanelPos.top, left:sfxPanelPos.left, zIndex:99999, background:'#0f172a', border:'1px solid rgba(16,185,129,0.25)', borderRadius:18, width:380, maxHeight:'80vh', boxShadow:'0 16px 48px rgba(0,0,0,0.8)', display:'flex', flexDirection:'column', overflow:'hidden' }}>
+            <div data-sfx-portal onClick={e=>e.stopPropagation()} style={{ position:'fixed', top:sfxPanelPos.top, left:sfxPanelPos.left, zIndex:99999, background:'#0f172a', border:'1px solid rgba(16,185,129,0.25)', borderRadius:18, width:400, maxHeight:'82vh', boxShadow:'0 16px 48px rgba(0,0,0,0.8)', display:'flex', flexDirection:'column', overflow:'hidden' }}>
               <div style={{ padding:'12px 16px 8px', borderBottom:'1px solid rgba(255,255,255,0.06)', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
-                <span style={{ fontWeight:800, fontSize:13, color:'#10b981' }}>🔊 {t('sfx_title')}</span>
+                <span style={{ fontWeight:800, fontSize:13, color:'#10b981' }}>🔊 Efeitos Sonoros <span style={{fontSize:10,opacity:0.6,fontWeight:400}}>68 sons</span></span>
                 <button onClick={()=>setShowSfxPanel(false)} style={{ background:'none', border:'none', color:'#555', cursor:'pointer', fontSize:16 }}>✕</button>
               </div>
-              <div style={{ overflowY:'auto', flex:1, padding:'10px 12px', display:'grid', gridTemplateColumns:'repeat(6,1fr)', gap:6 }}>
-                {SFX_LIST.map(sfx=>(
-                  <button key={sfx.key}
-                    title={sfx.name}
-                    onClick={()=>{
-                      const t=virtualTimeRef.current;
-                      pushHistory(); setSoundEffects(prev=>[...prev,{id:Date.now()+Math.random(),key:sfx.key,name:sfx.name,emoji:sfx.emoji,startTime:parseFloat(t.toFixed(2)),volume:1}]);
-                    }}
-                    style={{ background:'rgba(255,255,255,0.04)', border:'1px solid rgba(16,185,129,0.15)', borderRadius:10, padding:'8px 4px', cursor:'pointer', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:3, width:'100%', boxSizing:'border-box' }}
-                    onMouseEnter={e=>e.currentTarget.style.background='rgba(16,185,129,0.15)'}
-                    onMouseLeave={e=>e.currentTarget.style.background='rgba(255,255,255,0.04)'}
-                  >
-                    <span style={{fontSize:20,lineHeight:1}}>{sfx.emoji}</span>
-                    <span style={{fontSize:9,color:'#aaa',fontWeight:600,textAlign:'center',lineHeight:1.2,wordBreak:'break-word'}}>{sfx.name}</span>
-                  </button>
+              <div style={{ overflowY:'auto', flex:1, padding:'10px 12px' }}>
+                {SFX_CATS.map(cat => (
+                  <div key={cat.cat} style={{ marginBottom:12 }}>
+                    <div style={{ fontSize:10, fontWeight:700, color: cat.color, letterSpacing:'0.6px', marginBottom:6, opacity:0.85 }}>{cat.cat}</div>
+                    <div style={{ display:'grid', gridTemplateColumns:'repeat(5,1fr)', gap:5 }}>
+                      {cat.items.map(sfx => (
+                        <button key={sfx.key}
+                          title={sfx.name}
+                          onClick={()=>{
+                            const t=virtualTimeRef.current;
+                            pushHistory(); setSoundEffects(prev=>[...prev,{id:Date.now()+Math.random(),key:sfx.key,name:sfx.name,emoji:sfx.emoji,startTime:parseFloat(t.toFixed(2)),volume:1}]);
+                          }}
+                          style={{ background:'rgba(255,255,255,0.04)', border:`1px solid rgba(255,255,255,0.08)`, borderRadius:9, padding:'7px 3px', cursor:'pointer', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:2, width:'100%', boxSizing:'border-box', transition:'all 0.12s' }}
+                          onMouseEnter={e=>{ e.currentTarget.style.background=`${cat.color}22`; e.currentTarget.style.borderColor=`${cat.color}55`; }}
+                          onMouseLeave={e=>{ e.currentTarget.style.background='rgba(255,255,255,0.04)'; e.currentTarget.style.borderColor='rgba(255,255,255,0.08)'; }}
+                        >
+                          <span style={{fontSize:18,lineHeight:1}}>{sfx.emoji}</span>
+                          <span style={{fontSize:8,color:'#aaa',fontWeight:600,textAlign:'center',lineHeight:1.2,wordBreak:'break-word',maxWidth:'100%',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',padding:'0 2px'}}>{sfx.name}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                 ))}
               </div>
               {soundEffects.length>0&&(
