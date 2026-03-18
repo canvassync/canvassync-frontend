@@ -317,6 +317,62 @@ const synthesizeSfxBuffer = async (key) => {
 };
 
 
+// ── Templates de Canvas ────────────────────────────────────────────────────────
+const CANVAS_TEMPLATES = [
+  // ── 9:16 ──────────────────────────────────────────────────────────────────
+  { id:'9_viral_neon', format:'9:16', name:'Viral Neon', accent:'#00BFFF',
+    settings:{ fontSize:58, fontFamily:'Bebas Neue', textColor:'#00BFFF', gradientEnabled:true, gradientColor1:'#00BFFF', gradientColor2:'#7b2ff7', shadowEnabled:true, shadowBlur:24, shadowColor:'rgba(0,191,255,0.7)', shadowOffsetX:0, shadowOffsetY:0, zoom:50 },
+    extraTexts:[{ text:'TÍTULO AQUI', textEn:'TITLE HERE', rx:0.5, ry:0.38, color:'#ffffff', ff:'Bebas Neue', fs:64 },{ text:'@seucanal', textEn:'@yourchannel', rx:0.5, ry:0.88, color:'rgba(0,191,255,0.8)', ff:'Poppins', fs:22 }] },
+  { id:'9_minimal_pro', format:'9:16', name:'Minimal Pro', accent:'#f0f0f0',
+    settings:{ fontSize:52, fontFamily:'Montserrat', textColor:'#ffffff', gradientEnabled:false, gradientColor1:'#ffffff', gradientColor2:'#cccccc', shadowEnabled:true, shadowBlur:16, shadowColor:'rgba(0,0,0,0.9)', shadowOffsetX:0, shadowOffsetY:3, zoom:50 },
+    extraTexts:[{ text:'Seu Texto Aqui', textEn:'Your Text Here', rx:0.5, ry:0.35, color:'#ffffff', ff:'Montserrat', fs:56 }] },
+  { id:'9_fire_gaming', format:'9:16', name:'Fire Gaming', accent:'#ff6b00',
+    settings:{ fontSize:60, fontFamily:'Bebas Neue', textColor:'#ff6b00', gradientEnabled:true, gradientColor1:'#ff6b00', gradientColor2:'#ff0040', shadowEnabled:true, shadowBlur:32, shadowColor:'rgba(255,60,0,0.8)', shadowOffsetX:0, shadowOffsetY:0, zoom:50 },
+    extraTexts:[{ text:'EPIC GAMEPLAY', textEn:'EPIC GAMEPLAY', rx:0.5, ry:0.4, color:'#ffffff', ff:'Bebas Neue', fs:68 },{ text:'Like & Subscribe', textEn:'Like & Subscribe', rx:0.5, ry:0.88, color:'#ff6b00', ff:'Poppins', fs:20 }] },
+  { id:'9_purple_dream', format:'9:16', name:'Purple Dream', accent:'#a78bfa',
+    settings:{ fontSize:52, fontFamily:'Poppins', textColor:'#a78bfa', gradientEnabled:true, gradientColor1:'#a78bfa', gradientColor2:'#ec4899', shadowEnabled:true, shadowBlur:20, shadowColor:'rgba(167,139,250,0.6)', shadowOffsetX:0, shadowOffsetY:0, zoom:50 },
+    extraTexts:[{ text:'✨ Trending', textEn:'✨ Trending', rx:0.5, ry:0.3, color:'#ffffff', ff:'Poppins', fs:48 },{ text:'Tap para saber mais', textEn:'Tap to learn more', rx:0.5, ry:0.87, color:'rgba(236,72,153,0.9)', ff:'Poppins', fs:20 }] },
+  { id:'9_gold_luxury', format:'9:16', name:'Gold Luxury', accent:'#f59e0b',
+    settings:{ fontSize:54, fontFamily:'Playfair Display', textColor:'#f59e0b', gradientEnabled:true, gradientColor1:'#f59e0b', gradientColor2:'#fde68a', shadowEnabled:true, shadowBlur:18, shadowColor:'rgba(245,158,11,0.5)', shadowOffsetX:0, shadowOffsetY:2, zoom:50 },
+    extraTexts:[{ text:'EXCLUSIVO', textEn:'EXCLUSIVE', rx:0.5, ry:0.35, color:'#f59e0b', ff:'Playfair Display', fs:58 },{ text:'Conteúdo Premium', textEn:'Premium Content', rx:0.5, ry:0.87, color:'#fde68a', ff:'Poppins', fs:22 }] },
+  { id:'9_dark_clean', format:'9:16', name:'Dark Clean', accent:'#94a3b8',
+    settings:{ fontSize:48, fontFamily:'Oswald', textColor:'#ffffff', gradientEnabled:false, gradientColor1:'#ffffff', gradientColor2:'#94a3b8', shadowEnabled:true, shadowBlur:12, shadowColor:'rgba(0,0,0,0.95)', shadowOffsetX:0, shadowOffsetY:2, zoom:50 },
+    extraTexts:[{ text:'ASSISTA AGORA', textEn:'WATCH NOW', rx:0.5, ry:0.35, color:'#ffffff', ff:'Oswald', fs:60 },{ text:'Novo vídeo disponível', textEn:'New video available', rx:0.5, ry:0.86, color:'#94a3b8', ff:'Poppins', fs:20 }] },
+
+  // ── 16:9 ──────────────────────────────────────────────────────────────────
+  { id:'16_yt_thumbnail', format:'16:9', name:'YT Thumbnail', accent:'#ff0000',
+    settings:{ fontSize:64, fontFamily:'Bebas Neue', textColor:'#ffffff', gradientEnabled:false, gradientColor1:'#ff0000', gradientColor2:'#ff6b00', shadowEnabled:true, shadowBlur:20, shadowColor:'rgba(0,0,0,0.95)', shadowOffsetX:3, shadowOffsetY:3, zoom:55 },
+    extraTexts:[{ text:'TÍTULO DO VÍDEO', textEn:'VIDEO TITLE', rx:0.5, ry:0.75, color:'#ffffff', ff:'Bebas Neue', fs:72 }] },
+  { id:'16_news_break', format:'16:9', name:'News Break', accent:'#ef4444',
+    settings:{ fontSize:50, fontFamily:'Oswald', textColor:'#ffffff', gradientEnabled:false, gradientColor1:'#ffffff', gradientColor2:'#ef4444', shadowEnabled:true, shadowBlur:12, shadowColor:'rgba(0,0,0,0.9)', shadowOffsetX:0, shadowOffsetY:2, zoom:55 },
+    extraTexts:[{ text:'🔴 AO VIVO', textEn:'🔴 LIVE', rx:0.12, ry:0.88, color:'#ef4444', ff:'Oswald', fs:28 },{ text:'MANCHETE PRINCIPAL', textEn:'MAIN HEADLINE', rx:0.5, ry:0.72, color:'#ffffff', ff:'Oswald', fs:52 }] },
+  { id:'16_cinematic', format:'16:9', name:'Cinematic', accent:'#e2c97e',
+    settings:{ fontSize:52, fontFamily:'Playfair Display', textColor:'#e2c97e', gradientEnabled:false, gradientColor1:'#e2c97e', gradientColor2:'#ffffff', shadowEnabled:true, shadowBlur:28, shadowColor:'rgba(0,0,0,0.95)', shadowOffsetX:0, shadowOffsetY:0, zoom:55 },
+    extraTexts:[{ text:'Uma História Para Contar', textEn:'A Story to Tell', rx:0.5, ry:0.75, color:'#e2c97e', ff:'Playfair Display', fs:52 }] },
+  { id:'16_gaming_stream', format:'16:9', name:'Gaming Stream', accent:'#7c3aed',
+    settings:{ fontSize:56, fontFamily:'Bebas Neue', textColor:'#ffffff', gradientEnabled:true, gradientColor1:'#7c3aed', gradientColor2:'#00BFFF', shadowEnabled:true, shadowBlur:24, shadowColor:'rgba(124,58,237,0.7)', shadowOffsetX:0, shadowOffsetY:0, zoom:55 },
+    extraTexts:[{ text:'LIVE NOW', textEn:'LIVE NOW', rx:0.5, ry:0.72, color:'#ffffff', ff:'Bebas Neue', fs:72 },{ text:'Clique para entrar', textEn:'Click to join', rx:0.5, ry:0.87, color:'rgba(0,191,255,0.9)', ff:'Poppins', fs:22 }] },
+
+  // ── 1:1 ───────────────────────────────────────────────────────────────────
+  { id:'1_instagram_post', format:'1:1', name:'Instagram Post', accent:'#ec4899',
+    settings:{ fontSize:52, fontFamily:'Poppins', textColor:'#ffffff', gradientEnabled:true, gradientColor1:'#ec4899', gradientColor2:'#f59e0b', shadowEnabled:true, shadowBlur:16, shadowColor:'rgba(0,0,0,0.7)', shadowOffsetX:0, shadowOffsetY:2, zoom:42 },
+    extraTexts:[{ text:'Sua mensagem aqui', textEn:'Your message here', rx:0.5, ry:0.48, color:'#ffffff', ff:'Poppins', fs:52 },{ text:'@perfil', textEn:'@profile', rx:0.5, ry:0.87, color:'rgba(255,255,255,0.7)', ff:'Poppins', fs:22 }] },
+  { id:'1_quote_card', format:'1:1', name:'Quote Card', accent:'#fbbf24',
+    settings:{ fontSize:44, fontFamily:'Playfair Display', textColor:'#fbbf24', gradientEnabled:false, gradientColor1:'#fbbf24', gradientColor2:'#f59e0b', shadowEnabled:true, shadowBlur:20, shadowColor:'rgba(0,0,0,0.85)', shadowOffsetX:0, shadowOffsetY:0, zoom:42 },
+    extraTexts:[{ text:'"A persistência\nrealiza o impossível"', textEn:'"Persistence\nachieves the impossible"', rx:0.5, ry:0.45, color:'#fbbf24', ff:'Playfair Display', fs:42 },{ text:'— Autor Desconhecido', textEn:'— Unknown Author', rx:0.5, ry:0.87, color:'rgba(255,255,255,0.5)', ff:'Poppins', fs:18 }] },
+  { id:'1_product_promo', format:'1:1', name:'Product Promo', accent:'#10b981',
+    settings:{ fontSize:48, fontFamily:'Montserrat', textColor:'#10b981', gradientEnabled:true, gradientColor1:'#10b981', gradientColor2:'#00BFFF', shadowEnabled:false, shadowBlur:12, shadowColor:'rgba(0,0,0,0.8)', shadowOffsetX:0, shadowOffsetY:0, zoom:42 },
+    extraTexts:[{ text:'OFERTA ESPECIAL', textEn:'SPECIAL OFFER', rx:0.5, ry:0.3, color:'#10b981', ff:'Montserrat', fs:52 },{ text:'Garanta já o seu', textEn:'Get yours now', rx:0.5, ry:0.87, color:'#ffffff', ff:'Poppins', fs:22 }] },
+
+  // ── 4:3 ───────────────────────────────────────────────────────────────────
+  { id:'43_retro', format:'4:3', name:'Retro Vintage', accent:'#c9a84c',
+    settings:{ fontSize:50, fontFamily:'Bebas Neue', textColor:'#c9a84c', gradientEnabled:false, gradientColor1:'#c9a84c', gradientColor2:'#fff', shadowEnabled:true, shadowBlur:8, shadowColor:'rgba(0,0,0,0.9)', shadowOffsetX:2, shadowOffsetY:2, zoom:40 },
+    extraTexts:[{ text:'VINTAGE STYLE', textEn:'VINTAGE STYLE', rx:0.5, ry:0.45, color:'#c9a84c', ff:'Bebas Neue', fs:58 },{ text:'Est. 2024', textEn:'Est. 2024', rx:0.5, ry:0.86, color:'rgba(201,168,76,0.6)', ff:'Poppins', fs:20 }] },
+  { id:'43_presentation', format:'4:3', name:'Apresentação', accent:'#6366f1',
+    settings:{ fontSize:46, fontFamily:'Poppins', textColor:'#6366f1', gradientEnabled:true, gradientColor1:'#6366f1', gradientColor2:'#a78bfa', shadowEnabled:true, shadowBlur:14, shadowColor:'rgba(99,102,241,0.4)', shadowOffsetX:0, shadowOffsetY:0, zoom:40 },
+    extraTexts:[{ text:'Slide Principal', textEn:'Main Slide', rx:0.5, ry:0.4, color:'#ffffff', ff:'Poppins', fs:50 },{ text:'Subtítulo do slide', textEn:'Slide subtitle', rx:0.5, ry:0.75, color:'rgba(255,255,255,0.6)', ff:'Poppins', fs:24 }] },
+];
+
 function App() {
   const { user, isLoggedIn, isPro, loading: authLoading } = useAuth();
   const { t, lang } = useLanguage();
