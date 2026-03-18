@@ -611,84 +611,18 @@ export default function CanvasSyncLanding() {
 
       {/* ═══ EFEITOS DE TELA ═════════════════════════════════════════════════ */}
       <section style={{ padding: "80px 24px", background: "var(--surface)" }}>
-        <div style={{ maxWidth: 1100, margin: "0 auto" }}>
+        <div style={{ maxWidth: 700, margin: "0 auto", textAlign: "center" }}>
           <Reveal>
-            <div style={{ textAlign: "center", marginBottom: 56 }}>
-              <p style={{ color: "#a78bfa", fontSize: 12, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", marginBottom: 14 }}>
-                {t("fx_section_label")}
-              </p>
-              <h2 className="syne" style={{ fontSize: "clamp(26px, 5vw, 44px)", fontWeight: 800, letterSpacing: "-1px" }}>
-                {t("fx_section_title")}
-              </h2>
-              <p style={{ color: "#666", marginTop: 16, fontSize: 16, maxWidth: 520, margin: "16px auto 0" }}>
-                {t("fx_section_sub")}
-              </p>
-            </div>
-          </Reveal>
-
-          <Reveal delay={100}>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 10 }}>
-              {[
-                { icon:"🌑", name:"Vinheta",       cat:"popular",  color:"#6366f1" },
-                { icon:"📽️", name:"Grão Filme",    cat:"popular",  color:"#6366f1" },
-                { icon:"🎞️", name:"Filme Antigo",  cat:"popular",  color:"#6366f1" },
-                { icon:"🔮", name:"Bokeh",          cat:"popular",  color:"#6366f1" },
-                { icon:"⭐", name:"Faíscas",        cat:"popular",  color:"#6366f1" },
-                { icon:"💥", name:"Shockwave",      cat:"action",   color:"#f59e0b" },
-                { icon:"🏎️", name:"Velocidade",    cat:"action",   color:"#f59e0b" },
-                { icon:"🔍", name:"Zoom Blur",      cat:"action",   color:"#f59e0b" },
-                { icon:"📳", name:"Tremor",         cat:"action",   color:"#f59e0b" },
-                { icon:"⚡", name:"Raios",          cat:"action",   color:"#f59e0b" },
-                { icon:"🎉", name:"Confete",        cat:"action",   color:"#f59e0b" },
-                { icon:"🎭", name:"Duotone",        cat:"style",    color:"#00BFFF" },
-                { icon:"👾", name:"Holograma",      cat:"style",    color:"#00BFFF" },
-                { icon:"🌅", name:"RetroWave",      cat:"style",    color:"#00BFFF" },
-                { icon:"💜", name:"Neon",           cat:"style",    color:"#00BFFF" },
-                { icon:"🌈", name:"Neon Lines",     cat:"style",    color:"#00BFFF" },
-                { icon:"🟢", name:"Cyberpunk",      cat:"style",    color:"#00BFFF" },
-                { icon:"📺", name:"Glitch Pro",     cat:"glitch",   color:"#ec4899" },
-                { icon:"⚡", name:"Glitch",         cat:"glitch",   color:"#ec4899" },
-                { icon:"🔀", name:"Pixel Sort",     cat:"glitch",   color:"#ec4899" },
-                { icon:"📼", name:"VHS",            cat:"glitch",   color:"#ec4899" },
-                { icon:"📡", name:"TV Estático",    cat:"glitch",   color:"#ec4899" },
-                { icon:"🪞", name:"Espelho",        cat:"glitch",   color:"#ec4899" },
-                { icon:"🌧️", name:"Chuva",         cat:"nature",   color:"#10b981" },
-                { icon:"🔥", name:"Fogo",           cat:"nature",   color:"#10b981" },
-                { icon:"💨", name:"Fumaça",         cat:"nature",   color:"#10b981" },
-                { icon:"❄️", name:"Neve",           cat:"nature",   color:"#10b981" },
-                { icon:"🌌", name:"Noite",          cat:"nature",   color:"#10b981" },
-                { icon:"🌈", name:"Aurora",         cat:"nature",   color:"#10b981" },
-                { icon:"✨", name:"Partículas",     cat:"overlay",  color:"#fbbf24" },
-                { icon:"💚", name:"Matrix",         cat:"overlay",  color:"#fbbf24" },
-                { icon:"🟤", name:"Vintage",        cat:"overlay",  color:"#fbbf24" },
-                { icon:"❄️", name:"Gelo",           cat:"overlay",  color:"#fbbf24" },
-                { icon:"🌫️", name:"Desfoque",      cat:"overlay",  color:"#fbbf24" },
-                { icon:"📽️", name:"Grão",          cat:"overlay",  color:"#fbbf24" },
-                { icon:"💡", name:"Luz Solar",      cat:"overlay",  color:"#fbbf24" },
-              ].map((fx, i) => (
-                <div key={i} style={{
-                  background: "var(--surface-2)",
-                  border: `1px solid ${fx.color}22`,
-                  borderRadius: 12,
-                  padding: "14px 8px",
-                  textAlign: "center",
-                  transition: "all 0.2s",
-                  cursor: "default",
-                }}
-                  onMouseEnter={e => { e.currentTarget.style.borderColor = fx.color + "66"; e.currentTarget.style.transform = "translateY(-2px)"; }}
-                  onMouseLeave={e => { e.currentTarget.style.borderColor = fx.color + "22"; e.currentTarget.style.transform = "translateY(0)"; }}
-                >
-                  <div style={{ fontSize: 22, marginBottom: 6 }}>{fx.icon}</div>
-                  <div style={{ fontSize: 11, color: "#888", fontWeight: 600, lineHeight: 1.3 }}>{fx.name}</div>
-                </div>
-              ))}
-            </div>
-          </Reveal>
-
-          <Reveal delay={200}>
-            <div style={{ textAlign: "center", marginTop: 36 }}>
-              <p style={{ color: "#555", fontSize: 13 }}>{t("fx_section_cta")}</p>
-            </div>
+            <p style={{ color: "#a78bfa", fontSize: 12, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", marginBottom: 14 }}>
+              {t("fx_section_label")}
+            </p>
+            <h2 className="syne" style={{ fontSize: "clamp(26px, 5vw, 44px)", fontWeight: 800, letterSpacing: "-1px" }}>
+              {t("fx_section_title")}
+            </h2>
+            <p style={{ color: "#666", marginTop: 16, fontSize: 16, lineHeight: 1.7 }}>
+              {t("fx_section_sub")}
+            </p>
+            <p style={{ color: "#555", fontSize: 13, marginTop: 28 }}>{t("fx_section_cta")}</p>
           </Reveal>
         </div>
       </section>
