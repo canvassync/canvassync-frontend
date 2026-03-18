@@ -962,6 +962,12 @@ function App() {
   const [canvasFormat, setCanvasFormat] = useState('9:16');
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [stickers, setStickers] = useState([]);           // [{id,type,content,animStyle,x,y,size,rotation}]
+  const [frames, setFrames]       = useState([]);           // [{id,style,x,y,width,height,color,thickness,opacity,rotation,cornerRadius}]
+  const [activeFrameId, setActiveFrameId] = useState(null);
+  const [showFramePanel, setShowFramePanel] = useState(false);
+  const [framePanelPos, setFramePanelPos]   = useState({ top: 80, left: 0 });
+  const frameBtnRef = useRef(null);
+  const framesRef   = useRef([]);
   const [soundEffects, setSoundEffects] = useState([]);     // [{id,key,name,emoji,startTime,volume}]
   const [showSfxPanel, setShowSfxPanel] = useState(false);
   const [sfxPanelPos, setSfxPanelPos]   = useState({ top: 80, left: 0 });
@@ -985,6 +991,14 @@ function App() {
   const [bgSearchResults, setBgSearchResults] = useState([]);
   const [bgSearchLoading, setBgSearchLoading] = useState(false);
   const [bgTab, setBgTab] = useState('gradients');
+  // ── Trilhas (biblioteca local) ─────────────────────────────────────────────
+  const [showTrilhasPanel, setShowTrilhasPanel]   = useState(false);
+  const [trilhasSearch, setTrilhasSearch]         = useState('');
+  const [trilhasPreviewId, setTrilhasPreviewId]   = useState(null);
+  const [trilhasPreviewTime, setTrilhasPreviewTime] = useState(0);
+  const [trilhasUsingId, setTrilhasUsingId]       = useState(null);
+  const trilhasPreviewRef = useRef(null);
+  const trilhasBtnRef     = useRef(null);
   const [stickerPanelPos, setStickerPanelPos] = useState({ top: 80, left: 0 });
   const [stickerTab, setStickerTab] = useState('emoji');  // 'emoji'|'sticker'|'gif'
   const activeStickerRef = useRef(null);                  // id do sticker selecionado (sem re-render)
@@ -1003,6 +1017,18 @@ function App() {
   const sfxLastTimeRef  = useRef(0);                        // último t conhecido para detecção de cruzamento
   const soundEffectsRef = useRef([]);
   useEffect(() => { soundEffectsRef.current = soundEffects; }, [soundEffects]);
+
+  // ── Histórico Undo/Redo ───────────────────────────────────────────────────
+  const historyRef        = useRef([]);   // pilha de snapshots (estado APÓS cada ação)
+  const historyIdxRef     = useRef(-1);   // posição atual na pilha
+  const isUndoingRef      = useRef(false);// bloqueia gravação durante restauração
+  const pendingHistoryRef = useRef(false);// sinaliza que próximo useEffect deve gravar
+  const videoTrashRef     = useRef({});   // {id: {videoEl, src}} — videoEls preservados para undo
+  const allVideoEls       = useRef({});   // {id: {videoEl, audioBuffer}} — TODOS os videoEls, nunca destruídos
+  const [canUndo, setCanUndo] = useState(false);
+  const [canRedo, setCanRedo] = useState(false);
+  const MAX_HISTORY = 60;
+  const [historyTrigger, setHistoryTrigger] = useState(0); // força render inicial para snapshot
   const [imageSrc, setImageSrc] = useState(null);
   const [images, setImages] = useState([]);
   const [activeImageId, setActiveImageId] = useState(null);
@@ -1037,6 +1063,88 @@ function App() {
     if (tr.addRotate) ctx.rotate(tr.addRotate);
     ctx.translate(-cx, -cy);
   };
+
+  // ── Interpolação de Keyframes (Zoom Animado / Dinâmico) ──────────────────
+  // Retorna o estado interpolado (x, y, width, height, opacity, rotation) num instante t,
+  // considerando os keyframes definidos no item. Suporta easing configurável.
+  const getKfState = useCallback((item, t) => {
+    const kfs = item.keyframes;
+    if (!kfs || kfs.length === 0) return null;
+
+    // Easing functions
+    const ease = (progress, type) => {
+      const p = Math.max(0, Math.min(1, progress));
+      switch(type) {
+        case 'ease_in':      return p * p * p;
+        case 'ease_out':     return 1 - Math.pow(1 - p, 3);
+        case 'ease_in_out':  return p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2;
+        case 'spring': {
+          // Overshoot elástico — similar ao Premiere/AE
+          const c4 = (2 * Math.PI) / 3;
+          if (p <= 0) return 0;
+          if (p >= 1) return 1;
+          return Math.pow(2, -10 * p) * Math.sin((p * 10 - 0.75) * c4) + 1;
+        }
+        case 'bounce': {
+          const n1 = 7.5625, d1 = 2.75;
+          let r = p;
+          if (r < 1/d1)        return n1*r*r;
+          else if (r < 2/d1)   { r -= 1.5/d1;  return n1*r*r + 0.75; }
+          else if (r < 2.5/d1) { r -= 2.25/d1; return n1*r*r + 0.9375; }
+          else                 { r -= 2.625/d1; return n1*r*r + 0.984375; }
+        }
+        default: return p; // linear
+      }
+    };
+
+    const lerp = (a, b, p) => a + (b - a) * p;
+
+    // Antes do primeiro keyframe: usa valores do primeiro KF
+    if (t <= kfs[0].t) {
+      const k = kfs[0];
+      return { x: k.x ?? item.x, y: k.y ?? item.y,
+               w: (k.scale ?? 1) * item.width, h: (k.scale ?? 1) * item.height,
+               opacity: k.opacity ?? 1, rotation: k.rotation ?? item.rotation ?? 0,
+               anchorX: k.anchorX ?? 0.5, anchorY: k.anchorY ?? 0.5 };
+    }
+    // Depois do último keyframe: usa valores do último KF
+    if (t >= kfs[kfs.length - 1].t) {
+      const k = kfs[kfs.length - 1];
+      return { x: k.x ?? item.x, y: k.y ?? item.y,
+               w: (k.scale ?? 1) * item.width, h: (k.scale ?? 1) * item.height,
+               opacity: k.opacity ?? 1, rotation: k.rotation ?? item.rotation ?? 0,
+               anchorX: k.anchorX ?? 0.5, anchorY: k.anchorY ?? 0.5 };
+    }
+    // Interpola entre dois keyframes
+    for (let i = 0; i < kfs.length - 1; i++) {
+      const k0 = kfs[i], k1 = kfs[i + 1];
+      if (t >= k0.t && t <= k1.t) {
+        const rawP = (t - k0.t) / (k1.t - k0.t);
+        const easingType = k0.easing || 'ease_in_out';
+        const p = ease(rawP, easingType);
+
+        const sc0 = k0.scale ?? 1, sc1 = k1.scale ?? 1;
+        const cx0 = (k0.x ?? item.x) + item.width  * (k0.anchorX ?? 0.5);
+        const cy0 = (k0.y ?? item.y) + item.height * (k0.anchorY ?? 0.5);
+        const cx1 = (k1.x ?? item.x) + item.width  * (k1.anchorX ?? 0.5);
+        const cy1 = (k1.y ?? item.y) + item.height * (k1.anchorY ?? 0.5);
+        const scI = lerp(sc0, sc1, p);
+        const cxI = lerp(cx0, cx1, p);
+        const cyI = lerp(cy0, cy1, p);
+        return {
+          x: cxI - item.width  * scI / 2,
+          y: cyI - item.height * scI / 2,
+          w: item.width  * scI,
+          h: item.height * scI,
+          opacity:  lerp(k0.opacity  ?? 1, k1.opacity  ?? 1, p),
+          rotation: lerp(k0.rotation ?? (item.rotation||0), k1.rotation ?? (item.rotation||0), p),
+          anchorX: lerp(k0.anchorX ?? 0.5, k1.anchorX ?? 0.5, p),
+          anchorY: lerp(k0.anchorY ?? 0.5, k1.anchorY ?? 0.5, p),
+        };
+      }
+    }
+    return null;
+  }, []);
 
   const getTransitionTransform = (item, t) => {
     // Suporta formato antigo (transition) e novo (transitionIn/Out)
@@ -1210,7 +1318,21 @@ function App() {
   // Fecha tela cheia com ESC; fecha painel sticker com ESC ou clique fora
   useEffect(() => {
     const onKey = (e) => {
-      if (e.key === 'Escape') { setIsFullscreen(false); setShowStickerPanel(false); setShowTemplatePanel(false); setShowFxPanel(false); setShowMidiasPanel(false); setShowExportPanel(false); setShowProjetoPanel(false); }
+      // Undo: Ctrl+Z / Cmd+Z
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+        const el = document.activeElement;
+        if (!el || (el.tagName !== 'INPUT' && el.tagName !== 'TEXTAREA')) {
+          e.preventDefault(); undoRef.current?.();
+        }
+      }
+      // Redo: Ctrl+Y / Ctrl+Shift+Z / Cmd+Shift+Z
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) {
+        const el = document.activeElement;
+        if (!el || (el.tagName !== 'INPUT' && el.tagName !== 'TEXTAREA')) {
+          e.preventDefault(); redoRef.current?.();
+        }
+      }
+      if (e.key === 'Escape') { setIsFullscreen(false); setShowStickerPanel(false); setShowTemplatePanel(false); setShowFxPanel(false); setShowMidiasPanel(false); setShowExportPanel(false); setShowProjetoPanel(false); setShowTrilhasPanel(false); stopTrilhasPreview(); }
     };
     const onClickOut = (e) => {
       if (showBgPanel && bgBtnRef.current && !bgBtnRef.current.contains(e.target) &&
@@ -1314,6 +1436,7 @@ function App() {
   const handleImageChange = (e) => {
     const file = e.target.files[0];
     if (file) {
+      pushHistory();
       const reader = new FileReader();
       reader.onload = (event) => {
         const img = new Image();
@@ -1549,6 +1672,7 @@ function App() {
   const handleImageUpload = async (e) => {
     const files = Array.from(e.target.files || []);
     if (!files.length) return;
+    pushHistory();
     const results = await Promise.all(files.map(readFileAsDataUrl));
     setImages((prev) => {
       const audioDuration = audioRef.current?.duration || duration;
@@ -1601,6 +1725,7 @@ function App() {
   const handleVideoUpload = async (e) => {
     const files = Array.from(e.target.files || []);
     if (!files.length) return;
+    pushHistory();
     files.forEach((file, index) => {
       const videoEl = document.createElement('video');
       videoEl.muted = false;
@@ -1716,7 +1841,9 @@ function App() {
         setVideos(prev => {
           if (prev.find(v => v.id === id)) return prev;
           const initSpeed = projectSpeedRef.current ?? 1;
-          return [...prev, { id, src: finalSrc || src, videoEl, audioBuffer, start, end, x, y, width: w, height: h, radius: 12, muted: false, vidVolume: projectVolumeRef.current ?? 1, vidSpeed: initSpeed, rawDuration: finalDuration }];
+          const newVid = { id, src: finalSrc || src, videoEl, audioBuffer, start, end, x, y, width: w, height: h, radius: 12, muted: false, vidVolume: projectVolumeRef.current ?? 1, vidSpeed: initSpeed, rawDuration: finalDuration };
+          allVideoEls.current[id] = { videoEl, audioBuffer };
+          return [...prev, newVid];
         });
       };
 
@@ -1782,6 +1909,235 @@ function App() {
     }
   };
 
+  // ── Trilhas — biblioteca local (/public/trilhas) ───────────────────────────
+  const BASE_URL = 'https://raw.githubusercontent.com/canvassync/canvassync-frontend/main/public/trilhas/';
+
+  const TRILHAS_LIST = [
+    { id:1,   title:'1st',                              artist:'',                          file:'1st.mp3' },
+    { id:2,   title:'Electric',                         artist:'Akacia',                    file:'akacia-electric-ncs-release.mp3' },
+    { id:3,   title:'AndreoBee Full Outro Song',        artist:'',                          file:'andreobee-full-outro-song.mp3' },
+    { id:4,   title:'Cyberpunk',                        artist:'Alex Productions',          file:'angry-dubstep-music-no-copyright-cyberpunk-by-alex-productions.mp3' },
+    { id:5,   title:'Arms Dealer',                      artist:'Anno Domini Beats',         file:'anno-domini-beats-arms-dealer.mp3' },
+    { id:6,   title:'Glass',                            artist:'Anno Domini Beats',         file:'anno-domini-beats-glass.mp3' },
+    { id:7,   title:'Sinister',                         artist:'Anno Domini Beats',         file:'anno-domini-beats-sinister.mp3' },
+    { id:8,   title:'Arms Dealer',                      artist:'Anno Domini Beats',         file:'arms-dealer-anno-domini-beats.mp3' },
+    { id:9,   title:'Arrival',                          artist:'',                          file:'arrival.mp3' },
+    { id:10,  title:'Tin Man',                          artist:'Ava Low',                   file:'ava-low-tin-man-royalty-free-music.mp3' },
+    { id:11,  title:'Awake',                            artist:'Sappheiros',                file:'awake-by-sappheiros-chinese-electronic-music-no-copyright.mp3' },
+    { id:12,  title:'Back To 1981',                     artist:'Iaio',                      file:'back-to-1981-iaio-free-background-music-audio-library-release.mp3' },
+    { id:13,  title:'Bathtub Explorations',             artist:'',                          file:'bathtub-explorations.m4a' },
+    { id:14,  title:'Alone',                            artist:'BEAUZ & Heleen',            file:'beauz-heleen-alone-ncs-release.mp3' },
+    { id:15,  title:'Book The Rental Wit It',           artist:'RAGE',                      file:'book-the-rental-wit-it-rage.mp3' },
+    { id:16,  title:'Breakpoint',                       artist:'Eoin Mantell',              file:'breakpoint-eoin-mantell.mp3' },
+    { id:17,  title:'CarryMinati Background Music 2',   artist:'',                          file:'carryminati-background-music-2.mp3' },
+    { id:18,  title:'CarryMinati BackGround Music',     artist:'',                          file:'carryminati-background-music.mp3' },
+    { id:19,  title:'Traveller',                        artist:'Unfeel',                    file:'chill-electronic-calm-by-unfeel-no-copyright-music-traveller.mp3' },
+    { id:20,  title:'Breakfast In Paris',               artist:'Alex-Productions',          file:'chilling-stylish-lo-fi-hip-hop-by-alex-productions-no-copyright-music-breakfast-in-paris.mp3' },
+    { id:21,  title:'Chosen One',                       artist:'Verified Picasso',          file:'chosen-one-verified-picasso.mp3' },
+    { id:22,  title:'Tales From The Grave',             artist:'Christoffer Moe Ditlevsen', file:'christoffer-moe-ditlevsen-tales-from-the-grave-royalty-free-music.mp3' },
+    { id:23,  title:'Cinema',                           artist:'',                          file:'cinematic-background-music-for-videos-no-copyright-music-cinema.mp3' },
+    { id:24,  title:'Epic Shield',                      artist:'Alex-Productions',          file:'cinematic-epic-orchestra-by-alex-productions-no-copyright-music-epic-shield.mp3' },
+    { id:25,  title:'Call Of Duty Black Ops Main Theme',artist:'Cold War',                  file:'cold-war-call-of-duty-black-ops-cold-war-main-theme.mp3' },
+    { id:26,  title:'Comedy Music Background',          artist:'',                          file:'comedy-music-background-instrumental-no-copyright-background-music.mp3' },
+    { id:27,  title:'Comical Question Mark',            artist:'',                          file:'comical-question-mark-sound-effect-for-editing-free-copyright.mp3' },
+    { id:28,  title:'Contrast',                         artist:'Anno Domini Beats',         file:'contrast-anno-domini-beats.mp3' },
+    { id:29,  title:'Eastridge Turnstile',              artist:'The Loyalist',              file:'copyright-free-aesthetic-music-eastridge-turnstile-by-the-loyalist.mp3' },
+    { id:30,  title:'Reality',                          artist:'ASHUTOSH',                  file:'copyright-free-indian-music-chill-trap-reality-by-ashutosh.mp3' },
+    { id:31,  title:'Night City',                       artist:'MokkaMusic',                file:'cozy-lo-fi-background-calm-music-by-mokkamusic-night-city.mp3' },
+    { id:32,  title:'Crazy',                            artist:'Patrick Patrikios',         file:'crazy-patrick-patrikios.mp3' },
+    { id:33,  title:'Culture',                          artist:'Anno Domini Beats',         file:'culture-anno-domini-beats.mp3' },
+    { id:34,  title:'Cutting It Close',                 artist:'DJ Freedem',                file:'cutting-it-close-dj-freedem.mp3' },
+    { id:35,  title:'Risky Business',                   artist:'Infraction',                file:'cyberpunk-electro-retro-by-infraction-no-copyright-music-risky-business.mp3' },
+    { id:36,  title:'Big Plans',                        artist:'Dancehall Riddim',          file:'dancehall-riddim-instrumental-2023-big-plans.mp3' },
+    { id:37,  title:'Dark Tranquility',                 artist:'Anno Domini Beats',         file:'dark-tranquility-anno-domini-beats.mp3' },
+    { id:38,  title:'Dark Zephyr',                      artist:'Audio Hertz',               file:'dark-zephyr-audio-hertz.mp3' },
+    { id:39,  title:'Deathtown',                        artist:'',                          file:'deathtown-free-no-copyright-beat-2023.mp3' },
+    { id:40,  title:'Darix Togni',                      artist:'Digi G Alessio',            file:'digi-g-alessio-darix-togni.mp3' },
+    { id:41,  title:'Doraemon No Uta',                  artist:'Doraemon Lofi',             file:'doraemon-lofi-doraemon-no-uta-theme-song.mp3' },
+    { id:42,  title:'Doraemon',                         artist:'',                          file:'doraemon.mp3' },
+    { id:43,  title:'Drop',                             artist:'Anno Domini Beats',         file:'drop-anno-domini-beats.mp3' },
+    { id:44,  title:'Eine Kleine Nachtmusik',           artist:'Mozart',                    file:'eine-kleine-nachtmusik-mozart.mp3' },
+    { id:45,  title:'El Secreto',                       artist:'Yung Logos',                file:'el-secreto-yung-logos.mp3' },
+    { id:46,  title:'How Many Times',                   artist:'Alex-Productions',          file:'electronic-hybrid-future-bass-by-alex-productions-no-copyright-music-how-many-times.mp3' },
+    { id:47,  title:'Warrior',                          artist:'Yoitrax',                   file:'electronic-japanese-music-royalty-free-warrior-by-yoitrax.mp3' },
+    { id:48,  title:'Cinematic',                        artist:'Aylex',                     file:'epic-trailer-build-up-free-no-copyright-legendary-movie-film-background-music-cinematic-by-aylex.mp3' },
+    { id:49,  title:'Ritmo',                            artist:'Alex-Productions',          file:'extreme-electronic-stomp-trailer-by-alex-productions-no-copyright-music-ritmo.mp3' },
+    { id:50,  title:'Fight',                            artist:'Alex-Productions',          file:'extreme-powerful-energetic-midtempo-cyberpunk-music-by-alex-productions-no-copyright-music-fight.mp3' },
+    { id:51,  title:'Push',                             artist:'Alex-Productions',          file:'extreme-sport-electronic-stomp-by-alex-productions-no-copyright-music-push.mp3' },
+    { id:52,  title:'Faraway',                          artist:'Lucjo',                     file:'faraway-lucjo-free-background-music-audio-library-release.mp3' },
+    { id:53,  title:'Magazines',                        artist:'Infraction',                file:'fashion-calm-technology-by-infraction-no-copyright-music-magazines.mp3' },
+    { id:54,  title:'Stand Up',                         artist:'Infraction',                file:'fashion-saxophone-rnb-beat-by-infraction-no-copyright-music-stand-up.mp3' },
+    { id:55,  title:'Feelin Fine',                      artist:'Infraction',                file:'fashion-saxophone-trap-by-infraction-copyright-free-music-feelin-fine.mp3' },
+    { id:56,  title:'Sunset Lounge',                    artist:'Infraction',                file:'fashion-stylish-house-by-infraction-oddvision-no-copyright-music-sunset-lounge.mp3' },
+    { id:57,  title:'Whistling Rap',                    artist:'Infraction',                file:'fashion-stylish-r-b-by-infraction-no-copyright-music-whistling-rap.mp3' },
+    { id:58,  title:'Chilling Time',                    artist:'Infraction',                file:'fashion-vlog-lo-fi-hip-hop-by-oddvision-infraction-no-copyright-music-chilling-time.mp3' },
+    { id:59,  title:'Matrix',                           artist:'FAYZED',                    file:'fayzed-matrix-hard-flute-type-beat-trap-instrumental-beat.mp3' },
+    { id:60,  title:'Feel',                             artist:'Land Of Fire',              file:'feel-land-of-fire-no-copyright-music-release-preview.mp3' },
+    { id:61,  title:'Finally The Sun',                  artist:'NCS FF',                    file:'finally-the-sun-fact-background-music-ncs-ff.mp3' },
+    { id:62,  title:'Flute Beat',                       artist:'BeatboX',                   file:'flute-beat-copyright-free-music-beatbox.mp3' },
+    { id:63,  title:'Heads Up',                         artist:'',                          file:'free-beats-no-copyright-heads-up-free-type-beat-hype-type-trap-beat-instrumental.mp3' },
+    { id:64,  title:'Cutthroat',                        artist:'Syndrome',                  file:'free-old-school-dark-rap-beat-cutthroat-prod-by-syndrome.mp3' },
+    { id:65,  title:'Swoosh Whoosh',                    artist:'',                          file:'free-transition-sounds-effects-swoosh-swish-whoosh.mp3' },
+    { id:66,  title:'Funky Thing',                      artist:'Infraction',                file:'funk-stylish-groove-by-infraction-no-copyright-music-funky-thing.mp3' },
+    { id:67,  title:'Funky Background Music',           artist:'',                          file:'funky-background-music-for-video-royalty-free-funk-music.mp3' },
+    { id:68,  title:'Scheming Weasel',                  artist:'Kevin MacLeod',             file:'funny-background-music-music-04-scheming-weasel-kevin-macleod-no-copyright-ss-1912.mp3' },
+    { id:69,  title:'AndreoBee Song',                   artist:'Funny Background Song',     file:'funny-background-song-andreobee-song.mp3' },
+    { id:70,  title:'Glass',                            artist:'Anno Domini Beats',         file:'glass-anno-domini-beats.mp3' },
+    { id:71,  title:'Gully Dreams',                     artist:'Hanu Dixit',                file:'gully-dreams-hanu-dixit.mp3' },
+    { id:72,  title:'Whistle',                          artist:'Alex Productions',          file:'happy-lofi-music-for-videos-whistle-by-alex-productions.mp3' },
+    { id:73,  title:'Russian Slav',                     artist:'Leo',                       file:'hard-bass-type-beat-russian-slav-prod-leo-hard-bass-type-beat.mp3' },
+    { id:74,  title:'Hidden',                           artist:'Alex-Productions',          file:'hidden-alex-productions-no-copyright-music.mp3' },
+    { id:75,  title:'Hopeless',                         artist:'Jimena Contreras',          file:'hopeless-jimena-contreras.mp3' },
+    { id:76,  title:'Horror Background Music',          artist:'',                          file:'horror-music-no-copyright-horror-background-music-no-copyright-non-copyrighted-scary-music.mp3' },
+    { id:77,  title:'Illusions',                        artist:'Anno Domini Beats',         file:'illusions-anno-domini-beats.mp3' },
+    { id:78,  title:'Indian Bollywood Sampled',         artist:'',                          file:'indian-bollywood-sampled-x-west.mp3' },
+    { id:79,  title:'Ethereal Dream',                   artist:'Artificial Music',          file:'indian-r-b-electronic-music-for-videos-ethereal-dream-by-artificial-music-ashutosh.mp3' },
+    { id:80,  title:'Inspire',                          artist:'ASHUTOSH',                  file:'inspire-by-ashutosh.mp3' },
+    { id:81,  title:'Instrumental Trap 11',             artist:'',                          file:'instrumental-trap-11.mp3' },
+    { id:82,  title:'Instrumental Trap 8',              artist:'',                          file:'instrumental-trap-8.mp3' },
+    { id:83,  title:'Intense Action',                   artist:'Argsound',                  file:'intense-action-background-music-cinematic-music-by-argsound.mp3' },
+    { id:84,  title:'It Takes Two To Tango',            artist:'Vanoss Gaming',             file:'it-takes-two-to-tango-vanoss-gaming-background-music-hd.mp3' },
+    { id:85,  title:'Jazz In Paris',                    artist:'',                          file:'jazz-in-paris.mp3' },
+    { id:86,  title:'Jazz Hip Hop',                     artist:'Cosimo Fogg',               file:'jazzaddicts-by-cosimo-fogg-jazz-hip-hop-no-copyright-music.mp3' },
+    { id:87,  title:'Bus Rider',                        artist:'John Swihart',              file:'john-swihart-bus-rider.mp3' },
+    { id:88,  title:'Klondike',                         artist:'Audio Hertz',               file:'klondike-audio-hertz.mp3' },
+    { id:89,  title:'Late Night Driving',               artist:'Broke In Summer',           file:'late-night-driving-broke-in-summer-free-background-music-audio-library-release.mp3' },
+    { id:90,  title:'Heroic',                           artist:'Alex-Productions',          file:'legendary-epic-heroic- cinematic-music-by-alex-productions-no-copyright-music-free-music-heroic.mp3' },
+    { id:91,  title:'Less Rake',                        artist:'Tubebackr',                 file:'less-rake-tubebackr-no-copyright-music.mp3' },
+    { id:92,  title:'Chill Vibes',                      artist:'Pufino',                    file:'lofi-hip-hop-beat-no-copyright-free-soft-calm-aesthetic-background-music-chill-vibes-by-pufino.mp3' },
+    { id:93,  title:'Forgive Me',                       artist:'Italics',                   file:'lofi-hip-hop-instrumental-rap-free-no-copyright-sound-chill-type-beat-italics-forgive-me.mp3' },
+    { id:94,  title:'Blue Moon',                        artist:'Lo-fi Type Beat',           file:'lo-fi-type-beat-blue-moon.mp3' },
+    { id:95,  title:'Lottery',                          artist:'Anno Domini Beats',         file:'lottery-anno-domini-beats.mp3' },
+    { id:96,  title:'Luck Witch',                       artist:'Audio Hertz',               file:'luck-witch-audio-hertz.mp3' },
+    { id:97,  title:'Mario Jump Sound Effect',          artist:'',                          file:'mario-jump-sound-effect-download.m4a' },
+    { id:98,  title:'Take It Easy',                     artist:'MBB',                       file:'mbb-take-it-easy.mp3' },
+    { id:99,  title:'Mission Start',                    artist:'The Brothers Records',      file:'mission-start-the-brothers-records.mp3' },
+    { id:100, title:'Mission To Mars',                  artist:'Audio Hertz',               file:'mission-to-mars-audio-hertz.mp3' },
+    { id:101, title:'Mixkit CBPD 400',                  artist:'',                          file:'mixkit-cbpd-400.mp3' },
+    { id:102, title:'Mr Gyani Fact',                    artist:'NCS FF',                    file:'mr-gyani-fact-fact-background-music-ncs-ff.mp3' },
+    { id:103, title:'Never Surrender',                  artist:'Anno Domini Beats',         file:'never-surrender-anno-domini-beats.mp3' },
+    { id:104, title:'Ember',                            artist:'Kubbi',                     file:'no-copyright-music-kubbi-ember-chiptune.mp3' },
+    { id:105, title:'Circles',                          artist:'Lensko',                    file:'no-copyright-music-lensko-circles-norwegian-house.mp3' },
+    { id:106, title:'Groove Day Hip Hop Beat',          artist:'',                          file:'no-copyright-groove-day-hip-hop-beat-groove-and-modern-background.mp3' },
+    { id:107, title:'Resonate',                         artist:'Aoeris',                    file:'non-copyrighted-music-aoeris-resonate-bc-release.mp3' },
+    { id:108, title:'Herbal Tea',                       artist:'SmartToaster',              file:'non-copyrighted-music-smarttoaster-herbal-tea-lo-fi.mp3' },
+    { id:109, title:'Not For Nothing',                  artist:'Otis McDonald',             file:'not-for-nothing-otis-mcdonald-no-copyright-music.mp3' },
+    { id:110, title:'Chase',                            artist:'Alexander Nakarada',        file:'royalty-free-chase-fast-music-chase-by-alexander-nakarada.mp3' },
+    { id:111, title:'Oh What A Whirl',                  artist:'',                          file:'oh-what-a-whirl.mp3' },
+    { id:112, title:'Okay Energy',                      artist:'',                          file:'okay-energy.mp3' },
+    { id:113, title:'Her Name Is Edith',                artist:'OTE',                       file:'ote-her-name-is-edith-instrumental-version-royalty-free-music.mp3' },
+    { id:114, title:'Orange Marmalade',                 artist:'OTE',                       file:'ote-orange-marmalade-royalty-free-music.mp3' },
+    { id:115, title:'Sea Lion',                         artist:'OTE',                       file:'ote-sea-lion-royalty-free-music.mp3' },
+    { id:116, title:'Out Of The Blue',                  artist:'Aldenmark Niklasson',       file:'out-of-the-blue-instrumental-version-by-aldenmark-niklasson-2010s-pop-music.mp3' },
+    { id:117, title:'Palm City Getaway',                artist:'',                          file:'palm-city-getaway-instrumental-ryan-trahan-donation-list-music.mp3' },
+    { id:118, title:'Past',                             artist:'Alex-Productions',          file:'past-alex-productions-no-copyright-music.mp3' },
+    { id:119, title:'Forget Me Not',                    artist:'Patrick Patrikios',         file:'patrick-patrikios-forget-me-not.mp3' },
+    { id:120, title:'Powerful Indie Rock',              artist:'Alex-Productions',          file:'powerful-indie-rock-music-by-alex-productions-no-copyright-music-promotional-video.mp3' },
+    { id:121, title:'Strong',                           artist:'Alex-Productions',          file:'powerful-trap-beat-by-alex-productions-no-copyright-music-extreme-car-trap-music-strong.mp3' },
+    { id:122, title:'The Goat',                         artist:'Alex-Productions',          file:'powerful-upbeat-energetic-lo-fi-hip-hop-by-alex-productions-no-copyright-music-the-goat.mp3' },
+    { id:123, title:'Pray',                             artist:'Anno Domini Beats',         file:'pray-anno-domini-beats.mp3' },
+    { id:124, title:'ProBoiz 95 Outro Song',            artist:'',                          file:'proboiz-95-outro-song.mp3' },
+    { id:125, title:'Firefly',                          artist:'Quincas Moreira',           file:'quincas-moreira-firefly.mp3' },
+    { id:126, title:'Racing',                           artist:'Alex-Productions',          file:'racing-sport-gaming-by-alex-productions-no-copyright-music-racing-free-music-download.mp3' },
+    { id:127, title:'Funny Background Music',           artist:'NCS FF',                    file:'raost-funny-background-music-ncs-ff.mp3' },
+    { id:128, title:'Funny Background Music 1',         artist:'NCS FF',                    file:'raost-funny-background-music-ncs-ff-1.mp3' },
+    { id:129, title:'Rebel',                            artist:'Alex-Productions',          file:'rebel-alex-productions-no-copyright-music.mp3' },
+    { id:130, title:'Game Over',                        artist:'',                          file:'royalty-free-heavy-metal-instrumental-game-over.mp3' },
+    { id:131, title:'Runaway Deer',                     artist:'',                          file:'runaway-deer.mp3' },
+    { id:132, title:'Schizo',                           artist:'Anno Domini Beats',         file:'schizo-anno-domini-beats.mp3' },
+    { id:133, title:'Ave Maria',                        artist:'Schubert',                  file:'schubert-ave-maria.mp3' },
+    { id:134, title:'Pleasant',                         artist:'SebastiAn',                 file:'sebastian-pleasant.mp3' },
+    { id:135, title:'Serial Killer Music',              artist:'',                          file:'serial-killer-music-no-copyright-background-music-royalty-free-background-music-audio-instore.mp3' },
+    { id:136, title:'Shake',                            artist:'Anno Domini Beats',         file:'shake-anno-domini-beats.mp3' },
+    { id:137, title:'Sinister',                         artist:'Anno Domini Beats',         file:'sinister-anno-domini-beats.mp3' },
+    { id:138, title:'Skylines',                         artist:'Anno Domini Beats',         file:'skylines-anno-domini-beats.mp3' },
+    { id:139, title:'Spaceship',                        artist:'',                          file:'spaceship.mp3' },
+    { id:140, title:'Happy Go Lively',                  artist:'SpongeBob Music',           file:'spongebob-music-happy-go-lively.mp3' },
+    { id:141, title:'House Of Horror',                  artist:'SpongeBob Production Music',file:'spongebob-production-music-house-of-horror.mp3' },
+    { id:142, title:'Digital Love',                     artist:'Alex-Productions',          file:'sport-future-bass-energy-by-alex-productions-no-copyright-music-digital-love.mp3' },
+    { id:143, title:'Bubbles',                          artist:'Alex-Productions',          file:'sport-percussive-rap-by-alex-productions-no-copyright-music-bubbles.mp3' },
+    { id:144, title:'Full Speed',                       artist:'Infraction',                file:'sport-racing-electro-punk-by-infraction-no-copyright-music-full-speed.mp3' },
+    { id:145, title:'Rock And Ride',                    artist:'Infraction',                file:'sport-racing-rock-by-infraction-no-copyright-music-rock-and-ride.mp3' },
+    { id:146, title:'Punch',                            artist:'Infraction',                file:'sport-rock-racing-workout-by-infraction-no-copyright-music-punch.mp3' },
+    { id:147, title:'Stand',                            artist:'Anno Domini Beats',         file:'stand-anno-domini-beats.mp3' },
+    { id:148, title:'Street Rhapsody',                  artist:'DJ Freedem',                file:'street-rhapsody-dj-freedem.mp3' },
+    { id:149, title:'Sunny Days',                       artist:'Anno Domini Beats',         file:'sunny-days-anno-domini-beats.mp3' },
+    { id:150, title:'Tension Music',                    artist:'',                          file:'suspense-copyright-free-music-royalty-free-background-music-tension-music.mp3' },
+    { id:151, title:'Teddy Gaming Cinematic',           artist:'',                          file:'teddy-gaming-cinematic-background-music-download-teddy-gaming-cinematic-background-song.mp3' },
+    { id:152, title:'Unreal',                           artist:'Infraction',                file:'trap-futuristic-stylish-technology-by-infraction-no-copyright-music-unreal.mp3' },
+    { id:153, title:'T-Rexed',                          artist:'Audio Hertz',               file:'t-rexed-audio-hertz.mp3' },
+    { id:154, title:'Triple Six',                       artist:'',                          file:'triple-six.mp3' },
+    { id:155, title:'Tropic',                           artist:'Anno Domini Beats',         file:'tropic-anno-domini-beats.mp3' },
+    { id:156, title:'Tropic Fuse',                      artist:'French Fuse',               file:'tropic-fuse-french-fuse.mp3' },
+    { id:157, title:'The Disc',                         artist:'Infraction',                file:'upbeat-dance-funk-pop-by-infraction-no-copyright-music-the-disc.mp3' },
+    { id:158, title:'Jazzy',                            artist:'Infraction',                file:'upbeat-energetic-hip-hop-by-infraction-no-copyright-music-jazzy.mp3' },
+    { id:159, title:'Groovy Town',                      artist:'Infraction',                file:'upbeat-funk-positive-by-infraction-no-copyright-music-groovy-town.mp3' },
+    { id:160, title:'Upbeat Funky Background Music',    artist:'',                          file:'upbeat-funky-background-music-for-video-royalty-free-funk-music-for-commercial-use.mp3' },
+    { id:161, title:'Upbeat Hip Hop',                   artist:'',                          file:'upbeat-hip-hop-background-music-for-videos-no-copyright.mp3' },
+    { id:162, title:'Shake Head',                       artist:'Infraction',                file:'upbeat-reggaeton-latin-by-infraction-no-copyright-music-shake-head.mp3' },
+    { id:163, title:'Uplifting Hip Hop',                artist:'',                          file:'uplifting-hip-hop-background-music-for-videos-free-for-non-commercial-use.mp3' },
+    { id:164, title:'Violin Instrumental',              artist:'',                          file:'violin-instrumental-no-copyright-music-royalty-free-violin-music-no-copyright-free-download-320kbps.mp3' },
+    { id:165, title:'Violin Instrumental 2',            artist:'',                          file:'violin-instrumental-no-copyright-music-royalty-free-violin-music-no-copyright-free-download.mp3' },
+    { id:166, title:'Warzone',                          artist:'Anno Domini Beats',         file:'warzone-anno-domini-beats.mp3' },
+    { id:167, title:'Where The Trap Is',                artist:'Audio Hertz',               file:'where-the-trap-is-audio-hertz.mp3' },
+    { id:168, title:'Wii Shop Channel Main Theme',      artist:'',                          file:'wii-shop-channel-main-theme-hq.mp3' },
+    { id:169, title:'World War Outerspace',             artist:'Audio Hertz',               file:'world-war-outerspace-audio-hertz.mp3' },
+    { id:170, title:'Mind Heist',                       artist:'Zack Hemsey',               file:'zack-hemsey-mind-heist.mp3' },
+  ];
+
+  const stopTrilhasPreview = () => {
+    if (trilhasPreviewRef.current) {
+      trilhasPreviewRef.current.pause();
+      trilhasPreviewRef.current.src = '';
+      trilhasPreviewRef.current = null;
+    }
+    setTrilhasPreviewId(null);
+    setTrilhasPreviewTime(0);
+  };
+
+  const toggleTrilhasPreview = (track) => {
+    if (trilhasPreviewId === track.id) { stopTrilhasPreview(); return; }
+    stopTrilhasPreview();
+    const url   = BASE_URL + encodeURIComponent(track.file);
+    const audio = new Audio(url);
+    audio.volume       = 0.75;
+    audio.ontimeupdate = () => setTrilhasPreviewTime(audio.currentTime);
+    audio.onended      = () => { setTrilhasPreviewId(null); setTrilhasPreviewTime(0); };
+    audio.play().catch(() => {});
+    trilhasPreviewRef.current = audio;
+    setTrilhasPreviewId(track.id);
+    setTrilhasPreviewTime(0);
+  };
+
+  const useTrilhaNoProject = async (track) => {
+    setTrilhasUsingId(track.id);
+    stopTrilhasPreview();
+    try {
+      const url  = BASE_URL + encodeURIComponent(track.file);
+      const res  = await fetch(url);
+      const blob = await res.blob();
+      const mime = track.file.endsWith('.m4a') ? 'audio/mp4' : 'audio/mpeg';
+      const objectUrl = URL.createObjectURL(blob);
+      setAudioSrc(objectUrl);
+      setAudioMimeType(mime);
+      setAudioFile(new File([blob], track.file, { type: mime }));
+      const ab64Reader  = new FileReader();
+      ab64Reader.onload = (ev) => setAudioBase64(ev.target.result);
+      ab64Reader.readAsDataURL(blob);
+      const arrayBuffer = await blob.arrayBuffer();
+      await decodeWaveformFromBuffer(arrayBuffer);
+      setShowTrilhasPanel(false);
+      setShowMidiasPanel(false);
+    } catch { alert('Erro ao carregar trilha. Verifique sua conexão.'); }
+    setTrilhasUsingId(null);
+  };
+
+  const fmtDur = (s) => {
+    const m  = Math.floor(s / 60);
+    const ss = String(s % 60).padStart(2, '0');
+    return `${m}:${ss}`;
+  };
+
   useEffect(() => {
     const lines = bulkText.split('\n').filter(l => l.trim() !== '');
     setTextLines(lines);
@@ -1830,6 +2186,7 @@ function App() {
         if (Array.isArray(p.stickers)) {
           setStickers(p.stickers);
         }
+        if (Array.isArray(p.frames)) setFrames(p.frames);
         if (Array.isArray(p.soundEffects)) setSoundEffects(p.soundEffects);
         if (p.fontSize !== undefined) setFontSize(p.fontSize);
         if (p.textColor) setTextColor(p.textColor);
@@ -1925,6 +2282,7 @@ function App() {
         animType: animTypeRef.current,
         twSpeed:  twSpeedRef.current,
       };
+      pushHistory();
       setLyrics(prevLyrics => [...prevLyrics, newLine].sort((a, b) => a.start - b.start));
       return prev + 1;
     });
@@ -1933,6 +2291,7 @@ function App() {
   // Função para adicionar novo texto fixo na tela
   const addExtraText = () => {
     if (!newExtraInput.trim()) return;
+    pushHistory();
     const newItem = {
       id: Date.now(),
       text: newExtraInput,
@@ -1951,12 +2310,122 @@ function App() {
 
   // Função para remover texto extra
   const removeExtraText = (id) => {
+    pushHistory();
     setExtraTexts(extraTexts.filter(t => t.id !== id));
   };
 
 
 
+  // ── Undo/Redo helpers ────────────────────────────────────────────────────
+  // Captura um snapshot do estado atual para o histórico
+  // requestHistory: sinaliza que a PRÓXIMA renderização deve gravar um snapshot.
+  // O snapshot é capturado no useEffect abaixo, DEPOIS que o React comita o estado —
+  // isso garante que os valores gravados são exatamente os do estado pós-ação,
+  // independente de batching ou timing de useEffects de sincronização de refs.
+  const requestHistory = useCallback(() => {
+    if (!isUndoingRef.current) pendingHistoryRef.current = true;
+  }, []);
+
+  // Alias para compatibilidade com chamadas que ainda usam pushHistory
+  const pushHistory = requestHistory;
+
+  const applySnapshot = useCallback((snap) => {
+    isUndoingRef.current = true;
+    // Background
+    if (snap.imageSrc) {
+      setImageSrc(snap.imageSrc);
+      const bg = new Image();
+      bg.onload = () => setImage(bg);
+      bg.src = snap.imageSrc;
+    } else {
+      setImageSrc(null);
+      setImage(null);
+    }
+    // Overlay images — reusa img element se id bater, senão recria
+    setImages(snap.images.map(item => {
+      const existing = (imagesRef.current || []).find(i => i.id === item.id);
+      if (existing?.img) return { ...item, img: existing.img };
+      const img = new Image();
+      img.src = item.src || '';
+      return { ...item, img };
+    }));
+    // Videos — usa allVideoEls como fonte definitiva (nunca perde um videoEl)
+    const restoredVideos = snap.videos.map(v => {
+      // Lookup no registry completo de todos os videos já carregados
+      const registered = allVideoEls.current[v.id];
+      if (registered?.videoEl) {
+        const el = registered.videoEl;
+        // Reanexa ao DOM se foi removido
+        if (!el.parentNode) {
+          el.style.cssText = 'position:fixed;width:1px;height:1px;visibility:hidden;pointer-events:none;top:-9999px;left:-9999px';
+          document.body.appendChild(el);
+        }
+        el.pause();
+        el.muted = true;
+        // Se readyState zerou, força reload mantendo src
+        if (el.readyState === 0 && el.src) { el.load(); }
+        return { ...v, videoEl: el, audioBuffer: registered.audioBuffer };
+      }
+      // Fallback — também checa trash legacy
+      const trashed = videoTrashRef.current[v.id];
+      if (trashed?.videoEl) {
+        const el = trashed.videoEl;
+        if (!el.parentNode) {
+          el.style.cssText = 'position:fixed;width:1px;height:1px;visibility:hidden;pointer-events:none;top:-9999px;left:-9999px';
+          document.body.appendChild(el);
+        }
+        el.pause(); el.muted = true;
+        if (el.readyState === 0 && el.src) { el.load(); }
+        delete videoTrashRef.current[v.id];
+        return { ...v, videoEl: el, audioBuffer: trashed.audioBuffer };
+      }
+      return v;
+    });
+    setVideos(restoredVideos);
+    // Reseta o playhead para o início do primeiro vídeo restaurado (se houver)
+    // para garantir que fique visível no canvas imediatamente
+    if (restoredVideos.length > 0 && snap.videos.length > 0) {
+      const firstVid = restoredVideos[0];
+      if (firstVid?.videoEl) {
+        const targetTime = firstVid.start ?? 0;
+        virtualTimeRef.current = targetTime;
+        setCurrentTime(targetTime);
+      }
+    }
+    setExtraTexts(snap.extraTexts);
+    setLyrics(snap.lyrics);
+    setStickers(snap.stickers);
+    if (snap.frames) setFrames(snap.frames);
+    setScreenEffect(snap.screenEffect);
+    setSoundEffects(snap.soundEffects);
+    setColorCurves(snap.colorCurves);
+    // Libera o lock após dois ticks para que todos os useEffects de sync rodem
+    setTimeout(() => { isUndoingRef.current = false; }, 80);
+  }, []);
+
+  const undo = useCallback(() => {
+    const idx = historyIdxRef.current;
+    if (idx <= 0) return;
+    const newIdx = idx - 1;
+    historyIdxRef.current = newIdx;
+    applySnapshot(historyRef.current[newIdx]);
+    setCanUndo(newIdx > 0);
+    setCanRedo(true);
+  }, [applySnapshot]);
+
+  const redo = useCallback(() => {
+    const idx    = historyIdxRef.current;
+    const hist   = historyRef.current;
+    if (idx >= hist.length - 1) return;
+    const newIdx = idx + 1;
+    historyIdxRef.current = newIdx;
+    applySnapshot(hist[newIdx]);
+    setCanUndo(true);
+    setCanRedo(newIdx < hist.length - 1);
+  }, [applySnapshot]);
+
   const addSticker = (type, content, animStyle = null) => {
+    pushHistory();
     const canvas = canvasRef.current;
     const cw = canvas?.width  || 720;
     const ch = canvas?.height || 480;
@@ -1977,9 +2446,10 @@ function App() {
     }]);
   };
 
-  const removeSticker = (id) => setStickers(prev => prev.filter(s => s.id !== id));
+  const removeSticker = (id) => { pushHistory(); setStickers(prev => prev.filter(s => s.id !== id)); };
 
   const removeLyric = (id) => {
+    pushHistory();
     setLyrics(lyrics.filter(l => l.id !== id));
   };
 
@@ -2083,9 +2553,12 @@ function App() {
     setLyrics([]);
     setImages([]);
     setVideos(prev => { prev.forEach(v => { if (v.videoEl) { v.videoEl.pause(); if (v.videoEl.parentNode) v.videoEl.parentNode.removeChild(v.videoEl); URL.revokeObjectURL(v.src); } }); return []; });
+    videoTrashRef.current = {}; // limpa o trash também no clear total
     setActiveVideoId(null);
     setExtraTexts([]);
     setStickers([]);
+    setFrames([]);
+    setActiveFrameId(null);
     setNewExtraInput('');
     setTextLines([]);
     setCurrentLineIndex(0);
@@ -2286,6 +2759,33 @@ function App() {
     const mouseX = (e.clientX - rect.left) * scaleX;
     const mouseY = (e.clientY - rect.top) * scaleY;
     const ctx = canvas.getContext('2d');
+
+    // ── Verifica colisão com molduras ────────────────────────────────────────
+    for (let i = framesRef.current.length - 1; i >= 0; i--) {
+      const fr = framesRef.current[i];
+      const fw = fr.width || 200, fh = fr.height || 200;
+      const fx = fr.x || 0, fy = fr.y || 0;
+      const hs2 = 12; // handle size
+      // Check resize corner handles (only when selected)
+      if (activeFrameId === fr.id) {
+        const corners = [[fx,fy],[fx+fw,fy],[fx,fy+fh],[fx+fw,fy+fh]];
+        for (const [hx2,hy2] of corners) {
+          if (Math.abs(mouseX-hx2) <= hs2 && Math.abs(mouseY-hy2) <= hs2) {
+            const corner = `${mouseY<=fy+fh/2?'n':'s'}${mouseX<=fx+fw/2?'w':'e'}`;
+            _setDragging({ type:'frame-resize', id:fr.id, corner, startX:mouseX, startY:mouseY,
+              startW:fw, startH:fh, startFx:fx, startFy:fy });
+            return;
+          }
+        }
+      }
+      // Check if inside frame bounding box
+      if (mouseX >= fx-8 && mouseX <= fx+fw+8 && mouseY >= fy-8 && mouseY <= fy+fh+8) {
+        setActiveFrameId(fr.id);
+        _setDragging({ type:'frame-move', id:fr.id, offsetX:mouseX-fx, offsetY:mouseY-fy });
+        return;
+      }
+    }
+    setActiveFrameId(null);
 
     // ── Verifica colisão com stickers (do último para o primeiro) ────────────
     for (let i = stickers.length - 1; i >= 0; i--) {
@@ -2610,6 +3110,28 @@ function App() {
       return;
     }
 
+    // Frame move
+    if (dragging && dragging.type === 'frame-move') {
+      setFrames(prev => prev.map(fr => fr.id === dragging.id
+        ? { ...fr, x: mouseX - dragging.offsetX, y: mouseY - dragging.offsetY }
+        : fr));
+      return;
+    }
+    // Frame resize
+    if (dragging && dragging.type === 'frame-resize') {
+      const { id, corner, startX, startY, startW, startH, startFx, startFy } = dragging;
+      const dx = mouseX - startX, dy = mouseY - startY;
+      let newX = startFx, newY = startFy, newW = startW, newH = startH;
+      if (corner.includes('e')) newW = Math.max(30, startW + dx);
+      if (corner.includes('s')) newH = Math.max(30, startH + dy);
+      if (corner.includes('w')) { newW = Math.max(30, startW - dx); newX = startFx + startW - newW; }
+      if (corner.includes('n')) { newH = Math.max(30, startH - dy); newY = startFy + startH - newH; }
+      setFrames(prev => prev.map(fr => fr.id === id
+        ? { ...fr, x: newX, y: newY, width: newW, height: newH }
+        : fr));
+      return;
+    }
+
 
     // Extra text move
     if (dragging && dragging.type === 'extra' && draggingExtraIndex !== null) {
@@ -2763,17 +3285,35 @@ _setDragging(null);
       if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA' || activeEl.tagName === 'SELECT' || activeEl.isContentEditable)) return;
       // Prioridade estrita: só deleta o item explicitamente selecionado
       // Jamais deleta vídeo se o que está selecionado é uma lyric/imagem/texto
+      if (activeFrameId) {
+        pushHistory();
+        setFrames(prev => prev.filter(fr => fr.id !== activeFrameId));
+        setActiveFrameId(null);
+        return;
+      }
       if (activeVideoId && !activeImageId && !activeLyricId && !activeExtraTextId) {
-        setVideos(prev => { const v = prev.find(vv => vv.id === activeVideoId); if (v?.videoEl) { v.videoEl.pause(); if (v.videoEl.parentNode) v.videoEl.parentNode.removeChild(v.videoEl); URL.revokeObjectURL(v.src); } return prev.filter(vv => vv.id !== activeVideoId); });
+        pushHistory();
+        setVideos(prev => {
+          const v = prev.find(vv => vv.id === activeVideoId);
+          if (v?.videoEl) {
+            v.videoEl.pause();
+            // Preserva no trash para undo/redo poderem restaurar
+            videoTrashRef.current[v.id] = { videoEl: v.videoEl, audioBuffer: v.audioBuffer, src: v.src };
+            // NÃO revoga nem remove do DOM — apenas pausa e desanexa visualmente
+          }
+          return prev.filter(vv => vv.id !== activeVideoId);
+        });
         setActiveVideoId(null);
         return;
       }
       if (activeImageId) {
+        pushHistory();
         setImages(prev => prev.filter(img => img.id !== activeImageId));
         setActiveImageId(null);
         return;
       }
       if (activeLyricId) {
+        pushHistory();
         setLyrics(prev => prev.filter(l => l.id !== activeLyricId));
         setActiveLyricId(null);
         return;
@@ -2850,6 +3390,7 @@ _setDragging(null);
 
   const stickersRef = useRef([]);
   useEffect(() => { stickersRef.current = stickers; }, [stickers]);
+  useEffect(() => { framesRef.current = frames; }, [frames]);
 
   // ── Desenha efeito de fundo atrás do texto ─────────────────────────────────
   const drawTextBgEffectRef = useRef(null);
@@ -3166,8 +3707,16 @@ _setDragging(null);
     ctx.save();
     try {
       switch(effect) {
-        case 'vignette': { const vg=ctx.createRadialGradient(W/2,H/2,Math.min(W,H)*0.3,W/2,H/2,Math.max(W,H)*0.75); vg.addColorStop(0,'transparent'); vg.addColorStop(1,'rgba(0,0,0,0.72)'); ctx.fillStyle=vg; ctx.fillRect(0,0,W,H); break; }
-        case 'film_grain': { for(let i=0;i<600;i++){const gx=Math.random()*W,gy=Math.random()*H;ctx.fillStyle=`rgba(255,255,255,${Math.random()*0.25})`;ctx.fillRect(gx,gy,1,1);} const fvg=ctx.createRadialGradient(W/2,H/2,Math.min(W,H)*0.4,W/2,H/2,Math.max(W,H)*0.75); fvg.addColorStop(0,'transparent'); fvg.addColorStop(1,'rgba(0,0,0,0.4)'); ctx.fillStyle=fvg; ctx.fillRect(0,0,W,H); break; }
+        case 'vignette': { const vg=ctx.createRadialGradient(W/2,H/2,Math.min(W,H)*0.15,W/2,H/2,Math.max(W,H)*0.72); vg.addColorStop(0,'rgba(0,0,0,0)'); vg.addColorStop(0.5,'rgba(0,0,0,0.3)'); vg.addColorStop(1,'rgba(0,0,0,0.92)'); ctx.fillStyle=vg; ctx.fillRect(0,0,W,H); break; }
+        case 'film_grain': {
+          // Grain visível em múltiplos tamanhos
+          for(let i=0;i<1500;i++){const gx=Math.random()*W,gy=Math.random()*H,gs=Math.random()<0.7?1:2;const gv=Math.random();ctx.fillStyle=gv>0.5?`rgba(255,255,255,${0.15+Math.random()*0.35})`:`rgba(0,0,0,${0.1+Math.random()*0.25})`;ctx.fillRect(gx,gy,gs,gs);}
+          // Vinheta
+          const fvg=ctx.createRadialGradient(W/2,H/2,Math.min(W,H)*0.3,W/2,H/2,Math.max(W,H)*0.75); fvg.addColorStop(0,'transparent'); fvg.addColorStop(1,'rgba(0,0,0,0.55)'); ctx.fillStyle=fvg; ctx.fillRect(0,0,W,H);
+          // Overlay sépia leve
+          ctx.fillStyle='rgba(40,25,5,0.12)'; ctx.fillRect(0,0,W,H);
+          break;
+        }
         case 'vintage': { ctx.fillStyle='rgba(100,60,0,0.18)'; ctx.fillRect(0,0,W,H); const vvg=ctx.createRadialGradient(W/2,H/2,Math.min(W,H)*0.3,W/2,H/2,Math.max(W,H)*0.75); vvg.addColorStop(0,'transparent'); vvg.addColorStop(1,'rgba(40,20,0,0.5)'); ctx.fillStyle=vvg; ctx.fillRect(0,0,W,H); ctx.strokeStyle='rgba(255,240,200,0.08)'; ctx.lineWidth=1; for(let i=0;i<3;i++){const sx=((i*317+Math.floor(ph*2)*89)%W+W)%W; ctx.beginPath(); ctx.moveTo(sx,0); ctx.lineTo(sx+2,H); ctx.stroke();} break; }
         case 'tv_static': { for(let y=0;y<H;y+=2){ctx.fillStyle=`rgba(0,0,0,${Math.random()*0.06})`;ctx.fillRect(0,y,W,1);} for(let i=0;i<400;i++){const nx=Math.random()*W,ny=Math.random()*H,nv=Math.floor(Math.random()*255);ctx.fillStyle=`rgba(${nv},${nv},${nv},0.4)`;ctx.fillRect(nx,ny,2,2);} if(Math.random()<0.15){ctx.fillStyle='rgba(255,255,255,0.08)';ctx.fillRect(0,Math.random()*H,W,1+Math.random()*3);} break; }
         case 'vhs': { for(let y=0;y<H;y+=3){ctx.fillStyle='rgba(0,0,0,0.18)';ctx.fillRect(0,y,W,1);} ctx.globalCompositeOperation='screen'; ctx.fillStyle='rgba(255,0,0,0.04)';ctx.fillRect(2,0,W,H); ctx.fillStyle='rgba(0,0,255,0.04)';ctx.fillRect(-2,0,W,H); ctx.globalCompositeOperation='source-over'; const barY=((ph*30)%H+H)%H; ctx.fillStyle='rgba(255,255,255,0.06)';ctx.fillRect(0,barY,W,12); break; }
@@ -3229,376 +3778,102 @@ _setDragging(null);
           break;
         }
 
-        // ── NOVOS EFEITOS PROFISSIONAIS ─────────────────────────────────────
+        // ── EFEITOS PROFISSIONAIS ────────────────────────────────────────────
 
         case 'glitch_pro': {
-          // Glitch HD: cortes horizontais com separação RGB real
-          const numSlices = 6 + Math.floor(Math.sin(ph * 7.3) * 3);
-          for (let s = 0; s < numSlices; s++) {
-            const sy = ((s * 173.1 + Math.floor(ph * 12) * 97.3) % H + H) % H;
-            const sh = 2 + ((s * 53.7) % 1) * 22;
-            const ox = (Math.sin(ph * 23 + s * 5.1) * W * 0.06);
-            const oy = 0;
-            if (Math.random() < 0.65) {
-              // Fatia com deslocamento RGB
-              ctx.save();
-              ctx.globalCompositeOperation = 'screen';
-              ctx.globalAlpha = 0.7;
-              ctx.drawImage(ctx.canvas, ox * 1.4, oy, W, H, 0, sy, W, sh);
-              ctx.globalAlpha = 0.5;
-              ctx.fillStyle = `rgba(${Math.random()<0.5?255:0},0,${Math.random()<0.5?255:0},0.12)`;
-              ctx.fillRect(0, sy, W, sh);
+          const numSlices=6+Math.floor(Math.sin(ph*7.3)*3);
+          for(let s=0;s<numSlices;s++){
+            const sy=((s*173.1+Math.floor(ph*12)*97.3)%H+H)%H;
+            const sh=2+((s*53.7)%1)*22;
+            const ox=Math.sin(ph*23+s*5.1)*W*0.06;
+            if(Math.random()<0.65){
+              ctx.save();ctx.globalCompositeOperation='screen';ctx.globalAlpha=0.7;
+              ctx.drawImage(ctx.canvas,ox*1.4,0,W,H,0,sy,W,sh);
+              ctx.globalAlpha=0.5;ctx.fillStyle=`rgba(${Math.random()<0.5?255:0},0,${Math.random()<0.5?255:0},0.12)`;ctx.fillRect(0,sy,W,sh);
               ctx.restore();
             }
           }
-          // Linha horizontal brilhante ocasional
-          if (Math.floor(ph * 15) % 4 === 0) {
-            const gy = Math.random() * H;
-            const gl = ctx.createLinearGradient(0, gy, 0, gy + 3);
-            gl.addColorStop(0, 'rgba(0,255,200,0.5)'); gl.addColorStop(1, 'transparent');
-            ctx.fillStyle = gl; ctx.fillRect(0, gy, W, 3);
-          }
-          // Scan lines sutis
-          ctx.fillStyle = 'rgba(0,0,0,0.07)';
-          for (let y = 0; y < H; y += 4) ctx.fillRect(0, y, W, 1);
+          if(Math.floor(ph*15)%4===0){const gy=Math.random()*H;const gl=ctx.createLinearGradient(0,gy,0,gy+3);gl.addColorStop(0,'rgba(0,255,200,0.5)');gl.addColorStop(1,'transparent');ctx.fillStyle=gl;ctx.fillRect(0,gy,W,3);}
+          ctx.fillStyle='rgba(0,0,0,0.07)';for(let y=0;y<H;y+=4)ctx.fillRect(0,y,W,1);
           break;
         }
-
         case 'pixel_sort': {
-          // Pixel sort: faixas verticais deslocadas para cima estilo CapCut
-          const cols = Math.floor(W / 3);
-          for (let c = 0; c < cols; c++) {
-            const cx2 = c * 3;
-            const drift = Math.sin(ph * 1.8 + c * 0.3) * 0.5 + 0.5;
-            const shiftY = -Math.floor(drift * H * 0.4);
-            if (Math.abs(shiftY) < 2) continue;
-            ctx.drawImage(ctx.canvas, cx2, 0, 3, H, cx2, shiftY, 3, H);
-          }
-          ctx.globalAlpha = 0.12;
-          ctx.fillStyle = 'rgba(0,255,180,1)';
-          ctx.fillRect(0, 0, W, H);
-          ctx.globalAlpha = 1;
+          const cols=Math.floor(W/3);
+          for(let c=0;c<cols;c++){const cx2=c*3;const drift=Math.sin(ph*1.8+c*0.3)*0.5+0.5;const shiftY=-Math.floor(drift*H*0.4);if(Math.abs(shiftY)<2)continue;ctx.drawImage(ctx.canvas,cx2,0,3,H,cx2,shiftY,3,H);}
+          ctx.globalAlpha=0.12;ctx.fillStyle='rgba(0,255,180,1)';ctx.fillRect(0,0,W,H);ctx.globalAlpha=1;
           break;
         }
-
         case 'zoom_blur': {
-          // Zoom blur radial — velocidade com centro pulsante
-          const cx2 = W / 2, cy2 = H / 2;
-          const pulse = 0.5 + 0.5 * Math.sin(ph * 2.5);
-          const steps2 = 6;
-          for (let s = 1; s <= steps2; s++) {
-            const sc = 1 + (s / steps2) * 0.06 * pulse;
-            const alpha = (0.12 - s * 0.015) * pulse;
-            ctx.globalAlpha = Math.max(0, alpha);
-            ctx.save();
-            ctx.translate(cx2, cy2);
-            ctx.scale(sc, sc);
-            ctx.translate(-cx2, -cy2);
-            ctx.drawImage(ctx.canvas, 0, 0);
-            ctx.restore();
-          }
-          ctx.globalAlpha = 1;
-          break;
+          const cx2=W/2,cy2=H/2,pulse=0.5+0.5*Math.sin(ph*2.5);
+          for(let s=1;s<=6;s++){const sc=1+(s/6)*0.06*pulse;const alpha=(0.12-s*0.015)*pulse;ctx.globalAlpha=Math.max(0,alpha);ctx.save();ctx.translate(cx2,cy2);ctx.scale(sc,sc);ctx.translate(-cx2,-cy2);ctx.drawImage(ctx.canvas,0,0);ctx.restore();}
+          ctx.globalAlpha=1;break;
         }
-
         case 'speed_lines': {
-          // Linhas de velocidade radiais estilo mangá/CapCut
-          const cx2 = W / 2 + Math.sin(ph * 0.7) * W * 0.05;
-          const cy2 = H / 2 + Math.cos(ph * 0.5) * H * 0.04;
-          const N = 60;
-          const spd2 = 0.3 + 0.7 * Math.abs(Math.sin(ph * 1.5));
-          for (let i = 0; i < N; i++) {
-            const angle = (i / N) * Math.PI * 2 + ph * 0.4;
-            const len = (0.3 + ((i * 73.1) % 1) * 0.7) * Math.max(W, H) * 0.6;
-            const startR = Math.min(W, H) * 0.05 * spd2;
-            const lw = 0.4 + ((i * 53.3) % 1) * 1.2;
-            const alpha = (0.15 + ((i * 37.7) % 1) * 0.25) * spd2;
-            const x1 = cx2 + Math.cos(angle) * startR;
-            const y1 = cy2 + Math.sin(angle) * startR;
-            const x2 = cx2 + Math.cos(angle) * (startR + len);
-            const y2 = cy2 + Math.sin(angle) * (startR + len);
-            const sg2 = ctx.createLinearGradient(x1, y1, x2, y2);
-            sg2.addColorStop(0, `rgba(255,255,255,${alpha})`);
-            sg2.addColorStop(1, 'transparent');
-            ctx.strokeStyle = sg2; ctx.lineWidth = lw;
-            ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
-          }
+          const cx2=W/2+Math.sin(ph*0.7)*W*0.05,cy2=H/2+Math.cos(ph*0.5)*H*0.04;
+          const spd2=0.3+0.7*Math.abs(Math.sin(ph*1.5));
+          for(let i=0;i<60;i++){const angle=(i/60)*Math.PI*2+ph*0.4;const len=(0.3+((i*73.1)%1)*0.7)*Math.max(W,H)*0.6;const startR=Math.min(W,H)*0.05*spd2;const lw=0.4+((i*53.3)%1)*1.2;const alpha=(0.15+((i*37.7)%1)*0.25)*spd2;const x1=cx2+Math.cos(angle)*startR,y1=cy2+Math.sin(angle)*startR;const x2=cx2+Math.cos(angle)*(startR+len),y2=cy2+Math.sin(angle)*(startR+len);const sg2=ctx.createLinearGradient(x1,y1,x2,y2);sg2.addColorStop(0,`rgba(255,255,255,${alpha})`);sg2.addColorStop(1,'transparent');ctx.strokeStyle=sg2;ctx.lineWidth=lw;ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();}
           break;
         }
-
         case 'shockwave': {
-          // Onda de choque radial pulsante
-          const cx2 = W / 2, cy2 = H / 2;
-          const phase2 = ph % 1.8;
-          const maxR = Math.max(W, H) * 0.8;
-          for (let ring = 0; ring < 3; ring++) {
-            const rph = (phase2 + ring * 0.6) % 1.8;
-            const r = rph * maxR;
-            const alpha = Math.max(0, 0.5 - rph * 0.27) * (1 - ring * 0.25);
-            const lw = (3 - ring) * 2 * (1 - rph * 0.5);
-            if (alpha < 0.01) continue;
-            ctx.strokeStyle = `rgba(200,230,255,${alpha})`;
-            ctx.lineWidth = lw;
-            ctx.shadowBlur = lw * 6;
-            ctx.shadowColor = `rgba(150,200,255,${alpha * 0.7})`;
-            ctx.beginPath();
-            ctx.ellipse(cx2, cy2, r, r * (H / W), 0, 0, Math.PI * 2);
-            ctx.stroke();
-          }
-          ctx.shadowBlur = 0;
-          break;
+          const cx2=W/2,cy2=H/2,maxR=Math.max(W,H)*0.8,phase2=ph%1.8;
+          for(let ring=0;ring<3;ring++){const rph=(phase2+ring*0.6)%1.8;const r=rph*maxR;const alpha=Math.max(0,0.5-rph*0.27)*(1-ring*0.25);const lw=(3-ring)*2*(1-rph*0.5);if(alpha<0.01)continue;ctx.strokeStyle=`rgba(200,230,255,${alpha})`;ctx.lineWidth=lw;ctx.shadowBlur=lw*6;ctx.shadowColor=`rgba(150,200,255,${alpha*0.7})`;ctx.beginPath();ctx.ellipse(cx2,cy2,r,r*(H/W),0,0,Math.PI*2);ctx.stroke();}
+          ctx.shadowBlur=0;break;
         }
-
         case 'duotone': {
-          // Duotone: escala de cinza + duas cores dominantes
-          const hue1 = (ph * 20) % 360;
-          const hue2 = (hue1 + 150) % 360;
-          // Camada escura (sombras)
-          ctx.globalCompositeOperation = 'multiply';
-          ctx.globalAlpha = 0.55;
-          const dg = ctx.createLinearGradient(0, 0, W, H);
-          dg.addColorStop(0, `hsl(${hue1},80%,25%)`);
-          dg.addColorStop(1, `hsl(${hue2},80%,25%)`);
-          ctx.fillStyle = dg; ctx.fillRect(0, 0, W, H);
-          // Camada clara (altas luzes)
-          ctx.globalCompositeOperation = 'screen';
-          ctx.globalAlpha = 0.35;
-          const lg2 = ctx.createLinearGradient(W, 0, 0, H);
-          lg2.addColorStop(0, `hsl(${hue1},100%,70%)`);
-          lg2.addColorStop(1, `hsl(${hue2},100%,70%)`);
-          ctx.fillStyle = lg2; ctx.fillRect(0, 0, W, H);
-          ctx.globalCompositeOperation = 'source-over';
-          ctx.globalAlpha = 1;
-          break;
+          const hue1=(ph*20)%360,hue2=(hue1+150)%360;
+          ctx.globalCompositeOperation='multiply';ctx.globalAlpha=0.55;
+          const dg=ctx.createLinearGradient(0,0,W,H);dg.addColorStop(0,`hsl(${hue1},80%,25%)`);dg.addColorStop(1,`hsl(${hue2},80%,25%)`);ctx.fillStyle=dg;ctx.fillRect(0,0,W,H);
+          ctx.globalCompositeOperation='screen';ctx.globalAlpha=0.35;
+          const lg2=ctx.createLinearGradient(W,0,0,H);lg2.addColorStop(0,`hsl(${hue1},100%,70%)`);lg2.addColorStop(1,`hsl(${hue2},100%,70%)`);ctx.fillStyle=lg2;ctx.fillRect(0,0,W,H);
+          ctx.globalCompositeOperation='source-over';ctx.globalAlpha=1;break;
         }
-
         case 'hologram': {
-          // Holograma: scan lines + aberração cyan/magenta + brilho
-          const scanY = ((ph * 60) % H + H) % H;
-          // Scan lines
-          ctx.fillStyle = 'rgba(0,0,0,0.15)';
-          for (let y = 0; y < H; y += 3) ctx.fillRect(0, y, W, 1);
-          // Barra de scan brilhante
-          const barG = ctx.createLinearGradient(0, scanY - 10, 0, scanY + 10);
-          barG.addColorStop(0, 'transparent');
-          barG.addColorStop(0.5, 'rgba(0,255,220,0.18)');
-          barG.addColorStop(1, 'transparent');
-          ctx.fillStyle = barG; ctx.fillRect(0, scanY - 10, W, 20);
-          // Aberração RGB lateral
-          ctx.globalCompositeOperation = 'screen';
-          ctx.globalAlpha = 0.08;
-          ctx.fillStyle = 'rgba(0,255,220,1)'; ctx.fillRect(2, 0, W, H);
-          ctx.fillStyle = 'rgba(255,0,180,1)'; ctx.fillRect(-2, 0, W, H);
-          ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
-          // Grade de pontos
-          ctx.fillStyle = 'rgba(0,255,200,0.06)';
-          for (let gx = 0; gx < W; gx += 8) for (let gy = 0; gy < H; gy += 8) {
-            ctx.fillRect(gx, gy, 1, 1);
-          }
-          // Borda brilhante
-          const bg2 = 0.3 + 0.2 * Math.sin(ph * 3);
-          ctx.strokeStyle = `rgba(0,255,200,${bg2})`; ctx.lineWidth = 2;
-          ctx.shadowBlur = 12; ctx.shadowColor = 'rgba(0,255,200,0.5)';
-          ctx.strokeRect(3, 3, W - 6, H - 6); ctx.shadowBlur = 0;
+          const scanY=((ph*60)%H+H)%H;
+          ctx.fillStyle='rgba(0,0,0,0.15)';for(let y=0;y<H;y+=3)ctx.fillRect(0,y,W,1);
+          const barG=ctx.createLinearGradient(0,scanY-10,0,scanY+10);barG.addColorStop(0,'transparent');barG.addColorStop(0.5,'rgba(0,255,220,0.18)');barG.addColorStop(1,'transparent');ctx.fillStyle=barG;ctx.fillRect(0,scanY-10,W,20);
+          ctx.globalCompositeOperation='screen';ctx.globalAlpha=0.08;ctx.fillStyle='rgba(0,255,220,1)';ctx.fillRect(2,0,W,H);ctx.fillStyle='rgba(255,0,180,1)';ctx.fillRect(-2,0,W,H);ctx.globalCompositeOperation='source-over';ctx.globalAlpha=1;
+          ctx.fillStyle='rgba(0,255,200,0.06)';for(let gx=0;gx<W;gx+=8)for(let gy=0;gy<H;gy+=8)ctx.fillRect(gx,gy,1,1);
+          const bg2=0.3+0.2*Math.sin(ph*3);ctx.strokeStyle=`rgba(0,255,200,${bg2})`;ctx.lineWidth=2;ctx.shadowBlur=12;ctx.shadowColor='rgba(0,255,200,0.5)';ctx.strokeRect(3,3,W-6,H-6);ctx.shadowBlur=0;
           break;
         }
-
         case 'retrowave': {
-          // RetroWave / Synthwave: grade de perspectiva + sol
-          const horizon = H * 0.55;
-          // Gradiente de céu
-          const sky2 = ctx.createLinearGradient(0, 0, 0, horizon);
-          sky2.addColorStop(0, 'rgba(20,0,40,0.7)');
-          sky2.addColorStop(1, 'rgba(80,0,80,0.4)');
-          ctx.fillStyle = sky2; ctx.fillRect(0, 0, W, horizon);
-          // Sol com gradiente
-          const sunY = H * 0.42, sunR = Math.min(W, H) * 0.14;
-          const sunG = ctx.createRadialGradient(W / 2, sunY, 0, W / 2, sunY, sunR);
-          sunG.addColorStop(0, 'rgba(255,240,50,0.9)');
-          sunG.addColorStop(0.4, 'rgba(255,100,20,0.7)');
-          sunG.addColorStop(1, 'rgba(200,0,80,0)');
-          ctx.fillStyle = sunG; ctx.fillRect(W / 2 - sunR, sunY - sunR, sunR * 2, sunR * 2);
-          // Linhas horizontais no sol
-          ctx.fillStyle = 'rgba(20,0,40,0.65)';
-          for (let i = 0; i < 8; i++) {
-            const ly = sunY - sunR + i * sunR * 0.28;
-            if (ly < sunY - sunR || ly > sunY + sunR * 0.1) continue;
-            ctx.fillRect(W / 2 - sunR, ly, sunR * 2, sunR * 0.1 * (i * 0.3 + 0.5));
-          }
-          // Grade de chão em perspectiva
-          ctx.strokeStyle = 'rgba(255,0,180,0.35)'; ctx.lineWidth = 1;
-          const vp = { x: W / 2, y: horizon };
-          const gridStep = W / 10;
-          for (let i = -10; i <= 10; i++) {
-            const bx = W / 2 + i * gridStep;
-            ctx.beginPath(); ctx.moveTo(vp.x, vp.y); ctx.lineTo(bx, H); ctx.stroke();
-          }
-          const hLines = 8;
-          for (let i = 0; i <= hLines; i++) {
-            const prog = Math.pow(i / hLines, 2);
-            const hy = horizon + (H - horizon) * prog;
-            const lAlpha = 0.15 + prog * 0.4;
-            const perspX = W / 2 + (W / 2) * prog;
-            ctx.strokeStyle = `rgba(255,0,180,${lAlpha})`;
-            ctx.beginPath(); ctx.moveTo(W / 2 - perspX, hy); ctx.lineTo(W / 2 + perspX, hy); ctx.stroke();
-          }
-          // Offset de animação no chão
-          const animOffset = ((ph * 0.3) % 1);
-          ctx.strokeStyle = 'rgba(0,220,255,0.2)'; ctx.lineWidth = 1;
-          for (let i = 0; i <= hLines; i++) {
-            const progA = Math.pow(((i + animOffset) % (hLines + 1)) / hLines, 2);
-            const hyA = horizon + (H - horizon) * progA;
-            const perspXA = W / 2 + (W / 2) * progA;
-            ctx.beginPath(); ctx.moveTo(W / 2 - perspXA, hyA); ctx.lineTo(W / 2 + perspXA, hyA); ctx.stroke();
-          }
+          const horizon=H*0.55;
+          const sky2=ctx.createLinearGradient(0,0,0,horizon);sky2.addColorStop(0,'rgba(20,0,40,0.7)');sky2.addColorStop(1,'rgba(80,0,80,0.4)');ctx.fillStyle=sky2;ctx.fillRect(0,0,W,horizon);
+          const sunY=H*0.42,sunR=Math.min(W,H)*0.14;const sunG=ctx.createRadialGradient(W/2,sunY,0,W/2,sunY,sunR);sunG.addColorStop(0,'rgba(255,240,50,0.9)');sunG.addColorStop(0.4,'rgba(255,100,20,0.7)');sunG.addColorStop(1,'rgba(200,0,80,0)');ctx.fillStyle=sunG;ctx.fillRect(W/2-sunR,sunY-sunR,sunR*2,sunR*2);
+          ctx.fillStyle='rgba(20,0,40,0.65)';for(let i=0;i<8;i++){const ly=sunY-sunR+i*sunR*0.28;if(ly<sunY-sunR||ly>sunY+sunR*0.1)continue;ctx.fillRect(W/2-sunR,ly,sunR*2,sunR*0.1*(i*0.3+0.5));}
+          ctx.strokeStyle='rgba(255,0,180,0.35)';ctx.lineWidth=1;const vp={x:W/2,y:horizon};
+          for(let i=-10;i<=10;i++){const bx=W/2+i*(W/10);ctx.beginPath();ctx.moveTo(vp.x,vp.y);ctx.lineTo(bx,H);ctx.stroke();}
+          for(let i=0;i<=8;i++){const prog=Math.pow(i/8,2);const hy=horizon+(H-horizon)*prog;const perspX=W/2+(W/2)*prog;ctx.strokeStyle=`rgba(255,0,180,${0.15+prog*0.4})`;ctx.beginPath();ctx.moveTo(W/2-perspX,hy);ctx.lineTo(W/2+perspX,hy);ctx.stroke();}
+          const ao=((ph*0.3)%1);ctx.strokeStyle='rgba(0,220,255,0.2)';ctx.lineWidth=1;for(let i=0;i<=8;i++){const pa=Math.pow(((i+ao)%(9))/8,2);const ha=horizon+(H-horizon)*pa;const pxa=W/2+(W/2)*pa;ctx.beginPath();ctx.moveTo(W/2-pxa,ha);ctx.lineTo(W/2+pxa,ha);ctx.stroke();}
           break;
         }
-
         case 'bokeh': {
-          // Bokeh: círculos de luz desfocados flutuantes
-          const N = 40;
-          for (let i = 0; i < N; i++) {
-            const fx = ((i * 197.3 + Math.sin(ph * 0.3 + i * 0.7) * 0.05) % 1 + 1) % 1;
-            const fy = ((i * 113.7 + ph * (0.02 + ((i * 53) % 1) * 0.03)) % 1 + 1) % 1;
-            const r = 8 + ((i * 71.3) % 1) * 40;
-            const alpha = 0.04 + Math.abs(Math.sin(ph * 0.8 + i * 1.3)) * 0.1;
-            const hue2 = (i * 37 + ph * 15) % 360;
-            const bg2 = ctx.createRadialGradient(fx * W, fy * H, 0, fx * W, fy * H, r);
-            bg2.addColorStop(0, `hsla(${hue2},80%,75%,${alpha * 2})`);
-            bg2.addColorStop(0.4, `hsla(${hue2},80%,75%,${alpha})`);
-            bg2.addColorStop(0.8, `hsla(${hue2},80%,75%,${alpha * 0.3})`);
-            bg2.addColorStop(1, 'transparent');
-            ctx.fillStyle = bg2;
-            ctx.beginPath(); ctx.arc(fx * W, fy * H, r, 0, Math.PI * 2); ctx.fill();
-            // Anel brilhante
-            ctx.strokeStyle = `hsla(${hue2},90%,85%,${alpha * 1.5})`;
-            ctx.lineWidth = 0.8;
-            ctx.beginPath(); ctx.arc(fx * W, fy * H, r * 0.85, 0, Math.PI * 2); ctx.stroke();
-          }
+          for(let i=0;i<40;i++){const fx=((i*197.3+Math.sin(ph*0.3+i*0.7)*0.05)%1+1)%1;const fy=((i*113.7+ph*(0.02+((i*53)%1)*0.03))%1+1)%1;const r=8+((i*71.3)%1)*40;const alpha=0.04+Math.abs(Math.sin(ph*0.8+i*1.3))*0.1;const hue2=(i*37+ph*15)%360;const bg2=ctx.createRadialGradient(fx*W,fy*H,0,fx*W,fy*H,r);bg2.addColorStop(0,`hsla(${hue2},80%,75%,${alpha*2})`);bg2.addColorStop(0.4,`hsla(${hue2},80%,75%,${alpha})`);bg2.addColorStop(0.8,`hsla(${hue2},80%,75%,${alpha*0.3})`);bg2.addColorStop(1,'transparent');ctx.fillStyle=bg2;ctx.beginPath();ctx.arc(fx*W,fy*H,r,0,Math.PI*2);ctx.fill();ctx.strokeStyle=`hsla(${hue2},90%,85%,${alpha*1.5})`;ctx.lineWidth=0.8;ctx.beginPath();ctx.arc(fx*W,fy*H,r*0.85,0,Math.PI*2);ctx.stroke();}
           break;
         }
-
         case 'snow': {
-          // Neve realista com profundidade
-          const layers2 = [
-            { n: 60, size: 1.2, spd: 40, drift: 0.3, alpha: 0.5 },
-            { n: 40, size: 2.2, spd: 70, drift: 0.5, alpha: 0.7 },
-            { n: 20, size: 3.5, spd: 100, drift: 0.8, alpha: 0.9 },
-          ];
-          layers2.forEach((L, li) => {
-            for (let i = 0; i < L.n; i++) {
-              const hx = ((i * (127.1 + li * 50) + li * 311.7) % 1 + 1) % 1;
-              const hy = ((i * (91.3 + li * 30) + li * 173.9) % 1 + 1) % 1;
-              const px2 = ((hx * W + Math.sin(ph * 0.4 + i * 0.9 + li) * W * L.drift * 0.1) + W) % W;
-              const py2 = ((hy * H + ph * L.spd) % H + H) % H;
-              const flicker = 0.7 + 0.3 * Math.sin(ph * 3 + i * 1.7);
-              ctx.globalAlpha = L.alpha * flicker;
-              const sg2 = ctx.createRadialGradient(px2, py2, 0, px2, py2, L.size);
-              sg2.addColorStop(0, 'rgba(255,255,255,1)');
-              sg2.addColorStop(1, 'rgba(220,235,255,0)');
-              ctx.fillStyle = sg2;
-              ctx.beginPath(); ctx.arc(px2, py2, L.size, 0, Math.PI * 2); ctx.fill();
-            }
-          });
-          ctx.globalAlpha = 1;
-          break;
+          const sLayers=[{n:60,size:1.2,spd:40,alpha:0.5},{n:40,size:2.2,spd:70,alpha:0.7},{n:20,size:3.5,spd:100,alpha:0.9}];
+          sLayers.forEach((L,li)=>{for(let i=0;i<L.n;i++){const hx=((i*(127.1+li*50)+li*311.7)%1+1)%1;const hy=((i*(91.3+li*30)+li*173.9)%1+1)%1;const px2=((hx*W+Math.sin(ph*0.4+i*0.9+li)*W*L.alpha*0.1)+W)%W;const py2=((hy*H+ph*L.spd)%H+H)%H;const flicker=0.7+0.3*Math.sin(ph*3+i*1.7);ctx.globalAlpha=L.alpha*flicker;const sg2=ctx.createRadialGradient(px2,py2,0,px2,py2,L.size);sg2.addColorStop(0,'rgba(255,255,255,1)');sg2.addColorStop(1,'rgba(220,235,255,0)');ctx.fillStyle=sg2;ctx.beginPath();ctx.arc(px2,py2,L.size,0,Math.PI*2);ctx.fill();}});
+          ctx.globalAlpha=1;break;
         }
-
         case 'sparkles': {
-          // Faíscas / estrelas brilhantes
-          const N2 = 25;
-          for (let i = 0; i < N2; i++) {
-            const life = ((ph * (0.5 + ((i * 53.1) % 1) * 1.0) + i * 0.4) % 1 + 1) % 1;
-            const fx = ((i * 197.3 + Math.sin(i * 2.3 + ph * 0.2) * 0.1) % 1 + 1) % 1;
-            const fy = ((i * 113.7 + Math.cos(i * 1.9 + ph * 0.15) * 0.08) % 1 + 1) % 1;
-            const r = (2 + ((i * 71.3) % 1) * 6) * Math.sin(life * Math.PI);
-            const alpha = Math.sin(life * Math.PI) * 0.9;
-            if (alpha < 0.05 || r < 0.5) continue;
-            const hue2 = (i * 47 + 40) % 60 + 30; // dourado/branco
-            // Cruz de 4 pontas
-            ctx.strokeStyle = `hsla(${hue2},100%,90%,${alpha})`;
-            ctx.lineWidth = r * 0.25;
-            ctx.shadowBlur = r * 3; ctx.shadowColor = `hsla(${hue2},100%,80%,${alpha})`;
-            const cx2 = fx * W, cy2 = fy * H;
-            ctx.beginPath(); ctx.moveTo(cx2 - r, cy2); ctx.lineTo(cx2 + r, cy2); ctx.stroke();
-            ctx.beginPath(); ctx.moveTo(cx2, cy2 - r); ctx.lineTo(cx2, cy2 + r); ctx.stroke();
-            ctx.lineWidth = r * 0.12;
-            ctx.beginPath(); ctx.moveTo(cx2 - r * 0.7, cy2 - r * 0.7); ctx.lineTo(cx2 + r * 0.7, cy2 + r * 0.7); ctx.stroke();
-            ctx.beginPath(); ctx.moveTo(cx2 + r * 0.7, cy2 - r * 0.7); ctx.lineTo(cx2 - r * 0.7, cy2 + r * 0.7); ctx.stroke();
-          }
-          ctx.shadowBlur = 0;
-          break;
+          for(let i=0;i<25;i++){const life=((ph*(0.5+((i*53.1)%1)*1.0)+i*0.4)%1+1)%1;const fx=((i*197.3+Math.sin(i*2.3+ph*0.2)*0.1)%1+1)%1;const fy=((i*113.7+Math.cos(i*1.9+ph*0.15)*0.08)%1+1)%1;const r=(2+((i*71.3)%1)*6)*Math.sin(life*Math.PI);const alpha=Math.sin(life*Math.PI)*0.9;if(alpha<0.05||r<0.5)continue;const hue2=(i*47+40)%60+30;const cx2=fx*W,cy2=fy*H;ctx.strokeStyle=`hsla(${hue2},100%,90%,${alpha})`;ctx.lineWidth=r*0.25;ctx.shadowBlur=r*3;ctx.shadowColor=`hsla(${hue2},100%,80%,${alpha})`;ctx.beginPath();ctx.moveTo(cx2-r,cy2);ctx.lineTo(cx2+r,cy2);ctx.stroke();ctx.beginPath();ctx.moveTo(cx2,cy2-r);ctx.lineTo(cx2,cy2+r);ctx.stroke();ctx.lineWidth=r*0.12;ctx.beginPath();ctx.moveTo(cx2-r*0.7,cy2-r*0.7);ctx.lineTo(cx2+r*0.7,cy2+r*0.7);ctx.stroke();ctx.beginPath();ctx.moveTo(cx2+r*0.7,cy2-r*0.7);ctx.lineTo(cx2-r*0.7,cy2+r*0.7);ctx.stroke();}
+          ctx.shadowBlur=0;break;
         }
-
         case 'mirror': {
-          // Espelho animado: divide a tela e espelha metade
-          const flip = Math.floor(ph * 0.4) % 2;
-          const prog = (ph * 0.4) % 1;
-          const alpha2 = flip === 0 ? Math.min(1, prog * 5) : Math.min(1, (1 - prog) * 5);
-          if (alpha2 > 0.1) {
-            ctx.save();
-            ctx.globalAlpha = alpha2;
-            // Espelho horizontal
-            ctx.save();
-            ctx.translate(W, 0); ctx.scale(-1, 1);
-            ctx.drawImage(ctx.canvas, 0, 0, W / 2, H, 0, 0, W / 2, H);
-            ctx.restore();
-            // Linha central brilhante
-            const mg = ctx.createLinearGradient(W / 2 - 4, 0, W / 2 + 4, 0);
-            mg.addColorStop(0, 'transparent');
-            mg.addColorStop(0.5, 'rgba(255,255,255,0.5)');
-            mg.addColorStop(1, 'transparent');
-            ctx.fillStyle = mg; ctx.fillRect(W / 2 - 4, 0, 8, H);
-            ctx.restore();
-          }
+          const prog=(ph*0.4)%1;const alpha2=Math.min(1,Math.min(prog,1-prog)*10);
+          if(alpha2>0.1){ctx.save();ctx.globalAlpha=alpha2;ctx.save();ctx.translate(W,0);ctx.scale(-1,1);ctx.drawImage(ctx.canvas,0,0,W/2,H,0,0,W/2,H);ctx.restore();const mg=ctx.createLinearGradient(W/2-4,0,W/2+4,0);mg.addColorStop(0,'transparent');mg.addColorStop(0.5,'rgba(255,255,255,0.5)');mg.addColorStop(1,'transparent');ctx.fillStyle=mg;ctx.fillRect(W/2-4,0,8,H);ctx.restore();}
           break;
         }
-
         case 'neon_lines': {
-          // Linhas neon diagonais animadas
-          const lineCount = 8;
-          for (let i = 0; i < lineCount; i++) {
-            const progress = ((ph * 0.25 + i / lineCount) % 1 + 1) % 1;
-            const hue2 = (i * 45 + ph * 20) % 360;
-            const x1 = -W * 0.2 + (W * 1.4) * progress;
-            const alpha = Math.sin(progress * Math.PI) * 0.6;
-            if (alpha < 0.05) continue;
-            ctx.strokeStyle = `hsla(${hue2},100%,65%,${alpha})`;
-            ctx.lineWidth = 2;
-            ctx.shadowBlur = 16; ctx.shadowColor = `hsla(${hue2},100%,70%,${alpha})`;
-            ctx.beginPath();
-            ctx.moveTo(x1, 0); ctx.lineTo(x1 + H * 0.4, H);
-            ctx.stroke();
-          }
-          ctx.shadowBlur = 0;
-          break;
+          for(let i=0;i<8;i++){const progress=((ph*0.25+i/8)%1+1)%1;const hue2=(i*45+ph*20)%360;const x1=-W*0.2+(W*1.4)*progress;const alpha=Math.sin(progress*Math.PI)*0.6;if(alpha<0.05)continue;ctx.strokeStyle=`hsla(${hue2},100%,65%,${alpha})`;ctx.lineWidth=2;ctx.shadowBlur=16;ctx.shadowColor=`hsla(${hue2},100%,70%,${alpha})`;ctx.beginPath();ctx.moveTo(x1,0);ctx.lineTo(x1+H*0.4,H);ctx.stroke();}
+          ctx.shadowBlur=0;break;
         }
-
         case 'old_film': {
-          // Filme antigo: grain pesado + scratches verticais + cor amarelada + flicker
-          const flicker = 0.88 + 0.12 * Math.random();
-          ctx.fillStyle = `rgba(180,140,60,${0.12 * flicker})`;
-          ctx.fillRect(0, 0, W, H);
-          // Grain denso
-          for (let i = 0; i < 1200; i++) {
-            const gx = Math.random() * W, gy = Math.random() * H;
-            const gv = Math.floor(Math.random() * 180);
-            ctx.fillStyle = `rgba(${gv},${gv},${gv * 0.7},${Math.random() * 0.35})`;
-            ctx.fillRect(gx, gy, 1, 1);
-          }
-          // Riscos verticais
-          for (let s = 0; s < 3; s++) {
-            const sx = ((s * 317 + Math.floor(ph * 12) * 89) % W + W) % W;
-            const slen = H * (0.3 + Math.random() * 0.7);
-            const sy = Math.random() * (H - slen);
-            ctx.strokeStyle = `rgba(255,240,200,${0.15 + Math.random() * 0.25})`;
-            ctx.lineWidth = 0.5 + Math.random();
-            ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(sx + 0.5, sy + slen); ctx.stroke();
-          }
-          // Vinheta forte
-          const ovg = ctx.createRadialGradient(W/2, H/2, Math.min(W,H)*0.2, W/2, H/2, Math.max(W,H)*0.75);
-          ovg.addColorStop(0, 'transparent'); ovg.addColorStop(1, 'rgba(20,10,0,0.65)');
-          ctx.fillStyle = ovg; ctx.fillRect(0, 0, W, H);
+          const flicker=0.88+0.12*Math.random();ctx.fillStyle=`rgba(180,140,60,${0.12*flicker})`;ctx.fillRect(0,0,W,H);
+          for(let i=0;i<1200;i++){const gx=Math.random()*W,gy=Math.random()*H,gv=Math.floor(Math.random()*180);ctx.fillStyle=`rgba(${gv},${gv},${gv*0.7},${Math.random()*0.35})`;ctx.fillRect(gx,gy,1,1);}
+          for(let s=0;s<3;s++){const sx=((s*317+Math.floor(ph*12)*89)%W+W)%W;const slen=H*(0.3+Math.random()*0.7);const sy=Math.random()*(H-slen);ctx.strokeStyle=`rgba(255,240,200,${0.15+Math.random()*0.25})`;ctx.lineWidth=0.5+Math.random();ctx.beginPath();ctx.moveTo(sx,sy);ctx.lineTo(sx+0.5,sy+slen);ctx.stroke();}
+          const ovg=ctx.createRadialGradient(W/2,H/2,Math.min(W,H)*0.2,W/2,H/2,Math.max(W,H)*0.75);ovg.addColorStop(0,'transparent');ovg.addColorStop(1,'rgba(20,10,0,0.65)');ctx.fillStyle=ovg;ctx.fillRect(0,0,W,H);
           break;
         }
 
@@ -3643,25 +3918,34 @@ _setDragging(null);
     // Desenha TODOS os vídeos ativos (abaixo das imagens)
     getVideosForTime(time).forEach(v => {
       if (!v.videoEl || v.videoEl.readyState < 1 || v.videoEl.videoWidth === 0) return;
-      const vRot = (v.rotation || 0) * Math.PI / 180;
+      // Aplica keyframes de zoom animado se existirem
+      const kfState = getKfState(v, time);
+      const vx = kfState ? kfState.x : v.x;
+      const vy = kfState ? kfState.y : v.y;
+      const vw = kfState ? kfState.w : v.width;
+      const vh = kfState ? kfState.h : v.height;
+      const vRot = kfState ? kfState.rotation * Math.PI / 180 : (v.rotation || 0) * Math.PI / 180;
+      const vOp  = kfState ? kfState.opacity : 1;
       const _vf  = buildFilterString(v.filters);
       const _vtr = getTransitionTransform(v, time);
+      const vProxy = { ...v, x: vx, y: vy, width: vw, height: vh };
       ctx.save();
-      if (_vtr) { _applyTr(ctx, _vtr, _vf, v); }
+      if (kfState) ctx.globalAlpha = Math.max(0, Math.min(1, vOp));
+      if (_vtr) { _applyTr(ctx, _vtr, _vf, vProxy); }
       else if (_vf !== 'none') { ctx.filter = _vf; }
-      applyElementMask(ctx, v);
-      const drawVid = (tCtx) => drawRotatedElement(tCtx || ctx, () => drawRoundedImage(tCtx || ctx, v.videoEl, v.x, v.y, v.width, v.height, v.radius ?? 12), v.x, v.y, v.width, v.height, v.rotation);
-      applyElementChromatic(ctx, v, drawVid);
-      ctx.filter = 'none'; ctx.restore();
+      applyElementMask(ctx, vProxy);
+      const drawVid = (tCtx) => drawRotatedElement(tCtx || ctx, () => drawRoundedImage(tCtx || ctx, v.videoEl, vx, vy, vw, vh, v.radius ?? 12), vx, vy, vw, vh, kfState ? kfState.rotation : v.rotation);
+      applyElementChromatic(ctx, vProxy, drawVid);
+      ctx.filter = 'none'; ctx.globalAlpha = 1; ctx.restore();
       if (activeVideoId === v.id) {
-        const cx = v.x + v.width / 2, cy = v.y + v.height / 2;
+        const cx = vx + vw / 2, cy = vy + vh / 2;
         ctx.save();
         ctx.translate(cx, cy); ctx.rotate(vRot); ctx.translate(-cx, -cy);
         ctx.strokeStyle = 'rgba(167,139,250,0.9)';
         ctx.lineWidth = 2;
-        drawRoundedRect(ctx, v.x, v.y, v.width, v.height, (v.radius ?? 12) + 2);
+        drawRoundedRect(ctx, vx, vy, vw, vh, (v.radius ?? 12) + 2);
         ctx.stroke();
-        drawResizeHandles(ctx, v.x, v.y, v.width, v.height);
+        drawResizeHandles(ctx, vx, vy, vw, vh);
         ctx.restore();
       }
     });
@@ -3669,23 +3953,31 @@ _setDragging(null);
     // Desenha TODAS as imagens ativas no instante (camadas simultâneas)
     const overlayImages = getImagesForTime(time);
     overlayImages.forEach(overlayImage => {
-      const iRot = (overlayImage.rotation || 0) * Math.PI / 180;
+      const kfStateI = getKfState(overlayImage, time);
+      const ix = kfStateI ? kfStateI.x : overlayImage.x;
+      const iy = kfStateI ? kfStateI.y : overlayImage.y;
+      const iw = kfStateI ? kfStateI.w : overlayImage.width;
+      const ih = kfStateI ? kfStateI.h : overlayImage.height;
+      const iRot = kfStateI ? kfStateI.rotation * Math.PI / 180 : (overlayImage.rotation || 0) * Math.PI / 180;
+      const iOp  = kfStateI ? kfStateI.opacity : 1;
       const _if  = buildFilterString(overlayImage.filters);
       const _itr = getTransitionTransform(overlayImage, time);
+      const iProxy = { ...overlayImage, x: ix, y: iy, width: iw, height: ih };
       ctx.save();
-      if (_itr) { _applyTr(ctx, _itr, _if, overlayImage); }
+      if (kfStateI) ctx.globalAlpha = Math.max(0, Math.min(1, iOp));
+      if (_itr) { _applyTr(ctx, _itr, _if, iProxy); }
       else if (_if !== 'none') { ctx.filter = _if; }
-      drawRotatedElement(ctx, () => drawRoundedImage(ctx, overlayImage.img, overlayImage.x, overlayImage.y, overlayImage.width, overlayImage.height, overlayImage.radius ?? 18), overlayImage.x, overlayImage.y, overlayImage.width, overlayImage.height, overlayImage.rotation);
-      ctx.filter = 'none'; ctx.restore();
+      drawRotatedElement(ctx, () => drawRoundedImage(ctx, overlayImage.img, ix, iy, iw, ih, overlayImage.radius ?? 18), ix, iy, iw, ih, kfStateI ? kfStateI.rotation : overlayImage.rotation);
+      ctx.filter = 'none'; ctx.globalAlpha = 1; ctx.restore();
       if (activeImageId === overlayImage.id) {
-        const cx = overlayImage.x + overlayImage.width / 2, cy = overlayImage.y + overlayImage.height / 2;
+        const cx = ix + iw / 2, cy = iy + ih / 2;
         ctx.save();
         ctx.translate(cx, cy); ctx.rotate(iRot); ctx.translate(-cx, -cy);
         ctx.strokeStyle = 'rgba(248, 250, 252, 0.9)';
         ctx.lineWidth = 2;
-        drawRoundedRect(ctx, overlayImage.x, overlayImage.y, overlayImage.width, overlayImage.height, (overlayImage.radius ?? 18) + 2);
+        drawRoundedRect(ctx, ix, iy, iw, ih, (overlayImage.radius ?? 18) + 2);
         ctx.stroke();
-        drawResizeHandles(ctx, overlayImage.x, overlayImage.y, overlayImage.width, overlayImage.height);
+        drawResizeHandles(ctx, ix, iy, iw, ih);
         ctx.restore();
       }
     });
@@ -3935,6 +4227,201 @@ _setDragging(null);
       }
       ctx.restore();
     });
+    // ── Molduras (desenhadas sobre tudo, antes dos efeitos globais) ────────────
+    framesRef.current.forEach(fr => {
+      const fw = fr.width || 200, fh = fr.height || 200;
+      const fx = fr.x || 0, fy = fr.y || 0;
+      const frot = (fr.rotation || 0) * Math.PI / 180;
+      const th = fr.thickness || 6;
+      const col = fr.color || '#ffffff';
+      const cr = fr.cornerRadius || 0;
+      const op = fr.opacity ?? 1;
+      ctx.save();
+      ctx.globalAlpha = op;
+      if (frot) {
+        const fcx = fx + fw/2, fcy = fy + fh/2;
+        ctx.translate(fcx, fcy); ctx.rotate(frot); ctx.translate(-fcx, -fcy);
+      }
+      ctx.strokeStyle = col;
+      ctx.lineWidth = th;
+      ctx.shadowBlur = 0;
+      const isActive = activeFrameId === fr.id;
+
+      switch (fr.style) {
+        case 'solid': {
+          if (cr > 0) {
+            ctx.beginPath();
+            ctx.moveTo(fx+cr, fy); ctx.lineTo(fx+fw-cr, fy);
+            ctx.arcTo(fx+fw, fy, fx+fw, fy+cr, cr);
+            ctx.lineTo(fx+fw, fy+fh-cr);
+            ctx.arcTo(fx+fw, fy+fh, fx+fw-cr, fy+fh, cr);
+            ctx.lineTo(fx+cr, fy+fh);
+            ctx.arcTo(fx, fy+fh, fx, fy+fh-cr, cr);
+            ctx.lineTo(fx, fy+cr);
+            ctx.arcTo(fx, fy, fx+cr, fy, cr);
+            ctx.closePath(); ctx.stroke();
+          } else {
+            ctx.strokeRect(fx, fy, fw, fh);
+          }
+          break;
+        }
+        case 'double': {
+          const off = th * 1.5;
+          ctx.lineWidth = th * 0.6;
+          ctx.strokeRect(fx, fy, fw, fh);
+          ctx.strokeRect(fx+off, fy+off, fw-off*2, fh-off*2);
+          break;
+        }
+        case 'dashed': {
+          ctx.setLineDash([th*3, th*2]);
+          if (cr > 0) {
+            ctx.beginPath(); ctx.moveTo(fx+cr, fy); ctx.lineTo(fx+fw-cr, fy);
+            ctx.arcTo(fx+fw, fy, fx+fw, fy+cr, cr); ctx.lineTo(fx+fw, fy+fh-cr);
+            ctx.arcTo(fx+fw, fy+fh, fx+fw-cr, fy+fh, cr); ctx.lineTo(fx+cr, fy+fh);
+            ctx.arcTo(fx, fy+fh, fx, fy+fh-cr, cr); ctx.lineTo(fx, fy+cr);
+            ctx.arcTo(fx, fy, fx+cr, fy, cr); ctx.closePath(); ctx.stroke();
+          } else { ctx.strokeRect(fx, fy, fw, fh); }
+          ctx.setLineDash([]);
+          break;
+        }
+        case 'dotted': {
+          ctx.setLineDash([th, th*2]);
+          ctx.lineCap = 'round';
+          ctx.strokeRect(fx, fy, fw, fh);
+          ctx.setLineDash([]); ctx.lineCap = 'butt';
+          break;
+        }
+        case 'neon': {
+          ctx.shadowBlur = th * 4; ctx.shadowColor = col;
+          ctx.strokeRect(fx, fy, fw, fh);
+          ctx.shadowBlur = th * 8; ctx.shadowColor = col;
+          ctx.lineWidth = th * 0.5;
+          ctx.strokeRect(fx, fy, fw, fh);
+          ctx.shadowBlur = 0;
+          break;
+        }
+        case 'neon_double': {
+          const col2 = fr.color2 || '#ff00ff';
+          ctx.shadowBlur = th*5; ctx.shadowColor = col;
+          ctx.strokeRect(fx, fy, fw, fh);
+          ctx.shadowBlur = th*5; ctx.shadowColor = col2;
+          ctx.strokeStyle = col2; ctx.lineWidth = th * 0.4;
+          ctx.strokeRect(fx+th*1.2, fy+th*1.2, fw-th*2.4, fh-th*2.4);
+          ctx.shadowBlur = 0;
+          break;
+        }
+        case 'gradient': {
+          const gg = ctx.createLinearGradient(fx, fy, fx+fw, fy+fh);
+          gg.addColorStop(0, col);
+          gg.addColorStop(0.5, fr.color2 || '#00bfff');
+          gg.addColorStop(1, col);
+          ctx.strokeStyle = gg;
+          ctx.strokeRect(fx, fy, fw, fh);
+          break;
+        }
+        case 'corners': {
+          const cl = Math.min(fw, fh) * 0.22;
+          ctx.lineCap = 'square';
+          // TL
+          ctx.beginPath(); ctx.moveTo(fx, fy+cl); ctx.lineTo(fx, fy); ctx.lineTo(fx+cl, fy); ctx.stroke();
+          // TR
+          ctx.beginPath(); ctx.moveTo(fx+fw-cl, fy); ctx.lineTo(fx+fw, fy); ctx.lineTo(fx+fw, fy+cl); ctx.stroke();
+          // BL
+          ctx.beginPath(); ctx.moveTo(fx, fy+fh-cl); ctx.lineTo(fx, fy+fh); ctx.lineTo(fx+cl, fy+fh); ctx.stroke();
+          // BR
+          ctx.beginPath(); ctx.moveTo(fx+fw-cl, fy+fh); ctx.lineTo(fx+fw, fy+fh); ctx.lineTo(fx+fw, fy+fh-cl); ctx.stroke();
+          ctx.lineCap = 'butt';
+          break;
+        }
+        case 'corners_round': {
+          const cl = Math.min(fw, fh) * 0.2;
+          ctx.lineCap = 'round';
+          ctx.beginPath(); ctx.moveTo(fx, fy+cl); ctx.quadraticCurveTo(fx, fy, fx+cl, fy); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(fx+fw-cl, fy); ctx.quadraticCurveTo(fx+fw, fy, fx+fw, fy+cl); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(fx, fy+fh-cl); ctx.quadraticCurveTo(fx, fy+fh, fx+cl, fy+fh); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(fx+fw-cl, fy+fh); ctx.quadraticCurveTo(fx+fw, fy+fh, fx+fw, fy+fh-cl); ctx.stroke();
+          ctx.lineCap = 'butt';
+          break;
+        }
+        case 'film': {
+          ctx.fillStyle = col;
+          const hp = fh * 0.06, pw = fw * 0.035, gap = pw * 1.6;
+          const count = Math.floor((fw * 0.8) / (pw + gap));
+          const total = count * (pw + gap) - gap;
+          const startX = fx + (fw - total) / 2;
+          for (let i = 0; i < count; i++) {
+            const px = startX + i * (pw + gap);
+            ctx.fillRect(px, fy + hp*0.3, pw, hp);
+            ctx.fillRect(px, fy + fh - hp*1.3, pw, hp);
+          }
+          ctx.lineWidth = th; ctx.strokeStyle = col;
+          ctx.strokeRect(fx, fy + hp*1.8, fw, fh - hp*3.6);
+          break;
+        }
+        case 'polaroid': {
+          ctx.fillStyle = col;
+          ctx.globalAlpha = op * 0.92;
+          const bw = th * 1.5;
+          ctx.fillRect(fx, fy, fw, bw);
+          ctx.fillRect(fx, fy+fh-bw*3, fw, bw*3);
+          ctx.fillRect(fx, fy+bw, bw, fh-bw*4);
+          ctx.fillRect(fx+fw-bw, fy+bw, bw, fh-bw*4);
+          break;
+        }
+        case 'art_deco': {
+          ctx.lineWidth = th * 0.5;
+          ctx.strokeRect(fx, fy, fw, fh);
+          ctx.strokeRect(fx+th*2, fy+th*2, fw-th*4, fh-th*4);
+          const cdl = Math.min(fw,fh)*0.08;
+          [[fx,fy],[fx+fw,fy],[fx,fy+fh],[fx+fw,fy+fh]].forEach(([cx2,cy2]) => {
+            ctx.beginPath();
+            ctx.arc(cx2, cy2, cdl, 0, Math.PI*2);
+            ctx.stroke();
+          });
+          break;
+        }
+        case 'vintage': {
+          ctx.lineWidth = th*0.7; ctx.strokeRect(fx+th, fy+th, fw-th*2, fh-th*2);
+          ctx.lineWidth = th*1.4; ctx.setLineDash([th*1.5,th]);
+          ctx.strokeRect(fx, fy, fw, fh);
+          ctx.setLineDash([]);
+          break;
+        }
+        case 'shadow': {
+          ctx.shadowColor = col; ctx.shadowBlur = th*3;
+          ctx.shadowOffsetX = th; ctx.shadowOffsetY = th;
+          ctx.lineWidth = th * 0.5; ctx.strokeRect(fx, fy, fw, fh);
+          ctx.shadowBlur=0; ctx.shadowOffsetX=0; ctx.shadowOffsetY=0;
+          break;
+        }
+        case 'glitch_frame': {
+          const off2 = th * 0.8;
+          ctx.strokeStyle = '#ff0040'; ctx.strokeRect(fx+off2, fy-off2*0.5, fw, fh);
+          ctx.strokeStyle = '#00ffcc'; ctx.strokeRect(fx-off2*0.5, fy+off2, fw, fh);
+          ctx.strokeStyle = col; ctx.lineWidth = th*0.5;
+          if (Math.sin(Date.now()/80)>0.3) { ctx.strokeRect(fx-1, fy+Math.random()*fh*0.3, fw+2, fh*0.05); }
+          break;
+        }
+        default:
+          ctx.strokeRect(fx, fy, fw, fh);
+      }
+
+      // Selection indicator
+      if (isActive) {
+        ctx.globalAlpha = 1; ctx.strokeStyle = 'rgba(0,191,255,0.9)';
+        ctx.lineWidth = 1.5; ctx.setLineDash([4,3]);
+        ctx.strokeRect(fx-6, fy-6, fw+12, fh+12);
+        ctx.setLineDash([]);
+        // Resize handles
+        ctx.fillStyle = '#00BFFF';
+        const hs2 = 8;
+        [[fx,fy],[fx+fw,fy],[fx,fy+fh],[fx+fw,fy+fh]].forEach(([hx2,hy2]) => {
+          ctx.fillRect(hx2-hs2/2, hy2-hs2/2, hs2, hs2);
+        });
+      }
+      ctx.restore();
+    });
+
     // ── Curvas de Cor (pós-processamento global) ──────────────────────────────
     const cc = colorCurves;
     const hasCC = cc && (Math.abs(cc.r-1)>0.01||Math.abs(cc.g-1)>0.01||Math.abs(cc.b-1)>0.01||
@@ -3970,7 +4457,7 @@ _setDragging(null);
       drawScreenEffectRef.current?.(ctx, screenEffect, canvas.width, canvas.height, Date.now()/1000);
     }
     // Não agenda mais RAF aqui — o loop unificado abaixo cuida disso
-  }, [activeImageId, activeVideoId, activeExtraTextId, activeLyricId, editingLyricId, drawRotatedElement, drawRoundedImage, drawRoundedRect, drawResizeHandles, applyElementMask, applyElementChromatic, extraTextColor, extraTextFontFamily, extraTextFontSize, extraTexts, fontFamily, fontSize, getImagesForTime, getVideosForTime, image, lyrics, textColor, wrapLyricText, videos, shadowEnabled, shadowBlur, shadowColor, shadowOffsetX, shadowOffsetY, gradientEnabled, gradientColor1, gradientColor2, zoom, screenEffect, colorCurves, chromaAberration]);
+  }, [activeImageId, activeVideoId, activeExtraTextId, activeLyricId, editingLyricId, drawRotatedElement, drawRoundedImage, drawRoundedRect, drawResizeHandles, applyElementMask, applyElementChromatic, getKfState, extraTextColor, extraTextFontFamily, extraTextFontSize, extraTexts, fontFamily, fontSize, getImagesForTime, getVideosForTime, image, lyrics, textColor, wrapLyricText, videos, shadowEnabled, shadowBlur, shadowColor, shadowOffsetX, shadowOffsetY, gradientEnabled, gradientColor1, gradientColor2, zoom, screenEffect, colorCurves, chromaAberration, activeFrameId, frames]);
 
 
   // ── Sync de vídeos via função chamada pelo loop RAF ──────────────────────
@@ -4063,6 +4550,23 @@ _setDragging(null);
     }
   }, [canvasFormat]); // eslint-disable-line
 
+  // Grava snapshot inicial (estado vazio) via pendingHistory flag
+  useEffect(() => {
+    const t = setTimeout(() => {
+      if (historyRef.current.length === 0 && !isUndoingRef.current) {
+        pendingHistoryRef.current = true;
+        setHistoryTrigger(1); // força re-render para o useEffect de captura rodar
+      }
+    }, 300);
+    return () => clearTimeout(t);
+  }, []); // eslint-disable-line
+
+  // Refs estáveis para undo/redo (acessíveis no keydown listener sem re-criar)
+  const undoRef = useRef(null);
+  const redoRef = useRef(null);
+  useEffect(() => { undoRef.current = undo; }, [undo]);
+  useEffect(() => { redoRef.current = redo; }, [redo]);
+
   const drawRef = useRef(null);
   useEffect(() => { drawRef.current = draw; }, [draw]);
 
@@ -4083,6 +4587,55 @@ _setDragging(null);
   useEffect(() => { imagesRef.current = images; }, [images]);
   const extraTextsRef = useRef(extraTexts);
   useEffect(() => { extraTextsRef.current = extraTexts; }, [extraTexts]);
+  const imageSrcRef = useRef(imageSrc);
+  useEffect(() => { imageSrcRef.current = imageSrc; }, [imageSrc]);
+  const colorCurvesRef = useRef(colorCurves);
+  useEffect(() => { colorCurvesRef.current = colorCurves; }, [colorCurves]);
+
+  // ── Captura de snapshot APÓS React comitar o estado ─────────────────────
+  // Este useEffect roda depois de cada render onde os estados relevantes mudaram.
+  // Quando pendingHistoryRef=true, grava o estado atual (já commitado) na pilha.
+  // Isso garante que cada snapshot reflete exatamente um estado coerente,
+  // sem o problema de refs desatualizadas que ocorria ao capturar antes do render.
+  useEffect(() => {
+    if (!pendingHistoryRef.current || isUndoingRef.current) return;
+    pendingHistoryRef.current = false;
+    const snap = {
+      imageSrc,
+      images:       images.map(({ img, ...rest }) => rest),
+      extraTexts:   [...extraTexts],
+      lyrics:       [...lyrics],
+      stickers:     [...stickers],
+      frames:       frames.map(f => ({...f})),
+      screenEffect,
+      videos:       videos.map(({ videoEl, audioBuffer, ...rest }) => rest),
+      soundEffects: [...soundEffects],
+      colorCurves:  { ...colorCurves },
+    };
+    const history = historyRef.current;
+    const idx     = historyIdxRef.current;
+    // Descarta snapshots idênticos ao último (evita duplicatas por double-render)
+    if (idx >= 0) {
+      const last = history[idx];
+      const sameVideos = JSON.stringify(snap.videos) === JSON.stringify(last.videos);
+      const sameImages = JSON.stringify(snap.images) === JSON.stringify(last.images);
+      const sameLyrics = JSON.stringify(snap.lyrics) === JSON.stringify(last.lyrics);
+      const sameExtras = JSON.stringify(snap.extraTexts) === JSON.stringify(last.extraTexts);
+      const sameStickers = JSON.stringify(snap.stickers) === JSON.stringify(last.stickers);
+      const sameSfx = JSON.stringify(snap.soundEffects) === JSON.stringify(last.soundEffects);
+      const sameEffect = snap.screenEffect === last.screenEffect;
+      const sameBg = snap.imageSrc === last.imageSrc;
+      if (sameVideos && sameImages && sameLyrics && sameExtras && sameStickers && sameSfx && sameEffect && sameBg) return;
+    }
+    const newHist = history.slice(0, idx + 1);
+    newHist.push(snap);
+    if (newHist.length > MAX_HISTORY) newHist.shift();
+    historyRef.current    = newHist;
+    historyIdxRef.current = newHist.length - 1;
+    setCanUndo(historyIdxRef.current > 0);
+    setCanRedo(false);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [images, extraTexts, lyrics, stickers, screenEffect, videos, soundEffects, colorCurves, imageSrc, historyTrigger]);
 
   // ── Waveform estático em canvas (sem re-renders do React) ─────────────────
   useEffect(() => {
@@ -4292,24 +4845,34 @@ _setDragging(null);
     // readyState >= 2 = frame atual disponível para drawImage
     activeVids.forEach(v => {
       if (!v.videoEl || v.videoEl.readyState < 2 || v.videoEl.videoWidth === 0) return;
+      const kfEV = getKfState(v, t);
+      const evx = kfEV ? kfEV.x : v.x, evy = kfEV ? kfEV.y : v.y;
+      const evw = kfEV ? kfEV.w : v.width, evh = kfEV ? kfEV.h : v.height;
+      const evProxy = { ...v, x: evx, y: evy, width: evw, height: evh };
       const _evf = buildFilterString(v.filters);
-      const _etr = getTransitionTransform(v, t);
+      const _etr = getTransitionTransform(evProxy, t);
       ctx.save();
-      if (_etr) { _applyTr(ctx, _etr, _evf, v); } else if(_evf!=='none'){ctx.filter=_evf;}
-      applyElementMask(ctx, v);
-      const drawVidE = (tCtx) => drawRotatedElement(tCtx || ctx, () => drawRoundedImage(tCtx || ctx, v.videoEl, v.x, v.y, v.width, v.height, v.radius ?? 12), v.x, v.y, v.width, v.height, v.rotation);
-      applyElementChromatic(ctx, v, drawVidE);
-      ctx.filter='none'; ctx.restore();
+      if (kfEV) ctx.globalAlpha = Math.max(0, Math.min(1, kfEV.opacity));
+      if (_etr) { _applyTr(ctx, _etr, _evf, evProxy); } else if(_evf!=='none'){ctx.filter=_evf;}
+      applyElementMask(ctx, evProxy);
+      const drawVidE = (tCtx) => drawRotatedElement(tCtx || ctx, () => drawRoundedImage(tCtx || ctx, v.videoEl, evx, evy, evw, evh, v.radius ?? 12), evx, evy, evw, evh, kfEV ? kfEV.rotation : v.rotation);
+      applyElementChromatic(ctx, evProxy, drawVidE);
+      ctx.filter='none'; ctx.globalAlpha=1; ctx.restore();
     });
     // Renderiza TODAS as imagens ativas no instante t (usa ref para evitar closure stale)
     const activeImgs = (imagesRef.current || []).filter(item => item?.img && t >= item.start && t <= item.end);
     activeImgs.forEach(overlayImage => {
+      const kfEI = getKfState(overlayImage, t);
+      const eix = kfEI ? kfEI.x : overlayImage.x, eiy = kfEI ? kfEI.y : overlayImage.y;
+      const eiw = kfEI ? kfEI.w : overlayImage.width, eih = kfEI ? kfEI.h : overlayImage.height;
+      const eiProxy = { ...overlayImage, x: eix, y: eiy, width: eiw, height: eih };
       const _eif = buildFilterString(overlayImage.filters);
-      const _eit = getTransitionTransform(overlayImage, t);
+      const _eit = getTransitionTransform(eiProxy, t);
       ctx.save();
-      if (_eit) { _applyTr(ctx, _eit, _eif, overlayImage); } else if(_eif!=='none'){ctx.filter=_eif;}
-      drawRotatedElement(ctx, () => drawRoundedImage(ctx, overlayImage.img, overlayImage.x, overlayImage.y, overlayImage.width, overlayImage.height, overlayImage.radius ?? 18), overlayImage.x, overlayImage.y, overlayImage.width, overlayImage.height, overlayImage.rotation);
-      ctx.filter='none'; ctx.restore();
+      if (kfEI) ctx.globalAlpha = Math.max(0, Math.min(1, kfEI.opacity));
+      if (_eit) { _applyTr(ctx, _eit, _eif, eiProxy); } else if(_eif!=='none'){ctx.filter=_eif;}
+      drawRotatedElement(ctx, () => drawRoundedImage(ctx, overlayImage.img, eix, eiy, eiw, eih, overlayImage.radius ?? 18), eix, eiy, eiw, eih, kfEI ? kfEI.rotation : overlayImage.rotation);
+      ctx.filter='none'; ctx.globalAlpha=1; ctx.restore();
     });
     ctx.fillStyle = textColor;
     ctx.textAlign = 'center';
@@ -4447,6 +5010,27 @@ _setDragging(null);
       ctx.restore();
     });
     // ── Curvas de Cor no export ──────────────────────────────────────────────
+    // Molduras no export
+    framesRef.current.forEach(fr => {
+      const fw=fr.width||200,fh=fr.height||200,fx=fr.x||0,fy=fr.y||0;
+      const frot=(fr.rotation||0)*Math.PI/180,th=fr.thickness||6,col=fr.color||'#ffffff',op=fr.opacity??1,cr=fr.cornerRadius||0;
+      ctx.save(); ctx.globalAlpha=op; ctx.strokeStyle=col; ctx.lineWidth=th;
+      if(frot){const fcx=fx+fw/2,fcy=fy+fh/2;ctx.translate(fcx,fcy);ctx.rotate(frot);ctx.translate(-fcx,-fcy);}
+      switch(fr.style){
+        case 'solid':if(cr>0){ctx.beginPath();ctx.moveTo(fx+cr,fy);ctx.lineTo(fx+fw-cr,fy);ctx.arcTo(fx+fw,fy,fx+fw,fy+cr,cr);ctx.lineTo(fx+fw,fy+fh-cr);ctx.arcTo(fx+fw,fy+fh,fx+fw-cr,fy+fh,cr);ctx.lineTo(fx+cr,fy+fh);ctx.arcTo(fx,fy+fh,fx,fy+fh-cr,cr);ctx.lineTo(fx,fy+cr);ctx.arcTo(fx,fy,fx+cr,fy,cr);ctx.closePath();ctx.stroke();}else ctx.strokeRect(fx,fy,fw,fh);break;
+        case 'double':ctx.lineWidth=th*0.6;ctx.strokeRect(fx,fy,fw,fh);ctx.strokeRect(fx+th*1.5,fy+th*1.5,fw-th*3,fh-th*3);break;
+        case 'dashed':ctx.setLineDash([th*3,th*2]);ctx.strokeRect(fx,fy,fw,fh);ctx.setLineDash([]);break;
+        case 'dotted':ctx.setLineDash([th,th*2]);ctx.lineCap='round';ctx.strokeRect(fx,fy,fw,fh);ctx.setLineDash([]);ctx.lineCap='butt';break;
+        case 'neon':ctx.shadowBlur=th*4;ctx.shadowColor=col;ctx.strokeRect(fx,fy,fw,fh);ctx.shadowBlur=0;break;
+        case 'gradient':{const gg=ctx.createLinearGradient(fx,fy,fx+fw,fy+fh);gg.addColorStop(0,col);gg.addColorStop(0.5,fr.color2||'#00bfff');gg.addColorStop(1,col);ctx.strokeStyle=gg;ctx.strokeRect(fx,fy,fw,fh);break;}
+        case 'corners':{const cl=Math.min(fw,fh)*0.22;ctx.lineCap='square';[[fx,fy+cl,fx,fy,fx+cl,fy],[fx+fw-cl,fy,fx+fw,fy,fx+fw,fy+cl],[fx,fy+fh-cl,fx,fy+fh,fx+cl,fy+fh],[fx+fw-cl,fy+fh,fx+fw,fy+fh,fx+fw,fy+fh-cl]].forEach(([x1,y1,x2,y2,x3,y3])=>{ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.lineTo(x3,y3);ctx.stroke();});ctx.lineCap='butt';break;}
+        case 'film':{ctx.fillStyle=col;const hp=fh*0.06,pw=fw*0.035,gap=pw*1.6,count=Math.floor(fw*0.8/(pw+gap)),total=count*(pw+gap)-gap,startX=fx+(fw-total)/2;for(let i=0;i<count;i++){const px=startX+i*(pw+gap);ctx.fillRect(px,fy+hp*0.3,pw,hp);ctx.fillRect(px,fy+fh-hp*1.3,pw,hp);}ctx.lineWidth=th;ctx.strokeStyle=col;ctx.strokeRect(fx,fy+hp*1.8,fw,fh-hp*3.6);break;}
+        case 'polaroid':{ctx.fillStyle=col;const bw=th*1.5;ctx.fillRect(fx,fy,fw,bw);ctx.fillRect(fx,fy+fh-bw*3,fw,bw*3);ctx.fillRect(fx,fy+bw,bw,fh-bw*4);ctx.fillRect(fx+fw-bw,fy+bw,bw,fh-bw*4);break;}
+        default:ctx.strokeRect(fx,fy,fw,fh);
+      }
+      ctx.restore();
+    });
+
     const ccE = colorCurves;
     const hasCCE = ccE && (Math.abs(ccE.r-1)>0.01||Math.abs(ccE.g-1)>0.01||Math.abs(ccE.b-1)>0.01||
                            Math.abs(ccE.midtone-1)>0.01||Math.abs(ccE.shadows)>0.01||Math.abs(ccE.highlights)>0.01);
@@ -5038,6 +5622,7 @@ _setDragging(null);
     })),
     extraTexts,
     stickers: stickers.map(s => ({ ...s })),
+    frames:   frames.map(f => ({ ...f })),
     soundEffects: soundEffects.map(s => ({ ...s })),
     fontSize,
     textColor,
@@ -5125,6 +5710,7 @@ _setDragging(null);
         if (Array.isArray(p.stickers)) {
           setStickers(p.stickers);
         }
+        if (Array.isArray(p.frames)) setFrames(p.frames);
         if (Array.isArray(p.soundEffects)) setSoundEffects(p.soundEffects);
         if (p.fontSize !== undefined) setFontSize(p.fontSize);
         if (p.textColor) setTextColor(p.textColor);
@@ -5662,12 +6248,12 @@ _setDragging(null);
       `}</style>
       
       {/* HEADER CONTROLS — Redesign profissional: barra única com grupos */}
-      <div style={{ display:'flex', alignItems:'center', gap:6, padding:'0 14px', height:52, background:'linear-gradient(180deg,#0d1117 0%,#090d13 100%)', borderBottom:'1px solid rgba(255,255,255,0.07)', width:'100%', boxSizing:'border-box', flexShrink:0, zIndex:100 }}>
+      <div style={{ display:'flex', alignItems:'center', gap:4, padding:'0 10px', height:52, background:'linear-gradient(180deg,#0d1117 0%,#090d13 100%)', borderBottom:'1px solid rgba(255,255,255,0.07)', width:'100%', boxSizing:'border-box', flexShrink:0, zIndex:100 }}>
 
         {/* ── Logo ── */}
-        <div style={{ display:'flex', alignItems:'center', gap:8, marginRight:10, flexShrink:0 }}>
-          <div style={{ width:28, height:28, borderRadius:8, background:'linear-gradient(135deg,#00BFFF,#7b2ff7)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:14 }}>▶</div>
-          <span style={{ fontSize:13, fontWeight:800, color:'#f0f0f0', letterSpacing:'-0.3px', whiteSpace:'nowrap' }}>Canvas<span style={{ color:'#00BFFF' }}>Sync</span></span>
+        <div style={{ display:'flex', alignItems:'center', gap:6, marginRight:6, flexShrink:0 }}>
+          <div style={{ width:24, height:24, borderRadius:7, background:'linear-gradient(135deg,#00BFFF,#7b2ff7)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:12 }}>▶</div>
+          <span style={{ fontSize:12, fontWeight:800, color:'#f0f0f0', letterSpacing:'-0.3px', whiteSpace:'nowrap' }}>Canvas<span style={{ color:'#00BFFF' }}>Sync</span></span>
         </div>
 
         {/* Divisor */}
@@ -5675,13 +6261,13 @@ _setDragging(null);
 
         {/* ── Grupo MÍDIAS ── */}
         <div style={{ position:'relative', flexShrink:0 }}>
-          <button ref={(el)=>{ midiaBtnRef.current=el; bgBtnRef.current=el; }}
+          <button ref={(el)=>{ midiaBtnRef.current=el; bgBtnRef.current=el; trilhasBtnRef.current=el; }}
             onClick={() => { setShowMidiasPanel(v=>!v); setShowExportPanel(false); setShowProjetoPanel(false); }}
-            style={{ display:'flex', alignItems:'center', gap:5, padding:'6px 11px', borderRadius:8, background:showMidiasPanel?'rgba(0,191,255,0.18)':'transparent', border:`1px solid ${showMidiasPanel?'rgba(0,191,255,0.5)':'transparent'}`, cursor:'pointer', color:'#ccc', fontSize:12, fontWeight:600, transition:'all 0.15s', whiteSpace:'nowrap' }}
+            style={{ display:'flex', alignItems:'center', gap:4, padding:'5px 8px', borderRadius:7, background:showMidiasPanel?'rgba(0,191,255,0.18)':'transparent', border:`1px solid ${showMidiasPanel?'rgba(0,191,255,0.5)':'transparent'}`, cursor:'pointer', color:'#ccc', fontSize:11, fontWeight:600, transition:'all 0.15s', whiteSpace:'nowrap' }}
             onMouseEnter={e=>{if(!showMidiasPanel)e.currentTarget.style.background='rgba(255,255,255,0.05)'}}
             onMouseLeave={e=>{if(!showMidiasPanel)e.currentTarget.style.background='transparent'}}
           >
-            <span style={{fontSize:14}}>📂</span> Mídias <span style={{fontSize:9,opacity:0.6}}>▾</span>
+            <span style={{fontSize:13}}>📂</span> Mídias <span style={{fontSize:9,opacity:0.6}}>▾</span>
           </button>
           {showMidiasPanel && createPortal(
             <>
@@ -5695,6 +6281,7 @@ _setDragging(null);
                   { icon:'🏞️', label:'Imagens overlay',         color:'#00BFFF',  action:()=>{ imagesInputRef.current?.click(); setShowMidiasPanel(false); } },
                   { icon:'🎬', label:'Vídeo',                    color:'#a78bfa',  action:()=>{ videoInputRef.current?.click(); setShowMidiasPanel(false); } },
                   { icon:'🎵', label:'Música / Áudio',           color:'#10b981',  action:()=>{ audioInputRef.current?.click(); setShowMidiasPanel(false); } },
+                  { icon:'🎼', label:'Trilhas',                        color:'#a78bfa',  action:()=>{ setShowMidiasPanel(false); setShowTrilhasPanel(v=>!v); } },
                 ].map(item=>(
                   <div key={item.label} onClick={item.action}
                     style={{ display:'flex', alignItems:'center', gap:10, padding:'9px 14px', cursor:'pointer', transition:'background 0.1s' }}
@@ -5717,11 +6304,11 @@ _setDragging(null);
         <div style={{ position:'relative', flexShrink:0 }}>
           <button ref={templateBtnRef}
             onClick={()=>{ const rect=templateBtnRef.current?.getBoundingClientRect(); if(rect) setTemplatePanelPos({top:rect.bottom+4,left:Math.max(10,Math.min(rect.left,window.innerWidth-750))}); setTemplateFormatTab(canvasFormat); setShowTemplatePanel(v=>!v); }}
-            style={{ display:'flex', alignItems:'center', gap:5, padding:'6px 11px', borderRadius:8, background:showTemplatePanel?'rgba(16,185,129,0.18)':'transparent', border:`1px solid ${showTemplatePanel?'rgba(16,185,129,0.5)':'transparent'}`, cursor:'pointer', color:'#ccc', fontSize:12, fontWeight:600, whiteSpace:'nowrap', transition:'all 0.15s' }}
+            style={{ display:'flex', alignItems:'center', gap:4, padding:'5px 8px', borderRadius:7, background:showTemplatePanel?'rgba(16,185,129,0.18)':'transparent', border:`1px solid ${showTemplatePanel?'rgba(16,185,129,0.5)':'transparent'}`, cursor:'pointer', color:'#ccc', fontSize:11, fontWeight:600, whiteSpace:'nowrap', transition:'all 0.15s' }}
             onMouseEnter={e=>{if(!showTemplatePanel)e.currentTarget.style.background='rgba(255,255,255,0.05)'}}
             onMouseLeave={e=>{if(!showTemplatePanel)e.currentTarget.style.background='transparent'}}
           >
-            <span style={{fontSize:14}}>⚡</span> Templates
+            <span style={{fontSize:13}}>⚡</span> Templates
           </button>
           {showTemplatePanel && createPortal(
             <>
@@ -5794,7 +6381,7 @@ _setDragging(null);
         <div style={{ position:'relative', flexShrink:0 }}>
           <button ref={stickerBtnRef}
             onClick={()=>{ const rect=stickerBtnRef.current?.getBoundingClientRect(); if(rect) setStickerPanelPos({top:rect.bottom+4,left:Math.min(rect.left,window.innerWidth-372)}); setShowStickerPanel(v=>!v); }}
-            style={{ display:'flex', alignItems:'center', gap:5, padding:'6px 11px', borderRadius:8, background:showStickerPanel?'rgba(251,191,36,0.18)':'transparent', border:`1px solid ${showStickerPanel?'rgba(251,191,36,0.5)':'transparent'}`, cursor:'pointer', color:'#ccc', fontSize:12, fontWeight:600, whiteSpace:'nowrap', transition:'all 0.15s' }}
+            style={{ display:'flex', alignItems:'center', gap:4, padding:'5px 8px', borderRadius:7, background:showStickerPanel?'rgba(251,191,36,0.18)':'transparent', border:`1px solid ${showStickerPanel?'rgba(251,191,36,0.5)':'transparent'}`, cursor:'pointer', color:'#ccc', fontSize:11, fontWeight:600, whiteSpace:'nowrap', transition:'all 0.15s' }}
             onMouseEnter={e=>{if(!showStickerPanel)e.currentTarget.style.background='rgba(255,255,255,0.05)'}}
             onMouseLeave={e=>{if(!showStickerPanel)e.currentTarget.style.background='transparent'}}
           >
@@ -5854,7 +6441,7 @@ _setDragging(null);
         <div style={{ position:'relative', flexShrink:0 }}>
           <button ref={sfxBtnRef}
             onClick={()=>{ const rect=sfxBtnRef.current?.getBoundingClientRect(); if(rect) setSfxPanelPos({top:rect.bottom+4,left:Math.min(rect.left,window.innerWidth-380)}); setShowSfxPanel(v=>!v); }}
-            style={{ display:'flex', alignItems:'center', gap:5, padding:'6px 11px', borderRadius:8, background:showSfxPanel?'rgba(16,185,129,0.18)':'transparent', border:`1px solid ${showSfxPanel?'rgba(16,185,129,0.5)':'transparent'}`, cursor:'pointer', color:'#ccc', fontSize:12, fontWeight:600, whiteSpace:'nowrap', transition:'all 0.15s' }}
+            style={{ display:'flex', alignItems:'center', gap:4, padding:'5px 8px', borderRadius:7, background:showSfxPanel?'rgba(16,185,129,0.18)':'transparent', border:`1px solid ${showSfxPanel?'rgba(16,185,129,0.5)':'transparent'}`, cursor:'pointer', color:'#ccc', fontSize:11, fontWeight:600, whiteSpace:'nowrap', transition:'all 0.15s' }}
             onMouseEnter={e=>{if(!showSfxPanel)e.currentTarget.style.background='rgba(255,255,255,0.05)'}}
             onMouseLeave={e=>{if(!showSfxPanel)e.currentTarget.style.background='transparent'}}
           >
@@ -5872,7 +6459,7 @@ _setDragging(null);
                     title={sfx.name}
                     onClick={()=>{
                       const t=virtualTimeRef.current;
-                      setSoundEffects(prev=>[...prev,{id:Date.now()+Math.random(),key:sfx.key,name:sfx.name,emoji:sfx.emoji,startTime:parseFloat(t.toFixed(2)),volume:1}]);
+                      pushHistory(); setSoundEffects(prev=>[...prev,{id:Date.now()+Math.random(),key:sfx.key,name:sfx.name,emoji:sfx.emoji,startTime:parseFloat(t.toFixed(2)),volume:1}]);
                     }}
                     style={{ background:'rgba(255,255,255,0.04)', border:'1px solid rgba(16,185,129,0.15)', borderRadius:10, padding:'8px 4px', cursor:'pointer', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:3, width:'100%', boxSizing:'border-box' }}
                     onMouseEnter={e=>e.currentTarget.style.background='rgba(16,185,129,0.15)'}
@@ -5897,7 +6484,7 @@ _setDragging(null);
                       <button onClick={()=>setSoundEffects(prev=>prev.filter(s=>s.id!==sfx.id))} style={{ background:'rgba(239,68,68,0.1)', border:'1px solid rgba(239,68,68,0.3)', borderRadius:6, padding:'2px 7px', fontSize:11, color:'#f87171', cursor:'pointer' }}>✕</button>
                     </div>
                   ))}
-                  <button onClick={()=>setSoundEffects([])} style={{ marginTop:4, background:'rgba(239,68,68,0.08)', border:'1px solid rgba(239,68,68,0.2)', borderRadius:8, padding:'4px 12px', fontSize:10, color:'#f87171', fontWeight:700, cursor:'pointer', width:'100%' }}>{t('sfx_remove_all')}</button>
+                  <button onClick={()=>{ pushHistory(); setSoundEffects([]); }} style={{ marginTop:4, background:'rgba(239,68,68,0.08)', border:'1px solid rgba(239,68,68,0.2)', borderRadius:8, padding:'4px 12px', fontSize:10, color:'#f87171', fontWeight:700, cursor:'pointer', width:'100%' }}>{t('sfx_remove_all')}</button>
                 </div>
               )}
               {soundEffects.length===0&&<div style={{padding:'10px 16px 14px',fontSize:11,color:'#444',textAlign:'center'}}>{t('sfx_empty')}</div>}
@@ -5906,11 +6493,184 @@ _setDragging(null);
           )}
         </div>
 
+        {/* ── Molduras ── */}
+        <div style={{ position:'relative', flexShrink:0 }}>
+          <button ref={frameBtnRef}
+            onClick={()=>{ const rect=frameBtnRef.current?.getBoundingClientRect(); if(rect) setFramePanelPos({top:rect.bottom+4,left:Math.min(rect.left,window.innerWidth-420)}); setShowFramePanel(v=>!v); }}
+            style={{ display:'flex', alignItems:'center', gap:4, padding:'5px 8px', borderRadius:7,
+              background:showFramePanel?'rgba(16,185,129,0.18)':'transparent',
+              border:`1px solid ${showFramePanel?'rgba(16,185,129,0.5)':'transparent'}`,
+              cursor:'pointer', color:'#ccc', fontSize:11, fontWeight:600, whiteSpace:'nowrap', transition:'all 0.15s' }}
+            onMouseEnter={e=>{if(!showFramePanel)e.currentTarget.style.background='rgba(255,255,255,0.05)'}}
+            onMouseLeave={e=>{if(!showFramePanel)e.currentTarget.style.background=showFramePanel?'rgba(16,185,129,0.18)':'transparent'}}
+          >
+            <span style={{fontSize:14}}>🖼</span> Molduras {frames.length>0&&<span style={{background:'#10b981',borderRadius:8,padding:'1px 5px',fontSize:9,color:'#000',fontWeight:900}}>{frames.length}</span>}
+          </button>
+          {showFramePanel && (() => {
+            const FRAME_CATALOG = [
+              { style:'solid',       label:'Sólida',         icon:'⬜', desc:'Borda simples' },
+              { style:'solid',       label:'Arredondada',    icon:'🔘', desc:'Cantos suaves', cornerRadius:30 },
+              { style:'double',      label:'Dupla',          icon:'⏹', desc:'Duas bordas' },
+              { style:'dashed',      label:'Tracejada',      icon:'▭',  desc:'Linha tracejada' },
+              { style:'dotted',      label:'Pontilhada',     icon:'··', desc:'Pontos' },
+              { style:'corners',     label:'Cantos',         icon:'⌐',  desc:'Apenas cantos' },
+              { style:'corners_round',label:'Cantos Curvos', icon:'⌒',  desc:'Cantos arredondados' },
+              { style:'neon',        label:'Neon',           icon:'💡', desc:'Brilho neon', color:'#00BFFF' },
+              { style:'neon_double', label:'Neon Duplo',     icon:'🌈', desc:'Dois neons', color:'#00BFFF', color2:'#ff00ff' },
+              { style:'gradient',    label:'Gradiente',      icon:'🌅', desc:'Cor degradê', color:'#a78bfa', color2:'#00bfff' },
+              { style:'film',        label:'Tira de Filme',  icon:'🎬', desc:'Estilo filme' },
+              { style:'polaroid',    label:'Polaroid',       icon:'📷', desc:'Estilo foto' },
+              { style:'art_deco',    label:'Art Déco',       icon:'✦',  desc:'Ornamental' },
+              { style:'vintage',     label:'Vintage',        icon:'🎞', desc:'Dupla tracejada' },
+              { style:'shadow',      label:'Sombra',         icon:'🌑', desc:'Sombra suave' },
+              { style:'glitch_frame',label:'Glitch',         icon:'📺', desc:'Frame glitchado', color:'#00ffcc' },
+            ];
+            const addFrame = (tmpl) => {
+              const canvas = canvasRef.current;
+              const cw = canvas?.width||720, ch = canvas?.height||1280;
+              const w = Math.round(cw*0.7), h = Math.round(ch*0.5);
+              pushHistory();
+              const newFrame = {
+                id: Date.now()+Math.random(), style: tmpl.style,
+                x: Math.round((cw-w)/2), y: Math.round((ch-h)/2),
+                width: w, height: h, color: tmpl.color||'#ffffff',
+                color2: tmpl.color2||null, thickness: 8, opacity: 1,
+                rotation: 0, cornerRadius: tmpl.cornerRadius||0,
+              };
+              setFrames(prev=>[...prev, newFrame]);
+              setActiveFrameId(newFrame.id);
+              setShowFramePanel(false);
+            };
+            return createPortal(
+              <div onClick={e=>e.stopPropagation()} style={{ position:'fixed', top:framePanelPos.top, left:framePanelPos.left,
+                zIndex:99999, background:'#0d1117', border:'1px solid rgba(16,185,129,0.3)',
+                borderRadius:18, width:415, maxHeight:'80vh', boxShadow:'0 20px 60px rgba(0,0,0,0.85)',
+                display:'flex', flexDirection:'column', overflow:'hidden' }}>
+                <div style={{ padding:'12px 16px 10px', borderBottom:'1px solid rgba(255,255,255,0.06)',
+                  display:'flex', alignItems:'center', justifyContent:'space-between', flexShrink:0 }}>
+                  <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                    <span style={{ fontWeight:800, fontSize:15, color:'#10b981' }}>🖼 Molduras</span>
+                    {frames.length>0&&<span style={{ fontSize:10, background:'rgba(16,185,129,0.2)', border:'1px solid rgba(16,185,129,0.4)', borderRadius:20, padding:'2px 8px', color:'#10b981' }}>{frames.length} ativa{frames.length>1?'s':''}</span>}
+                  </div>
+                  <button onClick={()=>setShowFramePanel(false)} style={{ background:'none',border:'none',color:'#555',cursor:'pointer',fontSize:18,lineHeight:1 }}>✕</button>
+                </div>
+                <div style={{ padding:'12px', overflowY:'auto', flex:1 }}>
+                  <div style={{ fontSize:10, color:'#555', fontWeight:700, letterSpacing:'0.8px', textTransform:'uppercase', marginBottom:8 }}>Adicionar moldura</div>
+                  <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:7, marginBottom:14 }}>
+                    {FRAME_CATALOG.map((tmpl,i)=>(
+                      <div key={i} onClick={()=>addFrame(tmpl)}
+                        style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:4, padding:'9px 6px 7px',
+                          borderRadius:10, cursor:'pointer', background:'rgba(255,255,255,0.03)',
+                          border:'1px solid rgba(255,255,255,0.07)', transition:'all 0.15s' }}
+                        onMouseEnter={e=>{e.currentTarget.style.background='rgba(16,185,129,0.1)';e.currentTarget.style.borderColor='rgba(16,185,129,0.35)';}}
+                        onMouseLeave={e=>{e.currentTarget.style.background='rgba(255,255,255,0.03)';e.currentTarget.style.borderColor='rgba(255,255,255,0.07)';}}
+                      >
+                        <div style={{ width:'100%', height:38, borderRadius:7, background:'rgba(255,255,255,0.04)',
+                          display:'flex', alignItems:'center', justifyContent:'center', fontSize:18,
+                          border:'1px solid rgba(255,255,255,0.06)' }}>{tmpl.icon}</div>
+                        <span style={{ fontSize:9, color:'#aaa', fontWeight:600, textAlign:'center', lineHeight:1.2 }}>{tmpl.label}</span>
+                      </div>
+                    ))}
+                  </div>
+                  {frames.length>0&&(
+                    <div style={{ borderTop:'1px solid rgba(255,255,255,0.06)', paddingTop:12 }}>
+                      <div style={{ fontSize:10, color:'#555', fontWeight:700, letterSpacing:'0.8px', textTransform:'uppercase', marginBottom:8 }}>Molduras no projeto</div>
+                      <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
+                        {frames.map((fr,fi)=>{
+                          const isAct=activeFrameId===fr.id;
+                          return(
+                            <div key={fr.id} onClick={()=>setActiveFrameId(fr.id)}
+                              style={{ background:isAct?'rgba(16,185,129,0.1)':'rgba(255,255,255,0.02)',
+                                border:`1px solid ${isAct?'rgba(16,185,129,0.4)':'rgba(255,255,255,0.06)'}`,
+                                borderRadius:10, padding:'8px 10px', display:'flex', flexDirection:'column', gap:7, cursor:'pointer' }}>
+                              <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                                <span style={{ fontSize:11, color:'#10b981', fontWeight:700, flex:1 }}>🖼 Moldura {fi+1} — {fr.style}</span>
+                                <button onClick={e=>{e.stopPropagation();pushHistory();setFrames(prev=>prev.filter(f=>f.id!==fr.id));if(activeFrameId===fr.id)setActiveFrameId(null);}}
+                                  style={{ background:'rgba(239,68,68,0.1)',border:'1px solid rgba(239,68,68,0.25)',borderRadius:7,padding:'2px 8px',fontSize:11,color:'#f87171',cursor:'pointer' }}>✕ Remover</button>
+                              </div>
+                              {isAct&&(
+                                <div style={{ display:'flex', flexDirection:'column', gap:5 }}>
+                                  <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                                    <span style={{ fontSize:10, color:'#666', minWidth:60 }}>Cor</span>
+                                    <input type="color" value={fr.color||'#ffffff'}
+                                      onChange={e=>setFrames(prev=>prev.map(f=>f.id===fr.id?{...f,color:e.target.value}:f))}
+                                      style={{ width:28,height:28,padding:0,border:'none',background:'none',cursor:'pointer',borderRadius:6 }} />
+                                    {(fr.style==='gradient'||fr.style==='neon_double')&&<>
+                                      <span style={{ fontSize:10, color:'#666' }}>Cor 2</span>
+                                      <input type="color" value={fr.color2||'#00bfff'}
+                                        onChange={e=>setFrames(prev=>prev.map(f=>f.id===fr.id?{...f,color2:e.target.value}:f))}
+                                        style={{ width:28,height:28,padding:0,border:'none',background:'none',cursor:'pointer',borderRadius:6 }} />
+                                    </>}
+                                  </div>
+                                  {[
+                                    {label:'Espessura',min:1,max:40,step:1,key:'thickness',unit:'px',def:8,accent:'#10b981'},
+                                    {label:'Opacidade',min:0,max:1,step:0.01,key:'opacity',unit:'%',def:1,accent:'#10b981',fmt:v=>Math.round(v*100)+'%'},
+                                    {label:'Rotação',min:-180,max:180,step:1,key:'rotation',unit:'°',def:0,accent:'#10b981',fmt:v=>v+'°'},
+                                  ].map(({label,min,max,step,key,def,accent,fmt})=>(
+                                    <div key={key} style={{ display:'flex', alignItems:'center', gap:8 }}>
+                                      <span style={{ fontSize:10, color:'#666', minWidth:60 }}>{label}</span>
+                                      <input type="range" min={min} max={max} step={step} value={fr[key]??def}
+                                        onChange={e=>setFrames(prev=>prev.map(f=>f.id===fr.id?{...f,[key]:+e.target.value}:f))}
+                                        onMouseDown={ev=>ev.stopPropagation()} onPointerDown={ev=>ev.stopPropagation()}
+                                        style={{ flex:1, accentColor:accent, height:3 }} />
+                                      <span style={{ fontSize:10, color:accent, minWidth:30, textAlign:'right' }}>{fmt?fmt(fr[key]??def):(fr[key]??def)}</span>
+                                    </div>
+                                  ))}
+                                  {fr.style==='solid'&&(
+                                    <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                                      <span style={{ fontSize:10, color:'#666', minWidth:60 }}>Cantos</span>
+                                      <input type="range" min={0} max={200} value={fr.cornerRadius||0}
+                                        onChange={e=>setFrames(prev=>prev.map(f=>f.id===fr.id?{...f,cornerRadius:+e.target.value}:f))}
+                                        onMouseDown={ev=>ev.stopPropagation()} onPointerDown={ev=>ev.stopPropagation()}
+                                        style={{ flex:1, accentColor:'#10b981', height:3 }} />
+                                      <span style={{ fontSize:10, color:'#10b981', minWidth:30, textAlign:'right' }}>{fr.cornerRadius||0}px</span>
+                                    </div>
+                                  )}
+                                  <div style={{ display:'flex', gap:4, flexWrap:'wrap', marginTop:2 }}>
+                                    <span style={{ fontSize:10, color:'#555', alignSelf:'center', marginRight:2 }}>Tamanho:</span>
+                                    {[['Tela cheia','full'],['Quadrado','square'],['16:9','wide'],['9:16','tall']].map(([lbl,preset])=>(
+                                      <button key={preset} onClick={e=>{
+                                        e.stopPropagation();
+                                        const cv=canvasRef.current;
+                                        const cw=cv?.width||720,ch=cv?.height||1280;
+                                        let nw,nh;
+                                        if(preset==='full'){nw=cw;nh=ch;}
+                                        else if(preset==='square'){const s=Math.min(cw,ch)*0.8;nw=s;nh=s;}
+                                        else if(preset==='wide'){nw=cw*0.9;nh=nw*9/16;}
+                                        else{nh=ch*0.85;nw=nh*9/16;}
+                                        setFrames(prev=>prev.map(f=>f.id===fr.id?{...f,x:Math.round((cw-nw)/2),y:Math.round((ch-nh)/2),width:Math.round(nw),height:Math.round(nh)}:f));
+                                      }}
+                                        style={{ fontSize:9,padding:'2px 7px',borderRadius:5,cursor:'pointer',fontWeight:600,
+                                          background:'rgba(16,185,129,0.08)',border:'1px solid rgba(16,185,129,0.25)',color:'#10b981' }}>
+                                        {lbl}
+                                      </button>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                        <button onClick={()=>{pushHistory();setFrames([]);setActiveFrameId(null);}}
+                          style={{ marginTop:2,background:'rgba(239,68,68,0.07)',border:'1px solid rgba(239,68,68,0.2)',
+                            borderRadius:8,padding:'5px 0',fontSize:11,color:'#f87171',cursor:'pointer',width:'100%',fontWeight:700 }}>
+                          ✕ Remover todas as molduras
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>,
+              document.body
+            );
+          })()}
+        </div>
+
         {/* ── Visual (Efeitos + Cor) ── */}
         <div style={{ position:'relative', flexShrink:0 }}>
           <button ref={fxBtnRef}
             onClick={()=>setShowFxPanel(v=>!v)}
-            style={{ display:'flex', alignItems:'center', gap:5, padding:'6px 11px', borderRadius:8, background:showFxPanel||screenEffect!=='none'?'rgba(167,139,250,0.18)':'transparent', border:`1px solid ${showFxPanel||screenEffect!=='none'?'rgba(167,139,250,0.5)':'transparent'}`, cursor:'pointer', color:'#ccc', fontSize:12, fontWeight:600, whiteSpace:'nowrap', transition:'all 0.15s' }}
+            style={{ display:'flex', alignItems:'center', gap:4, padding:'5px 8px', borderRadius:7, background:showFxPanel||screenEffect!=='none'?'rgba(167,139,250,0.18)':'transparent', border:`1px solid ${showFxPanel||screenEffect!=='none'?'rgba(167,139,250,0.5)':'transparent'}`, cursor:'pointer', color:'#ccc', fontSize:11, fontWeight:600, whiteSpace:'nowrap', transition:'all 0.15s' }}
             onMouseEnter={e=>{if(!showFxPanel)e.currentTarget.style.background='rgba(255,255,255,0.05)'}}
             onMouseLeave={e=>{if(!showFxPanel)e.currentTarget.style.background=showFxPanel||screenEffect!=='none'?'rgba(167,139,250,0.18)':'transparent'}}
           >
@@ -5919,87 +6679,67 @@ _setDragging(null);
           {showFxPanel && (() => {
             const rect2 = fxBtnRef.current?.getBoundingClientRect();
             const FX_CATS = [
-              {
-                cat: '✨ Populares',
-                items: [
-                  { id:'none',        label:'Nenhum',      icon:'🔲', preview:'#111' },
-                  { id:'vignette',    label:'Vinheta',     icon:'🌑', preview:'radial-gradient(#111,#000)' },
-                  { id:'film_grain',  label:'Grão Filme',  icon:'📽️', preview:'#1a1a1a' },
-                  { id:'old_film',    label:'Filme Antigo',icon:'🎞️', preview:'linear-gradient(135deg,#3a2a0a,#1a1200)' },
-                  { id:'bokeh',       label:'Bokeh',       icon:'🔮', preview:'radial-gradient(#1a1a3a,#000)' },
-                  { id:'sparkles',    label:'Faíscas',     icon:'⭐', preview:'linear-gradient(135deg,#1a1a00,#0a0a0a)' },
-                ],
-              },
-              {
-                cat: '⚡ Ação',
-                items: [
-                  { id:'shockwave',   label:'Shockwave',   icon:'💥', preview:'radial-gradient(#1a1a2a,#000)' },
-                  { id:'speed_lines', label:'Velocidade',  icon:'🏎️', preview:'radial-gradient(#1a1a1a,#000)' },
-                  { id:'zoom_blur',   label:'Zoom Blur',   icon:'🔍', preview:'radial-gradient(#111,#000)' },
-                  { id:'shake',       label:'Tremor',      icon:'📳', preview:'#111' },
-                  { id:'lightning',   label:'Raios',       icon:'⚡', preview:'linear-gradient(135deg,#0a0a1a,#000)' },
-                  { id:'confetti',    label:'Confete',     icon:'🎉', preview:'linear-gradient(135deg,#1a0a0a,#0a1a0a)' },
-                ],
-              },
-              {
-                cat: '🎨 Estilo',
-                items: [
-                  { id:'duotone',     label:'Duotone',     icon:'🎭', preview:'linear-gradient(135deg,#1a003a,#003a1a)' },
-                  { id:'hologram',    label:'Holograma',   icon:'👾', preview:'linear-gradient(#001a1a,#000)' },
-                  { id:'retrowave',   label:'RetroWave',   icon:'🌅', preview:'linear-gradient(#1a003a,#3a0066)' },
-                  { id:'neon_glow',   label:'Neon',        icon:'💜', preview:'radial-gradient(#1a001a,#000)' },
-                  { id:'neon_lines',  label:'Neon Lines',  icon:'🌈', preview:'linear-gradient(135deg,#001a1a,#1a001a)' },
-                  { id:'cyberpunk',   label:'Cyberpunk',   icon:'🟢', preview:'linear-gradient(#001a0a,#000)' },
-                ],
-              },
-              {
-                cat: '📺 Glitch',
-                items: [
-                  { id:'glitch_pro',  label:'Glitch Pro',  icon:'📺', preview:'#0a0a0a' },
-                  { id:'glitch',      label:'Glitch',      icon:'⚡', preview:'#0a0a0a' },
-                  { id:'pixel_sort',  label:'Pixel Sort',  icon:'🔀', preview:'linear-gradient(135deg,#001a1a,#1a0010)' },
-                  { id:'vhs',         label:'VHS',         icon:'📼', preview:'#0a0a0a' },
-                  { id:'tv_static',   label:'TV Estático', icon:'📡', preview:'#0a0a0a' },
-                  { id:'mirror',      label:'Espelho',     icon:'🪞', preview:'linear-gradient(#0a0a0a,#1a1a1a)' },
-                ],
-              },
-              {
-                cat: '🌊 Natureza',
-                items: [
-                  { id:'rain',        label:'Chuva',       icon:'🌧️', preview:'linear-gradient(#000d1a,#001530)' },
-                  { id:'fire',        label:'Fogo',        icon:'🔥', preview:'linear-gradient(#0a0000,#1a0500)' },
-                  { id:'smoke',       label:'Fumaça',      icon:'💨', preview:'linear-gradient(#0a0a0a,#1a1a1a)' },
-                  { id:'snow',        label:'Neve',        icon:'❄️', preview:'linear-gradient(#05050f,#0a0a20)' },
-                  { id:'lightning',   label:'Tempestade',  icon:'🌩️', preview:'linear-gradient(#000510,#000a20)' },
-                  { id:'night',       label:'Noite',       icon:'🌌', preview:'linear-gradient(#00020e,#000420)' },
-                ],
-              },
-              {
-                cat: '🔵 Overlay',
-                items: [
-                  { id:'aurora',      label:'Aurora',      icon:'🌈', preview:'linear-gradient(#001a0a,#0a001a)' },
-                  { id:'particles',   label:'Partículas',  icon:'✨', preview:'#050510' },
-                  { id:'matrix',      label:'Matrix',      icon:'💚', preview:'#000a00' },
-                  { id:'vintage',     label:'Vintage',     icon:'🟤', preview:'linear-gradient(#1a0f00,#0f0800)' },
-                  { id:'ice',         label:'Gelo',        icon:'❄️', preview:'linear-gradient(#050f1a,#0a1520)' },
-                  { id:'blur_fx',     label:'Desfoque',    icon:'🌫️', preview:'#0a0a0a' },
-                ],
-              },
+              { cat:'✨ Populares', items:[
+                { id:'none',       label:'Nenhum',      icon:'🔲', preview:'#111' },
+                { id:'vignette',   label:'Vinheta',     icon:'🌑', preview:'radial-gradient(#111,#000)' },
+                { id:'film_grain', label:'Grão Filme',  icon:'📽️', preview:'#1a1a1a' },
+                { id:'old_film',   label:'Filme Antigo',icon:'🎞️', preview:'linear-gradient(135deg,#3a2a0a,#1a1200)' },
+                { id:'bokeh',      label:'Bokeh',       icon:'🔮', preview:'radial-gradient(#1a1a3a,#000)' },
+                { id:'sparkles',   label:'Faíscas',     icon:'⭐', preview:'linear-gradient(135deg,#1a1a00,#0a0a0a)' },
+              ]},
+              { cat:'⚡ Ação', items:[
+                { id:'shockwave',  label:'Shockwave',   icon:'💥', preview:'radial-gradient(#1a1a2a,#000)' },
+                { id:'speed_lines',label:'Velocidade',  icon:'🏎️', preview:'radial-gradient(#1a1a1a,#000)' },
+                { id:'zoom_blur',  label:'Zoom Blur',   icon:'🔍', preview:'radial-gradient(#111,#000)' },
+                { id:'shake',      label:'Tremor',      icon:'📳', preview:'#111' },
+                { id:'lightning',  label:'Raios',       icon:'⚡', preview:'linear-gradient(135deg,#0a0a1a,#000)' },
+                { id:'confetti',   label:'Confete',     icon:'🎉', preview:'linear-gradient(135deg,#1a0a0a,#0a1a0a)' },
+              ]},
+              { cat:'🎨 Estilo', items:[
+                { id:'duotone',    label:'Duotone',     icon:'🎭', preview:'linear-gradient(135deg,#1a003a,#003a1a)' },
+                { id:'hologram',   label:'Holograma',   icon:'👾', preview:'linear-gradient(#001a1a,#000)' },
+                { id:'retrowave',  label:'RetroWave',   icon:'🌅', preview:'linear-gradient(#1a003a,#3a0066)' },
+                { id:'neon_glow',  label:'Neon',        icon:'💜', preview:'radial-gradient(#1a001a,#000)' },
+                { id:'neon_lines', label:'Neon Lines',  icon:'🌈', preview:'linear-gradient(135deg,#001a1a,#1a001a)' },
+                { id:'cyberpunk',  label:'Cyberpunk',   icon:'🟢', preview:'linear-gradient(#001a0a,#000)' },
+              ]},
+              { cat:'📺 Glitch', items:[
+                { id:'glitch_pro', label:'Glitch Pro',  icon:'📺', preview:'#0a0a0a' },
+                { id:'glitch',     label:'Glitch',      icon:'⚡', preview:'#0a0a0a' },
+                { id:'pixel_sort', label:'Pixel Sort',  icon:'🔀', preview:'linear-gradient(135deg,#001a1a,#1a0010)' },
+                { id:'vhs',        label:'VHS',         icon:'📼', preview:'#0a0a0a' },
+                { id:'tv_static',  label:'TV Estático', icon:'📡', preview:'#0a0a0a' },
+                { id:'mirror',     label:'Espelho',     icon:'🪞', preview:'linear-gradient(#0a0a0a,#1a1a1a)' },
+              ]},
+              { cat:'🌊 Natureza', items:[
+                { id:'rain',       label:'Chuva',       icon:'🌧️', preview:'linear-gradient(#000d1a,#001530)' },
+                { id:'fire',       label:'Fogo',        icon:'🔥', preview:'linear-gradient(#0a0000,#1a0500)' },
+                { id:'smoke',      label:'Fumaça',      icon:'💨', preview:'linear-gradient(#0a0a0a,#1a1a1a)' },
+                { id:'snow',       label:'Neve',        icon:'❄️', preview:'linear-gradient(#05050f,#0a0a20)' },
+                { id:'night',      label:'Noite',       icon:'🌌', preview:'linear-gradient(#00020e,#000420)' },
+                { id:'aurora',     label:'Aurora',      icon:'🌈', preview:'linear-gradient(#001a0a,#0a001a)' },
+              ]},
+              { cat:'🔵 Overlay', items:[
+                { id:'particles',  label:'Partículas',  icon:'✨', preview:'#050510' },
+                { id:'matrix',     label:'Matrix',      icon:'💚', preview:'#000a00' },
+                { id:'vintage',    label:'Vintage',     icon:'🟤', preview:'linear-gradient(#1a0f00,#0f0800)' },
+                { id:'ice',        label:'Gelo',        icon:'❄️', preview:'linear-gradient(#050f1a,#0a1520)' },
+                { id:'blur_fx',    label:'Desfoque',    icon:'🌫️', preview:'#0a0a0a' },
+                { id:'film_grain', label:'Grão',        icon:'📽️', preview:'#1a1a1a' },
+              ]},
             ];
             return createPortal(
               <div style={{ position:'fixed', top:(rect2?.bottom??52)+4, left:Math.max(8,(rect2?.left??0)), zIndex:99999, background:'#0d1117', border:'1px solid rgba(167,139,250,0.25)', borderRadius:18, width:400, maxHeight:'82vh', boxShadow:'0 24px 64px rgba(0,0,0,0.85)', display:'flex', flexDirection:'column', overflow:'hidden' }}>
-                {/* Header */}
                 <div style={{ padding:'14px 16px 10px', borderBottom:'1px solid rgba(255,255,255,0.06)', display:'flex', alignItems:'center', justifyContent:'space-between', flexShrink:0 }}>
                   <div>
                     <span style={{ fontWeight:800, fontSize:15, color:'#a78bfa' }}>🎬 Efeitos</span>
                     {screenEffect!=='none'&&<span style={{ marginLeft:8, fontSize:10, background:'rgba(167,139,250,0.2)', border:'1px solid rgba(167,139,250,0.4)', borderRadius:20, padding:'2px 8px', color:'#a78bfa' }}>Ativo</span>}
                   </div>
                   <div style={{ display:'flex', gap:8, alignItems:'center' }}>
-                    {screenEffect!=='none'&&<button onClick={()=>setScreenEffect('none')} style={{ background:'rgba(239,68,68,0.15)', border:'1px solid rgba(239,68,68,0.3)', borderRadius:6, padding:'3px 10px', color:'#f87171', fontSize:10, cursor:'pointer', fontWeight:700 }}>✕ Remover</button>}
+                    {screenEffect!=='none'&&<button onClick={()=>{ pushHistory(); setScreenEffect('none'); }} style={{ background:'rgba(239,68,68,0.15)', border:'1px solid rgba(239,68,68,0.3)', borderRadius:6, padding:'3px 10px', color:'#f87171', fontSize:10, cursor:'pointer', fontWeight:700 }}>✕ Remover</button>}
                     <button onClick={()=>setShowFxPanel(false)} style={{ background:'none', border:'none', color:'#555', cursor:'pointer', fontSize:18, lineHeight:1 }}>✕</button>
                   </div>
                 </div>
-                {/* Categories + Grid */}
                 <div style={{ overflowY:'auto', flex:1, padding:'12px 12px 16px' }}>
                   {FX_CATS.map(cat => (
                     <div key={cat.cat} style={{ marginBottom:16 }}>
@@ -6008,17 +6748,14 @@ _setDragging(null);
                         {cat.items.map(fx => {
                           const isActive = screenEffect === fx.id;
                           return (
-                            <div key={fx.id} onClick={()=>{ setScreenEffect(fx.id); if(fx.id!=='none') setShowFxPanel(false); }}
+                            <div key={fx.id} onClick={()=>{ if(fx.id !== screenEffect){ pushHistory(); setScreenEffect(fx.id); } if(fx.id!=='none') setShowFxPanel(false); }}
                               style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:5, padding:'10px 6px 8px', borderRadius:12, cursor:'pointer', background:isActive?'rgba(167,139,250,0.18)':'rgba(255,255,255,0.03)', border:`1px solid ${isActive?'rgba(167,139,250,0.6)':'rgba(255,255,255,0.07)'}`, transition:'all 0.15s', position:'relative' }}
-                              onMouseEnter={e=>{ if(!isActive) e.currentTarget.style.background='rgba(167,139,250,0.08)'; e.currentTarget.style.borderColor=isActive?'rgba(167,139,250,0.6)':'rgba(167,139,250,0.3)'; }}
-                              onMouseLeave={e=>{ e.currentTarget.style.background=isActive?'rgba(167,139,250,0.18)':'rgba(255,255,255,0.03)'; e.currentTarget.style.borderColor=isActive?'rgba(167,139,250,0.6)':'rgba(255,255,255,0.07)'; }}
+                              onMouseEnter={e=>{ if(!isActive){e.currentTarget.style.background='rgba(167,139,250,0.08)';e.currentTarget.style.borderColor='rgba(167,139,250,0.3)';}}}
+                              onMouseLeave={e=>{ e.currentTarget.style.background=isActive?'rgba(167,139,250,0.18)':'rgba(255,255,255,0.03)';e.currentTarget.style.borderColor=isActive?'rgba(167,139,250,0.6)':'rgba(255,255,255,0.07)';}}
                             >
-                              {/* Mini preview */}
-                              <div style={{ width:'100%', height:44, borderRadius:8, background:fx.preview||'#111', marginBottom:2, overflow:'hidden', display:'flex', alignItems:'center', justifyContent:'center', fontSize:24, border:'1px solid rgba(255,255,255,0.04)' }}>
-                                {fx.icon}
-                              </div>
+                              <div style={{ width:'100%', height:44, borderRadius:8, background:fx.preview||'#111', marginBottom:2, overflow:'hidden', display:'flex', alignItems:'center', justifyContent:'center', fontSize:24, border:'1px solid rgba(255,255,255,0.04)' }}>{fx.icon}</div>
                               <span style={{ fontSize:10, color:isActive?'#a78bfa':'#999', fontWeight:isActive?700:400, textAlign:'center', lineHeight:1.2 }}>{fx.label}</span>
-                              {isActive && <div style={{ position:'absolute', top:5, right:5, width:7, height:7, borderRadius:'50%', background:'#a78bfa' }} />}
+                              {isActive&&<div style={{ position:'absolute', top:5, right:5, width:7, height:7, borderRadius:'50%', background:'#a78bfa' }} />}
                             </div>
                           );
                         })}
@@ -6035,11 +6772,11 @@ _setDragging(null);
         {/* ── Cor & Curvas ── */}
         <div style={{ position:'relative', flexShrink:0 }}>
           <button onClick={()=>setShowKeyframePanel(v=>!v)}
-            style={{ display:'flex', alignItems:'center', gap:5, padding:'6px 11px', borderRadius:8, background:showKeyframePanel?'rgba(251,191,36,0.18)':'transparent', border:`1px solid ${showKeyframePanel?'rgba(251,191,36,0.5)':'transparent'}`, cursor:'pointer', color:'#ccc', fontSize:12, fontWeight:600, whiteSpace:'nowrap', transition:'all 0.15s' }}
+            style={{ display:'flex', alignItems:'center', gap:4, padding:'5px 8px', borderRadius:7, background:showKeyframePanel?'rgba(251,191,36,0.18)':'transparent', border:`1px solid ${showKeyframePanel?'rgba(251,191,36,0.5)':'transparent'}`, cursor:'pointer', color:'#ccc', fontSize:11, fontWeight:600, whiteSpace:'nowrap', transition:'all 0.15s' }}
             onMouseEnter={e=>{if(!showKeyframePanel)e.currentTarget.style.background='rgba(255,255,255,0.05)'}}
             onMouseLeave={e=>{if(!showKeyframePanel)e.currentTarget.style.background=showKeyframePanel?'rgba(251,191,36,0.18)':'transparent'}}
           >
-            <span style={{fontSize:14}}>🎨</span> Cor & Curvas
+            <span style={{fontSize:13}}>🎨</span> Cor & Curvas
           </button>
           {showKeyframePanel && (() => {
             const r2 = fxBtnRef.current?.getBoundingClientRect();
@@ -6095,10 +6832,30 @@ _setDragging(null);
         {/* Spacer */}
         <div style={{ flex:1 }} />
 
+        {/* ── Undo / Redo ── */}
+        <div style={{ display:'flex', alignItems:'center', gap:2, flexShrink:0 }}>
+          <button
+            onClick={undo}
+            disabled={!canUndo}
+            title="Desfazer (Ctrl+Z)"
+            style={{ display:'flex', alignItems:'center', justifyContent:'center', width:28, height:28, borderRadius:7, background:'transparent', border:'1px solid transparent', cursor:canUndo?'pointer':'not-allowed', color:canUndo?'#a78bfa':'#333', fontSize:14, transition:'all 0.15s', flexShrink:0 }}
+            onMouseEnter={e=>{ if(canUndo){ e.currentTarget.style.background='rgba(167,139,250,0.1)'; e.currentTarget.style.borderColor='rgba(167,139,250,0.3)'; }}}
+            onMouseLeave={e=>{ e.currentTarget.style.background='transparent'; e.currentTarget.style.borderColor='transparent'; }}
+          >↩</button>
+          <button
+            onClick={redo}
+            disabled={!canRedo}
+            title="Refazer (Ctrl+Y)"
+            style={{ display:'flex', alignItems:'center', justifyContent:'center', width:28, height:28, borderRadius:7, background:'transparent', border:'1px solid transparent', cursor:canRedo?'pointer':'not-allowed', color:canRedo?'#a78bfa':'#333', fontSize:14, transition:'all 0.15s', flexShrink:0 }}
+            onMouseEnter={e=>{ if(canRedo){ e.currentTarget.style.background='rgba(167,139,250,0.1)'; e.currentTarget.style.borderColor='rgba(167,139,250,0.3)'; }}}
+            onMouseLeave={e=>{ e.currentTarget.style.background='transparent'; e.currentTarget.style.borderColor='transparent'; }}
+          >↪</button>
+        </div>
+
         {/* ── Limpar tudo ── */}
         <button
           onClick={handleClearProject}
-          style={{ display:'flex', alignItems:'center', gap:5, padding:'6px 11px', borderRadius:8, background:'transparent', border:'1px solid transparent', cursor:'pointer', color:'#f87171', fontSize:12, fontWeight:600, whiteSpace:'nowrap', transition:'all 0.15s', flexShrink:0 }}
+          style={{ display:'flex', alignItems:'center', gap:4, padding:'5px 8px', borderRadius:7, background:'transparent', border:'1px solid transparent', cursor:'pointer', color:'#f87171', fontSize:11, fontWeight:600, whiteSpace:'nowrap', transition:'all 0.15s', flexShrink:0 }}
           onMouseEnter={e=>{ e.currentTarget.style.background='rgba(239,68,68,0.08)'; e.currentTarget.style.borderColor='rgba(239,68,68,0.25)'; }}
           onMouseLeave={e=>{ e.currentTarget.style.background='transparent'; e.currentTarget.style.borderColor='transparent'; }}
         >
@@ -6109,7 +6866,7 @@ _setDragging(null);
         <div style={{ position:'relative', flexShrink:0 }}>
           <button ref={projetoBtnRef}
             onClick={()=>{ setShowProjetoPanel(v=>!v); setShowExportPanel(false); }}
-            style={{ display:'flex', alignItems:'center', gap:5, padding:'6px 11px', borderRadius:8, background:showProjetoPanel?'rgba(255,255,255,0.12)':'transparent', border:`1px solid ${showProjetoPanel?'rgba(255,255,255,0.2)':'transparent'}`, cursor:'pointer', color:'#888', fontSize:12, fontWeight:600, whiteSpace:'nowrap', transition:'all 0.15s' }}
+            style={{ display:'flex', alignItems:'center', gap:4, padding:'5px 8px', borderRadius:7, background:showProjetoPanel?'rgba(255,255,255,0.12)':'transparent', border:`1px solid ${showProjetoPanel?'rgba(255,255,255,0.2)':'transparent'}`, cursor:'pointer', color:'#888', fontSize:11, fontWeight:600, whiteSpace:'nowrap', transition:'all 0.15s' }}
             onMouseEnter={e=>{if(!showProjetoPanel)e.currentTarget.style.background='rgba(255,255,255,0.05)'}}
             onMouseLeave={e=>{if(!showProjetoPanel)e.currentTarget.style.background='transparent'}}
           >
@@ -6143,7 +6900,7 @@ _setDragging(null);
         <div style={{ position:'relative', flexShrink:0 }}>
           <button ref={exportBtnRef}
             onClick={()=>{ setShowExportPanel(v=>!v); setShowProjetoPanel(false); }}
-            style={{ display:'flex', alignItems:'center', gap:5, padding:'6px 13px', borderRadius:8, background:showExportPanel?'rgba(0,191,255,0.22)':'rgba(0,191,255,0.1)', border:`1px solid ${showExportPanel?'rgba(0,191,255,0.6)':'rgba(0,191,255,0.25)'}`, cursor:'pointer', color:'#00BFFF', fontSize:12, fontWeight:700, whiteSpace:'nowrap', transition:'all 0.15s' }}
+            style={{ display:'flex', alignItems:'center', gap:4, padding:'5px 10px', borderRadius:7, background:showExportPanel?'rgba(0,191,255,0.22)':'rgba(0,191,255,0.1)', border:`1px solid ${showExportPanel?'rgba(0,191,255,0.6)':'rgba(0,191,255,0.25)'}`, cursor:'pointer', color:'#00BFFF', fontSize:11, fontWeight:700, whiteSpace:'nowrap', transition:'all 0.15s' }}
           >
             <span style={{fontSize:13}}>⬇</span> Exportar <span style={{fontSize:9,opacity:0.7}}>▾</span>
           </button>
@@ -6191,8 +6948,7 @@ _setDragging(null);
           )}
         </div>
 
-        {/* ── Lang + inputs ocultos ── */}
-        <LangToggle style={{ marginLeft:4 }} />
+        {/* ── inputs ocultos ── */}
         <input ref={bgInputRef}     type="file" onChange={handleImageChange}  accept="image/*"          style={{display:'none'}} />
         <input ref={imagesInputRef} type="file" onChange={handleImagesChange} accept="image/*" multiple style={{display:'none'}} />
         <input ref={audioInputRef}  type="file" onChange={handleAudioChange}  accept="audio/*"          style={{display:'none'}} />
@@ -6282,12 +7038,28 @@ _setDragging(null);
                 )}
                 {bgTab==='generate'&&(()=>{
                   const GEN_LIST = [
-                    { id:'p1', label:'Partículas', preview:'radial-gradient(ellipse at 20% 30%,rgba(0,191,255,0.5) 0%,transparent 55%),#050510', gen:(c,w,h)=>{ c.fillStyle='#050510';c.fillRect(0,0,w,h);for(let i=0;i<300;i++){c.beginPath();c.arc(Math.random()*w,Math.random()*h,Math.random()*2.5+0.5,0,6.28);c.fillStyle=`rgba(0,191,255,${Math.random()*0.8+0.2})`;c.fill();} } },
-                    { id:'p2', label:'Grade Neon', preview:'linear-gradient(180deg,#000 0%,#001200 100%)', gen:(c,w,h)=>{ c.fillStyle='#000';c.fillRect(0,0,w,h);c.strokeStyle='rgba(0,255,100,0.3)';c.lineWidth=1;for(let x=0;x<w;x+=40){c.beginPath();c.moveTo(x,0);c.lineTo(x,h);c.stroke();}for(let y=0;y<h;y+=40){c.beginPath();c.moveTo(0,y);c.lineTo(w,y);c.stroke();} } },
-                    { id:'p3', label:'Bokeh',      preview:'radial-gradient(ellipse at 30% 40%,rgba(123,47,247,0.7) 0%,transparent 50%),#1a0533', gen:(c,w,h)=>{ const g=c.createLinearGradient(0,0,w,h);g.addColorStop(0,'#1a0533');g.addColorStop(1,'#0a1a4e');c.fillStyle=g;c.fillRect(0,0,w,h);for(let i=0;i<50;i++){const x=Math.random()*w,y=Math.random()*h,r=Math.random()*80+20;const cg=c.createRadialGradient(x,y,0,x,y,r);cg.addColorStop(0,`hsla(${Math.random()*80+200},80%,70%,${Math.random()*0.2+0.05})`);cg.addColorStop(1,'transparent');c.fillStyle=cg;c.beginPath();c.arc(x,y,r,0,6.28);c.fill();} } },
-                    { id:'p4', label:'Ondas',      preview:'linear-gradient(180deg,#000d1a 0%,#001a33 100%)', gen:(c,w,h)=>{ c.fillStyle='#000d1a';c.fillRect(0,0,w,h);for(let i=0;i<8;i++){c.beginPath();c.strokeStyle=`rgba(0,191,255,${0.05+i*0.05})`;c.lineWidth=2;for(let x=0;x<w;x+=2){const y2=h/2+Math.sin((x+i*50)/80)*60*(i+1)*0.3+i*30;x===0?c.moveTo(x,y2):c.lineTo(x,y2);}c.stroke();} } },
-                    { id:'p5', label:'Hexágonos',  preview:'linear-gradient(160deg,#0a0a1a 0%,#0a1040 100%)', gen:(c,w,h)=>{ c.fillStyle='#0a0a1a';c.fillRect(0,0,w,h);const s=50;for(let row=0;row<h/s+2;row++){for(let col=0;col<w/s+2;col++){const x2=col*s*1.5,y2=row*s*Math.sqrt(3)+(col%2)*s*Math.sqrt(3)/2;c.beginPath();for(let k=0;k<6;k++){const a2=Math.PI/3*k;c.lineTo(x2+s*0.45*Math.cos(a2),y2+s*0.45*Math.sin(a2));}c.closePath();c.strokeStyle='rgba(100,200,255,0.2)';c.lineWidth=1;c.stroke();}} } },
-                    { id:'p6', label:'Nebulosa',   preview:'radial-gradient(ellipse at 50% 50%,rgba(123,47,247,0.6) 0%,rgba(249,83,198,0.4) 40%,transparent 100%),#000', gen:(c,w,h)=>{ c.fillStyle='#000';c.fillRect(0,0,w,h);const cs=['#7b2ff7','#f953c6','#00c3ff','#ff6b6b'];for(let i=0;i<8;i++){const x2=Math.random()*w,y2=Math.random()*h,r=Math.random()*250+100;const rg=c.createRadialGradient(x2,y2,0,x2,y2,r);rg.addColorStop(0,cs[i%4]+'44');rg.addColorStop(1,'transparent');c.fillStyle=rg;c.fillRect(0,0,w,h);} } },
+                    { id:'p1',  label:'Partículas',   preview:'radial-gradient(ellipse at 20% 30%,rgba(0,191,255,0.5) 0%,transparent 55%),#050510', gen:(c,w,h)=>{ c.fillStyle='#050510';c.fillRect(0,0,w,h);for(let i=0;i<300;i++){c.beginPath();c.arc(Math.random()*w,Math.random()*h,Math.random()*2.5+0.5,0,6.28);c.fillStyle=`rgba(0,191,255,${Math.random()*0.8+0.2})`;c.fill();} } },
+                    { id:'p2',  label:'Grade Neon',   preview:'linear-gradient(180deg,#000 0%,#001200 100%)', gen:(c,w,h)=>{ c.fillStyle='#000';c.fillRect(0,0,w,h);c.strokeStyle='rgba(0,255,100,0.3)';c.lineWidth=1;for(let x=0;x<w;x+=40){c.beginPath();c.moveTo(x,0);c.lineTo(x,h);c.stroke();}for(let y=0;y<h;y+=40){c.beginPath();c.moveTo(0,y);c.lineTo(w,y);c.stroke();} } },
+                    { id:'p3',  label:'Bokeh',        preview:'radial-gradient(ellipse at 30% 40%,rgba(123,47,247,0.7) 0%,transparent 50%),#1a0533', gen:(c,w,h)=>{ const g=c.createLinearGradient(0,0,w,h);g.addColorStop(0,'#1a0533');g.addColorStop(1,'#0a1a4e');c.fillStyle=g;c.fillRect(0,0,w,h);for(let i=0;i<50;i++){const x=Math.random()*w,y=Math.random()*h,r=Math.random()*80+20;const cg=c.createRadialGradient(x,y,0,x,y,r);cg.addColorStop(0,`hsla(${Math.random()*80+200},80%,70%,${Math.random()*0.2+0.05})`);cg.addColorStop(1,'transparent');c.fillStyle=cg;c.beginPath();c.arc(x,y,r,0,6.28);c.fill();} } },
+                    { id:'p4',  label:'Ondas',        preview:'linear-gradient(180deg,#000d1a 0%,#001a33 100%)', gen:(c,w,h)=>{ c.fillStyle='#000d1a';c.fillRect(0,0,w,h);for(let i=0;i<8;i++){c.beginPath();c.strokeStyle=`rgba(0,191,255,${0.05+i*0.05})`;c.lineWidth=2;for(let x=0;x<w;x+=2){const y2=h/2+Math.sin((x+i*50)/80)*60*(i+1)*0.3+i*30;x===0?c.moveTo(x,y2):c.lineTo(x,y2);}c.stroke();} } },
+                    { id:'p5',  label:'Hexágonos',   preview:'linear-gradient(160deg,#0a0a1a 0%,#0a1040 100%)', gen:(c,w,h)=>{ c.fillStyle='#0a0a1a';c.fillRect(0,0,w,h);const s=50;for(let row=0;row<h/s+2;row++){for(let col=0;col<w/s+2;col++){const x2=col*s*1.5,y2=row*s*Math.sqrt(3)+(col%2)*s*Math.sqrt(3)/2;c.beginPath();for(let k=0;k<6;k++){const a2=Math.PI/3*k;c.lineTo(x2+s*0.45*Math.cos(a2),y2+s*0.45*Math.sin(a2));}c.closePath();c.strokeStyle='rgba(100,200,255,0.2)';c.lineWidth=1;c.stroke();}} } },
+                    { id:'p6',  label:'Nebulosa',     preview:'radial-gradient(ellipse at 50% 50%,rgba(123,47,247,0.6) 0%,rgba(249,83,198,0.4) 40%,transparent 100%),#000', gen:(c,w,h)=>{ c.fillStyle='#000';c.fillRect(0,0,w,h);const cs=['#7b2ff7','#f953c6','#00c3ff','#ff6b6b'];for(let i=0;i<8;i++){const x2=Math.random()*w,y2=Math.random()*h,r=Math.random()*250+100;const rg=c.createRadialGradient(x2,y2,0,x2,y2,r);rg.addColorStop(0,cs[i%4]+'44');rg.addColorStop(1,'transparent');c.fillStyle=rg;c.fillRect(0,0,w,h);} } },
+                    { id:'p7',  label:'Aurora',       preview:'linear-gradient(180deg,#0a0a1a 0%,#0d2b1a 50%,#1a0a2e 100%)', gen:(c,w,h)=>{ const bg=c.createLinearGradient(0,0,0,h);bg.addColorStop(0,'#050510');bg.addColorStop(1,'#0a1a0a');c.fillStyle=bg;c.fillRect(0,0,w,h);const bands=[{h:200,col:'#00ff88',alpha:0.18},{h:320,col:'#00bfff',alpha:0.14},{h:180,col:'#a855f7',alpha:0.16},{h:260,col:'#00ffcc',alpha:0.10}];bands.forEach((b,bi)=>{const ay=h*0.1+bi*(h*0.18);const ag=c.createLinearGradient(0,ay-80,0,ay+b.h);ag.addColorStop(0,'transparent');ag.addColorStop(0.35,b.col+Math.round(b.alpha*255).toString(16).padStart(2,'0'));ag.addColorStop(0.65,b.col+'22');ag.addColorStop(1,'transparent');c.fillStyle=ag;c.fillRect(0,ay-80,w,b.h+80);});for(let i=0;i<120;i++){c.beginPath();c.arc(Math.random()*w,Math.random()*h*0.6,Math.random()*1.5+0.3,0,6.28);c.fillStyle=`rgba(255,255,255,${Math.random()*0.7+0.1})`;c.fill();} } },
+                    { id:'p8',  label:'Galáxia',      preview:'radial-gradient(ellipse at 50% 55%,rgba(100,60,200,0.8) 0%,rgba(20,10,60,0.9) 60%,#000 100%)', gen:(c,w,h)=>{ c.fillStyle='#000';c.fillRect(0,0,w,h);for(let i=0;i<500;i++){const sx=Math.random()*w,sy=Math.random()*h,ss=Math.random()*1.8+0.2;c.beginPath();c.arc(sx,sy,ss,0,6.28);c.fillStyle=`rgba(255,255,255,${Math.random()*0.9+0.1})`;c.fill();}const cx=w/2,cy=h*0.52;for(let arm=0;arm<3;arm++){for(let i=0;i<200;i++){const t=i/200,angle=t*Math.PI*6+arm*(Math.PI*2/3),r=t*Math.min(w,h)*0.42,spread=(Math.random()-0.5)*60*t;const px=cx+Math.cos(angle)*(r+spread),py=cy+Math.sin(angle)*(r+spread)*0.55;c.beginPath();c.arc(px,py,Math.random()*2+0.5,0,6.28);c.fillStyle=`hsla(${220+arm*40},80%,75%,${0.6-t*0.3})`;c.fill();}}const cg=c.createRadialGradient(cx,cy,0,cx,cy,120);cg.addColorStop(0,'rgba(255,240,200,0.9)');cg.addColorStop(0.3,'rgba(200,150,255,0.4)');cg.addColorStop(1,'transparent');c.fillStyle=cg;c.fillRect(0,0,w,h); } },
+                    { id:'p9',  label:'Lava',          preview:'linear-gradient(180deg,#1a0000 0%,#3d0000 50%,#1a0000 100%)', gen:(c,w,h)=>{ const bg=c.createLinearGradient(0,0,0,h);bg.addColorStop(0,'#0d0000');bg.addColorStop(0.5,'#1a0500');bg.addColorStop(1,'#0d0000');c.fillStyle=bg;c.fillRect(0,0,w,h);for(let i=0;i<30;i++){const bx=Math.random()*w,by=h*0.4+Math.random()*h*0.6,br=Math.random()*120+40;const bg2=c.createRadialGradient(bx,by,0,bx,by,br);bg2.addColorStop(0,`rgba(255,${60+Math.random()*80},0,0.55)`);bg2.addColorStop(0.5,`rgba(200,30,0,0.25)`);bg2.addColorStop(1,'transparent');c.fillStyle=bg2;c.fillRect(0,0,w,h);}const COL=Math.max(1,Math.floor(w/5));for(let col2=0;col2<COL;col2++){const nx=col2/COL,f1=Math.sin(nx*9.1)*0.4,f2=Math.sin(nx*17.3+1.2)*0.25,turb=0.5+(f1+f2)*0.5,bH=h*(0.12+turb*0.25),cx2=col2*(w/COL),cw2=w/COL*1.5;const fg=c.createLinearGradient(cx2,h,cx2,h-bH);fg.addColorStop(0,'rgba(255,255,180,0.85)');fg.addColorStop(0.2,'rgba(255,160,0,0.75)');fg.addColorStop(0.55,'rgba(220,40,0,0.45)');fg.addColorStop(1,'transparent');c.fillStyle=fg;c.beginPath();c.moveTo(cx2-cw2*0.1,h);c.quadraticCurveTo(cx2+cw2*0.4,h-bH*0.6,cx2+cw2/2,h-bH);c.quadraticCurveTo(cx2+cw2*0.7,h-bH*0.6,cx2+cw2*1.1,h);c.closePath();c.fill();} } },
+                    { id:'p10', label:'Matrix',        preview:'linear-gradient(180deg,#000 0%,#001500 100%)', gen:(c,w,h)=>{ c.fillStyle='#000';c.fillRect(0,0,w,h);const chars='アイウエオカキクケコサシスセソタチツテトナニヌネノ0123456789ABCDEF';const cols=Math.floor(w/18);const drops=Array.from({length:cols},()=>Math.random()*h);for(let frame=0;frame<80;frame++){for(let i=0;i<cols;i++){const ch=chars[Math.floor(Math.random()*chars.length)];const x2=i*18,y2=drops[i];const alpha=Math.random()*0.8+0.2;c.font=`bold 14px monospace`;c.fillStyle=`rgba(0,255,${60+Math.random()*50},${alpha})`;c.fillText(ch,x2,y2);if(y2>h*0.7&&Math.random()>0.92)c.fillStyle=`rgba(180,255,180,${alpha})`;drops[i]=(drops[i]+14)%(h+14);}}const grad=c.createLinearGradient(0,0,0,h);grad.addColorStop(0,'rgba(0,0,0,0.0)');grad.addColorStop(0.4,'rgba(0,0,0,0.0)');grad.addColorStop(1,'rgba(0,0,0,0.5)');c.fillStyle=grad;c.fillRect(0,0,w,h); } },
+                    { id:'p11', label:'Cyberpunk',     preview:'linear-gradient(160deg,#0d0021 0%,#180033 50%,#0d0021 100%)', gen:(c,w,h)=>{ const bg=c.createLinearGradient(0,0,w,h);bg.addColorStop(0,'#0d0021');bg.addColorStop(1,'#180033');c.fillStyle=bg;c.fillRect(0,0,w,h);const lines=[{col:'rgba(0,255,255,0.25)',lw:1.5},{col:'rgba(255,0,200,0.18)',lw:1},{col:'rgba(0,200,255,0.12)',lw:0.8}];lines.forEach((ln,li)=>{c.strokeStyle=ln.col;c.lineWidth=ln.lw;for(let i=0;i<6;i++){const x2=(i+li)*w/7;c.beginPath();c.moveTo(x2,0);c.lineTo(x2+(Math.random()-0.5)*60,h);c.stroke();}});for(let i=0;i<40;i++){const rx=Math.random()*w,ry=Math.random()*h,rw=Math.random()*80+20,rh=Math.random()*3+1;c.strokeStyle=`rgba(0,255,255,${Math.random()*0.15+0.03})`;c.lineWidth=rh;c.beginPath();c.moveTo(rx,ry);c.lineTo(rx+rw,ry);c.stroke();}const ng=c.createRadialGradient(w/2,h*0.8,0,w/2,h*0.8,w*0.7);ng.addColorStop(0,'rgba(255,0,200,0.2)');ng.addColorStop(0.4,'rgba(0,255,255,0.08)');ng.addColorStop(1,'transparent');c.fillStyle=ng;c.fillRect(0,0,w,h); } },
+                    { id:'p12', label:'Mármore',       preview:'linear-gradient(135deg,#e8e0d5 0%,#c8bfb0 50%,#e8e0d5 100%)', gen:(c,w,h)=>{ const bg=c.createLinearGradient(0,0,w,h);bg.addColorStop(0,'#f0ece6');bg.addColorStop(0.5,'#d4cdc4');bg.addColorStop(1,'#ece8e2');c.fillStyle=bg;c.fillRect(0,0,w,h);const drawVein=(sx,sy,length,angle,alpha,lw)=>{let x2=sx,y2=sy,a2=angle;c.beginPath();c.moveTo(x2,y2);for(let i=0;i<length;i++){a2+=(Math.random()-0.5)*0.3;x2+=Math.cos(a2)*3;y2+=Math.sin(a2)*3;c.lineTo(x2,y2);}c.strokeStyle=`rgba(80,65,55,${alpha})`;c.lineWidth=lw;c.stroke();};for(let i=0;i<25;i++){drawVein(Math.random()*w,Math.random()*h,80+Math.random()*150,Math.random()*Math.PI,0.06+Math.random()*0.08,0.8+Math.random()*1.5);}for(let i=0;i<8;i++){drawVein(Math.random()*w,Math.random()*h,200+Math.random()*300,Math.random()*Math.PI,0.04+Math.random()*0.05,0.4+Math.random()*0.8);}const sheen=c.createLinearGradient(0,0,w,h);sheen.addColorStop(0,'rgba(255,255,255,0.25)');sheen.addColorStop(0.4,'rgba(255,255,255,0.0)');sheen.addColorStop(1,'rgba(255,255,255,0.1)');c.fillStyle=sheen;c.fillRect(0,0,w,h); } },
+                    { id:'p13', label:'Fogo',          preview:'linear-gradient(180deg,#000 0%,#1a0800 50%,#3d1500 100%)', gen:(c,w,h)=>{ c.fillStyle='#000';c.fillRect(0,0,w,h);for(let layer=0;layer<3;layer++){const lh=h*(0.15+layer*0.08),lo=0.45-layer*0.12;const lg=c.createLinearGradient(0,h,0,h-lh);lg.addColorStop(0,`rgba(255,${40+layer*35},0,${lo})`);lg.addColorStop(0.6,`rgba(255,${90+layer*40},0,${lo*0.35})`);lg.addColorStop(1,'transparent');c.fillStyle=lg;c.fillRect(0,h-lh,w,lh);}const COLS=Math.max(1,Math.floor(w/4));for(let col=0;col<COLS;col++){const nx=col/COLS,f1=Math.sin(nx*8.7)*0.38,f2=Math.sin(nx*15.4+0.8)*0.28,f3=Math.sin(nx*6.1+2.0)*0.18,turb=0.5+(f1+f2+f3)*0.5,bH=h*(0.28+turb*0.35),cx=col*(w/COLS),cw=w/COLS*1.6;const fg=c.createLinearGradient(cx,h,cx,h-bH);fg.addColorStop(0,'rgba(255,255,180,0.9)');fg.addColorStop(0.12,'rgba(255,200,20,0.8)');fg.addColorStop(0.38,'rgba(255,80,0,0.6)');fg.addColorStop(0.65,'rgba(180,20,0,0.35)');fg.addColorStop(1,'transparent');c.fillStyle=fg;c.beginPath();c.moveTo(cx-cw*0.1,h);c.quadraticCurveTo(cx+cw*0.35,h-bH*0.55,cx+cw/2,h-bH);c.quadraticCurveTo(cx+cw*0.68,h-bH*0.55,cx+cw*1.1,h);c.closePath();c.fill();}for(let i=0;i<60;i++){const ex=Math.random()*w,ey=h*0.15+Math.random()*h*0.55,er=Math.random()*5+1;c.beginPath();c.arc(ex,ey,er,0,6.28);c.fillStyle=`rgba(255,${150+Math.random()*105},0,${Math.random()*0.6+0.2})`;c.fill();} } },
+                    { id:'p14', label:'Água Profunda', preview:'linear-gradient(180deg,#001a33 0%,#003366 40%,#001a4d 100%)', gen:(c,w,h)=>{ const bg=c.createLinearGradient(0,0,0,h);bg.addColorStop(0,'#001220');bg.addColorStop(0.4,'#002244');bg.addColorStop(1,'#000d1a');c.fillStyle=bg;c.fillRect(0,0,w,h);for(let i=0;i<6;i++){c.beginPath();c.strokeStyle=`rgba(0,150,255,${0.04+i*0.03})`;c.lineWidth=2+i*0.5;for(let x=0;x<w;x+=3){const y2=h*0.25+Math.sin((x/w)*Math.PI*5+i*1.1)*h*0.07+i*(h*0.12);x===0?c.moveTo(x,y2):c.lineTo(x,y2);}c.stroke();}for(let i=0;i<80;i++){const bx=Math.random()*w,by=Math.random()*h,br=Math.random()*40+10;const bg2=c.createRadialGradient(bx,by,0,bx,by,br);bg2.addColorStop(0,`rgba(0,180,255,${Math.random()*0.12+0.03})`);bg2.addColorStop(1,'transparent');c.fillStyle=bg2;c.fillRect(0,0,w,h);}for(let i=0;i<15;i++){const lx=Math.random()*w,ly=Math.random()*h*0.7,lw=Math.random()*4+1,ll=Math.random()*120+40;c.strokeStyle=`rgba(100,220,255,${Math.random()*0.2+0.05})`;c.lineWidth=lw;c.beginPath();c.moveTo(lx,ly);c.lineTo(lx+(Math.random()-0.5)*20,ly+ll);c.stroke();} } },
+                    { id:'p15', label:'Glitch',        preview:'linear-gradient(160deg,#000 0%,#100010 100%)', gen:(c,w,h)=>{ c.fillStyle='#000';c.fillRect(0,0,w,h);const scanH=Math.floor(h/4);for(let i=0;i<scanH;i++){const y2=Math.random()*h,sh=Math.random()*6+2;c.fillStyle=`rgba(${Math.random()>0.5?'255,0,80':'0,255,200'},${Math.random()*0.15+0.02})`;c.fillRect(0,y2,w,sh);}for(let i=0;i<8;i++){const gy=Math.random()*h,gh=Math.random()*40+5,gx=(Math.random()-0.5)*60;c.drawImage(c.canvas,gx,gy,w,gh,0,gy,w,gh);}for(let i=0;i<6;i++){const gy2=Math.random()*h,gh2=Math.random()*12+2;c.fillStyle=`rgba(0,255,255,${Math.random()*0.2+0.05})`;c.fillRect(0,gy2,w*Math.random()*0.6+w*0.2,gh2);}for(let i=0;i<200;i++){c.fillStyle=`rgba(${Math.random()>0.5?'255,0,100':'0,255,200'},${Math.random()*0.8+0.2})`;c.fillRect(Math.random()*w,Math.random()*h,Math.random()*4+1,Math.random()*2+1);}const vg=c.createRadialGradient(w/2,h/2,Math.min(w,h)*0.1,w/2,h/2,Math.max(w,h)*0.8);vg.addColorStop(0,'transparent');vg.addColorStop(1,'rgba(0,0,0,0.7)');c.fillStyle=vg;c.fillRect(0,0,w,h); } },
+                    { id:'p16', label:'Cristal',       preview:'linear-gradient(135deg,rgba(200,230,255,0.9) 0%,rgba(150,200,255,0.8) 50%,rgba(180,220,255,0.9) 100%)', gen:(c,w,h)=>{ const bg=c.createLinearGradient(0,0,w,h);bg.addColorStop(0,'#c8e6ff');bg.addColorStop(0.5,'#96c8ff');bg.addColorStop(1,'#b4d8ff');c.fillStyle=bg;c.fillRect(0,0,w,h);const drawShard=(sx,sy,size,angle)=>{c.save();c.translate(sx,sy);c.rotate(angle);const pts=[[0,-size],[size*0.4,-size*0.2],[size*0.3,size*0.6],[-size*0.3,size*0.6],[-size*0.4,-size*0.2]];c.beginPath();pts.forEach(([px,py],i)=>i===0?c.moveTo(px,py):c.lineTo(px,py));c.closePath();const sg=c.createLinearGradient(-size,-size,size,size);sg.addColorStop(0,'rgba(255,255,255,0.6)');sg.addColorStop(0.5,'rgba(180,220,255,0.3)');sg.addColorStop(1,'rgba(100,170,255,0.4)');c.fillStyle=sg;c.fill();c.strokeStyle='rgba(255,255,255,0.8)';c.lineWidth=1;c.stroke();c.restore();};for(let i=0;i<30;i++){drawShard(Math.random()*w,Math.random()*h,Math.random()*60+20,Math.random()*Math.PI);}const sheen=c.createLinearGradient(0,0,w,h);sheen.addColorStop(0,'rgba(255,255,255,0.3)');sheen.addColorStop(0.3,'rgba(255,255,255,0.0)');sheen.addColorStop(1,'rgba(255,255,255,0.15)');c.fillStyle=sheen;c.fillRect(0,0,w,h); } },
+                    { id:'p17', label:'Chuva Neon',    preview:'linear-gradient(180deg,#000510 0%,#000820 100%)', gen:(c,w,h)=>{ c.fillStyle='#000510';c.fillRect(0,0,w,h);const cols2=['rgba(0,191,255,','rgba(180,0,255,','rgba(0,255,150,','rgba(255,50,150,'];for(let i=0;i<120;i++){const rx=Math.random()*w,ry=Math.random()*h,rl=Math.random()*80+20,rw=Math.random()*1.5+0.5,col=cols2[Math.floor(Math.random()*cols2.length)],alpha=Math.random()*0.6+0.2;const rg=c.createLinearGradient(rx,ry,rx+rw,ry+rl);rg.addColorStop(0,col+alpha+')');rg.addColorStop(1,col+'0)');c.strokeStyle=rg.toString?`${col}${alpha})`:rg;c.lineWidth=rw;c.beginPath();c.moveTo(rx,ry);c.lineTo(rx+rw,ry+rl);c.stroke();}for(let i=0;i<40;i++){const px=Math.random()*w,py=Math.random()*h,pr=Math.random()*3+0.5,pcol=cols2[Math.floor(Math.random()*cols2.length)];c.beginPath();c.arc(px,py,pr,0,6.28);c.fillStyle=pcol+(Math.random()*0.9+0.1)+')';c.fill();const pg=c.createRadialGradient(px,py,0,px,py,pr*6);pg.addColorStop(0,pcol+'0.3)');pg.addColorStop(1,'transparent');c.fillStyle=pg;c.fillRect(px-pr*6,py-pr*6,pr*12,pr*12);}const vg2=c.createRadialGradient(w/2,h/2,Math.min(w,h)*0.2,w/2,h/2,Math.max(w,h)*0.9);vg2.addColorStop(0,'transparent');vg2.addColorStop(1,'rgba(0,0,5,0.6)');c.fillStyle=vg2;c.fillRect(0,0,w,h); } },
+                    { id:'p18', label:'Pôr do Sol',    preview:'linear-gradient(180deg,#0a0a1a 0%,#1a0a30 20%,#4a0a20 50%,#c44b00 75%,#ff8c00 100%)', gen:(c,w,h)=>{ const sky=c.createLinearGradient(0,0,0,h);sky.addColorStop(0,'#050515');sky.addColorStop(0.2,'#15052a');sky.addColorStop(0.45,'#3d0a1a');sky.addColorStop(0.65,'#8b2500');sky.addColorStop(0.8,'#d45000');sky.addColorStop(0.92,'#ff8c00');sky.addColorStop(1,'#ffb300');c.fillStyle=sky;c.fillRect(0,0,w,h);for(let i=0;i<60;i++){c.beginPath();c.arc(Math.random()*w,Math.random()*h*0.55,Math.random()*1.2+0.2,0,6.28);c.fillStyle=`rgba(255,255,255,${Math.random()*0.8+0.1})`;c.fill();}const sunX=w/2,sunY=h*0.72,sunR=60;const sunG=c.createRadialGradient(sunX,sunY,0,sunX,sunY,sunR*2.5);sunG.addColorStop(0,'rgba(255,255,200,0.95)');sunG.addColorStop(0.15,'rgba(255,200,50,0.8)');sunG.addColorStop(0.4,'rgba(255,120,0,0.4)');sunG.addColorStop(1,'transparent');c.fillStyle=sunG;c.fillRect(0,0,w,h);c.beginPath();c.arc(sunX,sunY,sunR,0,6.28);c.fillStyle='rgba(255,255,200,0.9)';c.fill();const ref=c.createLinearGradient(sunX-20,sunY,sunX+20,h);ref.addColorStop(0,'rgba(255,180,0,0.5)');ref.addColorStop(0.5,'rgba(255,120,0,0.2)');ref.addColorStop(1,'rgba(255,80,0,0.05)');c.fillStyle=ref;c.fillRect(sunX-20,sunY,40,h-sunY); } },
+                    { id:'p19', label:'Floresta',      preview:'linear-gradient(180deg,#001a00 0%,#003300 40%,#001a00 100%)', gen:(c,w,h)=>{ const bg=c.createLinearGradient(0,0,0,h);bg.addColorStop(0,'#000d00');bg.addColorStop(0.3,'#001a00');bg.addColorStop(1,'#000800');c.fillStyle=bg;c.fillRect(0,0,w,h);const drawTree=(tx,ty,trunk,height,spread)=>{c.strokeStyle=`rgba(30,20,10,0.8)`;c.lineWidth=trunk;c.beginPath();c.moveTo(tx,ty);c.lineTo(tx,ty-height*0.35);c.stroke();const drawBranch=(bx,by,len,angle2,depth)=>{if(depth>4||len<5)return;const ex=bx+Math.cos(angle2)*len,ey=by+Math.sin(angle2)*len;c.strokeStyle=`rgba(${20+depth*8},${15+depth*6},${5+depth*4},0.7)`;c.lineWidth=Math.max(0.5,trunk*(1-depth*0.18));c.beginPath();c.moveTo(bx,by);c.lineTo(ex,ey);c.stroke();c.beginPath();c.arc(ex,ey,spread*(1-depth*0.15),0,6.28);c.fillStyle=`rgba(0,${60+Math.random()*60},0,${0.12+depth*0.04})`;c.fill();drawBranch(ex,ey,len*0.7,angle2-0.4+(Math.random()-0.5)*0.3,depth+1);drawBranch(ex,ey,len*0.65,angle2+0.4+(Math.random()-0.5)*0.3,depth+1);};drawBranch(tx,ty-height*0.35,height*0.35,-Math.PI/2,0);};for(let i=0;i<12;i++){drawTree(Math.random()*w,h*0.5+Math.random()*h*0.5,2+Math.random()*4,100+Math.random()*200,15+Math.random()*20);}for(let i=0;i<30;i++){c.beginPath();c.arc(Math.random()*w,Math.random()*h*0.5,Math.random()*1+0.2,0,6.28);c.fillStyle=`rgba(180,255,150,${Math.random()*0.5+0.1})`;c.fill();}const fog=c.createLinearGradient(0,0,0,h);fog.addColorStop(0,'rgba(0,20,0,0.6)');fog.addColorStop(0.5,'rgba(0,0,0,0.0)');fog.addColorStop(1,'rgba(0,0,0,0.3)');c.fillStyle=fog;c.fillRect(0,0,w,h); } },
+                    { id:'p20', label:'Espaço 3D',     preview:'radial-gradient(ellipse at 40% 40%,rgba(60,0,120,0.9) 0%,rgba(0,0,30,0.95) 60%,#000 100%)', gen:(c,w,h)=>{ c.fillStyle='#000';c.fillRect(0,0,w,h);const cx=w/2,cy=h/2;for(let i=0;i<600;i++){const dist=Math.random(),angle=Math.random()*Math.PI*2,spd=Math.pow(dist,0.5),sx=cx+Math.cos(angle)*dist*w*0.8,sy=cy+Math.sin(angle)*dist*h*0.8,sr=Math.random()*1.5*dist+0.1;c.beginPath();c.arc(sx,sy,sr,0,6.28);c.fillStyle=`rgba(255,255,255,${Math.random()*0.8+0.1})`;c.fill();}for(let ring=1;ring<8;ring++){const rr=ring*Math.min(w,h)*0.08,tilted=0.3;c.strokeStyle=`rgba(${100+ring*15},${50+ring*10},${200-ring*10},${0.25-ring*0.02})`;c.lineWidth=ring===1?3:1.5;c.beginPath();c.ellipse(cx,cy,rr,rr*tilted,0.4,0,Math.PI*2);c.stroke();}const planet=c.createRadialGradient(cx*0.9,cy*0.85,0,cx*0.9,cy*0.85,Math.min(w,h)*0.22);planet.addColorStop(0,'rgba(80,40,160,0.95)');planet.addColorStop(0.4,'rgba(40,20,100,0.85)');planet.addColorStop(0.8,'rgba(20,10,60,0.6)');planet.addColorStop(1,'transparent');c.fillStyle=planet;c.fillRect(0,0,w,h);const amb=c.createRadialGradient(w*0.75,h*0.15,0,w*0.75,h*0.15,w*0.5);amb.addColorStop(0,'rgba(100,200,255,0.18)');amb.addColorStop(1,'transparent');c.fillStyle=amb;c.fillRect(0,0,w,h); } },
+                    { id:'p21', label:'Confete',       preview:'linear-gradient(180deg,#0a0015 0%,#12001f 100%)', gen:(c,w,h)=>{ const bg=c.createLinearGradient(0,0,0,h);bg.addColorStop(0,'#0a0015');bg.addColorStop(1,'#12001f');c.fillStyle=bg;c.fillRect(0,0,w,h);const colors=['#ff3366','#ff9900','#ffee00','#33ff66','#00ccff','#cc44ff','#ff66aa','#44ffee'];for(let i=0;i<200;i++){const x2=Math.random()*w,y2=Math.random()*h,col=colors[Math.floor(Math.random()*colors.length)],type=Math.floor(Math.random()*3);c.save();c.translate(x2,y2);c.rotate(Math.random()*Math.PI*2);c.fillStyle=col+Math.round(Math.random()*100+100).toString(16).slice(-2);if(type===0){const cw=Math.random()*16+4,ch=Math.random()*8+3;c.fillRect(-cw/2,-ch/2,cw,ch);}else if(type===1){c.beginPath();c.arc(0,0,Math.random()*6+2,0,6.28);c.fill();}else{const rs=Math.random()*8+3;c.beginPath();for(let k=0;k<5;k++){const a2=k*Math.PI*2/5-Math.PI/2,a3=a2+Math.PI/5;c.lineTo(Math.cos(a2)*rs,Math.sin(a2)*rs);c.lineTo(Math.cos(a3)*rs*0.4,Math.sin(a3)*rs*0.4);}c.closePath();c.fill();}c.restore();}const vg=c.createRadialGradient(w/2,h/2,Math.min(w,h)*0.15,w/2,h/2,Math.max(w,h)*0.75);vg.addColorStop(0,'transparent');vg.addColorStop(1,'rgba(0,0,0,0.55)');c.fillStyle=vg;c.fillRect(0,0,w,h); } },
+                    { id:'p22', label:'Runas',         preview:'linear-gradient(180deg,#05000d 0%,#0a0019 100%)', gen:(c,w,h)=>{ const bg=c.createLinearGradient(0,0,0,h);bg.addColorStop(0,'#05000d');bg.addColorStop(1,'#0a0019');c.fillStyle=bg;c.fillRect(0,0,w,h);const runes=['ᚠ','ᚢ','ᚦ','ᚨ','ᚱ','ᚲ','ᚷ','ᚹ','ᚺ','ᚾ','ᛁ','ᛃ','ᛇ','ᛈ','ᛉ','ᛊ','ᛏ','ᛒ','ᛖ','ᛗ','ᛚ','ᛜ','ᛞ','ᛟ'];const cols3=Math.floor(w/55),rows3=Math.floor(h/55);for(let row=0;row<rows3+1;row++){for(let col=0;col<cols3+1;col++){const rx=col*55+(Math.random()-0.5)*20,ry=row*55+(Math.random()-0.5)*20,rune=runes[Math.floor(Math.random()*runes.length)],alpha=Math.random()*0.35+0.05,size=Math.random()*14+10,hue=220+Math.random()*80;c.font=`${size}px serif`;c.fillStyle=`hsla(${hue},70%,65%,${alpha})`;c.fillText(rune,rx,ry);}}const glows=['rgba(100,0,255,','rgba(0,100,255,','rgba(200,0,255,'];for(let i=0;i<20;i++){const gx=Math.random()*w,gy=Math.random()*h,gr=Math.random()*80+30,gcol=glows[Math.floor(Math.random()*glows.length)];const gg=c.createRadialGradient(gx,gy,0,gx,gy,gr);gg.addColorStop(0,gcol+'0.2)');gg.addColorStop(1,'transparent');c.fillStyle=gg;c.fillRect(0,0,w,h);}const vg2=c.createRadialGradient(w/2,h/2,Math.min(w,h)*0.1,w/2,h/2,Math.max(w,h)*0.8);vg2.addColorStop(0,'transparent');vg2.addColorStop(1,'rgba(0,0,0,0.65)');c.fillStyle=vg2;c.fillRect(0,0,w,h); } },
                   ];
                   return (
                     <div style={{ padding:12, display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:8 }}>
@@ -6309,6 +7081,132 @@ _setDragging(null);
             document.body
           );
         })()}
+
+        {/* ── Painel de Trilhas ── */}
+        {showTrilhasPanel && createPortal(
+          <>
+            <div onClick={()=>{ setShowTrilhasPanel(false); stopTrilhasPreview(); }} style={{position:'fixed',inset:0,zIndex:99997}} />
+            <div style={{
+              position:'fixed',
+              top: (trilhasBtnRef.current?.getBoundingClientRect().bottom ?? 52) + 4,
+              left: Math.max(8, Math.min((trilhasBtnRef.current?.getBoundingClientRect().left ?? 200), window.innerWidth - 520)),
+              zIndex:99999, background:'#0f172a',
+              border:'1px solid rgba(167,139,250,0.3)', borderRadius:16, width:510,
+              maxHeight:'82vh', boxShadow:'0 20px 60px rgba(0,0,0,0.85)',
+              display:'flex', flexDirection:'column', overflow:'hidden'
+            }}>
+              {/* Header */}
+              <div style={{padding:'12px 16px 10px', borderBottom:'1px solid rgba(255,255,255,0.07)', display:'flex', alignItems:'center', justifyContent:'space-between', flexShrink:0}}>
+                <div style={{display:'flex', alignItems:'center', gap:8}}>
+                  <span style={{fontSize:18}}>🎼</span>
+                  <span style={{fontWeight:800, fontSize:14, color:'#a78bfa'}}>Trilhas — 170 músicas</span>
+                  <span style={{fontSize:10, color:'#666', background:'rgba(255,255,255,0.05)', borderRadius:20, padding:'2px 8px'}}>Royalty-free</span>
+                </div>
+                <button onClick={()=>{ setShowTrilhasPanel(false); stopTrilhasPreview(); }}
+                  style={{background:'none', border:'none', color:'#555', cursor:'pointer', fontSize:18, lineHeight:1}}>✕</button>
+              </div>
+
+              {/* Busca */}
+              <div style={{padding:'10px 14px 8px', borderBottom:'1px solid rgba(255,255,255,0.06)', flexShrink:0}}>
+                <input
+                  value={trilhasSearch}
+                  onChange={e=>setTrilhasSearch(e.target.value)}
+                  placeholder="Buscar por título ou artista…"
+                  style={{width:'100%', boxSizing:'border-box', background:'rgba(255,255,255,0.06)', border:'1px solid rgba(255,255,255,0.1)', borderRadius:8, padding:'7px 10px', color:'#fff', fontSize:12, outline:'none'}}
+                />
+              </div>
+
+              {/* Lista de trilhas */}
+              <div style={{overflowY:'auto', flex:1, padding:'4px 0'}}>
+                {(() => {
+                  const q = trilhasSearch.toLowerCase().trim();
+                  const filtered = q
+                    ? TRILHAS_LIST.filter(t => t.title.toLowerCase().includes(q) || t.artist.toLowerCase().includes(q))
+                    : TRILHAS_LIST;
+                  if (filtered.length === 0) return (
+                    <div style={{display:'flex', flexDirection:'column', alignItems:'center', padding:'40px 0', gap:8}}>
+                      <span style={{fontSize:28}}>🎼</span>
+                      <span style={{fontSize:12, color:'#555'}}>Nenhuma trilha encontrada</span>
+                    </div>
+                  );
+                  return filtered.map(track => {
+                    const isPlaying = trilhasPreviewId === track.id;
+                    const isUsing   = trilhasUsingId   === track.id;
+                    const progress  = isPlaying && trilhasPreviewRef.current?.duration > 0
+                      ? (trilhasPreviewTime / trilhasPreviewRef.current.duration) * 100 : 0;
+                    return (
+                      <div key={track.id}
+                        style={{
+                          display:'flex', alignItems:'center', gap:10,
+                          padding:'8px 14px', transition:'background 0.12s',
+                          borderBottom:'1px solid rgba(255,255,255,0.04)',
+                          background: isPlaying ? 'rgba(167,139,250,0.07)' : 'transparent'
+                        }}
+                        onMouseEnter={e=>{ if(!isPlaying) e.currentTarget.style.background='rgba(255,255,255,0.04)'; }}
+                        onMouseLeave={e=>{ if(!isPlaying) e.currentTarget.style.background=isPlaying?'rgba(167,139,250,0.07)':'transparent'; }}
+                      >
+                        {/* Play/Pause */}
+                        <button onClick={()=>toggleTrilhasPreview(track)}
+                          style={{
+                            width:34, height:34, borderRadius:'50%', flexShrink:0,
+                            background: isPlaying ? 'rgba(167,139,250,0.35)' : 'rgba(255,255,255,0.07)',
+                            border:`1px solid ${isPlaying ? 'rgba(167,139,250,0.6)' : 'rgba(255,255,255,0.12)'}`,
+                            cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center',
+                            fontSize:13, color: isPlaying ? '#c4b5fd' : '#888', transition:'all 0.15s'
+                          }}>
+                          {isPlaying ? '⏸' : '▶'}
+                        </button>
+
+                        {/* Info + barra de progresso */}
+                        <div style={{flex:1, minWidth:0}}>
+                          <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:2}}>
+                            <span style={{fontSize:12, fontWeight:600, color: isPlaying ? '#c4b5fd' : '#ccc', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', maxWidth:240}}>
+                              {track.title}
+                            </span>
+                          </div>
+                          {track.artist && (
+                            <div style={{fontSize:10, color:'#555', marginBottom:3, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>
+                              {track.artist}
+                            </div>
+                          )}
+                          {/* Barra de progresso */}
+                          <div style={{height:2, background:'rgba(255,255,255,0.08)', borderRadius:2, overflow:'hidden'}}>
+                            <div style={{height:'100%', width:`${progress}%`, background:'linear-gradient(90deg,#a78bfa,#c4b5fd)', borderRadius:2, transition:'width 0.5s linear'}} />
+                          </div>
+                          {isPlaying && (
+                            <div style={{fontSize:9, color:'#a78bfa', marginTop:2}}>
+                              {fmtDur(Math.floor(trilhasPreviewTime))}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Botão Usar */}
+                        <button
+                          onClick={()=>useTrilhaNoProject(track)}
+                          disabled={isUsing}
+                          style={{
+                            padding:'5px 12px', borderRadius:7,
+                            border:'1px solid rgba(167,139,250,0.4)',
+                            background: isUsing ? 'rgba(167,139,250,0.3)' : 'rgba(167,139,250,0.15)',
+                            color:'#c4b5fd', fontSize:11, cursor: isUsing ? 'wait' : 'pointer',
+                            fontWeight:700, transition:'all 0.15s', flexShrink:0, whiteSpace:'nowrap'
+                          }}>
+                          {isUsing ? '⏳' : '✓ Usar'}
+                        </button>
+                      </div>
+                    );
+                  });
+                })()}
+              </div>
+            </div>
+          </>,
+          document.body
+        )}
+
+        {/* ── Lang Toggle ── */}
+        <div style={{ flexShrink:0, marginLeft:2 }}>
+          <LangToggle />
+        </div>
 
       </div>{/* fim HEADER CONTROLS */}
 
@@ -6585,43 +7483,173 @@ _setDragging(null);
                     {(sel.chromaticAberration||0)>0 && <button onClick={() => upd({chromaticAberration:0})} style={{ background:'none',border:'none',color:'#555',cursor:'pointer',fontSize:12 }}>↺</button>}
                   </div>
                 </div>
-                {/* ── Keyframes ── */}
-                <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
+                {/* ── Zoom Animado / Keyframes ── */}
+                <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
                   <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
-                    <span style={{ fontSize:11, color: accent, fontWeight:700, letterSpacing:'0.5px' }}>🎞️ Keyframes</span>
-                    <div style={{ display:'flex', gap:6 }}>
+                    <div>
+                      <span style={{ fontSize:11, color: accent, fontWeight:700, letterSpacing:'0.5px' }}>🎬 Zoom Animado</span>
+                      {kfs.length > 0 && <span style={{ marginLeft:6, fontSize:9, background:`${accentBg}0.2)`, border:`1px solid ${accentBg}0.4)`, borderRadius:10, padding:'1px 6px', color:accent }}>{kfs.length} KF</span>}
+                    </div>
+                    <div style={{ display:'flex', gap:5 }}>
                       <button
                         onClick={() => {
-                          const kf = { t: parseFloat(tNow.toFixed(3)), x: sel.x, y: sel.y, scale: 1, opacity: sel._kfOpacity ?? 1, rotation: sel.rotation || 0 };
+                          // Captura posição e escala atuais (incluindo kfState se já há KFs)
+                          const kfNow = getKfState(sel, tNow);
+                          const scNow = kfNow ? kfNow.w / sel.width : 1;
+                          const xNow  = kfNow ? kfNow.x : sel.x;
+                          const yNow  = kfNow ? kfNow.y : sel.y;
+                          const kf = {
+                            t: parseFloat(tNow.toFixed(3)),
+                            x: xNow, y: yNow,
+                            scale: parseFloat(scNow.toFixed(3)),
+                            opacity: 1,
+                            rotation: sel.rotation || 0,
+                            anchorX: 0.5, anchorY: 0.5,
+                            easing: 'ease_in_out',
+                          };
                           const existing = kfs.filter(k => Math.abs(k.t - kf.t) > 0.05);
                           upd({ keyframes: [...existing, kf].sort((a,b) => a.t - b.t) });
                         }}
-                        style={{ background:`${accentBg}0.15)`, border:`1px solid ${accentBg}0.4)`, borderRadius:8, padding:'3px 10px', fontSize:10, color: accent, cursor:'pointer', fontWeight:700 }}
-                      >+ KF em {tNow.toFixed(1)}s</button>
+                        style={{ background:`${accentBg}0.15)`, border:`1px solid ${accentBg}0.4)`, borderRadius:7, padding:'3px 9px', fontSize:10, color:accent, cursor:'pointer', fontWeight:700 }}
+                      >+ KF {tNow.toFixed(1)}s</button>
                       {kfs.length > 0 && <button onClick={() => upd({keyframes:[]})}
-                        style={{ background:'rgba(239,68,68,0.08)', border:'1px solid rgba(239,68,68,0.25)', borderRadius:8, padding:'3px 8px', fontSize:10, color:'#f87171', cursor:'pointer' }}>✕ Limpar</button>}
+                        style={{ background:'rgba(239,68,68,0.08)', border:'1px solid rgba(239,68,68,0.2)', borderRadius:7, padding:'3px 7px', fontSize:10, color:'#f87171', cursor:'pointer' }}>✕</button>}
                     </div>
                   </div>
+
+                  {/* Presets de zoom rápido */}
+                  <div style={{ display:'flex', gap:4, flexWrap:'wrap' }}>
+                    {[
+                      { label:'Ken Burns', title:'Zoom suave de entrada', fn:() => {
+                        const dur = (sel.end||5) - (sel.start||0);
+                        upd({ keyframes: [
+                          { t: sel.start||0, x: sel.x, y: sel.y, scale:1,    opacity:1, rotation:sel.rotation||0, anchorX:0.5, anchorY:0.5, easing:'ease_in_out' },
+                          { t: (sel.start||0)+dur, x: sel.x - sel.width*0.1, y: sel.y - sel.height*0.1, scale:1.2, opacity:1, rotation:sel.rotation||0, anchorX:0.5, anchorY:0.5, easing:'ease_in_out' },
+                        ]});
+                      }},
+                      { label:'Punch In', title:'Zoom rápido de aproximação', fn:() => {
+                        const s = sel.start||0;
+                        upd({ keyframes: [
+                          { t: s,      x: sel.x, y: sel.y, scale:1,   opacity:1, rotation:sel.rotation||0, anchorX:0.5, anchorY:0.5, easing:'ease_out' },
+                          { t: s+0.6,  x: sel.x - sel.width*0.15, y: sel.y - sel.height*0.15, scale:1.3, opacity:1, rotation:sel.rotation||0, anchorX:0.5, anchorY:0.5, easing:'ease_out' },
+                        ]});
+                      }},
+                      { label:'Zoom Out', title:'Zoom suave de afastamento', fn:() => {
+                        const dur = (sel.end||5) - (sel.start||0);
+                        upd({ keyframes: [
+                          { t: sel.start||0, x: sel.x - sel.width*0.15, y: sel.y - sel.height*0.15, scale:1.3, opacity:1, rotation:sel.rotation||0, anchorX:0.5, anchorY:0.5, easing:'ease_in_out' },
+                          { t: (sel.start||0)+dur, x: sel.x, y: sel.y, scale:1, opacity:1, rotation:sel.rotation||0, anchorX:0.5, anchorY:0.5, easing:'ease_in_out' },
+                        ]});
+                      }},
+                      { label:'Pulse', title:'Pulso rítmico de escala', fn:() => {
+                        const s = sel.start||0;
+                        upd({ keyframes: [
+                          { t: s,      x:sel.x, y:sel.y, scale:1,    opacity:1, rotation:sel.rotation||0, anchorX:0.5, anchorY:0.5, easing:'ease_in_out' },
+                          { t: s+0.5,  x:sel.x - sel.width*0.06, y:sel.y - sel.height*0.06, scale:1.12, opacity:1, rotation:sel.rotation||0, anchorX:0.5, anchorY:0.5, easing:'ease_in_out' },
+                          { t: s+1.0,  x:sel.x, y:sel.y, scale:1,    opacity:1, rotation:sel.rotation||0, anchorX:0.5, anchorY:0.5, easing:'ease_in_out' },
+                          { t: s+1.5,  x:sel.x - sel.width*0.06, y:sel.y - sel.height*0.06, scale:1.12, opacity:1, rotation:sel.rotation||0, anchorX:0.5, anchorY:0.5, easing:'ease_in_out' },
+                          { t: s+2.0,  x:sel.x, y:sel.y, scale:1,    opacity:1, rotation:sel.rotation||0, anchorX:0.5, anchorY:0.5, easing:'ease_in_out' },
+                        ]});
+                      }},
+                      { label:'Fade In', title:'Aparece gradualmente', fn:() => {
+                        const s = sel.start||0;
+                        upd({ keyframes: [
+                          { t: s,     x:sel.x, y:sel.y, scale:1, opacity:0, rotation:sel.rotation||0, anchorX:0.5, anchorY:0.5, easing:'ease_out' },
+                          { t: s+0.8, x:sel.x, y:sel.y, scale:1, opacity:1, rotation:sel.rotation||0, anchorX:0.5, anchorY:0.5, easing:'ease_out' },
+                        ]});
+                      }},
+                      { label:'Limpar', title:'Remove todos os keyframes', fn:() => upd({keyframes:[]}) },
+                    ].map(p => (
+                      <button key={p.label} onClick={p.fn} title={p.title}
+                        style={{ padding:'3px 8px', fontSize:9, borderRadius:6, cursor:'pointer', fontWeight:700,
+                          background: p.label==='Limpar' ? 'rgba(239,68,68,0.08)' : `${accentBg}0.1)`,
+                          border: `1px solid ${p.label==='Limpar' ? 'rgba(239,68,68,0.25)' : accentBg+'0.3)'}`,
+                          color: p.label==='Limpar' ? '#f87171' : accent }}>{p.label}</button>
+                    ))}
+                  </div>
+
+                  {/* Lista de keyframes com controles */}
                   {kfs.length > 0 ? (
-                    <div style={{ display:'flex', flexDirection:'column', gap:3, maxHeight:140, overflowY:'auto' }}>
+                    <div style={{ display:'flex', flexDirection:'column', gap:4, maxHeight:200, overflowY:'auto' }}>
+                      {/* Mini timeline visual */}
+                      <div style={{ position:'relative', height:18, background:'rgba(255,255,255,0.04)', borderRadius:6, margin:'0 0 2px', overflow:'visible' }}>
+                        <div style={{ position:'absolute', left:0, top:'50%', right:0, height:1, background:'rgba(255,255,255,0.08)', transform:'translateY(-50%)' }} />
+                        {(() => {
+                          const tMin = kfs[0].t, tMax = kfs[kfs.length-1].t || (tMin+1);
+                          const range = Math.max(0.5, tMax - tMin);
+                          return kfs.map((kf, ki) => {
+                            const pct = range > 0 ? ((kf.t - tMin) / range) * 92 + 4 : 4;
+                            return (
+                              <div key={ki} style={{ position:'absolute', left:`${pct}%`, top:'50%', transform:'translate(-50%,-50%)', width:8, height:8, borderRadius:'50%', background:accent, border:'2px solid #0d1117', cursor:'pointer', zIndex:2 }} title={`KF ${kf.t.toFixed(2)}s — escala ${(kf.scale||1).toFixed(2)}×`} />
+                            );
+                          });
+                        })()}
+                        {/* Playhead */}
+                        {(() => {
+                          const tMin = kfs[0].t, tMax = kfs[kfs.length-1].t || (tMin+1);
+                          const range = Math.max(0.5, tMax - tMin);
+                          const pct = range > 0 ? Math.max(0,Math.min(100,((tNow - tMin) / range) * 92 + 4)) : 4;
+                          return <div style={{ position:'absolute', left:`${pct}%`, top:0, bottom:0, width:1, background:'rgba(0,191,255,0.6)', transform:'translateX(-50%)', pointerEvents:'none' }} />;
+                        })()}
+                      </div>
                       {kfs.map((kf, ki) => (
-                        <div key={ki} style={{ display:'flex', alignItems:'center', gap:6, background:'rgba(255,255,255,0.03)', borderRadius:8, padding:'5px 8px' }}>
-                          <span style={{ fontSize:10, color: accent, fontWeight:700, minWidth:36 }}>{kf.t.toFixed(1)}s</span>
-                          <span style={{ fontSize:9, color:'#555', flex:1 }}>x:{Math.round(kf.x||0)} y:{Math.round(kf.y||0)} sc:{(kf.scale||1).toFixed(2)} op:{Math.round((kf.opacity??1)*100)}%</span>
-                          <input type="range" min={0} max={2} step={0.05} value={kf.scale||1}
-                            onChange={e => upd({keyframes: kfs.map((k,i) => i===ki?{...k,scale:+e.target.value}:k)})}
-                            style={{ width:45, accentColor:accent, height:2 }} title={`Escala: ${(kf.scale||1).toFixed(2)}`} />
-                          <input type="range" min={0} max={1} step={0.05} value={kf.opacity??1}
-                            onChange={e => upd({keyframes: kfs.map((k,i) => i===ki?{...k,opacity:+e.target.value}:k)})}
-                            style={{ width:45, accentColor:accent, height:2 }} title={`Opacidade: ${Math.round((kf.opacity??1)*100)}%`} />
-                          <button onClick={() => upd({keyframes: kfs.filter((_,i) => i!==ki)})}
-                            style={{ background:'none', border:'none', color:'#555', cursor:'pointer', fontSize:12 }}>✕</button>
+                        <div key={ki} style={{ background:'rgba(255,255,255,0.03)', border:`1px solid ${accentBg}0.15)`, borderRadius:9, padding:'7px 10px', display:'flex', flexDirection:'column', gap:5 }}>
+                          <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+                            <div style={{ width:6, height:6, borderRadius:'50%', background:accent, flexShrink:0 }} />
+                            <span style={{ fontSize:11, color:accent, fontWeight:800, minWidth:36 }}>{kf.t.toFixed(2)}s</span>
+                            {/* Easing selector */}
+                            <select value={kf.easing||'ease_in_out'}
+                              onChange={e => upd({keyframes: kfs.map((k,i) => i===ki?{...k,easing:e.target.value}:k)})}
+                              style={{ flex:1, fontSize:9, background:'#0a0a0a', color:'#888', border:`1px solid ${accentBg}0.2)`, borderRadius:5, padding:'2px 4px', cursor:'pointer' }}>
+                              <option value="linear">Linear</option>
+                              <option value="ease_in">Ease In</option>
+                              <option value="ease_out">Ease Out</option>
+                              <option value="ease_in_out">Ease In-Out</option>
+                              <option value="spring">Spring</option>
+                              <option value="bounce">Bounce</option>
+                            </select>
+                            <button onClick={() => upd({keyframes: kfs.filter((_,i) => i!==ki)})}
+                              style={{ background:'none', border:'none', color:'#555', cursor:'pointer', fontSize:13, lineHeight:1 }}>✕</button>
+                          </div>
+                          {/* Escala */}
+                          <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+                            <span style={{ fontSize:9, color:'#666', minWidth:46 }}>Escala</span>
+                            <input type="range" min={0.1} max={3} step={0.01} value={kf.scale||1}
+                              onMouseDown={e => e.stopPropagation()} onPointerDown={e => e.stopPropagation()}
+                              onChange={e => upd({keyframes: kfs.map((k,i) => i===ki?{...k,scale:+e.target.value}:k)})}
+                              style={{ flex:1, accentColor:accent, height:3 }} />
+                            <span style={{ fontSize:10, color:accent, fontWeight:700, minWidth:30, textAlign:'right' }}>{(kf.scale||1).toFixed(2)}×</span>
+                            {(kf.scale||1) !== 1 && <button onClick={() => upd({keyframes:kfs.map((k,i)=>i===ki?{...k,scale:1}:k)})}
+                              style={{ background:'none',border:'none',color:'#555',cursor:'pointer',fontSize:11,padding:0 }}>↺</button>}
+                          </div>
+                          {/* Opacidade */}
+                          <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+                            <span style={{ fontSize:9, color:'#666', minWidth:46 }}>Opacidade</span>
+                            <input type="range" min={0} max={1} step={0.01} value={kf.opacity??1}
+                              onMouseDown={e => e.stopPropagation()} onPointerDown={e => e.stopPropagation()}
+                              onChange={e => upd({keyframes: kfs.map((k,i) => i===ki?{...k,opacity:+e.target.value}:k)})}
+                              style={{ flex:1, accentColor:accent, height:3 }} />
+                            <span style={{ fontSize:10, color:accent, fontWeight:700, minWidth:30, textAlign:'right' }}>{Math.round((kf.opacity??1)*100)}%</span>
+                          </div>
+                          {/* Ancora (ponto de zoom) */}
+                          <div style={{ display:'flex', gap:4, alignItems:'center' }}>
+                            <span style={{ fontSize:9, color:'#666', minWidth:46 }}>Âncora</span>
+                            {[['↖','0,0'],['↑','0.5,0'],['↗','1,0'],['←','0,0.5'],['⊙','0.5,0.5'],['→','1,0.5'],['↙','0,1'],['↓','0.5,1'],['↘','1,1']].map(([lbl,val]) => {
+                              const [ax,ay] = val.split(',').map(Number);
+                              const isActive = Math.abs((kf.anchorX??0.5)-ax)<0.01 && Math.abs((kf.anchorY??0.5)-ay)<0.01;
+                              return (
+                                <button key={val} onClick={() => upd({keyframes:kfs.map((k,i)=>i===ki?{...k,anchorX:ax,anchorY:ay}:k)})}
+                                  style={{ width:20, height:20, borderRadius:4, border:`1px solid ${isActive?accentBg+'0.7)':'rgba(255,255,255,0.08)'}`, background:isActive?`${accentBg}0.2)`:'rgba(255,255,255,0.03)', color:isActive?accent:'#555', fontSize:10, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', padding:0 }}>{lbl}</button>
+                              );
+                            })}
+                          </div>
                         </div>
                       ))}
                     </div>
                   ) : (
-                    <div style={{ fontSize:10, color:'#444', textAlign:'center', padding:'4px 0' }}>
-                      Clique "+ KF" enquanto o play roda para animar posição, escala e opacidade
+                    <div style={{ background:'rgba(255,255,255,0.02)', borderRadius:8, padding:'10px 12px', fontSize:10, color:'#444', textAlign:'center', lineHeight:1.6 }}>
+                      Use um preset acima ou clique <strong style={{color:accent}}>+ KF</strong> para adicionar keyframes manualmente.<br/>
+                      <span style={{fontSize:9}}>Pausa o play, ajuste o tempo e clique + KF para capturar.</span>
                     </div>
                   )}
                 </div>
@@ -7870,7 +8898,15 @@ _setDragging(null);
               <div
                 key={v.id}
                 onMouseDown={(e) => handleVideoTimelineMouseDown(v.id, 'move', e)}
-                onContextMenu={(e) => { e.preventDefault(); if (v.videoEl) { v.videoEl.pause(); if (v.videoEl.parentNode) v.videoEl.parentNode.removeChild(v.videoEl); } URL.revokeObjectURL(v.src); setVideos(prev => prev.filter(vv => vv.id !== v.id)); if (activeVideoId === v.id) setActiveVideoId(null); }}
+                onContextMenu={(e) => {
+  e.preventDefault(); pushHistory();
+  if (v.videoEl) {
+    v.videoEl.pause();
+    videoTrashRef.current[v.id] = { videoEl: v.videoEl, audioBuffer: v.audioBuffer, src: v.src };
+  }
+  setVideos(prev => prev.filter(vv => vv.id !== v.id));
+  if (activeVideoId === v.id) setActiveVideoId(null);
+}}
                 style={{
                   position: 'absolute',
                   left: v.start * zoom + 'px',
