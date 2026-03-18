@@ -9,12 +9,13 @@ import {
 
 
 function SupportChat({ chatTopic, setChatTopic, setChatOpen }) {
+  const { t } = useLanguage();
   const faqs = [
-    { q: "Como exportar o vídeo?", a: "No editor Pro, selecione o formato (WEBM + Áudio ou HD 1080p) e clique em Salvar. O arquivo será baixado automaticamente." },
-    { q: "Como sincronizar a letra?", a: "Cole a letra no campo de texto (uma frase por linha), dê Play e clique em ⚡ MARCAR AGORA no ritmo de cada frase." },
-    { q: "Como adicionar vídeos?", a: "No editor Pro há a opção 🎬 Vídeos no topo. Adicione vídeos, ajuste posição, tamanho, rotação e áudio na timeline." },
-    { q: "Diferença Free vs Pro?", a: "Free: imagens estáticas (PNG/JPG). Pro: vídeo com áudio, HD 1080p, sincronização de letras, vídeos e sem marca d'água." },
-    { q: "Problemas com pagamento", a: "Pagamentos são processados pelo Stripe. Para problemas, entre em contato pelo e-mail abaixo." },
+    { q: t("chat_faq1_q"), a: t("chat_faq1_a") },
+    { q: t("chat_faq2_q"), a: t("chat_faq2_a") },
+    { q: t("chat_faq3_q"), a: t("chat_faq3_a") },
+    { q: t("chat_faq4_q"), a: t("chat_faq4_a") },
+    { q: t("chat_faq5_q"), a: t("chat_faq5_a") },
   ];
   return (
     <div style={{ position: "fixed", bottom: 88, right: 24, zIndex: 9998, width: 340, borderRadius: 18, background: "#111", border: "1px solid rgba(0,191,255,0.2)", boxShadow: "0 16px 48px rgba(0,0,0,0.6)", overflow: "hidden" }}>
@@ -23,8 +24,8 @@ function SupportChat({ chatTopic, setChatTopic, setChatOpen }) {
           <Bot size={17} color="#fff" />
         </div>
         <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 13, fontWeight: 700, color: "#f0f0f0" }}>Suporte CanvasSync</div>
-          <div style={{ fontSize: 11, color: "#00BFFF" }}>Como podemos ajudar?</div>
+          <div style={{ fontSize: 13, fontWeight: 700, color: "#f0f0f0" }}>{t("chat_title")}</div>
+          <div style={{ fontSize: 11, color: "#00BFFF" }}>{t("chat_subtitle")}</div>
         </div>
         {chatTopic !== null && (
           <button onClick={() => setChatTopic(null)} style={{ background: "none", border: "none", color: "#666", cursor: "pointer", fontSize: 20, lineHeight: 1, padding: "0 4px" }}>←</button>
@@ -34,7 +35,7 @@ function SupportChat({ chatTopic, setChatTopic, setChatOpen }) {
       <div style={{ padding: 14, maxHeight: 360, overflowY: "auto" }}>
         {chatTopic === null ? (
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            <p style={{ fontSize: 12, color: "#555", marginBottom: 4 }}>Selecione um tópico:</p>
+            <p style={{ fontSize: 12, color: "#555", marginBottom: 4 }}>{t("chat_subtitle")}</p>
             {faqs.map((item, i) => (
               <button key={i} onClick={() => setChatTopic(i)}
                 style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 12, padding: "10px 14px", color: "#ccc", fontSize: 13, cursor: "pointer", textAlign: "left", fontFamily: "inherit", width: "100%" }}
@@ -44,7 +45,7 @@ function SupportChat({ chatTopic, setChatTopic, setChatOpen }) {
               </button>
             ))}
             <a href="mailto:canvassynclyrics@gmail.com" style={{ marginTop: 4, background: "rgba(0,191,255,0.08)", border: "1px solid rgba(0,191,255,0.2)", borderRadius: 12, padding: "10px 14px", color: "#00BFFF", fontSize: 13, textAlign: "center", textDecoration: "none", display: "block" }}>
-              ✉️ Enviar e-mail para o suporte
+              ✉️ canvassynclyrics@gmail.com
             </a>
           </div>
         ) : (
@@ -604,6 +605,91 @@ export default function CanvasSyncLanding() {
               </Reveal>
             ))}
           </div>
+        </div>
+      </section>
+
+
+      {/* ═══ EFEITOS DE TELA ═════════════════════════════════════════════════ */}
+      <section style={{ padding: "80px 24px", background: "var(--surface)" }}>
+        <div style={{ maxWidth: 1100, margin: "0 auto" }}>
+          <Reveal>
+            <div style={{ textAlign: "center", marginBottom: 56 }}>
+              <p style={{ color: "#a78bfa", fontSize: 12, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", marginBottom: 14 }}>
+                {t("fx_section_label")}
+              </p>
+              <h2 className="syne" style={{ fontSize: "clamp(26px, 5vw, 44px)", fontWeight: 800, letterSpacing: "-1px" }}>
+                {t("fx_section_title")}
+              </h2>
+              <p style={{ color: "#666", marginTop: 16, fontSize: 16, maxWidth: 520, margin: "16px auto 0" }}>
+                {t("fx_section_sub")}
+              </p>
+            </div>
+          </Reveal>
+
+          <Reveal delay={100}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 10 }}>
+              {[
+                { icon:"🌑", name:"Vinheta",       cat:"popular",  color:"#6366f1" },
+                { icon:"📽️", name:"Grão Filme",    cat:"popular",  color:"#6366f1" },
+                { icon:"🎞️", name:"Filme Antigo",  cat:"popular",  color:"#6366f1" },
+                { icon:"🔮", name:"Bokeh",          cat:"popular",  color:"#6366f1" },
+                { icon:"⭐", name:"Faíscas",        cat:"popular",  color:"#6366f1" },
+                { icon:"💥", name:"Shockwave",      cat:"action",   color:"#f59e0b" },
+                { icon:"🏎️", name:"Velocidade",    cat:"action",   color:"#f59e0b" },
+                { icon:"🔍", name:"Zoom Blur",      cat:"action",   color:"#f59e0b" },
+                { icon:"📳", name:"Tremor",         cat:"action",   color:"#f59e0b" },
+                { icon:"⚡", name:"Raios",          cat:"action",   color:"#f59e0b" },
+                { icon:"🎉", name:"Confete",        cat:"action",   color:"#f59e0b" },
+                { icon:"🎭", name:"Duotone",        cat:"style",    color:"#00BFFF" },
+                { icon:"👾", name:"Holograma",      cat:"style",    color:"#00BFFF" },
+                { icon:"🌅", name:"RetroWave",      cat:"style",    color:"#00BFFF" },
+                { icon:"💜", name:"Neon",           cat:"style",    color:"#00BFFF" },
+                { icon:"🌈", name:"Neon Lines",     cat:"style",    color:"#00BFFF" },
+                { icon:"🟢", name:"Cyberpunk",      cat:"style",    color:"#00BFFF" },
+                { icon:"📺", name:"Glitch Pro",     cat:"glitch",   color:"#ec4899" },
+                { icon:"⚡", name:"Glitch",         cat:"glitch",   color:"#ec4899" },
+                { icon:"🔀", name:"Pixel Sort",     cat:"glitch",   color:"#ec4899" },
+                { icon:"📼", name:"VHS",            cat:"glitch",   color:"#ec4899" },
+                { icon:"📡", name:"TV Estático",    cat:"glitch",   color:"#ec4899" },
+                { icon:"🪞", name:"Espelho",        cat:"glitch",   color:"#ec4899" },
+                { icon:"🌧️", name:"Chuva",         cat:"nature",   color:"#10b981" },
+                { icon:"🔥", name:"Fogo",           cat:"nature",   color:"#10b981" },
+                { icon:"💨", name:"Fumaça",         cat:"nature",   color:"#10b981" },
+                { icon:"❄️", name:"Neve",           cat:"nature",   color:"#10b981" },
+                { icon:"🌌", name:"Noite",          cat:"nature",   color:"#10b981" },
+                { icon:"🌈", name:"Aurora",         cat:"nature",   color:"#10b981" },
+                { icon:"✨", name:"Partículas",     cat:"overlay",  color:"#fbbf24" },
+                { icon:"💚", name:"Matrix",         cat:"overlay",  color:"#fbbf24" },
+                { icon:"🟤", name:"Vintage",        cat:"overlay",  color:"#fbbf24" },
+                { icon:"❄️", name:"Gelo",           cat:"overlay",  color:"#fbbf24" },
+                { icon:"🌫️", name:"Desfoque",      cat:"overlay",  color:"#fbbf24" },
+                { icon:"📽️", name:"Grão",          cat:"overlay",  color:"#fbbf24" },
+                { icon:"💡", name:"Luz Solar",      cat:"overlay",  color:"#fbbf24" },
+              ].map((fx, i) => (
+                <div key={i} style={{
+                  background: "var(--surface-2)",
+                  border: `1px solid ${fx.color}22`,
+                  borderRadius: 12,
+                  padding: "14px 8px",
+                  textAlign: "center",
+                  transition: "all 0.2s",
+                  cursor: "default",
+                }}
+                  onMouseEnter={e => { e.currentTarget.style.borderColor = fx.color + "66"; e.currentTarget.style.transform = "translateY(-2px)"; }}
+                  onMouseLeave={e => { e.currentTarget.style.borderColor = fx.color + "22"; e.currentTarget.style.transform = "translateY(0)"; }}
+                >
+                  <div style={{ fontSize: 22, marginBottom: 6 }}>{fx.icon}</div>
+                  <div style={{ fontSize: 11, color: "#888", fontWeight: 600, lineHeight: 1.3 }}>{fx.name}</div>
+                </div>
+              ))}
+            </div>
+          </Reveal>
+
+          <Reveal delay={200}>
+            <div style={{ textAlign: "center", marginTop: 36 }}>
+              <p style={{ color: "#555", fontSize: 13 }}>{t("fx_section_cta")}</p>
+            </div>
+          </Reveal>
         </div>
       </section>
 

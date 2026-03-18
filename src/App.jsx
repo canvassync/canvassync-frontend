@@ -7215,13 +7215,13 @@ _setDragging(null);
                           { t: s+0.8, x:sel.x, y:sel.y, scale:1, opacity:1, rotation:sel.rotation||0, anchorX:0.5, anchorY:0.5, easing:'ease_out' },
                         ]});
                       }},
-                      { label:t('kf_clear'), title:'Remove todos os keyframes', fn:() => upd({keyframes:[]}) },
+                      { label:t('kf_clear'), id:'clear', title:'Remove todos os keyframes', fn:() => upd({keyframes:[]}) },
                     ].map(p => (
                       <button key={p.label} onClick={p.fn} title={p.title}
                         style={{ padding:'3px 8px', fontSize:9, borderRadius:6, cursor:'pointer', fontWeight:700,
-                          background: p.label===t('kf_clear') ? 'rgba(239,68,68,0.08)' : `${accentBg}0.1)`,
-                          border: `1px solid ${p.label===t('kf_clear') ? 'rgba(239,68,68,0.25)' : accentBg+'0.3)'}` ,
-                          color: p.label===t('kf_clear') ? '#f87171' : accent }}>{p.label}</button>
+                          background: p.id==='clear' ? 'rgba(239,68,68,0.08)' : `${accentBg}0.1)`,
+                          border: `1px solid ${p.id==='clear' ? 'rgba(239,68,68,0.25)' : accentBg+'0.3)'}` ,
+                          color: p.id==='clear' ? '#f87171' : accent }}>{p.label}</button>
                     ))}
                   </div>
 
