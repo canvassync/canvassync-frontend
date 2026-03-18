@@ -135,11 +135,14 @@ export default function CanvasSyncLanding() {
 
   const features = [
     { icon: <Music size={22} />,    title: t("feat1_title"), desc: t("feat1_desc") },
-    { icon: <Download size={22} />, title: t("feat2_title"), desc: t("feat2_desc") },
+    { icon: <Film size={22} />,     title: t("feat2_title"), desc: t("feat2_desc") },
     { icon: <Layers size={22} />,   title: t("feat3_title"), desc: t("feat3_desc") },
     { icon: <Zap size={22} />,      title: t("feat4_title"), desc: t("feat4_desc") },
     { icon: <Volume2 size={22} />,  title: t("feat5_title"), desc: t("feat5_desc") },
     { icon: <Sparkles size={22} />, title: t("feat6_title"), desc: t("feat6_desc") },
+    { icon: <Wand2 size={22} />,    title: t("feat7_title"), desc: t("feat7_desc") },
+    { icon: <Sticker size={22} />,  title: t("feat8_title"), desc: t("feat8_desc") },
+    { icon: <Image size={22} />,    title: t("feat9_title"), desc: t("feat9_desc") },
   ];
 
   const freePlan = [
@@ -149,6 +152,7 @@ export default function CanvasSyncLanding() {
   const proPlan = [
     t("pro_feat1"), t("pro_feat2"), t("pro_feat3"), t("pro_feat4"),
     t("pro_feat5"), t("pro_feat6"), t("pro_feat7"), t("pro_feat8"),
+    t("pro_feat9"), t("pro_feat10"), t("pro_feat11"), t("pro_feat12"),
   ];
 
   const testimonials = [
@@ -535,10 +539,10 @@ export default function CanvasSyncLanding() {
             }}
           >
             {[
-              { value: 24, suffix: "",   label: "Templates prontos" },
-              { value: 16, suffix: "",   label: "Transições animadas" },
-              { value: 24, suffix: "",   label: "Efeitos sonoros" },
-              { value: 4,  suffix: "",   label: "Formatos de export" },
+              { value: 170, suffix: "",  label: "Trilhas musicais" },
+              { value: 68,  suffix: "",  label: "Efeitos sonoros" },
+              { value: 24,  suffix: "",  label: "Templates prontos" },
+              { value: 4,   suffix: "",  label: "Formatos de export" },
             ].map((stat, i) => (
               <div
                 key={i}
@@ -599,6 +603,73 @@ export default function CanvasSyncLanding() {
                 </div>
               </Reveal>
             ))}
+          </div>
+        </div>
+      </section>
+
+
+      {/* ═══ NOVIDADES PRO ═══════════════════════════════════════════════════ */}
+      <section style={{ padding: "80px 24px", background: "#060606" }}>
+        <div style={{ maxWidth: 1100, margin: "0 auto" }}>
+          <Reveal>
+            <div style={{ textAlign: "center", marginBottom: 56 }}>
+              <p style={{ color: "#a78bfa", fontSize: 12, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", marginBottom: 14 }}>
+                {t("new_features_label")}
+              </p>
+              <h2 className="syne" style={{ fontSize: "clamp(26px, 5vw, 44px)", fontWeight: 800, letterSpacing: "-1px" }}>
+                {t("new_features_title")}
+              </h2>
+              <p style={{ color: "#666", marginTop: 16, fontSize: 16, maxWidth: 520, margin: "16px auto 0" }}>
+                {t("new_features_sub")}
+              </p>
+            </div>
+          </Reveal>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 20 }}>
+
+            {/* Trilhas */}
+            <Reveal delay={0}>
+              <div style={{ background: "linear-gradient(135deg,#0d0a1f,#12083a)", border: "1px solid rgba(167,139,250,0.2)", borderRadius: 20, padding: "28px 28px", display: "flex", gap: 20, alignItems: "flex-start" }}>
+                <div style={{ width: 48, height: 48, borderRadius: 14, background: "rgba(167,139,250,0.15)", border: "1px solid rgba(167,139,250,0.3)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>🎼</div>
+                <div>
+                  <h3 style={{ fontSize: 16, fontWeight: 700, color: "#c4b5fd", marginBottom: 6 }}>{t("new_feat_trilhas_title")}</h3>
+                  <p style={{ fontSize: 14, color: "#666", lineHeight: 1.6 }}>{t("new_feat_trilhas_desc")}</p>
+                </div>
+              </div>
+            </Reveal>
+
+            {/* SFX */}
+            <Reveal delay={80}>
+              <div style={{ background: "linear-gradient(135deg,#0a1a0a,#0d2a0a)", border: "1px solid rgba(16,185,129,0.2)", borderRadius: 20, padding: "28px 28px", display: "flex", gap: 20, alignItems: "flex-start" }}>
+                <div style={{ width: 48, height: 48, borderRadius: 14, background: "rgba(16,185,129,0.12)", border: "1px solid rgba(16,185,129,0.3)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>🔊</div>
+                <div>
+                  <h3 style={{ fontSize: 16, fontWeight: 700, color: "#6ee7b7", marginBottom: 6 }}>{t("new_feat_sfx_title")}</h3>
+                  <p style={{ fontSize: 14, color: "#666", lineHeight: 1.6 }}>{t("new_feat_sfx_desc")}</p>
+                </div>
+              </div>
+            </Reveal>
+
+            {/* Zoom Animado / Keyframes */}
+            <Reveal delay={160}>
+              <div style={{ background: "linear-gradient(135deg,#0a1020,#0d1a35)", border: "1px solid rgba(0,191,255,0.2)", borderRadius: 20, padding: "28px 28px", display: "flex", gap: 20, alignItems: "flex-start" }}>
+                <div style={{ width: 48, height: 48, borderRadius: 14, background: "rgba(0,191,255,0.1)", border: "1px solid rgba(0,191,255,0.25)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>🎬</div>
+                <div>
+                  <h3 style={{ fontSize: 16, fontWeight: 700, color: "#7dd3fc", marginBottom: 6 }}>{t("new_feat_zoom_title")}</h3>
+                  <p style={{ fontSize: 14, color: "#666", lineHeight: 1.6 }}>{t("new_feat_zoom_desc")}</p>
+                </div>
+              </div>
+            </Reveal>
+
+            {/* Cor & Curvas */}
+            <Reveal delay={240}>
+              <div style={{ background: "linear-gradient(135deg,#1a1200,#2a1a00)", border: "1px solid rgba(251,191,36,0.2)", borderRadius: 20, padding: "28px 28px", display: "flex", gap: 20, alignItems: "flex-start" }}>
+                <div style={{ width: 48, height: 48, borderRadius: 14, background: "rgba(251,191,36,0.1)", border: "1px solid rgba(251,191,36,0.25)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>🎨</div>
+                <div>
+                  <h3 style={{ fontSize: 16, fontWeight: 700, color: "#fbbf24", marginBottom: 6 }}>{t("new_feat_color_title")}</h3>
+                  <p style={{ fontSize: 14, color: "#666", lineHeight: 1.6 }}>{t("new_feat_color_desc")}</p>
+                </div>
+              </div>
+            </Reveal>
+
           </div>
         </div>
       </section>
