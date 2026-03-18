@@ -6100,7 +6100,7 @@ _setDragging(null);
           {showSfxPanel && createPortal(
             <div data-sfx-portal onClick={e=>e.stopPropagation()} style={{ position:'fixed', top:sfxPanelPos.top, left:sfxPanelPos.left, zIndex:99999, background:'#0f172a', border:'1px solid rgba(16,185,129,0.25)', borderRadius:18, width:400, maxHeight:'82vh', boxShadow:'0 16px 48px rgba(0,0,0,0.8)', display:'flex', flexDirection:'column', overflow:'hidden' }}>
               <div style={{ padding:'12px 16px 8px', borderBottom:'1px solid rgba(255,255,255,0.06)', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
-                <span style={{ fontWeight:800, fontSize:13, color:'#10b981' }}>🔊 Efeitos Sonoros <span style={{fontSize:10,opacity:0.6,fontWeight:400}}>68 sons</span></span>
+                <span style={{ fontWeight:800, fontSize:13, color:'#10b981' }}>{t('sfx_title')} <span style={{fontSize:10,opacity:0.6,fontWeight:400}}>{t('sfx_count')}</span></span>
                 <button onClick={()=>setShowSfxPanel(false)} style={{ background:'none', border:'none', color:'#555', cursor:'pointer', fontSize:16 }}>✕</button>
               </div>
               <div style={{ overflowY:'auto', flex:1, padding:'10px 12px' }}>
@@ -6161,7 +6161,7 @@ _setDragging(null);
             onMouseEnter={e=>{if(!showFramePanel)e.currentTarget.style.background='rgba(255,255,255,0.05)'}}
             onMouseLeave={e=>{if(!showFramePanel)e.currentTarget.style.background=showFramePanel?'rgba(16,185,129,0.18)':'transparent'}}
           >
-            <span style={{fontSize:14}}>🖼</span> Molduras {frames.length>0&&<span style={{background:'#10b981',borderRadius:8,padding:'1px 5px',fontSize:9,color:'#000',fontWeight:900}}>{frames.length}</span>}
+            <span style={{fontSize:14}}>🖼</span> {t('frames_btn')} {frames.length>0&&<span style={{background:'#10b981',borderRadius:8,padding:'1px 5px',fontSize:9,color:'#000',fontWeight:900}}>{frames.length}</span>}
           </button>
           {showFramePanel && (() => {
             const FRAME_CATALOG = [
@@ -6206,8 +6206,8 @@ _setDragging(null);
                 <div style={{ padding:'12px 16px 10px', borderBottom:'1px solid rgba(255,255,255,0.06)',
                   display:'flex', alignItems:'center', justifyContent:'space-between', flexShrink:0 }}>
                   <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-                    <span style={{ fontWeight:800, fontSize:15, color:'#10b981' }}>🖼 Molduras</span>
-                    {frames.length>0&&<span style={{ fontSize:10, background:'rgba(16,185,129,0.2)', border:'1px solid rgba(16,185,129,0.4)', borderRadius:20, padding:'2px 8px', color:'#10b981' }}>{frames.length} ativa{frames.length>1?'s':''}</span>}
+                    <span style={{ fontWeight:800, fontSize:15, color:'#10b981' }}>{t('frames_title')}</span>
+                    {frames.length>0&&<span style={{ fontSize:10, background:'rgba(16,185,129,0.2)', border:'1px solid rgba(16,185,129,0.4)', borderRadius:20, padding:'2px 8px', color:'#10b981' }}>{frames.length} {frames.length>1?t('frames_active_many'):t('frames_active_one')}</span>}
                   </div>
                   <button onClick={()=>setShowFramePanel(false)} style={{ background:'none',border:'none',color:'#555',cursor:'pointer',fontSize:18,lineHeight:1 }}>✕</button>
                 </div>
@@ -6241,28 +6241,28 @@ _setDragging(null);
                                 border:`1px solid ${isAct?'rgba(16,185,129,0.4)':'rgba(255,255,255,0.06)'}`,
                                 borderRadius:10, padding:'8px 10px', display:'flex', flexDirection:'column', gap:7, cursor:'pointer' }}>
                               <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-                                <span style={{ fontSize:11, color:'#10b981', fontWeight:700, flex:1 }}>🖼 Moldura {fi+1} — {fr.style}</span>
+                                <span style={{ fontSize:11, color:'#10b981', fontWeight:700, flex:1 }}>{t('frames_label')} {fi+1} — {fr.style}</span>
                                 <button onClick={e=>{e.stopPropagation();pushHistory();setFrames(prev=>prev.filter(f=>f.id!==fr.id));if(activeFrameId===fr.id)setActiveFrameId(null);}}
-                                  style={{ background:'rgba(239,68,68,0.1)',border:'1px solid rgba(239,68,68,0.25)',borderRadius:7,padding:'2px 8px',fontSize:11,color:'#f87171',cursor:'pointer' }}>✕ Remover</button>
+                                  style={{ background:'rgba(239,68,68,0.1)',border:'1px solid rgba(239,68,68,0.25)',borderRadius:7,padding:'2px 8px',fontSize:11,color:'#f87171',cursor:'pointer' }}>{t('frames_remove')}</button>
                               </div>
                               {isAct&&(
                                 <div style={{ display:'flex', flexDirection:'column', gap:5 }}>
                                   <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-                                    <span style={{ fontSize:10, color:'#666', minWidth:60 }}>Cor</span>
+                                    <span style={{ fontSize:10, color:'#666', minWidth:60 }}>{t('frames_color')}</span>
                                     <input type="color" value={fr.color||'#ffffff'}
                                       onChange={e=>setFrames(prev=>prev.map(f=>f.id===fr.id?{...f,color:e.target.value}:f))}
                                       style={{ width:28,height:28,padding:0,border:'none',background:'none',cursor:'pointer',borderRadius:6 }} />
                                     {(fr.style==='gradient'||fr.style==='neon_double')&&<>
-                                      <span style={{ fontSize:10, color:'#666' }}>Cor 2</span>
+                                      <span style={{ fontSize:10, color:'#666' }}>{t('frames_color2')}</span>
                                       <input type="color" value={fr.color2||'#00bfff'}
                                         onChange={e=>setFrames(prev=>prev.map(f=>f.id===fr.id?{...f,color2:e.target.value}:f))}
                                         style={{ width:28,height:28,padding:0,border:'none',background:'none',cursor:'pointer',borderRadius:6 }} />
                                     </>}
                                   </div>
                                   {[
-                                    {label:'Espessura',min:1,max:40,step:1,key:'thickness',unit:'px',def:8,accent:'#10b981'},
-                                    {label:'Opacidade',min:0,max:1,step:0.01,key:'opacity',unit:'%',def:1,accent:'#10b981',fmt:v=>Math.round(v*100)+'%'},
-                                    {label:'Rotação',min:-180,max:180,step:1,key:'rotation',unit:'°',def:0,accent:'#10b981',fmt:v=>v+'°'},
+                                    {label:t('frames_thickness'),min:1,max:40,step:1,key:'thickness',unit:'px',def:8,accent:'#10b981'},
+                                    {label:t('frames_opacity'),min:0,max:1,step:0.01,key:'opacity',unit:'%',def:1,accent:'#10b981',fmt:v=>Math.round(v*100)+'%'},
+                                    {label:t('frames_rotation'),min:-180,max:180,step:1,key:'rotation',unit:'°',def:0,accent:'#10b981',fmt:v=>v+'°'},
                                   ].map(({label,min,max,step,key,def,accent,fmt})=>(
                                     <div key={key} style={{ display:'flex', alignItems:'center', gap:8 }}>
                                       <span style={{ fontSize:10, color:'#666', minWidth:60 }}>{label}</span>
@@ -6275,7 +6275,7 @@ _setDragging(null);
                                   ))}
                                   {fr.style==='solid'&&(
                                     <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-                                      <span style={{ fontSize:10, color:'#666', minWidth:60 }}>Cantos</span>
+                                      <span style={{ fontSize:10, color:'#666', minWidth:60 }}>{t('frames_corners')}</span>
                                       <input type="range" min={0} max={200} value={fr.cornerRadius||0}
                                         onChange={e=>setFrames(prev=>prev.map(f=>f.id===fr.id?{...f,cornerRadius:+e.target.value}:f))}
                                         onMouseDown={ev=>ev.stopPropagation()} onPointerDown={ev=>ev.stopPropagation()}
@@ -6284,8 +6284,8 @@ _setDragging(null);
                                     </div>
                                   )}
                                   <div style={{ display:'flex', gap:4, flexWrap:'wrap', marginTop:2 }}>
-                                    <span style={{ fontSize:10, color:'#555', alignSelf:'center', marginRight:2 }}>Tamanho:</span>
-                                    {[['Tela cheia','full'],['Quadrado','square'],['16:9','wide'],['9:16','tall']].map(([lbl,preset])=>(
+                                    <span style={{ fontSize:10, color:'#555', alignSelf:'center', marginRight:2 }}>{t('frames_size')}</span>
+                                    {[[t('frames_fullscreen'),'full'],[t('frames_square'),'square'],['16:9','wide'],['9:16','tall']].map(([lbl,preset])=>(
                                       <button key={preset} onClick={e=>{
                                         e.stopPropagation();
                                         const cv=canvasRef.current;
@@ -6311,7 +6311,7 @@ _setDragging(null);
                         <button onClick={()=>{pushHistory();setFrames([]);setActiveFrameId(null);}}
                           style={{ marginTop:2,background:'rgba(239,68,68,0.07)',border:'1px solid rgba(239,68,68,0.2)',
                             borderRadius:8,padding:'5px 0',fontSize:11,color:'#f87171',cursor:'pointer',width:'100%',fontWeight:700 }}>
-                          ✕ Remover todas as molduras
+                          {t('frames_remove_all')}
                         </button>
                       </div>
                     </div>
@@ -6389,11 +6389,11 @@ _setDragging(null);
               <div style={{ position:'fixed', top:(rect2?.bottom??52)+4, left:Math.max(8,(rect2?.left??0)), zIndex:99999, background:'#0d1117', border:'1px solid rgba(167,139,250,0.25)', borderRadius:18, width:400, maxHeight:'82vh', boxShadow:'0 24px 64px rgba(0,0,0,0.85)', display:'flex', flexDirection:'column', overflow:'hidden' }}>
                 <div style={{ padding:'14px 16px 10px', borderBottom:'1px solid rgba(255,255,255,0.06)', display:'flex', alignItems:'center', justifyContent:'space-between', flexShrink:0 }}>
                   <div>
-                    <span style={{ fontWeight:800, fontSize:15, color:'#a78bfa' }}>🎬 Efeitos</span>
-                    {screenEffect!=='none'&&<span style={{ marginLeft:8, fontSize:10, background:'rgba(167,139,250,0.2)', border:'1px solid rgba(167,139,250,0.4)', borderRadius:20, padding:'2px 8px', color:'#a78bfa' }}>Ativo</span>}
+                    <span style={{ fontWeight:800, fontSize:15, color:'#a78bfa' }}>{t('fx_title')}</span>
+                    {screenEffect!=='none'&&<span style={{ marginLeft:8, fontSize:10, background:'rgba(167,139,250,0.2)', border:'1px solid rgba(167,139,250,0.4)', borderRadius:20, padding:'2px 8px', color:'#a78bfa' }}>{t('fx_active')}</span>}
                   </div>
                   <div style={{ display:'flex', gap:8, alignItems:'center' }}>
-                    {screenEffect!=='none'&&<button onClick={()=>{ pushHistory(); setScreenEffect('none'); }} style={{ background:'rgba(239,68,68,0.15)', border:'1px solid rgba(239,68,68,0.3)', borderRadius:6, padding:'3px 10px', color:'#f87171', fontSize:10, cursor:'pointer', fontWeight:700 }}>✕ Remover</button>}
+                    {screenEffect!=='none'&&<button onClick={()=>{ pushHistory(); setScreenEffect('none'); }} style={{ background:'rgba(239,68,68,0.15)', border:'1px solid rgba(239,68,68,0.3)', borderRadius:6, padding:'3px 10px', color:'#f87171', fontSize:10, cursor:'pointer', fontWeight:700 }}>{t('fx_remove')}</button>}
                     <button onClick={()=>setShowFxPanel(false)} style={{ background:'none', border:'none', color:'#555', cursor:'pointer', fontSize:18, lineHeight:1 }}>✕</button>
                   </div>
                 </div>
@@ -6433,18 +6433,18 @@ _setDragging(null);
             onMouseEnter={e=>{if(!showKeyframePanel)e.currentTarget.style.background='rgba(255,255,255,0.05)'}}
             onMouseLeave={e=>{if(!showKeyframePanel)e.currentTarget.style.background=showKeyframePanel?'rgba(251,191,36,0.18)':'transparent'}}
           >
-            <span style={{fontSize:13}}>🎨</span> Cor & Curvas
+            <span style={{fontSize:13}}>🎨</span> {t('cc_btn')}
           </button>
           {showKeyframePanel && (() => {
             const r2 = fxBtnRef.current?.getBoundingClientRect();
             return createPortal(
               <div style={{ position:'fixed', top:(r2?.bottom??52)+4, right:16, zIndex:99999, background:'#0f172a', border:'1px solid rgba(251,191,36,0.3)', borderRadius:16, width:320, boxShadow:'0 20px 60px rgba(0,0,0,0.8)', padding:16, display:'flex', flexDirection:'column', gap:12 }}>
                 <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
-                  <span style={{ fontWeight:800, fontSize:14, color:'#fbbf24' }}>🎨 Cor Cinematográfica</span>
+                  <span style={{ fontWeight:800, fontSize:14, color:'#fbbf24' }}>{t('cc_title')}</span>
                   <button onClick={()=>setShowKeyframePanel(false)} style={{ background:'none', border:'none', color:'#555', cursor:'pointer', fontSize:16 }}>✕</button>
                 </div>
                 <div>
-                  <span style={{ fontSize:11, color:'#fbbf24', fontWeight:700, display:'block', marginBottom:6 }}>🌈 Aberração Cromática Global</span>
+                  <span style={{ fontSize:11, color:'#fbbf24', fontWeight:700, display:'block', marginBottom:6 }}>{t('cc_chroma_global')}</span>
                   <div style={{ display:'flex', alignItems:'center', gap:8 }}>
                     <input type="range" min={0} max={20} value={chromaAberration} onChange={e=>setChromaAberration(+e.target.value)} style={{ flex:1, accentColor:'#fbbf24', height:3 }} />
                     <span style={{ fontSize:10, color:chromaAberration>0?'#fbbf24':'#555', minWidth:24 }}>{chromaAberration}</span>
@@ -6452,7 +6452,7 @@ _setDragging(null);
                   </div>
                 </div>
                 <div>
-                  <span style={{ fontSize:11, color:'#fbbf24', fontWeight:700, display:'block', marginBottom:6 }}>📊 Curvas de Cor</span>
+                  <span style={{ fontSize:11, color:'#fbbf24', fontWeight:700, display:'block', marginBottom:6 }}>{t('cc_curves')}</span>
                   {[{key:'r',label:'R — Vermelho',color:'#f87171'},{key:'g',label:'G — Verde',color:'#4ade80'},{key:'b',label:'B — Azul',color:'#60a5fa'},{key:'midtone',label:'Meios-tons',color:'#fbbf24'},{key:'shadows',label:'Sombras',color:'#94a3b8'},{key:'highlights',label:'Altas Luzes',color:'#fff'}].map(({key,label,color})=>{
                     const def=key==='r'||key==='g'||key==='b'||key==='midtone'?1:0;
                     const min2=key==='shadows'||key==='highlights'?-0.3:0.2;
@@ -6468,7 +6468,7 @@ _setDragging(null);
                       </div>
                     );
                   })}
-                  <button onClick={()=>setColorCurves({r:1,g:1,b:1,midtone:1,shadows:0,highlights:0})} style={{ marginTop:4, background:'rgba(251,191,36,0.08)', border:'1px solid rgba(251,191,36,0.2)', borderRadius:8, padding:'3px 12px', fontSize:10, color:'#fbbf24', cursor:'pointer', width:'100%' }}>↺ Reset curvas</button>
+                  <button onClick={()=>setColorCurves({r:1,g:1,b:1,midtone:1,shadows:0,highlights:0})} style={{ marginTop:4, background:'rgba(251,191,36,0.08)', border:'1px solid rgba(251,191,36,0.2)', borderRadius:8, padding:'3px 12px', fontSize:10, color:'#fbbf24', cursor:'pointer', width:'100%' }}>{t('cc_reset')}</button>
                 </div>
               </div>,
               document.body
@@ -6654,7 +6654,7 @@ _setDragging(null);
               <div style={{ padding:'12px 16px 8px', borderBottom:'1px solid rgba(255,255,255,0.06)', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
                 <span style={{ fontWeight:800, fontSize:14, color:'#00BFFF' }}>🎨 Fundos</span>
                 <div style={{ display:'flex', gap:6 }}>
-                  {[['gradients','🎨 Gradientes'],['unsplash','🔍 Fotos'],['generate','⚡ Gerar']].map(([tab,label])=>(
+                  {[['gradients',t('bg_tab_gradients')],['unsplash',t('bg_tab_photos')],['generate',t('bg_tab_generate')]].map(([tab,label])=>(
                     <button key={tab} onClick={()=>setBgTab(tab)} style={{ padding:'4px 10px', borderRadius:7, border:'none', cursor:'pointer', fontSize:10, fontWeight:700, background:bgTab===tab?'#00BFFF':'rgba(255,255,255,0.06)', color:bgTab===tab?'#000':'#888' }}>{label}</button>
                   ))}
                   <button onClick={()=>setShowBgPanel(false)} style={{ background:'none', border:'none', color:'#555', cursor:'pointer', fontSize:16 }}>✕</button>
@@ -6677,9 +6677,9 @@ _setDragging(null);
                     <div style={{ display:'flex', gap:6 }}>
                       <input value={bgSearch} onChange={e=>{setBgSearch(e.target.value);}}
                         onKeyDown={e=>e.key==='Enter'&&searchBgImages()}
-                        placeholder="Buscar fotos..." style={{ flex:1, background:'rgba(255,255,255,0.06)', border:'1px solid rgba(255,255,255,0.1)', borderRadius:8, padding:'7px 10px', color:'#fff', fontSize:12 }} />
+                        placeholder={t('bg_search_placeholder')} style={{ flex:1, background:'rgba(255,255,255,0.06)', border:'1px solid rgba(255,255,255,0.1)', borderRadius:8, padding:'7px 10px', color:'#fff', fontSize:12 }} />
                       <button onClick={searchBgImages} disabled={bgSearchLoading} style={{ padding:'7px 14px', background:'rgba(0,191,255,0.15)', border:'1px solid rgba(0,191,255,0.3)', borderRadius:8, color:'#00BFFF', fontSize:12, cursor:'pointer', fontWeight:700 }}>
-                        {bgSearchLoading?'...':'Buscar'}
+                        {bgSearchLoading?'...':t('bg_search_btn')}
                       </button>
                     </div>
                     <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:6, maxHeight:300, overflowY:'auto' }}>
@@ -6756,8 +6756,8 @@ _setDragging(null);
               <div style={{padding:'12px 16px 10px', borderBottom:'1px solid rgba(255,255,255,0.07)', display:'flex', alignItems:'center', justifyContent:'space-between', flexShrink:0}}>
                 <div style={{display:'flex', alignItems:'center', gap:8}}>
                   <span style={{fontSize:18}}>🎼</span>
-                  <span style={{fontWeight:800, fontSize:14, color:'#a78bfa'}}>Trilhas — 170 músicas</span>
-                  <span style={{fontSize:10, color:'#666', background:'rgba(255,255,255,0.05)', borderRadius:20, padding:'2px 8px'}}>Royalty-free</span>
+                  <span style={{fontWeight:800, fontSize:14, color:'#a78bfa'}}>{t('trilhas_title')}</span>
+                  <span style={{fontSize:10, color:'#666', background:'rgba(255,255,255,0.05)', borderRadius:20, padding:'2px 8px'}}>{t('trilhas_royalty')}</span>
                 </div>
                 <button onClick={()=>{ setShowTrilhasPanel(false); stopTrilhasPreview(); }}
                   style={{background:'none', border:'none', color:'#555', cursor:'pointer', fontSize:18, lineHeight:1}}>✕</button>
@@ -6768,7 +6768,7 @@ _setDragging(null);
                 <input
                   value={trilhasSearch}
                   onChange={e=>setTrilhasSearch(e.target.value)}
-                  placeholder="Buscar por título ou artista…"
+                  placeholder={t('trilhas_search')}
                   style={{width:'100%', boxSizing:'border-box', background:'rgba(255,255,255,0.06)', border:'1px solid rgba(255,255,255,0.1)', borderRadius:8, padding:'7px 10px', color:'#fff', fontSize:12, outline:'none'}}
                 />
               </div>
@@ -6783,7 +6783,7 @@ _setDragging(null);
                   if (filtered.length === 0) return (
                     <div style={{display:'flex', flexDirection:'column', alignItems:'center', padding:'40px 0', gap:8}}>
                       <span style={{fontSize:28}}>🎼</span>
-                      <span style={{fontSize:12, color:'#555'}}>Nenhuma trilha encontrada</span>
+                      <span style={{fontSize:12, color:'#555'}}>{t('trilhas_empty')}</span>
                     </div>
                   );
                   return filtered.map(track => {
@@ -6848,7 +6848,7 @@ _setDragging(null);
                             color:'#c4b5fd', fontSize:11, cursor: isUsing ? 'wait' : 'pointer',
                             fontWeight:700, transition:'all 0.15s', flexShrink:0, whiteSpace:'nowrap'
                           }}>
-                          {isUsing ? '⏳' : '✓ Usar'}
+                          {isUsing ? '⏳' : t('trilhas_use')}
                         </button>
                       </div>
                     );
@@ -7108,7 +7108,7 @@ _setDragging(null);
               <div style={{ padding: '12px 18px', borderBottom: '1px solid rgba(255,255,255,0.07)', display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {/* ── Máscara de Forma ── */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  <span style={{ fontSize: 11, color: accent, fontWeight: 700, letterSpacing: '0.5px' }}>✂️ Máscara</span>
+                  <span style={{ fontSize: 11, color: accent, fontWeight: 700, letterSpacing: '0.5px' }}>{t('el_mask')}</span>
                   <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
                     {[['none','Sem'],['circle','⬤ Círculo'],['ellipse','⬭ Elipse'],['diamond','◇ Losango'],['star','★ Estrela'],['heart','♥ Coração'],['hexagon','⬡ Hex'],['triangle','▲ Triângulo']].map(([v,l]) => (
                       <button key={v} onClick={() => upd({mask: v})}
@@ -7120,7 +7120,7 @@ _setDragging(null);
                   </div>
                   {sel.mask && sel.mask !== 'none' && (
                     <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-                      <span style={{ fontSize:10, color:'#666', minWidth:70 }}>Suavidade</span>
+                      <span style={{ fontSize:10, color:'#666', minWidth:70 }}>{t('el_mask_feather')}</span>
                       <input type="range" min={0} max={15} value={sel.maskFeather||0}
                         onChange={e => upd({maskFeather: +e.target.value})}
                         style={{ flex:1, accentColor: accent, height:3 }} />
@@ -7130,9 +7130,9 @@ _setDragging(null);
                 </div>
                 {/* ── Aberração Cromática por elemento ── */}
                 <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
-                  <span style={{ fontSize:11, color: accent, fontWeight:700, letterSpacing:'0.5px' }}>🌈 Aberração Cromática</span>
+                  <span style={{ fontSize:11, color: accent, fontWeight:700, letterSpacing:'0.5px' }}>{t('el_chroma')}</span>
                   <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-                    <span style={{ fontSize:10, color:'#666', minWidth:70 }}>Intensidade</span>
+                    <span style={{ fontSize:10, color:'#666', minWidth:70 }}>{t('el_chroma_int')}</span>
                     <input type="range" min={0} max={20} value={sel.chromaticAberration||0}
                       onChange={e => upd({chromaticAberration: +e.target.value})}
                       style={{ flex:1, accentColor: accent, height:3 }} />
@@ -7144,7 +7144,7 @@ _setDragging(null);
                 <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
                   <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
                     <div>
-                      <span style={{ fontSize:11, color: accent, fontWeight:700, letterSpacing:'0.5px' }}>🎬 Zoom Animado</span>
+                      <span style={{ fontSize:11, color: accent, fontWeight:700, letterSpacing:'0.5px' }}>{t('kf_zoom_title')}</span>
                       {kfs.length > 0 && <span style={{ marginLeft:6, fontSize:9, background:`${accentBg}0.2)`, border:`1px solid ${accentBg}0.4)`, borderRadius:10, padding:'1px 6px', color:accent }}>{kfs.length} KF</span>}
                     </div>
                     <div style={{ display:'flex', gap:5 }}>
@@ -7177,28 +7177,28 @@ _setDragging(null);
                   {/* Presets de zoom rápido */}
                   <div style={{ display:'flex', gap:4, flexWrap:'wrap' }}>
                     {[
-                      { label:'Ken Burns', title:'Zoom suave de entrada', fn:() => {
+                      { label:t('kf_preset_kenburns'), title:'Zoom suave de entrada', fn:() => {
                         const dur = (sel.end||5) - (sel.start||0);
                         upd({ keyframes: [
                           { t: sel.start||0, x: sel.x, y: sel.y, scale:1,    opacity:1, rotation:sel.rotation||0, anchorX:0.5, anchorY:0.5, easing:'ease_in_out' },
                           { t: (sel.start||0)+dur, x: sel.x - sel.width*0.1, y: sel.y - sel.height*0.1, scale:1.2, opacity:1, rotation:sel.rotation||0, anchorX:0.5, anchorY:0.5, easing:'ease_in_out' },
                         ]});
                       }},
-                      { label:'Punch In', title:'Zoom rápido de aproximação', fn:() => {
+                      { label:t('kf_preset_punchin'), title:'Zoom rápido de aproximação', fn:() => {
                         const s = sel.start||0;
                         upd({ keyframes: [
                           { t: s,      x: sel.x, y: sel.y, scale:1,   opacity:1, rotation:sel.rotation||0, anchorX:0.5, anchorY:0.5, easing:'ease_out' },
                           { t: s+0.6,  x: sel.x - sel.width*0.15, y: sel.y - sel.height*0.15, scale:1.3, opacity:1, rotation:sel.rotation||0, anchorX:0.5, anchorY:0.5, easing:'ease_out' },
                         ]});
                       }},
-                      { label:'Zoom Out', title:'Zoom suave de afastamento', fn:() => {
+                      { label:t('kf_preset_zoomout'), title:'Zoom suave de afastamento', fn:() => {
                         const dur = (sel.end||5) - (sel.start||0);
                         upd({ keyframes: [
                           { t: sel.start||0, x: sel.x - sel.width*0.15, y: sel.y - sel.height*0.15, scale:1.3, opacity:1, rotation:sel.rotation||0, anchorX:0.5, anchorY:0.5, easing:'ease_in_out' },
                           { t: (sel.start||0)+dur, x: sel.x, y: sel.y, scale:1, opacity:1, rotation:sel.rotation||0, anchorX:0.5, anchorY:0.5, easing:'ease_in_out' },
                         ]});
                       }},
-                      { label:'Pulse', title:'Pulso rítmico de escala', fn:() => {
+                      { label:t('kf_preset_pulse'), title:'Pulso rítmico de escala', fn:() => {
                         const s = sel.start||0;
                         upd({ keyframes: [
                           { t: s,      x:sel.x, y:sel.y, scale:1,    opacity:1, rotation:sel.rotation||0, anchorX:0.5, anchorY:0.5, easing:'ease_in_out' },
@@ -7208,20 +7208,20 @@ _setDragging(null);
                           { t: s+2.0,  x:sel.x, y:sel.y, scale:1,    opacity:1, rotation:sel.rotation||0, anchorX:0.5, anchorY:0.5, easing:'ease_in_out' },
                         ]});
                       }},
-                      { label:'Fade In', title:'Aparece gradualmente', fn:() => {
+                      { label:t('kf_preset_fadein'), title:'Aparece gradualmente', fn:() => {
                         const s = sel.start||0;
                         upd({ keyframes: [
                           { t: s,     x:sel.x, y:sel.y, scale:1, opacity:0, rotation:sel.rotation||0, anchorX:0.5, anchorY:0.5, easing:'ease_out' },
                           { t: s+0.8, x:sel.x, y:sel.y, scale:1, opacity:1, rotation:sel.rotation||0, anchorX:0.5, anchorY:0.5, easing:'ease_out' },
                         ]});
                       }},
-                      { label:'Limpar', title:'Remove todos os keyframes', fn:() => upd({keyframes:[]}) },
+                      { label:t('kf_clear'), title:'Remove todos os keyframes', fn:() => upd({keyframes:[]}) },
                     ].map(p => (
                       <button key={p.label} onClick={p.fn} title={p.title}
                         style={{ padding:'3px 8px', fontSize:9, borderRadius:6, cursor:'pointer', fontWeight:700,
-                          background: p.label==='Limpar' ? 'rgba(239,68,68,0.08)' : `${accentBg}0.1)`,
-                          border: `1px solid ${p.label==='Limpar' ? 'rgba(239,68,68,0.25)' : accentBg+'0.3)'}`,
-                          color: p.label==='Limpar' ? '#f87171' : accent }}>{p.label}</button>
+                          background: p.label===t('kf_clear') ? 'rgba(239,68,68,0.08)' : `${accentBg}0.1)`,
+                          border: `1px solid ${p.label===t('kf_clear') ? 'rgba(239,68,68,0.25)' : accentBg+'0.3)'}` ,
+                          color: p.label===t('kf_clear') ? '#f87171' : accent }}>{p.label}</button>
                     ))}
                   </div>
 
@@ -7270,7 +7270,7 @@ _setDragging(null);
                           </div>
                           {/* Escala */}
                           <div style={{ display:'flex', alignItems:'center', gap:6 }}>
-                            <span style={{ fontSize:9, color:'#666', minWidth:46 }}>Escala</span>
+                            <span style={{ fontSize:9, color:'#666', minWidth:46 }}>{t('kf_scale')}</span>
                             <input type="range" min={0.1} max={3} step={0.01} value={kf.scale||1}
                               onMouseDown={e => e.stopPropagation()} onPointerDown={e => e.stopPropagation()}
                               onChange={e => upd({keyframes: kfs.map((k,i) => i===ki?{...k,scale:+e.target.value}:k)})}
@@ -7281,7 +7281,7 @@ _setDragging(null);
                           </div>
                           {/* Opacidade */}
                           <div style={{ display:'flex', alignItems:'center', gap:6 }}>
-                            <span style={{ fontSize:9, color:'#666', minWidth:46 }}>Opacidade</span>
+                            <span style={{ fontSize:9, color:'#666', minWidth:46 }}>{t('kf_opacity')}</span>
                             <input type="range" min={0} max={1} step={0.01} value={kf.opacity??1}
                               onMouseDown={e => e.stopPropagation()} onPointerDown={e => e.stopPropagation()}
                               onChange={e => upd({keyframes: kfs.map((k,i) => i===ki?{...k,opacity:+e.target.value}:k)})}
@@ -7290,7 +7290,7 @@ _setDragging(null);
                           </div>
                           {/* Ancora (ponto de zoom) */}
                           <div style={{ display:'flex', gap:4, alignItems:'center' }}>
-                            <span style={{ fontSize:9, color:'#666', minWidth:46 }}>Âncora</span>
+                            <span style={{ fontSize:9, color:'#666', minWidth:46 }}>{t('kf_anchor')}</span>
                             {[['↖','0,0'],['↑','0.5,0'],['↗','1,0'],['←','0,0.5'],['⊙','0.5,0.5'],['→','1,0.5'],['↙','0,1'],['↓','0.5,1'],['↘','1,1']].map(([lbl,val]) => {
                               const [ax,ay] = val.split(',').map(Number);
                               const isActive = Math.abs((kf.anchorX??0.5)-ax)<0.01 && Math.abs((kf.anchorY??0.5)-ay)<0.01;
@@ -7306,7 +7306,7 @@ _setDragging(null);
                   ) : (
                     <div style={{ background:'rgba(255,255,255,0.02)', borderRadius:8, padding:'10px 12px', fontSize:10, color:'#444', textAlign:'center', lineHeight:1.6 }}>
                       Use um preset acima ou clique <strong style={{color:accent}}>+ KF</strong> para adicionar keyframes manualmente.<br/>
-                      <span style={{fontSize:9}}>Pausa o play, ajuste o tempo e clique + KF para capturar.</span>
+                      <span style={{fontSize:9}}>{t('kf_hint_main')}</span>
                     </div>
                   )}
                 </div>
