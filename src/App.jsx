@@ -2084,7 +2084,6 @@ function App() {
     { id:169, title:'World War Outerspace',             artist:'Audio Hertz',               file:'World War Outerspace - Audio Hertz.mp3' },
     { id:170, title:'Mind Heist',                       artist:'Zack Hemsey',               file:'Zack Hemsey - _Mind Heist_(MP3_320K).mp3' },
   ];
-  ];
 
   const stopTrilhasPreview = () => {
     if (trilhasPreviewRef.current) {
