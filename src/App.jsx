@@ -174,6 +174,17 @@ const ANIMATED_STICKERS = [
   { key:'flex',      emoji:'💪', anim:'pulse',  label:'Força'     },
 ];
 
+const getStickerAnimTransform = (anim, t, size) => {
+  switch (anim) {
+    case 'bounce': return { dy: Math.sin(t * 5) * size * 0.12, s: 1, r: 0, a: 1 };
+    case 'pulse':  return { dy: 0, s: 1 + Math.sin(t * 3.5) * 0.18, r: 0, a: 1 };
+    case 'spin':   return { dy: 0, s: 1, r: t * 1.8, a: 1 };
+    case 'shake':  return { dy: 0, s: 1, r: Math.sin(t * 9) * 0.25, a: 1 };
+    case 'float':  return { dy: Math.sin(t * 2) * size * 0.08, s: 1, r: 0, a: 0.82 + Math.sin(t * 2.5) * 0.18 };
+    default:       return { dy: 0, s: 1, r: 0, a: 1 };
+  }
+};
+
 // ── Efeitos Sonoros — biblioteca local /public/sfx/ ──────────────────────────
 const SFX_CATS = [
   {
