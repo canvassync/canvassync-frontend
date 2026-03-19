@@ -565,6 +565,56 @@ const CANVAS_TEMPLATES = [
     ]},
 ];
 
+// ── Overlays de Vídeo (Texturas) ─────────────────────────────────────────────
+const OVERLAY_BASE_URL = 'https://grxejgpdnefyjjznaads.supabase.co/storage/v1/object/public/overlays/';
+const OVERLAY_EFFECTS = [
+  { id:'advanced-particles',   name:'Advanced Particles',   file:'Advanced particles.mp4',            blend:'screen'   },
+  { id:'bleeds-footages',      name:'Bleeds Footages',      file:'Bleeds footages.mp4',               blend:'screen'   },
+  { id:'burn',                 name:'Burn',                 file:'Burn.mp4',                          blend:'screen'   },
+  { id:'burning-fire',         name:'Burning Fire',         file:'Burning parkling fire.mp4',         blend:'screen'   },
+  { id:'bursting-snow',        name:'Bursting Snow',        file:'Bursting Snow.mp4',                 blend:'screen'   },
+  { id:'color-light-leak-1',   name:'Color Light Leak 1',   file:'Color Light Leak (1).mp4',          blend:'screen'   },
+  { id:'color-light-leak-2',   name:'Color Light Leak 2',   file:'Color Light Leak (2).mp4',          blend:'screen'   },
+  { id:'color-light-leak-3',   name:'Color Light Leak 3',   file:'Color Light Leak (3).mp4',          blend:'screen'   },
+  { id:'dust-scratches',       name:'Dust & Scratches',     file:'Dust and scratches.mp4',            blend:'multiply' },
+  { id:'dust-light-leaks',     name:'Dust Light Leaks',     file:'Dust light leaks.mp4',              blend:'screen'   },
+  { id:'dust-overlay',         name:'Dust Overlay',         file:'Dust overlay.mp4',                  blend:'screen'   },
+  { id:'falling-sparks',       name:'Falling Sparks',       file:'Falling sparks.mp4',                blend:'screen'   },
+  { id:'fire-particles',       name:'Fire Particles',       file:'Fire particles.mp4',                blend:'screen'   },
+  { id:'fire-spark-black',     name:'Fire Spark',           file:'Fire spark black.mp4',              blend:'screen'   },
+  { id:'fire',                 name:'Fire',                 file:'Fire.mp4',                          blend:'screen'   },
+  { id:'galaxy-gust',          name:'Galaxy Gust',          file:'Galaxy Gust.mp4',                   blend:'screen'   },
+  { id:'gold-flare',           name:'Gold Light Flare',     file:'Gold light flare particles.mp4',    blend:'screen'   },
+  { id:'golden-smoke',         name:'Golden Smoke',         file:'Golden Smoke.mp4',                  blend:'screen'   },
+  { id:'goldendust',           name:'Golden Dust',          file:'Goldendust.mp4',                    blend:'screen'   },
+  { id:'gray-particles',       name:'Gray Particles',       file:'Gray particles.mp4',                blend:'screen'   },
+  { id:'green-lines',          name:'Green Lines',          file:'Green Lines.mp4',                   blend:'screen'   },
+  { id:'grunge-two',           name:'Grunge Two',           file:'Grunge two.mp4',                    blend:'multiply' },
+  { id:'grunge',               name:'Grunge',               file:'Grunge.mp4',                        blend:'multiply' },
+  { id:'huge-dust',            name:'Huge Dust Particles',  file:'Huge Dust Particles.mp4',           blend:'screen'   },
+  { id:'ink-drops',            name:'Ink Drops',            file:'Ink Drops.mp4',                     blend:'multiply' },
+  { id:'magical-ground',       name:'Magical Ground',       file:'Magical Ground.mp4',                blend:'screen'   },
+  { id:'multicolor-particles', name:'Multicolor Particles', file:'Multicolor particles.mp4',          blend:'screen'   },
+  { id:'orange-particles',     name:'Orange Particles',     file:'Orange particles.mp4',              blend:'screen'   },
+  { id:'orange-sparkles',      name:'Orange Sparkles',      file:'Orange Sparkles.mp4',               blend:'screen'   },
+  { id:'light-flares',         name:'Light Flares',         file:'Overlays Light Flers.mp4',          blend:'screen'   },
+  { id:'colored-snow',         name:'Colored Snow',         file:'Particles Colored Snow.mp4',        blend:'screen'   },
+  { id:'particles-red',        name:'Red Particles',        file:'Particles red.mp4',                 blend:'screen'   },
+  { id:'rain',                 name:'Rain',                 file:'Rain.mp4',                          blend:'screen'   },
+  { id:'rainbow-sparks',       name:'Rainbow Sparks',       file:'Rainbow sparks.mp4',                blend:'screen'   },
+  { id:'smoke-blue',           name:'Smoke Blue',           file:'Smoke particles Blue.mp4',          blend:'screen'   },
+  { id:'smoke-gray',           name:'Smoke Gray',           file:'Smoke particles Gray.mp4',          blend:'screen'   },
+  { id:'space',                name:'Space',                file:'Space.mp4',                         blend:'screen'   },
+  { id:'star-field',           name:'Star Field',           file:'Star field.mp4',                    blend:'screen'   },
+  { id:'thunder-sparkles',     name:'Thunder Sparkles',     file:'Thunder Sparkles.mp4',              blend:'screen'   },
+  { id:'vhs-1',                name:'VHS 1',                file:'VHS (1).mp4',                       blend:'overlay'  },
+  { id:'vhs-2',                name:'VHS 2',                file:'VHS (2).mp4',                       blend:'overlay'  },
+  { id:'vhs-3',                name:'VHS 3',                file:'VHS (3).mp4',                       blend:'overlay'  },
+  { id:'vhs-4',                name:'VHS 4',                file:'VHS (4).mp4',                       blend:'overlay'  },
+  { id:'vhs-5',                name:'VHS 5',                file:'VHS (5).mp4',                       blend:'overlay'  },
+  { id:'vintage-film',         name:'Vintage Film',         file:'Vintage film dust hair damage.mp4', blend:'multiply' },
+];
+
 function App() {
   const { user, isLoggedIn, isPro, loading: authLoading } = useAuth();
   const { t, lang } = useLanguage();
@@ -630,6 +680,14 @@ function App() {
   const exportBtnRef = useRef(null);
   const projetoBtnRef = useRef(null);
   const [screenEffect, setScreenEffect] = useState('none');
+  const [activeOverlay, setActiveOverlay] = useState(null);
+  const [overlayOpacity, setOverlayOpacity] = useState(0.85);
+  const overlayVideoRef = useRef(null);
+  const overlayReadyRef = useRef(false);
+  const activeOverlayRef = useRef(null);
+  const overlayOpacityRef = useRef(0.85);
+  useEffect(() => { activeOverlayRef.current = activeOverlay; }, [activeOverlay]);
+  useEffect(() => { overlayOpacityRef.current = overlayOpacity; }, [overlayOpacity]);
   const [showFxPanel, setShowFxPanel] = useState(false);
   const fxBtnRef = useRef(null);
   const screenEffectRef = useRef('none');
@@ -1734,6 +1792,37 @@ function App() {
     { id:169, title:'World War Outerspace',             artist:'Audio Hertz',               file:'World War Outerspace - Audio Hertz.mp3' },
     { id:170, title:'Mind Heist',                       artist:'Zack Hemsey',               file:'Zack Hemsey - _Mind Heist_(MP3_320K).mp3' },
   ];
+
+  // ── Overlay de Vídeo ──────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (overlayVideoRef.current) {
+      overlayVideoRef.current.pause();
+      overlayVideoRef.current.src = '';
+      try { document.body.removeChild(overlayVideoRef.current); } catch {}
+      overlayVideoRef.current = null;
+    }
+    overlayReadyRef.current = false;
+    if (!activeOverlay) return;
+    const eff = OVERLAY_EFFECTS.find(o => o.id === activeOverlay);
+    if (!eff) return;
+    const vid = document.createElement('video');
+    vid.src = OVERLAY_BASE_URL + encodeURIComponent(eff.file);
+    vid.loop = true;
+    vid.muted = true;
+    vid.playsInline = true;
+    vid.crossOrigin = 'anonymous';
+    vid.style.cssText = 'position:fixed;width:1px;height:1px;top:-9999px;left:-9999px;visibility:hidden;pointer-events:none';
+    document.body.appendChild(vid);
+    vid.oncanplay = () => { overlayReadyRef.current = true; vid.play().catch(() => {}); };
+    overlayVideoRef.current = vid;
+    vid.load();
+    return () => {
+      vid.pause(); vid.src = '';
+      try { document.body.removeChild(vid); } catch {}
+      overlayVideoRef.current = null;
+      overlayReadyRef.current = false;
+    };
+  }, [activeOverlay]);
 
   const stopTrilhasPreview = () => {
     if (trilhasPreviewRef.current) {
@@ -4102,6 +4191,19 @@ _setDragging(null);
         ctx.drawImage(tmp, 0, 0);
       } catch(e) {}
     }
+    // ── Overlay de Vídeo ──────────────────────────────────────────────────────────
+    const _ovEl = overlayVideoRef.current;
+    const _ovId = activeOverlayRef.current;
+    if (_ovEl && _ovId && overlayReadyRef.current && _ovEl.readyState >= 2) {
+      const _ovEff = OVERLAY_EFFECTS.find(o => o.id === _ovId);
+      ctx.save();
+      ctx.globalAlpha = overlayOpacityRef.current;
+      ctx.globalCompositeOperation = _ovEff?.blend || 'screen';
+      ctx.drawImage(_ovEl, 0, 0, canvas.width, canvas.height);
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.globalAlpha = 1;
+      ctx.restore();
+    }
     // Efeito de tela (overlay sobre tudo)
     if (screenEffect && screenEffect !== 'none') {
       drawScreenEffectRef.current?.(ctx, screenEffect, canvas.width, canvas.height, Date.now()/1000);
@@ -6398,6 +6500,43 @@ _setDragging(null);
                   </div>
                 </div>
                 <div style={{ overflowY:'auto', flex:1, padding:'12px 12px 16px' }}>
+                  {/* ── Overlays de Vídeo ─────────────────────────────── */}
+                  <div style={{ marginBottom: 16 }}>
+                    <div style={{ fontSize: 11, color: '#888', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 1 }}>
+                      🎞️ Texturas & Overlays
+                    </div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
+                      <button onClick={() => setActiveOverlay(null)}
+                        style={{ fontSize: 11, padding: '4px 10px', borderRadius: 8, border: '1px solid',
+                          borderColor: !activeOverlay ? '#00BFFF' : 'rgba(255,255,255,0.12)',
+                          background: !activeOverlay ? 'rgba(0,191,255,0.15)' : 'rgba(255,255,255,0.04)',
+                          color: !activeOverlay ? '#00BFFF' : '#888', cursor: 'pointer' }}>
+                        Nenhum
+                      </button>
+                      {OVERLAY_EFFECTS.map(ov => (
+                        <button key={ov.id} onClick={() => setActiveOverlay(ov.id)}
+                          style={{ fontSize: 11, padding: '4px 10px', borderRadius: 8, border: '1px solid',
+                            borderColor: activeOverlay === ov.id ? '#00BFFF' : 'rgba(255,255,255,0.12)',
+                            background: activeOverlay === ov.id ? 'rgba(0,191,255,0.15)' : 'rgba(255,255,255,0.04)',
+                            color: activeOverlay === ov.id ? '#00BFFF' : '#ccc', cursor: 'pointer',
+                            transition: 'all 0.15s' }}>
+                          {ov.name}
+                        </button>
+                      ))}
+                    </div>
+                    {activeOverlay && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 4 }}>
+                        <span style={{ fontSize: 11, color: '#888', whiteSpace: 'nowrap' }}>Opacidade</span>
+                        <input type="range" min={0} max={1} step={0.05} value={overlayOpacity}
+                          onChange={e => setOverlayOpacity(Number(e.target.value))}
+                          style={{ flex: 1, accentColor: '#00BFFF' }} />
+                        <span style={{ fontSize: 11, color: '#aaa', width: 32, textAlign: 'right' }}>
+                          {Math.round(overlayOpacity * 100)}%
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                  <hr style={{ border: 'none', borderTop: '1px solid rgba(255,255,255,0.06)', margin: '0 0 12px' }} />
                   {FX_CATS.map(cat => (
                     <div key={cat.cat} style={{ marginBottom:16 }}>
                       <div style={{ fontSize:10, fontWeight:700, color:'#555', letterSpacing:'0.8px', textTransform:'uppercase', marginBottom:8, paddingLeft:2 }}>{cat.cat}</div>
