@@ -566,6 +566,48 @@ const CANVAS_TEMPLATES = [
 ];
 
 // ── Overlays de Vídeo (Texturas) ─────────────────────────────────────────────
+// ── Transições de Vídeo ───────────────────────────────────────────────────────
+const TRANSITION_BASE_URL = 'https://grxejgpdnefyjjznaads.supabase.co/storage/v1/object/public/transicoes/';
+const TRANSITION_VIDEOS = [
+  { id:'burn-1',       name:'Burn',         icon:'🔥', file:'burn 1.mp4'      },
+  { id:'fc-tr-1',      name:'FC TR 1',       icon:'🎬', file:'FC TR (1).mp4'   },
+  { id:'fc-tr-2',      name:'FC TR 2',       icon:'🎬', file:'FC TR (2).mp4'   },
+  { id:'fc-tr-3',      name:'FC TR 3',       icon:'🎬', file:'FC TR (3).mp4'   },
+  { id:'fc-tr-4',      name:'FC TR 4',       icon:'🎬', file:'FC TR (4).mp4'   },
+  { id:'film-1',       name:'Film 1',        icon:'🎞️', file:'Film (1).mp4'    },
+  { id:'film-2',       name:'Film 2',        icon:'🎞️', file:'Film (2).mp4'    },
+  { id:'film-3',       name:'Film 3',        icon:'🎞️', file:'Film (3).mp4'    },
+  { id:'film-4',       name:'Film 4',        icon:'🎞️', file:'Film (4).mp4'    },
+  { id:'film-15',      name:'Film 15',       icon:'🎞️', file:'Film (15).mp4'   },
+  { id:'film-16',      name:'Film 16',       icon:'🎞️', file:'Film (16).mp4'   },
+  { id:'film-17',      name:'Film 17',       icon:'🎞️', file:'Film (17).mp4'   },
+  { id:'film-18',      name:'Film 18',       icon:'🎞️', file:'Film (18).mp4'   },
+  { id:'film-19',      name:'Film 19',       icon:'🎞️', file:'Film (19).mp4'   },
+  { id:'film-20',      name:'Film 20',       icon:'🎞️', file:'Film (20).mp4'   },
+  { id:'film-21',      name:'Film 21',       icon:'🎞️', file:'Film (21).mp4'   },
+  { id:'film-22',      name:'Film 22',       icon:'🎞️', file:'Film (22).mp4'   },
+  { id:'film-23',      name:'Film 23',       icon:'🎞️', file:'Film (23).mp4'   },
+  { id:'film-24',      name:'Film 24',       icon:'🎞️', file:'Film (24).mp4'   },
+  { id:'film-25',      name:'Film 25',       icon:'🎞️', file:'Film (25).mp4'   },
+  { id:'film-26',      name:'Film 26',       icon:'🎞️', file:'Film (26).mp4'   },
+  { id:'film-27',      name:'Film 27',       icon:'🎞️', file:'Film (27).mp4'   },
+  { id:'grunge-1',     name:'Grunge 1',      icon:'🖤', file:'Grunge (1).mp4'  },
+  { id:'grunge-2',     name:'Grunge 2',      icon:'🖤', file:'Grunge (2).mp4'  },
+  { id:'grunge-3',     name:'Grunge 3',      icon:'🖤', file:'Grunge (3).mp4'  },
+  { id:'grunge-4',     name:'Grunge 4',      icon:'🖤', file:'Grunge (4).mp4'  },
+  { id:'grunge-5',     name:'Grunge 5',      icon:'🖤', file:'Grunge (5).mp4'  },
+  { id:'grunge-6',     name:'Grunge 6',      icon:'🖤', file:'Grunge (6).mp4'  },
+  { id:'grunge-7',     name:'Grunge 7',      icon:'🖤', file:'Grunge (7).mp4'  },
+  { id:'grunge-8',     name:'Grunge 8',      icon:'🖤', file:'Grunge (8).mp4'  },
+  { id:'robotic-1',    name:'Robotic 1',     icon:'🤖', file:'Robotic (1).mp4' },
+  { id:'robotic-2',    name:'Robotic 2',     icon:'🤖', file:'Robotic (2).mp4' },
+  { id:'robotic-3',    name:'Robotic 3',     icon:'🤖', file:'Robotic (3).mp4' },
+  { id:'robotic-4',    name:'Robotic 4',     icon:'🤖', file:'Robotic (4).mp4' },
+  { id:'robotic-5',    name:'Robotic 5',     icon:'🤖', file:'Robotic (5).mp4' },
+  { id:'robotic-6',    name:'Robotic 6',     icon:'🤖', file:'Robotic (6).mp4' },
+  { id:'start',        name:'Start',         icon:'▶️', file:'Start.mp4'       },
+];
+
 const OVERLAY_BASE_URL = 'https://grxejgpdnefyjjznaads.supabase.co/storage/v1/object/public/overlays/';
 const OVERLAY_EFFECTS = [
   { id:'advanced-particles',   name:'Advanced Particles',   icon:'✨', file:'Advanced particles.mp4',            blend:'screen'   },
@@ -680,6 +722,13 @@ function App() {
   const overlayOpacityRef = useRef(0.85);
   useEffect(() => { activeOverlayRef.current = activeOverlay; }, [activeOverlay]);
   useEffect(() => { overlayOpacityRef.current = overlayOpacity; }, [overlayOpacity]);
+  // ── Transição de Vídeo por clipe ────────────────────────────────────────────
+  const transVideoInRef  = useRef(null); // <video> da transição de entrada ativa
+  const transVideoOutRef = useRef(null); // <video> da transição de saída ativa
+  const transVideoInReadyRef  = useRef(false);
+  const transVideoOutReadyRef = useRef(false);
+  const transVideoInIdRef  = useRef(null); // id do vídeo cujos transIn está carregado
+  const transVideoOutIdRef = useRef(null);
   const [showFxPanel, setShowFxPanel] = useState(false);
   const fxBtnRef = useRef(null);
   const screenEffectRef = useRef('none');
@@ -1784,6 +1833,41 @@ function App() {
     { id:169, title:'World War Outerspace',             artist:'Audio Hertz',               file:'World War Outerspace - Audio Hertz.mp3' },
     { id:170, title:'Mind Heist',                       artist:'Zack Hemsey',               file:'Zack Hemsey - _Mind Heist_(MP3_320K).mp3' },
   ];
+
+  // ── Transição de Vídeo — carrega <video> de entrada/saída quando vídeo selecionado muda ──
+  useEffect(() => {
+    const selVid = activeVideoId ? videosRef.current.find(v => v.id === activeVideoId) : null;
+    const transInId  = selVid?.videoTransIn  || null;
+    const transOutId = selVid?.videoTransOut || null;
+
+    const loadTransVideo = (ref, readyRef, idRef, transId) => {
+      // Se mesmo id, não recarrega
+      if (idRef.current === transId) return;
+      // Limpa anterior
+      if (ref.current) {
+        ref.current.pause(); ref.current.src = '';
+        try { document.body.removeChild(ref.current); } catch {}
+        ref.current = null;
+      }
+      readyRef.current = false;
+      idRef.current = transId;
+      if (!transId) return;
+      const eff = TRANSITION_VIDEOS.find(t => t.id === transId);
+      if (!eff) return;
+      const vid = document.createElement('video');
+      vid.src = TRANSITION_BASE_URL + encodeURIComponent(eff.file);
+      vid.loop = false; vid.muted = true; vid.playsInline = true;
+      vid.crossOrigin = 'anonymous';
+      vid.style.cssText = 'position:fixed;width:1px;height:1px;top:-9999px;left:-9999px;visibility:hidden;pointer-events:none';
+      document.body.appendChild(vid);
+      vid.oncanplay = () => { readyRef.current = true; };
+      ref.current = vid;
+      vid.load();
+    };
+
+    loadTransVideo(transVideoInRef,  transVideoInReadyRef,  transVideoInIdRef,  transInId);
+    loadTransVideo(transVideoOutRef, transVideoOutReadyRef, transVideoOutIdRef, transOutId);
+  }, [activeVideoId, videos]);
 
   // ── Overlay de Vídeo ──────────────────────────────────────────────────────────
   useEffect(() => {
@@ -4183,6 +4267,41 @@ _setDragging(null);
         ctx.drawImage(tmp, 0, 0);
       } catch(e) {}
     }
+    // ── Transições de Vídeo (entrada/saída por clipe) ─────────────────────────
+    videosRef.current.forEach(v => {
+      if (!v.videoTransIn && !v.videoTransOut) return;
+      const transInDur  = v.videoTransInDur  ?? 1.5;
+      const transOutDur = v.videoTransOutDur ?? 1.5;
+      let transEl = null;
+      let progress = 0;
+      // Entrada: primeiros transInDur segundos do clipe
+      if (v.videoTransIn && time >= v.start && time <= v.start + transInDur) {
+        const el = transVideoInRef.current;
+        if (el && transVideoInReadyRef.current && transVideoInIdRef.current === v.videoTransIn) {
+          transEl = el;
+          progress = (time - v.start) / transInDur;
+          const targetT = progress * (el.duration || transInDur);
+          if (Math.abs(el.currentTime - targetT) > 0.1) el.currentTime = targetT;
+        }
+      }
+      // Saída: últimos transOutDur segundos do clipe
+      if (v.videoTransOut && time >= v.end - transOutDur && time <= v.end) {
+        const el = transVideoOutRef.current;
+        if (el && transVideoOutReadyRef.current && transVideoOutIdRef.current === v.videoTransOut) {
+          transEl = el;
+          progress = (time - (v.end - transOutDur)) / transOutDur;
+          const targetT = progress * (el.duration || transOutDur);
+          if (Math.abs(el.currentTime - targetT) > 0.1) el.currentTime = targetT;
+        }
+      }
+      if (transEl && transEl.readyState >= 2) {
+        ctx.save();
+        ctx.globalAlpha = 1;
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.drawImage(transEl, 0, 0, canvas.width, canvas.height);
+        ctx.restore();
+      }
+    });
     // ── Overlay de Vídeo ──────────────────────────────────────────────────────────
     const _ovEl = overlayVideoRef.current;
     const _ovId = activeOverlayRef.current;
@@ -7165,6 +7284,76 @@ _setDragging(null);
                   return (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 10, background: `${accentBg}0.04)`, border: `1px solid ${accentBg}0.18)`, borderRadius: 12, padding: '10px 12px' }}>
                       <span style={{ fontSize: 11, color: accent, fontWeight: 700, letterSpacing: '0.5px' }}>✨ {t('ed_transitions')}</span>
+
+                      {/* ── Transições de Vídeo MP4 ── */}
+                      {isVid && (() => {
+                        const transInId  = sel.videoTransIn  || 'none';
+                        const transOutId = sel.videoTransOut || 'none';
+                        const transInDur  = sel.videoTransInDur  ?? 1.5;
+                        const transOutDur = sel.videoTransOutDur ?? 1.5;
+                        const setTransIn  = id => upd({ videoTransIn:  id === 'none' ? null : id });
+                        const setTransOut = id => upd({ videoTransOut: id === 'none' ? null : id });
+                        const VidTrBtn = ({ id, name, icon, current, onSelect }) => (
+                          <button onClick={() => onSelect(current === id ? 'none' : id)}
+                            style={{ fontSize: 10, padding: '3px 8px', borderRadius: 7, cursor: 'pointer', fontWeight: 600,
+                              display: 'flex', alignItems: 'center', gap: 3,
+                              background: current === id ? `${accentBg}0.25)` : 'rgba(255,255,255,0.04)',
+                              border: `1px solid ${current === id ? `${accentBg}0.65)` : 'rgba(255,255,255,0.07)'}`,
+                              color: current === id ? accent : '#555' }}>
+                            <span>{icon}</span>{name}
+                          </button>
+                        );
+                        return (
+                          <div style={{ display:'flex', flexDirection:'column', gap:8, background:'rgba(255,255,255,0.02)', borderRadius:8, padding:'8px 10px', border:'1px solid rgba(255,255,255,0.05)' }}>
+                            <span style={{ fontSize:10, color: accent, fontWeight:700 }}>🎬 Transições de Vídeo</span>
+                            {/* Entrada */}
+                            <div style={{ display:'flex', flexDirection:'column', gap:4 }}>
+                              <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+                                <span style={{ fontSize:10, color: accent, fontWeight:700 }}>▶ Entrada</span>
+                                {transInId !== 'none' && <button onClick={() => setTransIn('none')} style={{ background:'none', border:'none', color:'#444', cursor:'pointer', fontSize:11, padding:0 }}>✕</button>}
+                              </div>
+                              <div style={{ display:'flex', flexWrap:'wrap', gap:4 }}>
+                                {TRANSITION_VIDEOS.map(tr => (
+                                  <VidTrBtn key={tr.id} id={tr.id} name={tr.name} icon={tr.icon} current={transInId} onSelect={setTransIn} />
+                                ))}
+                              </div>
+                              {transInId !== 'none' && (
+                                <div style={{ display:'flex', alignItems:'center', gap:7, marginTop:2 }}>
+                                  <span style={{ fontSize:10, color:'#444', minWidth:60 }}>Duração</span>
+                                  <input type="range" min={0.3} max={4} step={0.1} value={transInDur}
+                                    onMouseDown={e => e.stopPropagation()} onPointerDown={e => e.stopPropagation()}
+                                    onChange={e => upd({ videoTransInDur: +e.target.value })}
+                                    style={{ flex:1, accentColor: accent }} />
+                                  <span style={{ fontSize:10, color: accent, minWidth:34, textAlign:'right' }}>{transInDur.toFixed(1)}s</span>
+                                </div>
+                              )}
+                            </div>
+                            {/* Saída */}
+                            <div style={{ display:'flex', flexDirection:'column', gap:4 }}>
+                              <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+                                <span style={{ fontSize:10, color: accent, fontWeight:700 }}>◀ Saída</span>
+                                {transOutId !== 'none' && <button onClick={() => setTransOut('none')} style={{ background:'none', border:'none', color:'#444', cursor:'pointer', fontSize:11, padding:0 }}>✕</button>}
+                              </div>
+                              <div style={{ display:'flex', flexWrap:'wrap', gap:4 }}>
+                                {TRANSITION_VIDEOS.map(tr => (
+                                  <VidTrBtn key={tr.id} id={tr.id} name={tr.name} icon={tr.icon} current={transOutId} onSelect={setTransOut} />
+                                ))}
+                              </div>
+                              {transOutId !== 'none' && (
+                                <div style={{ display:'flex', alignItems:'center', gap:7, marginTop:2 }}>
+                                  <span style={{ fontSize:10, color:'#444', minWidth:60 }}>Duração</span>
+                                  <input type="range" min={0.3} max={4} step={0.1} value={transOutDur}
+                                    onMouseDown={e => e.stopPropagation()} onPointerDown={e => e.stopPropagation()}
+                                    onChange={e => upd({ videoTransOutDur: +e.target.value })}
+                                    style={{ flex:1, accentColor: accent }} />
+                                  <span style={{ fontSize:10, color: accent, minWidth:34, textAlign:'right' }}>{transOutDur.toFixed(1)}s</span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })()}
+
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 5, background: 'rgba(255,255,255,0.02)', borderRadius: 8, padding: '8px 10px', border: '1px solid rgba(255,255,255,0.05)' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
                           <span style={{ fontSize: 10, color: accent, fontWeight: 700 }}>▶ {t('tr_in')}</span>
