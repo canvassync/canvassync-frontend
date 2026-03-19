@@ -8700,53 +8700,35 @@ _setDragging(null);
             <div style={{ position: 'absolute', right: 6, top: 54, fontSize: 9, color: 'rgba(251,191,36,0.4)', pointerEvents: 'none' }}>IMG</div>
             <div style={{ position: 'absolute', right: 6, top: 88, fontSize: 9, color: 'rgba(167,139,250,0.4)', pointerEvents: 'none' }}>VID</div>
             
-            {(() => {
-              // Calcula lane (fila) de cada bloco para evitar sobreposição visual na timeline
-              const lanes = [];
-              const sorted = [...lyrics].sort((a, b) => a.start - b.start);
-              const lyricLane = {};
-              sorted.forEach(l => {
-                let lane = 0;
-                while (lanes[lane] !== undefined && lanes[lane] > l.start) lane++;
-                lyricLane[l.id] = lane;
-                lanes[lane] = l.end;
-              });
-              const laneH = 30;
-              const laneGap = 2;
-              return lyrics.map((l) => {
-                const lane = lyricLane[l.id] ?? 0;
-                const topPos = 5 + lane * (laneH + laneGap);
-                return (
-                  <div
-                    key={l.id}
-                    onMouseDown={(e) => handleTimelineMouseDown(l.id, 'move', e)}
-                    onContextMenu={(e) => { e.preventDefault(); removeLyric(l.id); }}
-                    style={{
-                      position: 'absolute',
-                      left: l.start * zoom + 'px',
-                      width: (l.end - l.start) * zoom + 'px',
-                      height: laneH + 'px',
-                      top: topPos + 'px',
-                      background: activeLyricId === l.id ? '#00BFFF' : 'rgba(0,191,255,0.55)',
-                      borderRadius: '18px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      fontSize: '10px',
-                      cursor: 'grab',
-                      border: activeLyricId === l.id ? '2px solid #fff' : '1px solid rgba(0,191,255,0.3)',
-                      userSelect: 'none',
-                      zIndex: activeLyricId === l.id ? 50 : 10,
-                      boxShadow: '0 4px 14px rgba(0,191,255,0.2)'
-                    }}
-                  >
-                    <div onMouseDown={(e) => handleTimelineMouseDown(l.id, 'resize-start', e)} style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: '12px', cursor: 'ew-resize', backgroundColor: 'rgba(0,0,0,0.25)', borderTopLeftRadius: '18px', borderBottomLeftRadius: '18px' }} />
-                    <span style={{ padding: '0 10px', textAlign: 'center', pointerEvents: 'none', fontWeight: 'bold' }}>{l.text}</span>
-                    <div onMouseDown={(e) => handleTimelineMouseDown(l.id, 'resize-end', e)} style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: '12px', cursor: 'ew-resize', backgroundColor: 'rgba(0,0,0,0.25)', borderTopRightRadius: '18px', borderBottomRightRadius: '18px' }} />
-                  </div>
-                );
-              });
-            })()}
+            {lyrics.map((l) => (
+              <div
+                key={l.id}
+                onMouseDown={(e) => handleTimelineMouseDown(l.id, 'move', e)}
+                onContextMenu={(e) => { e.preventDefault(); removeLyric(l.id); }}
+                style={{
+                  position: 'absolute',
+                  left: l.start * zoom + 'px',
+                  width: (l.end - l.start) * zoom + 'px',
+                  height: '28px',
+                  top: '9px',
+                  background: activeLyricId === l.id ? '#00BFFF' : 'rgba(0,191,255,0.55)',
+                  borderRadius: '18px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '10px',
+                  cursor: 'grab',
+                  border: activeLyricId === l.id ? '2px solid #fff' : '1px solid rgba(0,191,255,0.3)',
+                  userSelect: 'none',
+                  zIndex: activeLyricId === l.id ? 50 : 10,
+                  boxShadow: '0 4px 14px rgba(0,191,255,0.2)'
+                }}
+              >
+                <div onMouseDown={(e) => handleTimelineMouseDown(l.id, 'resize-start', e)} style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: '12px', cursor: 'ew-resize', backgroundColor: 'rgba(0,0,0,0.25)', borderTopLeftRadius: '18px', borderBottomLeftRadius: '18px' }} />
+                <span style={{ padding: '0 10px', textAlign: 'center', pointerEvents: 'none', fontWeight: 'bold' }}>{l.text}</span>
+                <div onMouseDown={(e) => handleTimelineMouseDown(l.id, 'resize-end', e)} style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: '12px', cursor: 'ew-resize', backgroundColor: 'rgba(0,0,0,0.25)', borderTopRightRadius: '18px', borderBottomRightRadius: '18px' }} />
+              </div>
+            ))}
 
             {/* Área de scrub para a faixa de vídeo (clique aqui move o playhead) */}
             <div id="video-track-row" style={{ position: 'absolute', left: 0, right: 0, top: '76px', height: '42px', zIndex: 1, cursor: 'crosshair' }} />
