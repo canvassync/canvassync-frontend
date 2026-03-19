@@ -2598,10 +2598,11 @@ function App() {
     // Deseleciona texto extra se clicou fora
     setActiveExtraTextId(null);
 
-    // Verifica clique em lyric ativa no canvas
+    // Verifica clique em lyric ativa no canvas — suporta múltiplos simultâneos
     const time = audioRef.current ? audioRef.current.currentTime : virtualTimeRef.current;
-    const visibleLyric = lyrics.find(l => time >= l.start && time <= l.end);
-    if (visibleLyric) {
+    const visibleLyrics = lyrics.filter(l => time >= l.start && time <= l.end);
+    let clickedLyric = null;
+    for (const visibleLyric of visibleLyrics) {
       const vFontSize = visibleLyric.fontSize || fontSize;
       const vFontFamily = visibleLyric.fontFamily || fontFamily;
       ctx.font = `bold ${vFontSize}px ${vFontFamily}`;
@@ -2632,14 +2633,20 @@ function App() {
       // Hit-test in local rotated space
       const { lx: llx, ly: lly } = toLocalSpace(mouseX, mouseY, lx, ly, lRot);
       if (Math.abs(llx) <= hw && Math.abs(lly) <= hh) {
-        setActiveLyricId(visibleLyric.id);
-        if (e.detail === 2) {
-          setEditingLyricId(visibleLyric.id);
-          return;
-        }
-        _setDragging({ type: 'lyric-canvas', id: visibleLyric.id, offsetX: mouseX - lx, offsetY: mouseY - ly });
+        clickedLyric = visibleLyric;
+        break;
+      }
+    }
+    if (clickedLyric) {
+      const lx = clickedLyric.x ?? canvas.width / 2;
+      const ly = clickedLyric.y ?? canvas.height * 0.75;
+      setActiveLyricId(clickedLyric.id);
+      if (e.detail === 2) {
+        setEditingLyricId(clickedLyric.id);
         return;
       }
+      _setDragging({ type: 'lyric-canvas', id: clickedLyric.id, offsetX: mouseX - lx, offsetY: mouseY - ly });
+      return;
     }
 
     setActiveLyricId(null);
@@ -3828,9 +3835,9 @@ _setDragging(null);
       ctx.restore();
     });
 
-    // Desenha Letra da Música
-    const activeLine = lyrics.find(l => time >= l.start && time <= l.end);
-    if (activeLine) {
+    // Desenha Letra da Música — suporta múltiplos lyrics simultâneos
+    const activeLines = lyrics.filter(l => time >= l.start && time <= l.end);
+    activeLines.forEach((activeLine) => {
       const lx = activeLine.x ?? canvas.width / 2;
       const ly = activeLine.y ?? canvas.height * 0.75;
       const lRot = (activeLine.rotation || 0) * Math.PI / 180;
@@ -3940,7 +3947,7 @@ _setDragging(null);
         ctx.stroke();
         ctx.restore();
       }
-    }
+    });
 
     // ── Stickers / Emojis / GIFs ─────────────────────────────────────────────
     const _sNow = Date.now() / 1000;
@@ -4680,8 +4687,8 @@ _setDragging(null);
       ctx.shadowBlur = 0; ctx.shadowOffsetX = 0; ctx.shadowOffsetY = 0;
       ctx.restore();
     });
-    const activeLine = (lyricsRef.current || lyrics).find(l => t >= l.start && t <= l.end);
-    if (activeLine) {
+    const activeLines = (lyricsRef.current || lyrics).filter(l => t >= l.start && t <= l.end);
+    activeLines.forEach((activeLine) => {
       const lx = activeLine.x ?? logicalW / 2;
       const ly = activeLine.y ?? logicalH * 0.75;
       const lRot = (activeLine.rotation || 0) * Math.PI / 180;
@@ -4755,7 +4762,7 @@ _setDragging(null);
       ctx.shadowBlur = 0; ctx.shadowOffsetX = 0; ctx.shadowOffsetY = 0;
       ctx.globalAlpha = 1;
       ctx.restore();
-    }
+    });
 
     // ── Stickers / Emojis / GIFs (export) ───────────────────────────────────
     stickersRef.current.filter(stk => {
@@ -8693,35 +8700,53 @@ _setDragging(null);
             <div style={{ position: 'absolute', right: 6, top: 54, fontSize: 9, color: 'rgba(251,191,36,0.4)', pointerEvents: 'none' }}>IMG</div>
             <div style={{ position: 'absolute', right: 6, top: 88, fontSize: 9, color: 'rgba(167,139,250,0.4)', pointerEvents: 'none' }}>VID</div>
             
-            {lyrics.map((l) => (
-              <div 
-                key={l.id}
-                onMouseDown={(e) => handleTimelineMouseDown(l.id, 'move', e)}
-                onContextMenu={(e) => { e.preventDefault(); removeLyric(l.id); }}
-                style={{
-                  position: 'absolute',
-                  left: l.start * zoom + 'px',
-                  width: (l.end - l.start) * zoom + 'px',
-                  height: '28px',
-                  top: '9px',
-                  background: activeLyricId === l.id ? '#00BFFF' : 'rgba(0,191,255,0.55)',
-                  borderRadius: '18px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: '10px',
-                  cursor: 'grab',
-                  border: activeLyricId === l.id ? '2px solid #fff' : '1px solid rgba(0,191,255,0.3)',
-                  userSelect: 'none',
-                  zIndex: activeLyricId === l.id ? 50 : 10,
-                  boxShadow: '0 4px 14px rgba(0,191,255,0.2)'
-                }}
-              >
-                <div onMouseDown={(e) => handleTimelineMouseDown(l.id, 'resize-start', e)} style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: '12px', cursor: 'ew-resize', backgroundColor: 'rgba(0,0,0,0.25)', borderTopLeftRadius: '18px', borderBottomLeftRadius: '18px' }} />
-                <span style={{ padding: '0 10px', textAlign: 'center', pointerEvents: 'none', fontWeight: 'bold' }}>{l.text}</span>
-                <div onMouseDown={(e) => handleTimelineMouseDown(l.id, 'resize-end', e)} style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: '12px', cursor: 'ew-resize', backgroundColor: 'rgba(0,0,0,0.25)', borderTopRightRadius: '18px', borderBottomRightRadius: '18px' }} />
-              </div>
-            ))}
+            {(() => {
+              // Calcula lane (fila) de cada bloco para evitar sobreposição visual na timeline
+              const lanes = [];
+              const sorted = [...lyrics].sort((a, b) => a.start - b.start);
+              const lyricLane = {};
+              sorted.forEach(l => {
+                let lane = 0;
+                while (lanes[lane] !== undefined && lanes[lane] > l.start) lane++;
+                lyricLane[l.id] = lane;
+                lanes[lane] = l.end;
+              });
+              const laneH = 30;
+              const laneGap = 2;
+              return lyrics.map((l) => {
+                const lane = lyricLane[l.id] ?? 0;
+                const topPos = 5 + lane * (laneH + laneGap);
+                return (
+                  <div
+                    key={l.id}
+                    onMouseDown={(e) => handleTimelineMouseDown(l.id, 'move', e)}
+                    onContextMenu={(e) => { e.preventDefault(); removeLyric(l.id); }}
+                    style={{
+                      position: 'absolute',
+                      left: l.start * zoom + 'px',
+                      width: (l.end - l.start) * zoom + 'px',
+                      height: laneH + 'px',
+                      top: topPos + 'px',
+                      background: activeLyricId === l.id ? '#00BFFF' : 'rgba(0,191,255,0.55)',
+                      borderRadius: '18px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: '10px',
+                      cursor: 'grab',
+                      border: activeLyricId === l.id ? '2px solid #fff' : '1px solid rgba(0,191,255,0.3)',
+                      userSelect: 'none',
+                      zIndex: activeLyricId === l.id ? 50 : 10,
+                      boxShadow: '0 4px 14px rgba(0,191,255,0.2)'
+                    }}
+                  >
+                    <div onMouseDown={(e) => handleTimelineMouseDown(l.id, 'resize-start', e)} style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: '12px', cursor: 'ew-resize', backgroundColor: 'rgba(0,0,0,0.25)', borderTopLeftRadius: '18px', borderBottomLeftRadius: '18px' }} />
+                    <span style={{ padding: '0 10px', textAlign: 'center', pointerEvents: 'none', fontWeight: 'bold' }}>{l.text}</span>
+                    <div onMouseDown={(e) => handleTimelineMouseDown(l.id, 'resize-end', e)} style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: '12px', cursor: 'ew-resize', backgroundColor: 'rgba(0,0,0,0.25)', borderTopRightRadius: '18px', borderBottomRightRadius: '18px' }} />
+                  </div>
+                );
+              });
+            })()}
 
             {/* Área de scrub para a faixa de vídeo (clique aqui move o playhead) */}
             <div id="video-track-row" style={{ position: 'absolute', left: 0, right: 0, top: '76px', height: '42px', zIndex: 1, cursor: 'crosshair' }} />
