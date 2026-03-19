@@ -1004,6 +1004,27 @@ function App() {
   const [chatOpen,  setChatOpen]  = useState(false);
   const [chatTopic, setChatTopic] = useState(null);
   const [isScrubbing, setIsScrubbing] = useState(false);
+  // ── PWA Install ──────────────────────────────────────────────────────────────
+  const [pwaPrompt, setPwaPrompt] = useState(null);
+  const [pwaInstalled, setPwaInstalled] = useState(false);
+  useEffect(() => {
+    const handler = e => { e.preventDefault(); setPwaPrompt(e); };
+    window.addEventListener('beforeinstallprompt', handler);
+    window.addEventListener('appinstalled', () => { setPwaInstalled(true); setPwaPrompt(null); });
+    if (window.matchMedia('(display-mode: standalone)').matches) setPwaInstalled(true);
+    if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
+    return () => window.removeEventListener('beforeinstallprompt', handler);
+  }, []);
+  const handlePwaInstall = async () => {
+    if (!pwaPrompt) return;
+    await pwaPrompt.prompt();
+    const { outcome } = await pwaPrompt.userChoice;
+    if (outcome === 'accepted') { setPwaInstalled(true); setPwaPrompt(null); }
+  };
+  // ── Mobile banner ────────────────────────────────────────────────────────────
+  const [showMobileBanner, setShowMobileBanner] = useState(
+    () => typeof window !== 'undefined' && window.innerWidth < 768
+  );
   const [editingLyricId, setEditingLyricId] = useState(null);
   const [editingExtraTextId, setEditingExtraTextId] = useState(null);
 
@@ -5989,10 +6010,23 @@ _setDragging(null);
           background: #111;
           border-radius: 12px;
         }
+        @media (max-width: 768px) {
+          .cs-left-panel { display: none !important; }
+          .cs-timeline    { display: none !important; }
+          .cs-header      { overflow-x: auto !important; -webkit-overflow-scrolling: touch !important; }
+        }
       `}</style>
-      
+
+      {/* Banner mobile */}
+      {showMobileBanner && (
+        <div style={{ background:'linear-gradient(90deg,#1a0e00,#0a1200)', borderBottom:'1px solid rgba(251,191,36,0.25)', padding:'7px 14px', display:'flex', alignItems:'center', justifyContent:'space-between', gap:8, zIndex:200, flexShrink:0 }}>
+          <span style={{ fontSize:11, color:'#fbbf24', lineHeight:1.4 }}>📱 Para melhor experiência use no <strong>computador</strong> em <strong>modo paisagem</strong>.</span>
+          <button onClick={() => setShowMobileBanner(false)} style={{ background:'none', border:'none', color:'#fbbf24', cursor:'pointer', fontSize:18, flexShrink:0, lineHeight:1 }}>✕</button>
+        </div>
+      )}
+
       {/* HEADER CONTROLS — Redesign profissional: barra única com grupos */}
-      <div style={{ display:'flex', alignItems:'center', gap:4, padding:'0 10px', height:52, background:'linear-gradient(180deg,#0d1117 0%,#090d13 100%)', borderBottom:'1px solid rgba(255,255,255,0.07)', width:'100%', boxSizing:'border-box', flexShrink:0, zIndex:100 }}>
+      <div className="cs-header" style={{ display:'flex', alignItems:'center', gap:4, padding:'0 10px', height:52, background:'linear-gradient(180deg,#0d1117 0%,#090d13 100%)', borderBottom:'1px solid rgba(255,255,255,0.07)', width:'100%', boxSizing:'border-box', flexShrink:0, zIndex:100 }}>
 
         {/* ── Logo ── */}
         <div style={{ display:'flex', alignItems:'center', gap:6, marginRight:6, flexShrink:0 }}>
@@ -6996,12 +7030,22 @@ _setDragging(null);
           <LangToggle />
         </div>
 
+        {/* ── Botão PWA ── */}
+        {pwaPrompt && !pwaInstalled && (
+          <button onClick={handlePwaInstall}
+            title="Instalar CanvasSync como aplicativo"
+            style={{ display:'flex', alignItems:'center', gap:4, padding:'5px 10px', borderRadius:7, background:'rgba(0,191,255,0.12)', border:'1px solid rgba(0,191,255,0.35)', cursor:'pointer', color:'#00BFFF', fontSize:11, fontWeight:700, flexShrink:0, whiteSpace:'nowrap' }}
+            onMouseEnter={e => e.currentTarget.style.background='rgba(0,191,255,0.22)'}
+            onMouseLeave={e => e.currentTarget.style.background='rgba(0,191,255,0.12)'}
+          >⬇ Instalar App</button>
+        )}
+
       </div>{/* fim HEADER CONTROLS */}
 
       <div style={{ display: 'flex', flex: 1, width: '100%', overflow: 'hidden' }}>
         
         {/* EDITOR ESQUERDA — 580PX */}
-        <div style={{ width: '580px', minWidth: '580px', borderRight: '1px solid rgba(255,255,255,0.07)', display: 'flex', flexDirection: 'column', background: '#0d0d0d', boxShadow: 'none', overflowY: 'auto' }}>
+        <div className="cs-left-panel" style={{ width: '580px', minWidth: '580px', borderRight: '1px solid rgba(255,255,255,0.07)', display: 'flex', flexDirection: 'column', background: '#0d0d0d', boxShadow: 'none', overflowY: 'auto' }}>
 
           {/* ══ SEÇÃO SELEÇÃO IMAGEM/VÍDEO — rotação ══ */}
           {(activeImageId || activeVideoId) && (() => {
@@ -8256,7 +8300,7 @@ _setDragging(null);
       </div>
 
       {/* TIMELINE INFERIOR */}
-      <div style={{ 
+      <div className="cs-timeline" style={{ 
         height: '210px', 
         background: '#080808', 
         borderTop: '1px solid rgba(255,255,255,0.07)', 

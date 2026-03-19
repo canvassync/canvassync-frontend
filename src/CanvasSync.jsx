@@ -128,6 +128,24 @@ export default function CanvasSyncLanding() {
   const [chatOpen, setChatOpen] = useState(false);
   const [chatTopic, setChatTopic] = useState(null);
 
+  // ── PWA Install ──────────────────────────────────────────────────────────────
+  const [pwaPrompt, setPwaPrompt] = useState(null);
+  const [pwaInstalled, setPwaInstalled] = useState(false);
+  useEffect(() => {
+    const handler = e => { e.preventDefault(); setPwaPrompt(e); };
+    window.addEventListener('beforeinstallprompt', handler);
+    window.addEventListener('appinstalled', () => { setPwaInstalled(true); setPwaPrompt(null); });
+    if (window.matchMedia('(display-mode: standalone)').matches) setPwaInstalled(true);
+    if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
+    return () => window.removeEventListener('beforeinstallprompt', handler);
+  }, []);
+  const handlePwaInstall = async () => {
+    if (!pwaPrompt) return;
+    await pwaPrompt.prompt();
+    const { outcome } = await pwaPrompt.userChoice;
+    if (outcome === 'accepted') { setPwaInstalled(true); setPwaPrompt(null); }
+  };
+
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 40);
     window.addEventListener("scroll", onScroll);
@@ -338,6 +356,14 @@ export default function CanvasSyncLanding() {
             onMouseEnter={e => e.target.style.color = "#fff"}
             onMouseLeave={e => e.target.style.color = "#999"}>{t("nav_plans")}</a>
           <LangToggle />
+          {pwaPrompt && !pwaInstalled && (
+            <button onClick={handlePwaInstall}
+              title="Instalar CanvasSync como aplicativo"
+              style={{ display:'flex', alignItems:'center', gap:4, padding:'6px 12px', borderRadius:8, background:'rgba(0,191,255,0.1)', border:'1px solid rgba(0,191,255,0.35)', cursor:'pointer', color:'#00BFFF', fontSize:12, fontWeight:700, whiteSpace:'nowrap', marginLeft:4 }}
+              onMouseEnter={e => e.currentTarget.style.background='rgba(0,191,255,0.2)'}
+              onMouseLeave={e => e.currentTarget.style.background='rgba(0,191,255,0.1)'}
+            >⬇ Instalar App</button>
+          )}
           <button className="btn-ghost" style={{ marginLeft: 8 }} onClick={() => navigate("/entrar")}>{t("nav_signin")}</button>
           <button className="btn-primary" onClick={() => navigate("/cadastro")}>{t("nav_start")}</button>
         </nav>

@@ -61,6 +61,23 @@ const CANVAS_FORMATS = {
 
 function AppFree() {
   const { t, lang } = useLanguage();
+  // ── PWA Install ──────────────────────────────────────────────────────────────
+  const [pwaPrompt, setPwaPrompt] = useState(null);
+  const [pwaInstalled, setPwaInstalled] = useState(false);
+  useEffect(() => {
+    const handler = e => { e.preventDefault(); setPwaPrompt(e); };
+    window.addEventListener('beforeinstallprompt', handler);
+    window.addEventListener('appinstalled', () => { setPwaInstalled(true); setPwaPrompt(null); });
+    if (window.matchMedia('(display-mode: standalone)').matches) setPwaInstalled(true);
+    if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
+    return () => window.removeEventListener('beforeinstallprompt', handler);
+  }, []);
+  const handlePwaInstall = async () => {
+    if (!pwaPrompt) return;
+    await pwaPrompt.prompt();
+    const { outcome } = await pwaPrompt.userChoice;
+    if (outcome === 'accepted') { setPwaInstalled(true); setPwaPrompt(null); }
+  };
 
   // ── Mídia ────────────────────────────────────────────────────────────────────
   const [image, setImage]             = useState(null);
@@ -856,6 +873,17 @@ function AppFree() {
           </div>
 
           <LangToggle />
+
+          {/* ── Botão PWA ── */}
+          {pwaPrompt && !pwaInstalled && (
+            <button onClick={handlePwaInstall}
+              title="Instalar CanvasSync como aplicativo"
+              style={{ display:'flex', alignItems:'center', gap:4, padding:'5px 10px', borderRadius:7, background:'rgba(0,191,255,0.12)', border:'1px solid rgba(0,191,255,0.35)', cursor:'pointer', color:'#00BFFF', fontSize:11, fontWeight:700, flexShrink:0, whiteSpace:'nowrap' }}
+              onMouseEnter={e => e.currentTarget.style.background='rgba(0,191,255,0.22)'}
+              onMouseLeave={e => e.currentTarget.style.background='rgba(0,191,255,0.12)'}
+            >⬇ Instalar App</button>
+          )}
+
           <div style={{ width: 1, height: 24, background: 'rgba(255,255,255,0.07)' }} />
 
           {/* Fundo */}
