@@ -706,6 +706,7 @@ function App() {
   const [narracaoLoading,   setNarracaoLoading]   = useState(false);
   const [narracaoError,     setNarracaoError]     = useState('');
   const [narracaoApiKey,    setNarracaoApiKey]    = useState(() => localStorage.getItem('el_api_key') || '');
+  const [narracaoShowGuia,  setNarracaoShowGuia]  = useState(false);
   const narracaoBtnRef = useRef(null);
   const [stickerPanelPos, setStickerPanelPos] = useState({ top: 80, left: 0 });
   const [stickerTab, setStickerTab] = useState('emoji');  // 'emoji'|'sticker'|'gif'
@@ -6989,9 +6990,30 @@ _setDragging(null);
 
               {/* API Key */}
               <div>
-                <label style={{ fontSize:11, color:'#aaa', fontWeight:600, display:'block', marginBottom:4 }}>
-                  API Key <a href="https://elevenlabs.io/app/settings/api-keys" target="_blank" rel="noreferrer" style={{ color:'#f472b6', fontWeight:400, marginLeft:4 }}>→ Obter grátis</a>
-                </label>
+                <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:4 }}>
+                  <label style={{ fontSize:11, color:'#aaa', fontWeight:600 }}>API Key ElevenLabs</label>
+                  <button
+                    onClick={() => setNarracaoShowGuia(v => !v)}
+                    style={{ background:'rgba(244,114,182,0.12)', border:'1px solid rgba(244,114,182,0.3)', borderRadius:6, color:'#f472b6', fontSize:10, fontWeight:700, padding:'2px 8px', cursor:'pointer' }}
+                  >{narracaoShowGuia ? '✕ Fechar' : '❓ Como obter'}</button>
+                </div>
+
+                {/* Guia passo a passo */}
+                {narracaoShowGuia && (
+                  <div style={{ background:'rgba(244,114,182,0.06)', border:'1px solid rgba(244,114,182,0.2)', borderRadius:10, padding:'12px', marginBottom:8, fontSize:11, color:'#ccc', lineHeight:1.8 }}>
+                    <div style={{ fontWeight:700, color:'#f472b6', marginBottom:6 }}>📋 Como criar sua API Key grátis:</div>
+                    <div>1. Acesse <a href="https://elevenlabs.io" target="_blank" rel="noreferrer" style={{ color:'#f472b6' }}>elevenlabs.io</a> e crie uma conta</div>
+                    <div>2. No menu lateral, clique em <strong style={{color:'#fff'}}>Desenvolvedores</strong></div>
+                    <div>3. Clique em <strong style={{color:'#fff'}}>Chaves de API</strong></div>
+                    <div>4. Clique em <strong style={{color:'#fff'}}>+ Criar chave de API</strong></div>
+                    <div>5. Dê o nome <strong style={{color:'#fff'}}>canvassync</strong> e ative <strong style={{color:'#fff'}}>Restringir Chave</strong></div>
+                    <div>6. Em <strong style={{color:'#fff'}}>Text to Speech</strong> selecione <strong style={{color:'#fff'}}>Acesso</strong></div>
+                    <div>7. Clique em <strong style={{color:'#fff'}}>Criar chave</strong> e copie</div>
+                    <div style={{ marginTop:6, color:'#f472b6', fontSize:10 }}>⚠️ Não use VPN ao criar a conta — pode bloquear o plano grátis.</div>
+                    <div style={{ marginTop:4, color:'#888', fontSize:10 }}>Plano grátis: 10.000 caracteres/mês</div>
+                  </div>
+                )}
+
                 <input
                   type="password"
                   value={narracaoApiKey}
