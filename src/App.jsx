@@ -699,7 +699,14 @@ function App() {
   const [trilhasUsingId, setTrilhasUsingId]       = useState(null);
   const trilhasPreviewRef = useRef(null);
   const trilhasBtnRef     = useRef(null);
-  const [stickerPanelPos, setStickerPanelPos] = useState({ top: 80, left: 0 });
+  // ── Narração TTS ─────────────────────────────────────────────────────────────
+  const [showNarracaoPanel, setShowNarracaoPanel] = useState(false);
+  const [narracaoText,      setNarracaoText]      = useState('');
+  const [narracaoVoice,     setNarracaoVoice]     = useState('Vitoria');
+  const [narracaoLoading,   setNarracaoLoading]   = useState(false);
+  const [narracaoError,     setNarracaoError]     = useState('');
+  const narracaoBtnRef = useRef(null);
+ = useState({ top: 80, left: 0 });
   const [stickerTab, setStickerTab] = useState('emoji');  // 'emoji'|'sticker'|'gif'
   const activeStickerRef = useRef(null);                  // id do sticker selecionado (sem re-render)
   const [activeStickerId, setActiveStickerId] = useState(null);
@@ -1836,6 +1843,29 @@ function App() {
       overlayReadyRef.current = false;
     };
   }, [activeOverlay]);
+
+  // ── Narração TTS via StreamElements ─────────────────────────────────────────
+  const handleGerarNarracao = async () => {
+    if (!narracaoText.trim()) { setNarracaoError('Digite um texto para narrar.'); return; }
+    setNarracaoLoading(true);
+    setNarracaoError('');
+    try {
+      const url = `https://api.streamelements.com/kappa/v2/speech?voice=${narracaoVoice}&text=${encodeURIComponent(narracaoText.trim())}`;
+      const resp = await fetch(url);
+      if (!resp.ok) throw new Error('Erro ao gerar narração. Tente novamente.');
+      const blob = await resp.blob();
+      const file = new File([blob], 'narracao.mp3', { type: 'audio/mpeg' });
+      // Reutiliza o mesmo handler de carregamento de áudio
+      const fakeEvent = { target: { files: [file] } };
+      handleAudioChange(fakeEvent);
+      setShowNarracaoPanel(false);
+      setNarracaoText('');
+    } catch (err) {
+      setNarracaoError(err.message || 'Erro desconhecido.');
+    } finally {
+      setNarracaoLoading(false);
+    }
+  };
 
   const stopTrilhasPreview = () => {
     if (trilhasPreviewRef.current) {
@@ -6067,6 +6097,7 @@ _setDragging(null);
                   { icon:'🎬', label:'Vídeo',                    color:'#a78bfa',  action:()=>{ videoInputRef.current?.click(); setShowMidiasPanel(false); } },
                   { icon:'🎵', label:'Música / Áudio',           color:'#10b981',  action:()=>{ audioInputRef.current?.click(); setShowMidiasPanel(false); } },
                   { icon:'🎼', label:'Trilhas',                        color:'#a78bfa',  action:()=>{ setShowMidiasPanel(false); setShowTrilhasPanel(v=>!v); } },
+                  { icon:'🎙️', label:'Narração (TTS)',                 color:'#f472b6',  action:()=>{ setShowMidiasPanel(false); setShowNarracaoPanel(v=>!v); } },
                 ].map(item=>(
                   <div key={item.label} onClick={item.action}
                     style={{ display:'flex', alignItems:'center', gap:10, padding:'9px 14px', cursor:'pointer', transition:'background 0.1s' }}
@@ -6910,6 +6941,110 @@ _setDragging(null);
             document.body
           );
         })()}
+
+        {/* ── Painel de Narração TTS ── */}
+        {showNarracaoPanel && createPortal(
+          <>
+            <div onClick={() => setShowNarracaoPanel(false)} style={{ position:'fixed', inset:0, zIndex:99997 }} />
+            <div style={{
+              position:'fixed',
+              top: (midiaBtnRef.current?.getBoundingClientRect().bottom ?? 52) + 4,
+              left: Math.max(8, (midiaBtnRef.current?.getBoundingClientRect().left ?? 200)),
+              zIndex: 99998,
+              background: '#0f172a',
+              border: '1px solid rgba(244,114,182,0.25)',
+              borderRadius: 14,
+              width: 320,
+              boxShadow: '0 16px 48px rgba(0,0,0,0.8)',
+              padding: '16px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 12,
+            }}>
+              {/* Header */}
+              <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+                <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                  <span style={{ fontSize:18 }}>🎙️</span>
+                  <div>
+                    <div style={{ fontSize:13, fontWeight:700, color:'#f0f0f0' }}>Narração</div>
+                    <div style={{ fontSize:10, color:'#f472b6' }}>StreamElements TTS — Grátis</div>
+                  </div>
+                </div>
+                <button onClick={() => setShowNarracaoPanel(false)} style={{ background:'none', border:'none', color:'#555', cursor:'pointer', fontSize:16, lineHeight:1 }}>✕</button>
+              </div>
+
+              {/* Seletor de voz */}
+              <div>
+                <label style={{ fontSize:11, color:'#aaa', fontWeight:600, display:'block', marginBottom:4 }}>Voz</label>
+                <select
+                  value={narracaoVoice}
+                  onChange={e => setNarracaoVoice(e.target.value)}
+                  style={{ width:'100%', background:'#1e293b', border:'1px solid rgba(255,255,255,0.1)', borderRadius:8, color:'#f0f0f0', padding:'7px 10px', fontSize:12, cursor:'pointer', outline:'none' }}
+                >
+                  <optgroup label="🇧🇷 Português BR">
+                    <option value="Vitoria">Vitória (Feminino)</option>
+                    <option value="Camila">Camila (Feminino Neural)</option>
+                    <option value="Ricardo">Ricardo (Masculino)</option>
+                  </optgroup>
+                  <optgroup label="🇵🇹 Português PT">
+                    <option value="Ines">Inês (Feminino)</option>
+                    <option value="Cristiano">Cristiano (Masculino)</option>
+                  </optgroup>
+                  <optgroup label="🇺🇸 English">
+                    <option value="Brian">Brian (Male)</option>
+                    <option value="Amy">Amy (Female)</option>
+                    <option value="Joanna">Joanna (Female)</option>
+                    <option value="Matthew">Matthew (Male)</option>
+                  </optgroup>
+                </select>
+              </div>
+
+              {/* Textarea */}
+              <div>
+                <label style={{ fontSize:11, color:'#aaa', fontWeight:600, display:'block', marginBottom:4 }}>
+                  Texto para narrar <span style={{ color:'#555', fontWeight:400 }}>({narracaoText.length}/3000)</span>
+                </label>
+                <textarea
+                  value={narracaoText}
+                  onChange={e => { if (e.target.value.length <= 3000) { setNarracaoText(e.target.value); setNarracaoError(''); } }}
+                  placeholder="Digite aqui o texto que será narrado..."
+                  rows={5}
+                  style={{ width:'100%', background:'#1e293b', border:'1px solid rgba(255,255,255,0.08)', borderRadius:8, color:'#f0f0f0', padding:'9px 10px', fontSize:12, resize:'vertical', outline:'none', fontFamily:'inherit', boxSizing:'border-box' }}
+                />
+              </div>
+
+              {/* Erro */}
+              {narracaoError && (
+                <div style={{ background:'rgba(239,68,68,0.1)', border:'1px solid rgba(239,68,68,0.3)', borderRadius:8, padding:'8px 10px', fontSize:11, color:'#f87171' }}>
+                  ⚠️ {narracaoError}
+                </div>
+              )}
+
+              {/* Botão gerar */}
+              <button
+                onClick={handleGerarNarracao}
+                disabled={narracaoLoading || !narracaoText.trim()}
+                style={{
+                  background: narracaoLoading || !narracaoText.trim() ? 'rgba(244,114,182,0.2)' : 'linear-gradient(135deg,#f472b6,#db2777)',
+                  border: 'none', borderRadius:10, color:'#fff', padding:'10px 0',
+                  fontSize:13, fontWeight:700, cursor: narracaoLoading || !narracaoText.trim() ? 'not-allowed' : 'pointer',
+                  transition:'all 0.15s', display:'flex', alignItems:'center', justifyContent:'center', gap:8
+                }}
+              >
+                {narracaoLoading ? (
+                  <><span style={{ display:'inline-block', width:14, height:14, border:'2px solid rgba(255,255,255,0.3)', borderTopColor:'#fff', borderRadius:'50%', animation:'spin 0.7s linear infinite' }} />Gerando...</>
+                ) : (
+                  <>🎙️ Gerar Narração</>
+                )}
+              </button>
+
+              <div style={{ fontSize:10, color:'#444', textAlign:'center', lineHeight:1.5 }}>
+                O áudio gerado será carregado diretamente na faixa de áudio do editor.
+              </div>
+            </div>
+          </>,
+          document.body
+        )}
 
         {/* ── Painel de Trilhas ── */}
         {showTrilhasPanel && createPortal(
