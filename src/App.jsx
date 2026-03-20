@@ -1925,7 +1925,6 @@ function App() {
     setSyncLoading(true);
     setSyncError('');
     try {
-      // Montar o arquivo de áudio para enviar
       let blob;
       if (audioFile) {
         blob = audioFile;
@@ -1936,13 +1935,13 @@ function App() {
         for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
         blob = new Blob([bytes], { type: 'audio/mpeg' });
       }
-      // Limitar a 25MB (limite do Groq)
       if (blob.size > 25 * 1024 * 1024) throw new Error('Áudio muito grande (máx 25MB). Use um arquivo menor.');
 
       const formData = new FormData();
       formData.append('file', blob, 'audio.mp3');
       formData.append('model', 'whisper-large-v3-turbo');
       formData.append('response_format', 'verbose_json');
+      formData.append('timestamp_granularities[]', 'word');
       formData.append('timestamp_granularities[]', 'segment');
 
       const resp = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {
@@ -1953,53 +1952,130 @@ function App() {
       if (resp.status === 401) throw new Error('API key inválida. Verifique no Groq.');
       if (!resp.ok) throw new Error(`Erro ${resp.status} — tente novamente.`);
       const data = await resp.json();
-      const segments = data.segments || [];
-      if (segments.length === 0) throw new Error('Nenhum segmento detectado no áudio.');
 
-      // Alinhar frases do usuário com os segmentos do Whisper
-      // Estratégia: distribuir as linhas proporcionalmente pelos segmentos
+      const words = data.words || [];
+      const segments = data.segments || [];
+      const totalDur = segments.length > 0
+        ? segments[segments.length - 1].end
+        : (duration || 30);
+
       const canvas = canvasRef.current;
       const cx = canvas ? canvas.width / 2 : 360;
       const cy = canvas ? Math.round(canvas.height * 0.75) : 960;
 
-      // Calcular duração total dos segmentos
-      const totalDur = segments[segments.length - 1]?.end || duration || 30;
+      // Normaliza string: minúsculo, sem pontuação, sem acentos
+      const normalize = str => str
+        .toLowerCase()
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z0-9\s]/g, '')
+        .replace(/\s+/g, ' ')
+        .trim();
 
-      // Mapear cada linha para um timestamp proporcional
-      const newLyrics = lines.map((text, idx) => {
-        // Encontrar o segmento mais adequado para essa linha
-        const ratio = idx / lines.length;
-        const targetTime = ratio * totalDur;
-        // Achar o segmento mais próximo do tempo alvo
-        let best = segments[0];
-        let bestDist = Math.abs(segments[0].start - targetTime);
-        for (const seg of segments) {
-          const dist = Math.abs(seg.start - targetTime);
-          if (dist < bestDist) { bestDist = dist; best = seg; }
+      let newLyrics = [];
+
+      if (words.length >= lines.length) {
+        // ── Estratégia 1: word-level matching ────────────────────────────────
+        // Tenta encontrar cada linha nas palavras transcritas
+        const normWords = words.map(w => normalize(w.word));
+        let wordCursor = 0; // índice da próxima palavra disponível para match
+
+        const lineTimestamps = lines.map((line, lineIdx) => {
+          const lineTokens = normalize(line).split(' ').filter(Boolean);
+          if (lineTokens.length === 0) return null;
+
+          let bestMatchStart = -1;
+          let bestScore = -1;
+
+          // Janela deslizante: tenta achar onde essa linha aparece nas palavras
+          const maxStart = Math.min(wordCursor + Math.ceil(normWords.length / lines.length) * 3, normWords.length - lineTokens.length + 1);
+          for (let wi = wordCursor; wi < maxStart; wi++) {
+            let score = 0;
+            for (let ti = 0; ti < lineTokens.length && wi + ti < normWords.length; ti++) {
+              if (normWords[wi + ti] === lineTokens[ti]) score += 2;
+              else if (normWords[wi + ti]?.includes(lineTokens[ti]) || lineTokens[ti]?.includes(normWords[wi + ti])) score += 1;
+            }
+            if (score > bestScore) { bestScore = score; bestMatchStart = wi; }
+          }
+
+          // Aceita match se tiver pelo menos 50% de palavras reconhecidas
+          if (bestScore >= lineTokens.length * 0.5 && bestMatchStart >= 0) {
+            const matchEnd = Math.min(bestMatchStart + lineTokens.length - 1, words.length - 1);
+            wordCursor = matchEnd + 1;
+            return { start: words[bestMatchStart].start, end: words[matchEnd].end };
+          }
+
+          // Fallback proporcional se não achou match
+          const ratio = lineIdx / lines.length;
+          return { start: ratio * totalDur, end: null };
+        });
+
+        // Preencher ends ausentes e garantir não sobreposição
+        newLyrics = lines.map((text, idx) => {
+          const ts = lineTimestamps[idx];
+          const nextTs = lineTimestamps.find((t, i) => i > idx && t && t.start > (ts?.start ?? 0));
+          const start = ts?.start ?? (idx / lines.length) * totalDur;
+          // End: usa o end da própria janela, ou o start da próxima - 0.1, mínimo 1.5s
+          let end = ts?.end
+            ? Math.max(ts.end, start + 1.0)
+            : (nextTs ? Math.max(nextTs.start - 0.1, start + 1.5) : start + 3);
+          if (nextTs && end > nextTs.start - 0.05) end = nextTs.start - 0.05;
+          end = Math.max(end, start + 1.0);
+
+          return {
+            id: Date.now() + idx,
+            text,
+            start: Math.round(start * 100) / 100,
+            end:   Math.round(end   * 100) / 100,
+            x: cx, y: cy, rotation: 0,
+            fontSize: fontSizeRef.current,
+            fontFamily: fontFamilyRef.current,
+            animType: animTypeRef.current,
+            twSpeed: twSpeedRef.current,
+          };
+        });
+
+      } else if (segments.length > 0) {
+        // ── Estratégia 2: segment-level — distribui linhas pelos segmentos ────
+        // Cada segmento recebe um número proporcional de linhas
+        const linesPerSeg = lines.length / segments.length;
+        newLyrics = lines.map((text, idx) => {
+          const segIdx = Math.min(Math.floor(idx / linesPerSeg), segments.length - 1);
+          const seg = segments[segIdx];
+          // Dentro do segmento, distribui as linhas igualmente
+          const linesInThisSeg = Math.round(linesPerSeg) || 1;
+          const posInSeg = idx - Math.floor(segIdx * linesPerSeg);
+          const segDur = seg.end - seg.start;
+          const slotSize = segDur / linesInThisSeg;
+          const start = seg.start + posInSeg * slotSize;
+          const end = start + slotSize - 0.1;
+
+          return {
+            id: Date.now() + idx,
+            text,
+            start: Math.round(start * 100) / 100,
+            end:   Math.round(Math.max(end, start + 1.0) * 100) / 100,
+            x: cx, y: cy, rotation: 0,
+            fontSize: fontSizeRef.current,
+            fontFamily: fontFamilyRef.current,
+            animType: animTypeRef.current,
+            twSpeed: twSpeedRef.current,
+          };
+        });
+
+      } else {
+        throw new Error('Nenhum segmento detectado no áudio.');
+      }
+
+      // Garantia final: ordenar e eliminar qualquer sobreposição residual
+      newLyrics.sort((a, b) => a.start - b.start);
+      for (let i = 0; i < newLyrics.length - 1; i++) {
+        if (newLyrics[i].end > newLyrics[i + 1].start - 0.05) {
+          newLyrics[i].end = Math.max(newLyrics[i + 1].start - 0.05, newLyrics[i].start + 0.5);
         }
-        const start = best.start + (idx === 0 ? 0 : 0.1);
-        const nextIdx = Math.min(idx + 1, lines.length - 1);
-        const nextRatio = nextIdx / lines.length;
-        const nextTime = nextRatio * totalDur;
-        // Duração: até o próximo bloco ou 3s mínimo
-        const end = idx < lines.length - 1 ? Math.max(start + 1.5, nextTime - 0.1) : Math.max(start + 2, totalDur);
-        return {
-          id: Date.now() + idx,
-          text,
-          start: Math.round(start * 100) / 100,
-          end: Math.round(end * 100) / 100,
-          x: cx,
-          y: cy,
-          rotation: 0,
-          fontSize: fontSizeRef.current,
-          fontFamily: fontFamilyRef.current,
-          animType: animTypeRef.current,
-          twSpeed: twSpeedRef.current,
-        };
-      });
+      }
 
       pushHistory();
-      setLyrics(newLyrics.sort((a, b) => a.start - b.start));
+      setLyrics(newLyrics);
       setCurrentLineIndex(lines.length);
       localStorage.setItem('groq_api_key', syncApiKey.trim());
       setShowSyncPanel(false);
