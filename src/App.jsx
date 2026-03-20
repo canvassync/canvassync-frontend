@@ -702,9 +702,10 @@ function App() {
   // ── Narração TTS ─────────────────────────────────────────────────────────────
   const [showNarracaoPanel, setShowNarracaoPanel] = useState(false);
   const [narracaoText,      setNarracaoText]      = useState('');
-  const [narracaoVoice,     setNarracaoVoice]     = useState('Vitoria');
+  const [narracaoVoice,     setNarracaoVoice]     = useState('pNInz6obpgDQGcFmaJgB');
   const [narracaoLoading,   setNarracaoLoading]   = useState(false);
   const [narracaoError,     setNarracaoError]     = useState('');
+  const [narracaoApiKey,    setNarracaoApiKey]    = useState(() => localStorage.getItem('el_api_key') || '');
   const narracaoBtnRef = useRef(null);
   const [stickerPanelPos, setStickerPanelPos] = useState({ top: 80, left: 0 });
   const [stickerTab, setStickerTab] = useState('emoji');  // 'emoji'|'sticker'|'gif'
@@ -1844,20 +1845,33 @@ function App() {
     };
   }, [activeOverlay]);
 
-  // ── Narração TTS via StreamElements ─────────────────────────────────────────
+  // ── Narração TTS via ElevenLabs ──────────────────────────────────────────────
   const handleGerarNarracao = async () => {
     if (!narracaoText.trim()) { setNarracaoError('Digite um texto para narrar.'); return; }
+    if (!narracaoApiKey.trim()) { setNarracaoError('Insira sua API key do ElevenLabs.'); return; }
     setNarracaoLoading(true);
     setNarracaoError('');
     try {
-      const url = `https://api.streamelements.com/kappa/v2/speech?voice=${narracaoVoice}&text=${encodeURIComponent(narracaoText.trim())}`;
-      const resp = await fetch(url);
-      if (!resp.ok) throw new Error('Erro ao gerar narração. Tente novamente.');
+      const resp = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${narracaoVoice}`, {
+        method: 'POST',
+        headers: {
+          'xi-api-key': narracaoApiKey.trim(),
+          'Content-Type': 'application/json',
+          'Accept': 'audio/mpeg',
+        },
+        body: JSON.stringify({
+          text: narracaoText.trim(),
+          model_id: 'eleven_multilingual_v2',
+          voice_settings: { stability: 0.5, similarity_boost: 0.75 },
+        }),
+      });
+      if (resp.status === 401) throw new Error('API key inválida. Verifique no ElevenLabs.');
+      if (resp.status === 422) throw new Error('Texto inválido ou voz não encontrada.');
+      if (!resp.ok) throw new Error(`Erro ${resp.status}. Tente novamente.`);
       const blob = await resp.blob();
       const file = new File([blob], 'narracao.mp3', { type: 'audio/mpeg' });
-      // Reutiliza o mesmo handler de carregamento de áudio
-      const fakeEvent = { target: { files: [file] } };
-      handleAudioChange(fakeEvent);
+      handleAudioChange({ target: { files: [file] } });
+      localStorage.setItem('el_api_key', narracaoApiKey.trim());
       setShowNarracaoPanel(false);
       setNarracaoText('');
     } catch (err) {
@@ -6954,7 +6968,7 @@ _setDragging(null);
               background: '#0f172a',
               border: '1px solid rgba(244,114,182,0.25)',
               borderRadius: 14,
-              width: 320,
+              width: 340,
               boxShadow: '0 16px 48px rgba(0,0,0,0.8)',
               padding: '16px',
               display: 'flex',
@@ -6967,10 +6981,25 @@ _setDragging(null);
                   <span style={{ fontSize:18 }}>🎙️</span>
                   <div>
                     <div style={{ fontSize:13, fontWeight:700, color:'#f0f0f0' }}>Narração</div>
-                    <div style={{ fontSize:10, color:'#f472b6' }}>StreamElements TTS — Grátis</div>
+                    <div style={{ fontSize:10, color:'#f472b6' }}>ElevenLabs — 10.000 chars/mês grátis</div>
                   </div>
                 </div>
                 <button onClick={() => setShowNarracaoPanel(false)} style={{ background:'none', border:'none', color:'#555', cursor:'pointer', fontSize:16, lineHeight:1 }}>✕</button>
+              </div>
+
+              {/* API Key */}
+              <div>
+                <label style={{ fontSize:11, color:'#aaa', fontWeight:600, display:'block', marginBottom:4 }}>
+                  API Key <a href="https://elevenlabs.io/app/settings/api-keys" target="_blank" rel="noreferrer" style={{ color:'#f472b6', fontWeight:400, marginLeft:4 }}>→ Obter grátis</a>
+                </label>
+                <input
+                  type="password"
+                  value={narracaoApiKey}
+                  onChange={e => { setNarracaoApiKey(e.target.value); setNarracaoError(''); }}
+                  placeholder="sk_..."
+                  style={{ width:'100%', background:'#1e293b', border:'1px solid rgba(255,255,255,0.1)', borderRadius:8, color:'#f0f0f0', padding:'7px 10px', fontSize:12, outline:'none', boxSizing:'border-box', fontFamily:'monospace' }}
+                />
+                {narracaoApiKey && <div style={{ fontSize:10, color:'#10b981', marginTop:3 }}>✓ API key salva no navegador</div>}
               </div>
 
               {/* Seletor de voz */}
@@ -6981,20 +7010,21 @@ _setDragging(null);
                   onChange={e => setNarracaoVoice(e.target.value)}
                   style={{ width:'100%', background:'#1e293b', border:'1px solid rgba(255,255,255,0.1)', borderRadius:8, color:'#f0f0f0', padding:'7px 10px', fontSize:12, cursor:'pointer', outline:'none' }}
                 >
-                  <optgroup label="🇧🇷 Português BR">
-                    <option value="Vitoria">Vitória (Feminino)</option>
-                    <option value="Camila">Camila (Feminino Neural)</option>
-                    <option value="Ricardo">Ricardo (Masculino)</option>
+                  <optgroup label="🇧🇷 Português BR — Recomendadas">
+                    <option value="pNInz6obpgDQGcFmaJgB">Adam (Masculino — Natural)</option>
+                    <option value="EXAVITQu4vr4xnSDxMaL">Bella (Feminino — Suave)</option>
+                    <option value="ErXwobaYiN019PkySvjV">Antoni (Masculino — Jovem)</option>
+                    <option value="MF3mGyEYCl7XYWbV9V6O">Elli (Feminino — Expressiva)</option>
+                    <option value="TxGEqnHWrfWFTfGW9XjX">Josh (Masculino — Profundo)</option>
+                    <option value="VR6AewLTigWG4xSOukaG">Arnold (Masculino — Forte)</option>
+                    <option value="pqHfZKP75CvOlQylNhV4">Bill (Masculino — Maduro)</option>
+                    <option value="onwK4e9ZLuTAKqWW03F9">Daniel (Masculino — Britânico)</option>
                   </optgroup>
-                  <optgroup label="🇵🇹 Português PT">
-                    <option value="Ines">Inês (Feminino)</option>
-                    <option value="Cristiano">Cristiano (Masculino)</option>
-                  </optgroup>
-                  <optgroup label="🇺🇸 English">
-                    <option value="Brian">Brian (Male)</option>
-                    <option value="Amy">Amy (Female)</option>
-                    <option value="Joanna">Joanna (Female)</option>
-                    <option value="Matthew">Matthew (Male)</option>
+                  <optgroup label="🌍 Multilingual v2 (suportam PT)">
+                    <option value="XB0fDUnXU5powFXDhCwa">Charlotte (Feminino)</option>
+                    <option value="Xb7hH8MSUJpSbSDYk0k2">Alice (Feminino)</option>
+                    <option value="iP95p4xoKVk53GoZ742B">Chris (Masculino)</option>
+                    <option value="nPczCjzI2devNBz1zQrb">Brian (Masculino)</option>
                   </optgroup>
                 </select>
               </div>
@@ -7002,11 +7032,11 @@ _setDragging(null);
               {/* Textarea */}
               <div>
                 <label style={{ fontSize:11, color:'#aaa', fontWeight:600, display:'block', marginBottom:4 }}>
-                  Texto para narrar <span style={{ color:'#555', fontWeight:400 }}>({narracaoText.length}/3000)</span>
+                  Texto <span style={{ color:'#555', fontWeight:400 }}>({narracaoText.length}/2500)</span>
                 </label>
                 <textarea
                   value={narracaoText}
-                  onChange={e => { if (e.target.value.length <= 3000) { setNarracaoText(e.target.value); setNarracaoError(''); } }}
+                  onChange={e => { if (e.target.value.length <= 2500) { setNarracaoText(e.target.value); setNarracaoError(''); } }}
                   placeholder="Digite aqui o texto que será narrado..."
                   rows={5}
                   style={{ width:'100%', background:'#1e293b', border:'1px solid rgba(255,255,255,0.08)', borderRadius:8, color:'#f0f0f0', padding:'9px 10px', fontSize:12, resize:'vertical', outline:'none', fontFamily:'inherit', boxSizing:'border-box' }}
@@ -7023,23 +7053,22 @@ _setDragging(null);
               {/* Botão gerar */}
               <button
                 onClick={handleGerarNarracao}
-                disabled={narracaoLoading || !narracaoText.trim()}
+                disabled={narracaoLoading || !narracaoText.trim() || !narracaoApiKey.trim()}
                 style={{
-                  background: narracaoLoading || !narracaoText.trim() ? 'rgba(244,114,182,0.2)' : 'linear-gradient(135deg,#f472b6,#db2777)',
-                  border: 'none', borderRadius:10, color:'#fff', padding:'10px 0',
-                  fontSize:13, fontWeight:700, cursor: narracaoLoading || !narracaoText.trim() ? 'not-allowed' : 'pointer',
+                  background: narracaoLoading || !narracaoText.trim() || !narracaoApiKey.trim() ? 'rgba(244,114,182,0.2)' : 'linear-gradient(135deg,#f472b6,#db2777)',
+                  border:'none', borderRadius:10, color:'#fff', padding:'11px 0',
+                  fontSize:13, fontWeight:700, cursor: narracaoLoading || !narracaoText.trim() || !narracaoApiKey.trim() ? 'not-allowed' : 'pointer',
                   transition:'all 0.15s', display:'flex', alignItems:'center', justifyContent:'center', gap:8
                 }}
               >
-                {narracaoLoading ? (
-                  <><span style={{ display:'inline-block', width:14, height:14, border:'2px solid rgba(255,255,255,0.3)', borderTopColor:'#fff', borderRadius:'50%', animation:'spin 0.7s linear infinite' }} />Gerando...</>
-                ) : (
-                  <>🎙️ Gerar Narração</>
-                )}
+                {narracaoLoading
+                  ? <><span style={{ display:'inline-block', width:14, height:14, border:'2px solid rgba(255,255,255,0.3)', borderTopColor:'#fff', borderRadius:'50%', animation:'spin 0.7s linear infinite' }} />Gerando áudio...</>
+                  : <>🎙️ Gerar e Adicionar à Timeline</>
+                }
               </button>
 
-              <div style={{ fontSize:10, color:'#444', textAlign:'center', lineHeight:1.5 }}>
-                O áudio gerado será carregado diretamente na faixa de áudio do editor.
+              <div style={{ fontSize:10, color:'#444', lineHeight:1.6 }}>
+                O áudio gerado entra direto na faixa de áudio do editor. A API key é salva localmente no seu navegador.
               </div>
             </div>
           </>,
