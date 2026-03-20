@@ -3905,7 +3905,7 @@ _setDragging(null);
 
       // Indicador de seleção
       if (activeExtraTextId === txt.id) {
-        ctx.font = `bold ${tSize}px ${tFont}`;
+        ctx.font = makeFontStr(txt.fontBold ?? extraFontBold, txt.fontItalic ?? extraFontItalic, tSize, tFont);
         const maxW = lines.reduce((m, l) => Math.max(m, ctx.measureText(l).width), 0);
         const hw = maxW / 2 + 10;
         const hh = totalH / 2 + 8;
@@ -4761,7 +4761,7 @@ _setDragging(null);
       ctx.save();
       ctx.translate(txt.x, txt.y);
       ctx.rotate(rot);
-      ctx.font = `bold ${tSize}px ${tFont}`;
+      ctx.font = makeFontStr(txt.fontBold ?? extraFontBold, txt.fontItalic ?? extraFontItalic, tSize, tFont);
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       if (txt.shadowEnabled ?? true) {
@@ -4771,6 +4771,8 @@ _setDragging(null);
         ctx.shadowOffsetY = 2;
       }
       const totalH = lines.length * lineH;
+      const _tUnder = txt.fontUnderline ?? extraFontUnderline;
+      const _tStrike = txt.fontStrike ?? extraFontStrike;
       lines.forEach((line, li) => {
         const lineY = -totalH / 2 + li * lineH + lineH / 2;
         if (txt.gradientEnabled) {
@@ -4783,6 +4785,7 @@ _setDragging(null);
           ctx.fillStyle = tColor;
         }
         ctx.fillText(line, 0, lineY);
+        drawTextDecorations(ctx, line, lineY, tSize, _tUnder, _tStrike);
       });
       ctx.shadowBlur = 0; ctx.shadowOffsetX = 0; ctx.shadowOffsetY = 0;
       ctx.restore();
@@ -8212,7 +8215,7 @@ _setDragging(null);
                 const rot = (txt.rotation || 0) * Math.PI / 180;
                 const lines = txt.text.split('\n');
                 const lineH = extraTextFontSize * 1.25;
-                ctx.font = `bold ${extraTextFontSize}px ${extraTextFontFamily}`;
+                ctx.font = makeFontStr(txt.fontBold ?? extraFontBold, txt.fontItalic ?? extraFontItalic, extraTextFontSize, extraTextFontFamily);
                 const maxW = lines.reduce((m, l) => Math.max(m, ctx.measureText(l).width), 0);
                 const halfW = maxW / 2 + 10;
                 const halfH = (lines.length * lineH) / 2 + 8;
