@@ -7124,8 +7124,11 @@ _setDragging(null);
             <div onClick={() => setShowSyncPanel(false)} style={{ position:'fixed', inset:0, zIndex:99997 }} />
             <div style={{
               position:'fixed',
-              top: syncBtnRef.current ? syncBtnRef.current.getBoundingClientRect().top - 10 : 200,
-              left: syncBtnRef.current ? syncBtnRef.current.getBoundingClientRect().right + 12 : 600,
+              bottom: syncBtnRef.current ? window.innerHeight - syncBtnRef.current.getBoundingClientRect().top + 8 : 200,
+              left: Math.min(
+                syncBtnRef.current ? syncBtnRef.current.getBoundingClientRect().left : 200,
+                window.innerWidth - 356
+              ),
               zIndex: 99998,
               background: '#0f172a',
               border: '1px solid rgba(139,92,246,0.3)',
@@ -7136,7 +7139,7 @@ _setDragging(null);
               display: 'flex',
               flexDirection: 'column',
               gap: 12,
-              maxHeight: '90vh',
+              maxHeight: syncBtnRef.current ? `${syncBtnRef.current.getBoundingClientRect().top - 20}px` : '80vh',
               overflowY: 'auto',
             }}>
               {/* Header */}
