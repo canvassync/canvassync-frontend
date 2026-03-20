@@ -1955,8 +1955,21 @@ function App() {
 
       const words = data.words || [];
       const segments = data.segments || [];
-      const totalDur = segments.length > 0
-        ? segments[segments.length - 1].end
+
+      // Ajuste de trim e offset: os timestamps do Whisper são relativos ao arquivo original.
+      // Se o usuário cortou o início (trimStart) e/ou moveu o áudio na timeline (audioOffset),
+      // precisamos subtrair trimStart e somar audioOffset para alinhar com a timeline.
+      const trimStart = audioTrimStart || 0;
+      const trimEnd   = audioTrimEnd !== null ? audioTrimEnd : (duration || 999);
+      const offset    = audioOffset || 0;
+
+      // Filtra palavras e segmentos que estão dentro do trecho não cortado
+      const adjustTime = t => Math.round((t - trimStart + offset) * 100) / 100;
+      const filteredWords    = words.filter(w => w.start >= trimStart && w.end <= trimEnd + 0.5);
+      const filteredSegments = segments.filter(s => s.start >= trimStart && s.end <= trimEnd + 0.5);
+
+      const totalDur = filteredSegments.length > 0
+        ? adjustTime(filteredSegments[filteredSegments.length - 1].end)
         : (duration || 30);
 
       const canvas = canvasRef.current;
@@ -1973,11 +1986,10 @@ function App() {
 
       let newLyrics = [];
 
-      if (words.length >= lines.length) {
+      if (filteredWords.length >= lines.length) {
         // ── Estratégia 1: word-level matching ────────────────────────────────
-        // Tenta encontrar cada linha nas palavras transcritas
-        const normWords = words.map(w => normalize(w.word));
-        let wordCursor = 0; // índice da próxima palavra disponível para match
+        const normWords = filteredWords.map(w => normalize(w.word));
+        let wordCursor = 0;
 
         const lineTimestamps = lines.map((line, lineIdx) => {
           const lineTokens = normalize(line).split(' ').filter(Boolean);
@@ -1986,7 +1998,6 @@ function App() {
           let bestMatchStart = -1;
           let bestScore = -1;
 
-          // Janela deslizante: tenta achar onde essa linha aparece nas palavras
           const maxStart = Math.min(wordCursor + Math.ceil(normWords.length / lines.length) * 3, normWords.length - lineTokens.length + 1);
           for (let wi = wordCursor; wi < maxStart; wi++) {
             let score = 0;
@@ -1997,24 +2008,23 @@ function App() {
             if (score > bestScore) { bestScore = score; bestMatchStart = wi; }
           }
 
-          // Aceita match se tiver pelo menos 50% de palavras reconhecidas
           if (bestScore >= lineTokens.length * 0.5 && bestMatchStart >= 0) {
-            const matchEnd = Math.min(bestMatchStart + lineTokens.length - 1, words.length - 1);
+            const matchEnd = Math.min(bestMatchStart + lineTokens.length - 1, filteredWords.length - 1);
             wordCursor = matchEnd + 1;
-            return { start: words[bestMatchStart].start, end: words[matchEnd].end };
+            return {
+              start: adjustTime(filteredWords[bestMatchStart].start),
+              end:   adjustTime(filteredWords[matchEnd].end),
+            };
           }
 
-          // Fallback proporcional se não achou match
           const ratio = lineIdx / lines.length;
-          return { start: ratio * totalDur, end: null };
+          return { start: offset + ratio * (totalDur - offset), end: null };
         });
 
-        // Preencher ends ausentes e garantir não sobreposição
         newLyrics = lines.map((text, idx) => {
           const ts = lineTimestamps[idx];
           const nextTs = lineTimestamps.find((t, i) => i > idx && t && t.start > (ts?.start ?? 0));
-          const start = ts?.start ?? (idx / lines.length) * totalDur;
-          // End: usa o end da própria janela, ou o start da próxima - 0.1, mínimo 1.5s
+          const start = ts?.start ?? (offset + (idx / lines.length) * totalDur);
           let end = ts?.end
             ? Math.max(ts.end, start + 1.0)
             : (nextTs ? Math.max(nextTs.start - 0.1, start + 1.5) : start + 3);
@@ -2034,26 +2044,24 @@ function App() {
           };
         });
 
-      } else if (segments.length > 0) {
-        // ── Estratégia 2: segment-level — distribui linhas pelos segmentos ────
-        // Cada segmento recebe um número proporcional de linhas
-        const linesPerSeg = lines.length / segments.length;
+      } else if (filteredSegments.length > 0) {
+        // ── Estratégia 2: segment-level ───────────────────────────────────────
+        const linesPerSeg = lines.length / filteredSegments.length;
         newLyrics = lines.map((text, idx) => {
-          const segIdx = Math.min(Math.floor(idx / linesPerSeg), segments.length - 1);
-          const seg = segments[segIdx];
-          // Dentro do segmento, distribui as linhas igualmente
+          const segIdx = Math.min(Math.floor(idx / linesPerSeg), filteredSegments.length - 1);
+          const seg = filteredSegments[segIdx];
           const linesInThisSeg = Math.round(linesPerSeg) || 1;
           const posInSeg = idx - Math.floor(segIdx * linesPerSeg);
           const segDur = seg.end - seg.start;
           const slotSize = segDur / linesInThisSeg;
-          const start = seg.start + posInSeg * slotSize;
-          const end = start + slotSize - 0.1;
+          const rawStart = seg.start + posInSeg * slotSize;
+          const rawEnd   = rawStart + slotSize - 0.1;
 
           return {
             id: Date.now() + idx,
             text,
-            start: Math.round(start * 100) / 100,
-            end:   Math.round(Math.max(end, start + 1.0) * 100) / 100,
+            start: Math.round(adjustTime(rawStart) * 100) / 100,
+            end:   Math.round(Math.max(adjustTime(rawEnd), adjustTime(rawStart) + 1.0) * 100) / 100,
             x: cx, y: cy, rotation: 0,
             fontSize: fontSizeRef.current,
             fontFamily: fontFamilyRef.current,
