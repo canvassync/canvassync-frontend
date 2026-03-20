@@ -2416,12 +2416,7 @@ function App() {
     } catch { void 0; }
   };
 
-  // Helper: monta string ctx.font e desenha underline/strikethrough
-  const makeFontStr = (bold, italic, size, family) => {
-    const b = bold   ? 'bold '   : '';
-    const i = italic ? 'italic ' : '';
-    return `${b}${i}${size}px ${family}`;
-  };
+  // Helper: desenha underline/strikethrough
   const drawTextDecorations = (ctx, vis, lineY, fontSize, underline, strike) => {
     if (!underline && !strike) return;
     const w = ctx.measureText(vis).width;
@@ -3856,7 +3851,7 @@ _setDragging(null);
         ctx.save();
         ctx.translate(txt.x, txt.y);
         ctx.rotate(rot);
-        ctx.font = makeFontStr(txt.fontBold ?? extraFontBoldRef.current, txt.fontItalic ?? extraFontItalicRef.current, tSize, tFont);
+        ctx.font = `${(txt.fontBold ?? extraFontBoldRef.current) ? "bold " : ""}${(txt.fontItalic ?? extraFontItalicRef.current) ? "italic " : ""}${tSize}px ${tFont}`;
         ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
         const _etotalH = lines.length * lineH;
         drawTextBgEffectRef.current?.(ctx, txt.bgEffect, lines, tSize, lineH, _etotalH);
@@ -3867,7 +3862,7 @@ _setDragging(null);
         ctx.save();
         ctx.translate(txt.x, txt.y);
         ctx.rotate(rot);
-        ctx.font = makeFontStr(txt.fontBold ?? extraFontBoldRef.current, txt.fontItalic ?? extraFontItalicRef.current, tSize, tFont);
+        ctx.font = `${(txt.fontBold ?? extraFontBoldRef.current) ? "bold " : ""}${(txt.fontItalic ?? extraFontItalicRef.current) ? "italic " : ""}${tSize}px ${tFont}`;
         ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
         const _etH = lines.length * lineH;
         drawTextBgEffectRef.current?.(ctx, txt.bgEffect, lines, tSize, lineH, _etH);
@@ -3875,7 +3870,7 @@ _setDragging(null);
       }
       ctx.translate(txt.x, txt.y);
       ctx.rotate(rot);
-      ctx.font = makeFontStr(txt.fontBold ?? extraFontBoldRef.current, txt.fontItalic ?? extraFontItalicRef.current, tSize, tFont);
+      ctx.font = `${(txt.fontBold ?? extraFontBoldRef.current) ? "bold " : ""}${(txt.fontItalic ?? extraFontItalicRef.current) ? "italic " : ""}${tSize}px ${tFont}`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       if (txt.shadowEnabled ?? true) {
@@ -3905,7 +3900,7 @@ _setDragging(null);
 
       // Indicador de seleção
       if (activeExtraTextId === txt.id) {
-        ctx.font = makeFontStr(txt.fontBold ?? extraFontBoldRef.current, txt.fontItalic ?? extraFontItalicRef.current, tSize, tFont);
+        ctx.font = `${(txt.fontBold ?? extraFontBoldRef.current) ? "bold " : ""}${(txt.fontItalic ?? extraFontItalicRef.current) ? "italic " : ""}${tSize}px ${tFont}`;
         const maxW = lines.reduce((m, l) => Math.max(m, ctx.measureText(l).width), 0);
         const hw = maxW / 2 + 10;
         const hh = totalH / 2 + 8;
@@ -3943,7 +3938,7 @@ _setDragging(null);
       // ── Usa font/size por-lyric se definido, senão usa global ──────────────
       const lFontSize = activeLine.fontSize || fontSize;
       const lFontFamily = activeLine.fontFamily || fontFamily;
-      ctx.font = makeFontStr(activeLine.fontBold ?? fontBoldRef.current, activeLine.fontItalic ?? fontItalicRef.current, lFontSize, lFontFamily);
+      ctx.font = `${(activeLine.fontBold ?? fontBoldRef.current) ? "bold " : ""}${(activeLine.fontItalic ?? fontItalicRef.current) ? "italic " : ""}${lFontSize}px ${lFontFamily}`;
       const lines = wrapLyricText(activeLine.text, ctx, canvas.width - 40);
       const lineH = lFontSize * 1.3;
       const totalH = lines.length * lineH;
@@ -3962,7 +3957,7 @@ _setDragging(null);
         if (_anim === 'slide') ctx.translate(0, (1 - _ease) * 48);
         ctx.translate(lx, ly);
         ctx.rotate(lRot);
-        ctx.font = makeFontStr(activeLine.fontBold ?? fontBoldRef.current, activeLine.fontItalic ?? fontItalicRef.current, lFontSize, lFontFamily);
+        ctx.font = `${(activeLine.fontBold ?? fontBoldRef.current) ? "bold " : ""}${(activeLine.fontItalic ?? fontItalicRef.current) ? "italic " : ""}${lFontSize}px ${lFontFamily}`;
         ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
         drawTextBgEffectRef.current?.(ctx, _bgFx, lines, lFontSize, lineH, totalH);
         ctx.restore();
@@ -4018,7 +4013,7 @@ _setDragging(null);
 
       // Indicador de seleção / arrasto + handle de rotação
       if (activeLyricId === activeLine.id && editingLyricId !== activeLine.id) {
-        ctx.font = makeFontStr(activeLine.fontBold ?? fontBoldRef.current, activeLine.fontItalic ?? fontItalicRef.current, lFontSize, lFontFamily);
+        ctx.font = `${(activeLine.fontBold ?? fontBoldRef.current) ? "bold " : ""}${(activeLine.fontItalic ?? fontItalicRef.current) ? "italic " : ""}${lFontSize}px ${lFontFamily}`;
         const maxW = lines.reduce((m, l) => Math.max(m, ctx.measureText(l.toUpperCase()).width), 0);
         const hw = maxW / 2 + 14;
         const hh = totalH / 2 + 10;
@@ -4763,7 +4758,7 @@ _setDragging(null);
       ctx.save();
       ctx.translate(txt.x, txt.y);
       ctx.rotate(rot);
-      ctx.font = makeFontStr(txt.fontBold ?? extraFontBoldRef.current, txt.fontItalic ?? extraFontItalicRef.current, tSize, tFont);
+      ctx.font = `${(txt.fontBold ?? extraFontBoldRef.current) ? "bold " : ""}${(txt.fontItalic ?? extraFontItalicRef.current) ? "italic " : ""}${tSize}px ${tFont}`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       if (txt.shadowEnabled ?? true) {
@@ -4799,7 +4794,7 @@ _setDragging(null);
       const lRot = (activeLine.rotation || 0) * Math.PI / 180;
       const lFontSize = activeLine.fontSize || fontSize;
       const lFontFamily = activeLine.fontFamily || fontFamily;
-      ctx.font = makeFontStr(activeLine.fontBold ?? fontBoldRef.current, activeLine.fontItalic ?? fontItalicRef.current, lFontSize, lFontFamily);
+      ctx.font = `${(activeLine.fontBold ?? fontBoldRef.current) ? "bold " : ""}${(activeLine.fontItalic ?? fontItalicRef.current) ? "italic " : ""}${lFontSize}px ${lFontFamily}`;
       const lines = wrapLyricText(activeLine.text, ctx, logicalW - 40);
       const lineH = lFontSize * 1.3;
       const totalH = lines.length * lineH;
@@ -4815,7 +4810,7 @@ _setDragging(null);
         if (_anim === 'fade')  ctx.globalAlpha = _ease;
         if (_anim === 'slide') ctx.translate(0, (1 - _ease) * 48);
         ctx.translate(lx, ly); ctx.rotate(lRot);
-        ctx.font = makeFontStr(activeLine.fontBold ?? fontBoldRef.current, activeLine.fontItalic ?? fontItalicRef.current, lFontSize, lFontFamily);
+        ctx.font = `${(activeLine.fontBold ?? fontBoldRef.current) ? "bold " : ""}${(activeLine.fontItalic ?? fontItalicRef.current) ? "italic " : ""}${lFontSize}px ${lFontFamily}`;
         ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
         drawTextBgEffectRef.current?.(ctx, _bgFxR, lines, lFontSize, lineH, totalH);
         ctx.restore();
@@ -8220,7 +8215,7 @@ _setDragging(null);
                 const rot = (txt.rotation || 0) * Math.PI / 180;
                 const lines = txt.text.split('\n');
                 const lineH = extraTextFontSize * 1.25;
-                ctx.font = makeFontStr(txt.fontBold ?? extraFontBold, txt.fontItalic ?? extraFontItalic, extraTextFontSize, extraTextFontFamily);
+                ctx.font = `${(txt.fontBold ?? extraFontBold) ? "bold " : ""}${(txt.fontItalic ?? extraFontItalic) ? "italic " : ""}${extraTextFontSize}px ${extraTextFontFamily}`;
                 const maxW = lines.reduce((m, l) => Math.max(m, ctx.measureText(l).width), 0);
                 const halfW = maxW / 2 + 10;
                 const halfH = (lines.length * lineH) / 2 + 8;
