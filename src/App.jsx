@@ -7,44 +7,60 @@ import { useLanguage, LangToggle } from './hooks/useLanguage.jsx';
 function SupportChat({ chatTopic, setChatTopic, setChatOpen }) {
   const faqs = [
     {
-      q: '🎵 Como sincronizar a letra?',
-      a: 'Cole a letra no painel esquerdo (uma frase por linha) e clique em ▶ Play. No ritmo de cada frase, pressione ⚡ MARCAR AGORA. A frase entra na timeline. Você pode arrastar ou redimensionar cada bloco depois.',
+      q: '🎵 Como sincronizar a letra manualmente?',
+      a: 'Cole a letra no painel esquerdo (uma frase por linha). Clique em ▶ Play e, no ritmo de cada frase, pressione ⚡ MARCAR AGORA. A frase entra na timeline. Arraste ou redimensione os blocos para ajustar.',
+    },
+    {
+      q: '🤖 Como sincronizar a letra com IA?',
+      a: 'Cole a letra no painel esquerdo e carregue a música. No painel da letra clique em "🤖 Sincronizar Letra com IA". Insira sua API key gratuita do Groq (console.groq.com). Clique em Sincronizar — a IA analisa o áudio e posiciona cada frase automaticamente.',
+    },
+    {
+      q: '🎙️ Como gerar narração com IA?',
+      a: 'Vá em Mídias → 🎙️ Narração (TTS). Insira sua API key gratuita do ElevenLabs (elevenlabs.io → Desenvolvedores → Chaves de API). Escolha a voz, digite o texto e clique em "🎙️ Gerar e Adicionar à Timeline". O áudio entra direto na faixa de áudio.',
     },
     {
       q: '🖼️ Como adicionar e editar imagens?',
-      a: 'Clique em "Imagens" no header para fazer upload. A imagem aparece no canvas — clique para selecionar, arraste para mover e use as alças dos cantos para redimensionar. No painel lateral: Rotação e Filtros (Brilho, Contraste, Neon, P&B…).',
+      a: 'Clique em Mídias → 🖼️ Fundo para o plano de fundo, ou 🏞️ Imagens overlay para imagens sobrepostas. No canvas: clique para selecionar, arraste para mover, alças nos cantos para redimensionar. Painel lateral: Rotação, Filtros e Transições.',
     },
     {
       q: '🎬 Como adicionar e editar vídeos?',
-      a: 'Clique em "Vídeos" no header e escolha o arquivo. O vídeo entra no canvas e na timeline. Clique para selecionar → arraste para mover → alças para redimensionar. No painel lateral: Rotação, Filtros e Transições. Na timeline arraste as bordas para cortar.',
+      a: 'Clique em Mídias → 🎬 Vídeo. O vídeo entra no canvas e na timeline. Clique para selecionar → arraste para mover → alças para redimensionar. Painel lateral: Rotação, Filtros e Transições. Na timeline arraste as bordas para cortar.',
     },
     {
-      q: '🎨 Como usar Filtros e Transições?',
-      a: 'Selecione uma imagem ou vídeo no canvas. No painel lateral surgem 10 presets de filtro (Cinema, Neon, Vintage…) e 8 sliders finos. Abaixo ficam as Transições — escolha Entrada e Saída independentes (Fade, Zoom, Bounce, Elástico…) e ajuste a duração.',
+      q: '🎵 Como adicionar música ou áudio?',
+      a: 'Clique em Mídias → 🎵 Música / Áudio para importar seu arquivo, ou Mídias → 🎼 Trilhas para escolher entre as 170+ trilhas gratuitas. O áudio aparece na timeline com controles de corte e volume.',
     },
     {
-      q: '✨ Como usar Templates?',
-      a: 'Clique em 🎨 Templates no header. Filtre por formato (9:16, 16:9, 1:1, 4:3) e clique em "Usar template". Fontes, cores, textos e layout são aplicados automaticamente — suas mídias (fundo, áudio, vídeos) não são alteradas.',
-    },
-    {
-      q: '🔊 Como adicionar Efeitos Sonoros?',
-      a: 'Clique em 🔊 Efeitos no header. Pause o vídeo na posição desejada e clique num dos 24 efeitos. Ele aparece na lista "Colocados no Vídeo" com slider de volume. Os efeitos são incluídos no export final.',
-    },
-    {
-      q: '✨ Como usar Stickers e Emojis?',
-      a: 'Clique em ✨ Stickers no header. Aba Emojis: 120 opções. Aba Animados: 32 stickers (bounce, pulse, spin…). Clique no sticker no canvas para selecionar — barra de tamanho aparece na base. Arraste para mover, botão direito para remover.',
-    },
-    {
-      q: '💾 Como exportar o vídeo?',
-      a: 'Escolha o formato: WEBM + Áudio (recomendado), MP4 + Áudio, HD 1080p WEBM ou HD 1080p MP4. Clique em 💾 Salvar Vídeo. A barra de progresso mostra o andamento — não feche a aba. O arquivo é baixado automaticamente.',
+      q: '🎞️ Como usar Overlays de Cinema?',
+      a: 'No painel esquerdo, vá na aba Efeitos → seção "🎞️ Texturas & Overlays". Escolha entre os 37 overlays (fogo, partículas, glitter, neve…). Use o slider de opacidade para ajustar a intensidade.',
     },
     {
       q: '✏️ Como adicionar Textos Extras?',
-      a: 'No painel lateral em "✏️ TEXTOS EXTRAS", digite e clique +. Escolha cor, fonte e tamanho. Ative Sombra ou Gradiente para efeitos. No canvas: arraste para mover, círculo roxo para girar, botão direito para remover.',
+      a: 'No painel lateral em "✏️ TEXTOS EXTRAS", digite o texto e clique +. Escolha cor, fonte, tamanho e estilo (Negrito, Itálico, Sublinhado, Riscado). Ative Sombra ou Gradiente. No canvas: arraste para mover, círculo roxo para girar, botão direito para remover.',
+    },
+    {
+      q: '🎨 Como usar Filtros e Transições?',
+      a: 'Selecione uma imagem ou vídeo no canvas. No painel lateral surgem os presets de filtro (Cinema, Neon, Vintage…) e sliders de ajuste. Abaixo ficam as Transições — escolha Entrada e Saída independentes (Fade, Zoom, Bounce…) e ajuste a duração.',
+    },
+    {
+      q: '✨ Como usar Templates?',
+      a: 'Clique em 🎨 Templates no header. Filtre por formato (9:16, 16:9, 1:1, 4:3) e clique em "Usar template". Fontes, cores e layout são aplicados automaticamente — suas mídias não são alteradas.',
+    },
+    {
+      q: '🔊 Como adicionar Efeitos Sonoros?',
+      a: 'Clique em 🔊 SFX no header. Pause no ponto desejado e clique em um dos efeitos. Ele aparece na lista com slider de volume. Os efeitos são incluídos no export final.',
+    },
+    {
+      q: '✨ Como usar Stickers e Emojis?',
+      a: 'Clique em ✨ Stickers no header. Aba Emojis: diversas opções. Aba Animados: stickers com animações (bounce, pulse, spin…). Arraste para mover, botão direito para remover.',
+    },
+    {
+      q: '💾 Como exportar o vídeo?',
+      a: 'Clique em 💾 Exportar no header. Escolha o formato (MP4 HD+ recomendado). Clique em ⬇ Salvar Vídeo. A barra de progresso mostra o andamento — não feche a aba. O arquivo é baixado automaticamente.',
     },
     {
       q: '📦 Como salvar e carregar o projeto?',
-      a: 'Use 📦 Exportar Projeto para salvar um JSON com todo o estado (mídias, letras, stickers, efeitos). Use 📂 Importar Projeto para recarregar. O projeto também é auto-salvo no navegador a cada 500ms.',
+      a: 'Clique em 📦 Projeto → Exportar Projeto para salvar um JSON com todo o estado. Use Importar Projeto para recarregar. O projeto é auto-salvo no navegador automaticamente.',
     },
   ];
 
