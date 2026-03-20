@@ -716,6 +716,28 @@ export default function CanvasSyncLanding() {
               </div>
             </Reveal>
 
+            {/* Narração TTS */}
+            <Reveal delay={320}>
+              <div style={{ background: "linear-gradient(135deg,#1a0a1a,#2a0a2a)", border: "1px solid rgba(244,114,182,0.2)", borderRadius: 20, padding: "28px 28px", display: "flex", gap: 20, alignItems: "flex-start" }}>
+                <div style={{ width: 48, height: 48, borderRadius: 14, background: "rgba(244,114,182,0.12)", border: "1px solid rgba(244,114,182,0.3)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>🎙️</div>
+                <div>
+                  <h3 style={{ fontSize: 16, fontWeight: 700, color: "#f9a8d4", marginBottom: 6 }}>Narração com IA</h3>
+                  <p style={{ fontSize: 14, color: "#666", lineHeight: 1.6 }}>Gere narração em português ou inglês com vozes realistas diretamente no editor. Áudio cai automaticamente na timeline. Powered by ElevenLabs.</p>
+                </div>
+              </div>
+            </Reveal>
+
+            {/* Sincronização Automática */}
+            <Reveal delay={400}>
+              <div style={{ background: "linear-gradient(135deg,#0a0d1f,#0d1535)", border: "1px solid rgba(139,92,246,0.25)", borderRadius: 20, padding: "28px 28px", display: "flex", gap: 20, alignItems: "flex-start" }}>
+                <div style={{ width: 48, height: 48, borderRadius: 14, background: "rgba(139,92,246,0.12)", border: "1px solid rgba(139,92,246,0.3)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>🤖</div>
+                <div>
+                  <h3 style={{ fontSize: 16, fontWeight: 700, color: "#c4b5fd", marginBottom: 6 }}>Sincronização Automática com IA</h3>
+                  <p style={{ fontSize: 14, color: "#666", lineHeight: 1.6 }}>Cole a letra, carregue a música e deixe a IA sincronizar tudo. O Whisper analisa o áudio e posiciona cada frase no tempo exato. Acabou o trabalho manual. Powered by Groq.</p>
+                </div>
+              </div>
+            </Reveal>
+
           </div>
         </div>
       </section>
@@ -773,54 +795,6 @@ export default function CanvasSyncLanding() {
                   </div>
                   <div style={{ fontSize: 13, fontWeight: 600, color: "#ccc", marginBottom: 4 }}>{f.label}</div>
                   <div style={{ fontSize: 11, color: "#444", fontFamily: "monospace" }}>{f.sub}</div>
-                </div>
-              </Reveal>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ═══ TESTIMONIALS ════════════════════════════════════════════════════ */}
-      <section style={{ padding: "80px 24px" }}>
-        <div style={{ maxWidth: 1000, margin: "0 auto" }}>
-          <Reveal>
-            <p style={{ textAlign: "center", color: "#00BFFF", fontSize: 12, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", marginBottom: 14 }}>
-              {t("testimonials_label")}
-            </p>
-            <h2 className="syne" style={{ textAlign: "center", fontSize: "clamp(26px, 4vw, 42px)", fontWeight: 800, letterSpacing: "-1px", marginBottom: 48 }}>
-              {t("testimonials_title1")} <span className="gradient-text">{t("testimonials_title2")}</span>
-            </h2>
-          </Reveal>
-
-          <div
-            className="testimonials-grid"
-            style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16 }}
-          >
-            {testimonials.map((t, i) => (
-              <Reveal key={i} delay={i * 100}>
-                <div className="card" style={{ height: "100%" }}>
-                  <div style={{ display: "flex", marginBottom: 14 }}>
-                    {Array.from({ length: t.stars }).map((_, j) => (
-                      <Star key={j} size={14} className="star" fill="#FFB800" color="#FFB800" />
-                    ))}
-                  </div>
-                  <p style={{ fontSize: 14, color: "#888", lineHeight: 1.7, marginBottom: 20, fontStyle: "italic" }}>
-                    "{t.text}"
-                  </p>
-                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <div style={{
-                      width: 36, height: 36, borderRadius: "50%",
-                      background: "linear-gradient(135deg, #00BFFF, #0060ff)",
-                      display: "flex", alignItems: "center", justifyContent: "center",
-                      fontSize: 14, fontWeight: 700, color: "#fff",
-                    }}>
-                      {t.name[0]}
-                    </div>
-                    <div>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: "#ddd" }}>{t.name}</div>
-                      <div style={{ fontSize: 11, color: "#555" }}>{t.role}</div>
-                    </div>
-                  </div>
                 </div>
               </Reveal>
             ))}
