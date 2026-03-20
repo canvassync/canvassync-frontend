@@ -706,7 +706,7 @@ function App() {
   const [narracaoLoading,   setNarracaoLoading]   = useState(false);
   const [narracaoError,     setNarracaoError]     = useState('');
   const narracaoBtnRef = useRef(null);
- = useState({ top: 80, left: 0 });
+  const [stickerPanelPos, setStickerPanelPos] = useState({ top: 80, left: 0 });
   const [stickerTab, setStickerTab] = useState('emoji');  // 'emoji'|'sticker'|'gif'
   const activeStickerRef = useRef(null);                  // id do sticker selecionado (sem re-render)
   const [activeStickerId, setActiveStickerId] = useState(null);
