@@ -640,7 +640,16 @@ function App() {
   const [textColor, setTextColor] = useState('#ffffff');
   const [textBgEffect, setTextBgEffect] = useState('none'); // efeito de fundo do texto de letra
   const [fontFamily, setFontFamily] = useState('Poppins');
-  const [exportFormat, setExportFormat] = useState('mp4_hd');
+  // ── Estilos de fonte (letra da música) ───────────────────────────────────────
+  const [fontBold,      setFontBold]      = useState(true);
+  const [fontItalic,    setFontItalic]    = useState(false);
+  const [fontUnderline, setFontUnderline] = useState(false);
+  const [fontStrike,    setFontStrike]    = useState(false);
+  // ── Estilos de fonte (textos extras) ─────────────────────────────────────────
+  const [extraFontBold,      setExtraFontBold]      = useState(true);
+  const [extraFontItalic,    setExtraFontItalic]    = useState(false);
+  const [extraFontUnderline, setExtraFontUnderline] = useState(false);
+  const [extraFontStrike,    setExtraFontStrike]    = useState(false);
   const fileHandleRef = useRef(null); // armazena o handle do picker para uso nos sub-handlers
 
 
@@ -2390,6 +2399,31 @@ function App() {
     } catch { void 0; }
   };
 
+  // Helper: monta string ctx.font e desenha underline/strikethrough
+  const makeFontStr = (bold, italic, size, family) => {
+    const b = bold   ? 'bold '   : '';
+    const i = italic ? 'italic ' : '';
+    return `${b}${i}${size}px ${family}`;
+  };
+  const drawTextDecorations = (ctx, vis, lineY, fontSize, underline, strike) => {
+    if (!underline && !strike) return;
+    const w = ctx.measureText(vis).width;
+    const x0 = -w / 2, x1 = w / 2;
+    ctx.save();
+    ctx.lineWidth = Math.max(1, fontSize * 0.05);
+    ctx.strokeStyle = ctx.fillStyle || '#ffffff';
+    ctx.globalAlpha = 1;
+    if (underline) {
+      const y = lineY + fontSize * 0.55;
+      ctx.beginPath(); ctx.moveTo(x0, y); ctx.lineTo(x1, y); ctx.stroke();
+    }
+    if (strike) {
+      const y = lineY;
+      ctx.beginPath(); ctx.moveTo(x0, y); ctx.lineTo(x1, y); ctx.stroke();
+    }
+    ctx.restore();
+  };
+
   // Quebra o texto da letra respeitando \n manuais e auto-wrap
   const wrapLyricText = useCallback((text, ctx, maxWidth) => {
     // Respeita quebras manuais de linha primeiro
@@ -3805,7 +3839,7 @@ _setDragging(null);
         ctx.save();
         ctx.translate(txt.x, txt.y);
         ctx.rotate(rot);
-        ctx.font = `bold ${tSize}px ${tFont}`;
+        ctx.font = makeFontStr(txt.fontBold ?? extraFontBold, txt.fontItalic ?? extraFontItalic, tSize, tFont);
         ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
         const _etotalH = lines.length * lineH;
         drawTextBgEffectRef.current?.(ctx, txt.bgEffect, lines, tSize, lineH, _etotalH);
@@ -3816,7 +3850,7 @@ _setDragging(null);
         ctx.save();
         ctx.translate(txt.x, txt.y);
         ctx.rotate(rot);
-        ctx.font = `bold ${tSize}px ${tFont}`;
+        ctx.font = makeFontStr(txt.fontBold ?? extraFontBold, txt.fontItalic ?? extraFontItalic, tSize, tFont);
         ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
         const _etH = lines.length * lineH;
         drawTextBgEffectRef.current?.(ctx, txt.bgEffect, lines, tSize, lineH, _etH);
@@ -3824,7 +3858,7 @@ _setDragging(null);
       }
       ctx.translate(txt.x, txt.y);
       ctx.rotate(rot);
-      ctx.font = `bold ${tSize}px ${tFont}`;
+      ctx.font = makeFontStr(txt.fontBold ?? extraFontBold, txt.fontItalic ?? extraFontItalic, tSize, tFont);
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       if (txt.shadowEnabled ?? true) {
@@ -3834,6 +3868,8 @@ _setDragging(null);
         ctx.shadowOffsetY = 2;
       }
       const totalH = lines.length * lineH;
+      const _tUnder = txt.fontUnderline ?? extraFontUnderline;
+      const _tStrike = txt.fontStrike ?? extraFontStrike;
       lines.forEach((line, li) => {
         const lineY = -totalH / 2 + li * lineH + lineH / 2;
         if (txt.gradientEnabled) {
@@ -3846,6 +3882,7 @@ _setDragging(null);
           ctx.fillStyle = tColor;
         }
         ctx.fillText(line, 0, lineY);
+        drawTextDecorations(ctx, line, lineY, tSize, _tUnder, _tStrike);
       });
       ctx.shadowBlur = 0; ctx.shadowOffsetX = 0; ctx.shadowOffsetY = 0;
 
@@ -3889,7 +3926,7 @@ _setDragging(null);
       // ── Usa font/size por-lyric se definido, senão usa global ──────────────
       const lFontSize = activeLine.fontSize || fontSize;
       const lFontFamily = activeLine.fontFamily || fontFamily;
-      ctx.font = `bold ${lFontSize}px ${lFontFamily}`;
+      ctx.font = makeFontStr(activeLine.fontBold ?? fontBold, activeLine.fontItalic ?? fontItalic, lFontSize, lFontFamily);
       const lines = wrapLyricText(activeLine.text, ctx, canvas.width - 40);
       const lineH = lFontSize * 1.3;
       const totalH = lines.length * lineH;
@@ -3908,7 +3945,7 @@ _setDragging(null);
         if (_anim === 'slide') ctx.translate(0, (1 - _ease) * 48);
         ctx.translate(lx, ly);
         ctx.rotate(lRot);
-        ctx.font = `bold ${lFontSize}px ${lFontFamily}`;
+        ctx.font = makeFontStr(activeLine.fontBold ?? fontBold, activeLine.fontItalic ?? fontItalic, lFontSize, lFontFamily);
         ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
         drawTextBgEffectRef.current?.(ctx, _bgFx, lines, lFontSize, lineH, totalH);
         ctx.restore();
@@ -3956,6 +3993,7 @@ _setDragging(null);
           ctx.fillStyle = _col;
         }
         ctx.fillText(vis, 0, lineY);
+        drawTextDecorations(ctx, vis, lineY, lFontSize, activeLine.fontUnderline ?? fontUnderline, activeLine.fontStrike ?? fontStrike);
       });
       ctx.shadowBlur = 0; ctx.shadowOffsetX = 0; ctx.shadowOffsetY = 0;
       ctx.globalAlpha = 1;
@@ -3963,7 +4001,7 @@ _setDragging(null);
 
       // Indicador de seleção / arrasto + handle de rotação
       if (activeLyricId === activeLine.id && editingLyricId !== activeLine.id) {
-        ctx.font = `bold ${lFontSize}px ${lFontFamily}`;
+        ctx.font = makeFontStr(activeLine.fontBold ?? fontBold, activeLine.fontItalic ?? fontItalic, lFontSize, lFontFamily);
         const maxW = lines.reduce((m, l) => Math.max(m, ctx.measureText(l.toUpperCase()).width), 0);
         const hw = maxW / 2 + 14;
         const hh = totalH / 2 + 10;
@@ -4739,7 +4777,7 @@ _setDragging(null);
       const lRot = (activeLine.rotation || 0) * Math.PI / 180;
       const lFontSize = activeLine.fontSize || fontSize;
       const lFontFamily = activeLine.fontFamily || fontFamily;
-      ctx.font = `bold ${lFontSize}px ${lFontFamily}`;
+      ctx.font = makeFontStr(activeLine.fontBold ?? fontBold, activeLine.fontItalic ?? fontItalic, lFontSize, lFontFamily);
       const lines = wrapLyricText(activeLine.text, ctx, logicalW - 40);
       const lineH = lFontSize * 1.3;
       const totalH = lines.length * lineH;
@@ -4755,7 +4793,7 @@ _setDragging(null);
         if (_anim === 'fade')  ctx.globalAlpha = _ease;
         if (_anim === 'slide') ctx.translate(0, (1 - _ease) * 48);
         ctx.translate(lx, ly); ctx.rotate(lRot);
-        ctx.font = `bold ${lFontSize}px ${lFontFamily}`;
+        ctx.font = makeFontStr(activeLine.fontBold ?? fontBold, activeLine.fontItalic ?? fontItalic, lFontSize, lFontFamily);
         ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
         drawTextBgEffectRef.current?.(ctx, _bgFxR, lines, lFontSize, lineH, totalH);
         ctx.restore();
@@ -4803,6 +4841,7 @@ _setDragging(null);
           ctx.fillStyle = _col;
         }
         ctx.fillText(vis, 0, lineY);
+        drawTextDecorations(ctx, vis, lineY, lFontSize, activeLine.fontUnderline ?? fontUnderline, activeLine.fontStrike ?? fontStrike);
       });
       ctx.shadowBlur = 0; ctx.shadowOffsetX = 0; ctx.shadowOffsetY = 0;
       ctx.globalAlpha = 1;
@@ -7770,6 +7809,33 @@ _setDragging(null);
                 <button onClick={() => fontInputRef.current?.click()} style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.25)', borderRadius: '8px', padding: '3px 9px', fontSize: '10px', color: '#f59e0b', cursor: 'pointer' }}>+ {t('ed_add_font')}</button>
               </div>
             </div>
+            {/* Estilo de fonte — Negrito / Itálico / Sublinhado / Riscado */}
+            {(() => {
+              const tid = activeExtraTextId || (extraTexts.length ? extraTexts[extraTexts.length-1]?.id : null);
+              const sel = extraTexts.find(t => t.id === tid);
+              if (!sel) return null;
+              const setP = (prop, val) => setExtraTexts(prev => prev.map(t => t.id === tid ? {...t, [prop]: val} : t));
+              const curBold      = sel.fontBold      ?? extraFontBold;
+              const curItalic    = sel.fontItalic    ?? extraFontItalic;
+              const curUnderline = sel.fontUnderline ?? extraFontUnderline;
+              const curStrike    = sel.fontStrike    ?? extraFontStrike;
+              const btnStyle = (active) => ({
+                width:28, height:28, borderRadius:7, border:`1px solid ${active?'rgba(0,191,255,0.7)':'rgba(255,255,255,0.1)'}`,
+                background: active?'rgba(0,191,255,0.2)':'rgba(255,255,255,0.04)',
+                color: active?'#00BFFF':'#888', cursor:'pointer', fontSize:13, fontWeight:700,
+                display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0,
+              });
+              return (
+                <div style={{ display:'flex', alignItems:'center', gap:4 }}>
+                  <span style={{ fontSize:'10px', color:'#64748b', fontWeight:700, marginRight:4 }}>Estilo</span>
+                  <button title="Negrito" style={btnStyle(curBold)} onClick={() => setP('fontBold', !curBold)}><strong>B</strong></button>
+                  <button title="Itálico" style={{...btnStyle(curItalic), fontStyle:'italic'}} onClick={() => setP('fontItalic', !curItalic)}><em>I</em></button>
+                  <button title="Sublinhado" style={{...btnStyle(curUnderline), textDecoration:'underline'}} onClick={() => setP('fontUnderline', !curUnderline)}>U̲</button>
+                  <button title="Riscado" style={{...btnStyle(curStrike), textDecoration:'line-through'}} onClick={() => setP('fontStrike', !curStrike)}>S̶</button>
+                </div>
+              );
+            })()}
+
             {/* Sombra + Gradiente por item */}
             {(() => {
               const tid = activeExtraTextId || (extraTexts.length ? extraTexts[extraTexts.length-1]?.id : null);
@@ -7913,6 +7979,35 @@ _setDragging(null);
             {/* Sombra + Gradiente + Upload fonte — por marcação quando selecionada */}
             {(() => {
               const selL = activeLyricId ? lyrics.find(l => l.id === activeLyricId) : null;
+              const applyLP = (prop, val) => {
+                if (selL) setLyrics(prev => prev.map(l => l.id === activeLyricId ? {...l, [prop]: val} : l));
+                else {
+                  if (prop === 'fontBold')      setFontBold(val);
+                  if (prop === 'fontItalic')    setFontItalic(val);
+                  if (prop === 'fontUnderline') setFontUnderline(val);
+                  if (prop === 'fontStrike')    setFontStrike(val);
+                }
+              };
+              const curBold      = selL ? (selL.fontBold      ?? fontBold)      : fontBold;
+              const curItalic    = selL ? (selL.fontItalic    ?? fontItalic)    : fontItalic;
+              const curUnderline = selL ? (selL.fontUnderline ?? fontUnderline) : fontUnderline;
+              const curStrike    = selL ? (selL.fontStrike    ?? fontStrike)    : fontStrike;
+              const btnStyle = (active) => ({
+                width:28, height:28, borderRadius:7, border:`1px solid ${active?'rgba(0,191,255,0.7)':'rgba(255,255,255,0.1)'}`,
+                background: active?'rgba(0,191,255,0.2)':'rgba(255,255,255,0.04)',
+                color: active?'#00BFFF':'#888', cursor:'pointer', fontSize:13, fontWeight:700,
+                display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0,
+              });
+              return (
+                <div style={{ display:'flex', alignItems:'center', gap:4, marginBottom:2 }}>
+                  <span style={{ fontSize:'10px', color:'#64748b', fontWeight:700, marginRight:4 }}>Estilo</span>
+                  <button title="Negrito" style={btnStyle(curBold)} onClick={() => applyLP('fontBold', !curBold)}><strong>B</strong></button>
+                  <button title="Itálico" style={{...btnStyle(curItalic), fontStyle:'italic'}} onClick={() => applyLP('fontItalic', !curItalic)}><em>I</em></button>
+                  <button title="Sublinhado" style={{...btnStyle(curUnderline), textDecoration:'underline'}} onClick={() => applyLP('fontUnderline', !curUnderline)}>U̲</button>
+                  <button title="Riscado" style={{...btnStyle(curStrike), textDecoration:'line-through'}} onClick={() => applyLP('fontStrike', !curStrike)}>S̶</button>
+                </div>
+              );
+            })()}
               const uiShOn  = selL ? (selL.shadowEnabled   !== undefined ? selL.shadowEnabled   : shadowEnabled)   : shadowEnabled;
               const uiShBlur= selL ? (selL.shadowBlur      !== undefined ? selL.shadowBlur      : shadowBlur)      : shadowBlur;
               const uiShCol = selL ? (selL.shadowColor     || shadowColor)   : shadowColor;
