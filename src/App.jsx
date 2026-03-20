@@ -650,6 +650,7 @@ function App() {
   const [extraFontItalic,    setExtraFontItalic]    = useState(false);
   const [extraFontUnderline, setExtraFontUnderline] = useState(false);
   const [extraFontStrike,    setExtraFontStrike]    = useState(false);
+  const [exportFormat, setExportFormat] = useState('webm_offline_audio');
   const fileHandleRef = useRef(null); // armazena o handle do picker para uso nos sub-handlers
 
 
