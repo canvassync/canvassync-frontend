@@ -8008,6 +8008,10 @@ _setDragging(null);
                 </div>
               );
             })()}
+
+            {/* Sombra + Gradiente + Upload fonte — por marcação quando selecionada */}
+            {(() => {
+              const selL = activeLyricId ? lyrics.find(l => l.id === activeLyricId) : null;
               const uiShOn  = selL ? (selL.shadowEnabled   !== undefined ? selL.shadowEnabled   : shadowEnabled)   : shadowEnabled;
               const uiShBlur= selL ? (selL.shadowBlur      !== undefined ? selL.shadowBlur      : shadowBlur)      : shadowBlur;
               const uiShCol = selL ? (selL.shadowColor     || shadowColor)   : shadowColor;
