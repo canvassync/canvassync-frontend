@@ -717,6 +717,13 @@ function App() {
   const [narracaoError,     setNarracaoError]     = useState('');
   const [narracaoApiKey,    setNarracaoApiKey]    = useState(() => localStorage.getItem('el_api_key') || '');
   const [narracaoShowGuia,  setNarracaoShowGuia]  = useState(false);
+  // ── Sincronização Automática IA ──────────────────────────────────────────────
+  const [showSyncPanel,   setShowSyncPanel]   = useState(false);
+  const [syncApiKey,      setSyncApiKey]      = useState(() => localStorage.getItem('groq_api_key') || '');
+  const [syncLoading,     setSyncLoading]     = useState(false);
+  const [syncError,       setSyncError]       = useState('');
+  const [syncShowGuia,    setSyncShowGuia]    = useState(false);
+  const syncBtnRef = useRef(null);
   const narracaoBtnRef = useRef(null);
   const [stickerPanelPos, setStickerPanelPos] = useState({ top: 80, left: 0 });
   const [stickerTab, setStickerTab] = useState('emoji');  // 'emoji'|'sticker'|'gif'
@@ -1906,6 +1913,100 @@ function App() {
       setNarracaoError(err.message || 'Erro desconhecido.');
     } finally {
       setNarracaoLoading(false);
+    }
+  };
+
+  // ── Sincronização Automática de Letras via Groq Whisper ─────────────────────
+  const handleSyncLyrics = async () => {
+    const lines = bulkText.split('\n').filter(l => l.trim() !== '');
+    if (lines.length === 0) { setSyncError('Cole a letra da música no painel antes de sincronizar.'); return; }
+    if (!syncApiKey.trim()) { setSyncError('Insira sua API key do Groq.'); return; }
+    if (!audioFile && !audioBase64) { setSyncError('Carregue uma música no editor antes de sincronizar.'); return; }
+    setSyncLoading(true);
+    setSyncError('');
+    try {
+      // Montar o arquivo de áudio para enviar
+      let blob;
+      if (audioFile) {
+        blob = audioFile;
+      } else {
+        const b64 = audioBase64.split(',')[1];
+        const bin = atob(b64);
+        const bytes = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+        blob = new Blob([bytes], { type: 'audio/mpeg' });
+      }
+      // Limitar a 25MB (limite do Groq)
+      if (blob.size > 25 * 1024 * 1024) throw new Error('Áudio muito grande (máx 25MB). Use um arquivo menor.');
+
+      const formData = new FormData();
+      formData.append('file', blob, 'audio.mp3');
+      formData.append('model', 'whisper-large-v3-turbo');
+      formData.append('response_format', 'verbose_json');
+      formData.append('timestamp_granularities[]', 'segment');
+
+      const resp = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${syncApiKey.trim()}` },
+        body: formData,
+      });
+      if (resp.status === 401) throw new Error('API key inválida. Verifique no Groq.');
+      if (!resp.ok) throw new Error(`Erro ${resp.status} — tente novamente.`);
+      const data = await resp.json();
+      const segments = data.segments || [];
+      if (segments.length === 0) throw new Error('Nenhum segmento detectado no áudio.');
+
+      // Alinhar frases do usuário com os segmentos do Whisper
+      // Estratégia: distribuir as linhas proporcionalmente pelos segmentos
+      const canvas = canvasRef.current;
+      const cx = canvas ? canvas.width / 2 : 360;
+      const cy = canvas ? Math.round(canvas.height * 0.75) : 960;
+
+      // Calcular duração total dos segmentos
+      const totalDur = segments[segments.length - 1]?.end || duration || 30;
+
+      // Mapear cada linha para um timestamp proporcional
+      const newLyrics = lines.map((text, idx) => {
+        // Encontrar o segmento mais adequado para essa linha
+        const ratio = idx / lines.length;
+        const targetTime = ratio * totalDur;
+        // Achar o segmento mais próximo do tempo alvo
+        let best = segments[0];
+        let bestDist = Math.abs(segments[0].start - targetTime);
+        for (const seg of segments) {
+          const dist = Math.abs(seg.start - targetTime);
+          if (dist < bestDist) { bestDist = dist; best = seg; }
+        }
+        const start = best.start + (idx === 0 ? 0 : 0.1);
+        const nextIdx = Math.min(idx + 1, lines.length - 1);
+        const nextRatio = nextIdx / lines.length;
+        const nextTime = nextRatio * totalDur;
+        // Duração: até o próximo bloco ou 3s mínimo
+        const end = idx < lines.length - 1 ? Math.max(start + 1.5, nextTime - 0.1) : Math.max(start + 2, totalDur);
+        return {
+          id: Date.now() + idx,
+          text,
+          start: Math.round(start * 100) / 100,
+          end: Math.round(end * 100) / 100,
+          x: cx,
+          y: cy,
+          rotation: 0,
+          fontSize: fontSizeRef.current,
+          fontFamily: fontFamilyRef.current,
+          animType: animTypeRef.current,
+          twSpeed: twSpeedRef.current,
+        };
+      });
+
+      pushHistory();
+      setLyrics(newLyrics.sort((a, b) => a.start - b.start));
+      setCurrentLineIndex(lines.length);
+      localStorage.setItem('groq_api_key', syncApiKey.trim());
+      setShowSyncPanel(false);
+    } catch (err) {
+      setSyncError(err.message || 'Erro desconhecido.');
+    } finally {
+      setSyncLoading(false);
     }
   };
 
@@ -7017,6 +7118,119 @@ _setDragging(null);
           );
         })()}
 
+        {/* ── Painel Sincronização Automática IA ── */}
+        {showSyncPanel && createPortal(
+          <>
+            <div onClick={() => setShowSyncPanel(false)} style={{ position:'fixed', inset:0, zIndex:99997 }} />
+            <div style={{
+              position:'fixed',
+              top: syncBtnRef.current ? syncBtnRef.current.getBoundingClientRect().top - 10 : 200,
+              left: syncBtnRef.current ? syncBtnRef.current.getBoundingClientRect().right + 12 : 600,
+              zIndex: 99998,
+              background: '#0f172a',
+              border: '1px solid rgba(139,92,246,0.3)',
+              borderRadius: 14,
+              width: 340,
+              boxShadow: '0 16px 48px rgba(0,0,0,0.8)',
+              padding: '16px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 12,
+              maxHeight: '90vh',
+              overflowY: 'auto',
+            }}>
+              {/* Header */}
+              <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+                <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                  <span style={{ fontSize:20 }}>🤖</span>
+                  <div>
+                    <div style={{ fontSize:13, fontWeight:700, color:'#f0f0f0' }}>Sincronização Automática</div>
+                    <div style={{ fontSize:10, color:'#a78bfa' }}>Groq Whisper — Grátis (2h/dia)</div>
+                  </div>
+                </div>
+                <button onClick={() => setShowSyncPanel(false)} style={{ background:'none', border:'none', color:'#555', cursor:'pointer', fontSize:16 }}>✕</button>
+              </div>
+
+              {/* Como funciona */}
+              <div style={{ background:'rgba(139,92,246,0.08)', border:'1px solid rgba(139,92,246,0.2)', borderRadius:10, padding:'10px 12px', fontSize:11, color:'#94a3b8', lineHeight:1.7 }}>
+                <strong style={{color:'#c4b5fd'}}>Como funciona:</strong><br/>
+                1. Cole a letra no painel esquerdo<br/>
+                2. Carregue a música no editor<br/>
+                3. Clique em <strong style={{color:'#a78bfa'}}>Sincronizar</strong> — a IA analisa o áudio e distribui as frases automaticamente na timeline
+              </div>
+
+              {/* API Key */}
+              <div>
+                <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:4 }}>
+                  <label style={{ fontSize:11, color:'#aaa', fontWeight:600 }}>API Key Groq</label>
+                  <button
+                    onClick={() => setSyncShowGuia(v => !v)}
+                    style={{ background:'rgba(139,92,246,0.12)', border:'1px solid rgba(139,92,246,0.3)', borderRadius:6, color:'#a78bfa', fontSize:10, fontWeight:700, padding:'2px 8px', cursor:'pointer' }}
+                  >{syncShowGuia ? '✕ Fechar' : '❓ Como obter'}</button>
+                </div>
+
+                {syncShowGuia && (
+                  <div style={{ background:'rgba(139,92,246,0.06)', border:'1px solid rgba(139,92,246,0.2)', borderRadius:10, padding:'12px', marginBottom:8, fontSize:11, color:'#ccc', lineHeight:1.8 }}>
+                    <div style={{ fontWeight:700, color:'#a78bfa', marginBottom:6 }}>📋 Como criar sua API Key grátis:</div>
+                    <div>1. Acesse <a href="https://console.groq.com" target="_blank" rel="noreferrer" style={{ color:'#a78bfa' }}>console.groq.com</a></div>
+                    <div>2. Crie uma conta gratuita (sem cartão)</div>
+                    <div>3. Vá em <strong style={{color:'#fff'}}>API Keys</strong> no menu lateral</div>
+                    <div>4. Clique em <strong style={{color:'#fff'}}>Create API Key</strong></div>
+                    <div>5. Copie e cole aqui</div>
+                    <div style={{ marginTop:6, color:'#a78bfa', fontSize:10 }}>✅ Plano grátis: 2 horas de áudio/dia</div>
+                    <div style={{ color:'#555', fontSize:10 }}>Não requer cartão de crédito</div>
+                  </div>
+                )}
+
+                <input
+                  type="password"
+                  value={syncApiKey}
+                  onChange={e => { setSyncApiKey(e.target.value); setSyncError(''); }}
+                  placeholder="gsk_..."
+                  style={{ width:'100%', background:'#1e293b', border:'1px solid rgba(255,255,255,0.1)', borderRadius:8, color:'#f0f0f0', padding:'7px 10px', fontSize:12, outline:'none', boxSizing:'border-box', fontFamily:'monospace' }}
+                />
+                {syncApiKey && <div style={{ fontSize:10, color:'#10b981', marginTop:3 }}>✓ API key salva no navegador</div>}
+              </div>
+
+              {/* Status */}
+              <div style={{ background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.06)', borderRadius:10, padding:'10px 12px', fontSize:11, color:'#64748b', lineHeight:1.7 }}>
+                <div>📝 Frases na letra: <strong style={{color: bulkText.split('\n').filter(l=>l.trim()).length > 0 ? '#a78bfa' : '#f87171'}}>{bulkText.split('\n').filter(l=>l.trim()).length}</strong></div>
+                <div>🎵 Áudio carregado: <strong style={{color: (audioFile || audioBase64) ? '#10b981' : '#f87171'}}>{(audioFile || audioBase64) ? 'Sim' : 'Não'}</strong></div>
+                <div>⏱ Duração: <strong style={{color:'#94a3b8'}}>{duration > 0 ? `${Math.round(duration)}s` : '—'}</strong></div>
+              </div>
+
+              {/* Erro */}
+              {syncError && (
+                <div style={{ background:'rgba(239,68,68,0.1)', border:'1px solid rgba(239,68,68,0.3)', borderRadius:8, padding:'8px 10px', fontSize:11, color:'#f87171' }}>
+                  ⚠️ {syncError}
+                </div>
+              )}
+
+              {/* Botão */}
+              <button
+                onClick={handleSyncLyrics}
+                disabled={syncLoading}
+                style={{
+                  background: syncLoading ? 'rgba(139,92,246,0.2)' : 'linear-gradient(135deg,#8b5cf6,#3b82f6)',
+                  border:'none', borderRadius:10, color:'#fff', padding:'11px 0',
+                  fontSize:13, fontWeight:700, cursor: syncLoading ? 'not-allowed' : 'pointer',
+                  display:'flex', alignItems:'center', justifyContent:'center', gap:8
+                }}
+              >
+                {syncLoading
+                  ? <><span style={{ display:'inline-block', width:14, height:14, border:'2px solid rgba(255,255,255,0.3)', borderTopColor:'#fff', borderRadius:'50%', animation:'spin 0.7s linear infinite' }} />Analisando áudio...</>
+                  : <>🤖 Sincronizar Agora</>
+                }
+              </button>
+
+              <div style={{ fontSize:10, color:'#334155', lineHeight:1.6 }}>
+                A IA analisa o áudio e distribui as frases nos tempos certos. Você pode ajustar qualquer bloco depois arrastando na timeline.
+              </div>
+            </div>
+          </>,
+          document.body
+        )}
+
         {/* ── Painel de Narração TTS ── */}
         {showNarracaoPanel && createPortal(
           <>
@@ -8161,6 +8375,17 @@ _setDragging(null);
             <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.22)', marginTop: '-4px' }}>
               {t('ed_lyrics_hint')}
             </span>
+
+            {/* Botão Sincronização Automática IA */}
+            <button
+              ref={syncBtnRef}
+              onClick={() => setShowSyncPanel(v => !v)}
+              style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:6, padding:'8px 0', borderRadius:12, background:'linear-gradient(135deg,rgba(139,92,246,0.2),rgba(59,130,246,0.2))', border:'1px solid rgba(139,92,246,0.4)', cursor:'pointer', color:'#a78bfa', fontSize:11, fontWeight:700, transition:'all 0.15s' }}
+              onMouseEnter={e => e.currentTarget.style.background='linear-gradient(135deg,rgba(139,92,246,0.35),rgba(59,130,246,0.35))'}
+              onMouseLeave={e => e.currentTarget.style.background='linear-gradient(135deg,rgba(139,92,246,0.2),rgba(59,130,246,0.2))'}
+            >
+              🤖 Sincronizar Letra com IA
+            </button>
           </div>
         </div>
 
