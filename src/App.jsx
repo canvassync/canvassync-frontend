@@ -4576,7 +4576,9 @@ _setDragging(null);
       // 2) Sincronizar vídeos
       if (syncVideosInRAFRef.current) syncVideosInRAFRef.current();
       // 3) Desenhar o canvas
-      if (drawRef.current) drawRef.current();
+      try {
+        if (drawRef.current) drawRef.current();
+      } catch(e) { console.warn('[draw error]', e); }
       rafId = requestAnimationFrame(loop);
     };
     rafId = requestAnimationFrame(loop);
@@ -5387,6 +5389,9 @@ _setDragging(null);
       });
 
       rtExportRef.current = false; // restaura draw() para usar audioRef.current
+      // Restaura posição para o início após export
+      virtualTimeRef.current = 0;
+      setCurrentTime(0);
       // 12. Limpa WebAudio
       for (const s of vidSources) { try { s.stop(); } catch {} try { s.disconnect(); } catch {} }
       // Restaura volume original dos vídeos após export
