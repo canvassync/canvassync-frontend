@@ -1979,7 +1979,14 @@ function App() {
           voice_settings: { stability: 0.5, similarity_boost: 0.75 },
         }),
       });
-      if (resp.status === 401) throw new Error('API key inválida. Verifique no ElevenLabs.');
+      if (resp.status === 401) {
+        // Tentar ler o body para ver o erro real
+        let detail = '';
+        try { const j = await resp.clone().json(); detail = j?.detail?.message || j?.detail || ''; } catch {}
+        throw new Error(detail.includes('unusual') || detail.includes('proxy')
+          ? 'ElevenLabs bloqueou: desative VPN/proxy e tente novamente.'
+          : `API key inválida ou bloqueada (401). ${detail}`);
+      }
       if (resp.status === 422) throw new Error('Texto inválido ou voz não encontrada.');
       if (!resp.ok) throw new Error(`Erro ${resp.status}. Tente novamente.`);
       const blob = await resp.blob();
