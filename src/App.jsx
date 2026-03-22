@@ -8616,7 +8616,7 @@ _setDragging(null);
         </div>
 
         {/* PREVIEW CENTRO */}
-        <div ref={canvasContainerRef} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg, #141b34 0%, #0b1024 100%)', position: 'relative' }}>
+        <div ref={canvasContainerRef} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg, #141b34 0%, #0b1024 100%)', position: 'relative', padding: '1mm' }}>
           {/* Botão tela cheia */}
           <button
             onClick={() => setIsFullscreen(true)}
@@ -8679,7 +8679,7 @@ _setDragging(null);
                 }
               });
             }}
-            style={{ border: '1px solid rgba(0,191,255,0.15)', borderRadius: '12px', maxWidth: '100%', maxHeight: '88%', cursor: 'move', boxShadow: '0 24px 50px rgba(10, 12, 24, 0.55)', objectFit: 'contain' }} 
+            style={{ border: '1px solid rgba(0,191,255,0.15)', borderRadius: '12px', maxWidth: '100%', maxHeight: '99%', cursor: 'move', boxShadow: '0 24px 50px rgba(10, 12, 24, 0.55)', objectFit: 'contain' }} 
           />
 
 
@@ -9260,6 +9260,20 @@ _setDragging(null);
                     virtualTimeRef.current = newTime;
                     setCurrentTime(newTime);
                   }, 30);
+                }
+                // ── Narração: toca junto em ambos os botões play ──────────────
+                if (narrRef.current && narrSrc) {
+                  const narrEl = narrRef.current;
+                  narrEl.volume = Math.max(0, Math.min(1, projectVolumeRef.current));
+                  narrEl.playbackRate = Math.max(0.25, Math.min(4, projectSpeedRef.current));
+                  const tNarrNow = virtualTimeRef.current;
+                  const narrOff = narrOffsetRef.current || 0;
+                  const narrTr = narrTrimStartRef.current || 0;
+                  if (tNarrNow >= narrOff) {
+                    const narrRel = narrTr + (tNarrNow - narrOff);
+                    if (Math.abs(narrEl.currentTime - narrRel) > 0.1) narrEl.currentTime = narrRel;
+                    narrEl.play().catch(() => {});
+                  }
                 }
                 setIsPlaying(true);
               }
