@@ -646,8 +646,6 @@ function App() {
   const audioTrimEndRef   = useRef(null);
   useEffect(() => { audioOffsetRef.current = audioOffset; }, [audioOffset]);
   useEffect(() => { audioTrimStartRef.current = audioTrimStart; }, [audioTrimStart]);
-  useEffect(() => { narrOffsetRef.current = narrOffset; }, [narrOffset]);
-  useEffect(() => { narrTrimStartRef.current = narrTrimStart; }, [narrTrimStart]);
   useEffect(() => { audioTrimEndRef.current = audioTrimEnd; }, [audioTrimEnd]);
   const [isPlaying, setIsPlaying] = useState(false);
   const [bulkText, setBulkText] = useState('');
@@ -972,19 +970,6 @@ function App() {
   const [audioBase64, setAudioBase64] = useState(null);
   const [audioMimeType, setAudioMimeType] = useState(null);
   const [waveformPeaks, setWaveformPeaks] = useState([]);
-  // ── Faixa de Narração (segunda faixa independente) ────────────────────────
-  const [narrSrc,       setNarrSrc]       = useState(null);
-  const [narrFile,      setNarrFile]      = useState(null);
-  const [narrBase64,    setNarrBase64]    = useState(null);
-  const [narrDuration,  setNarrDuration]  = useState(0);
-  const [narrOffset,    setNarrOffset]    = useState(0);
-  const [narrTrimStart, setNarrTrimStart] = useState(0);
-  const [narrTrimEnd,   setNarrTrimEnd]   = useState(null);
-  const narrRef           = useRef(null);
-  const narrOffsetRef     = useRef(0);
-  const narrTrimStartRef  = useRef(0);
-  const waveformNarrCanvasRef = useRef(null);
-  const [narrWaveformPeaks, setNarrWaveformPeaks] = useState([]);
 
   // Estado de Zoom (Multiplicador de largura)
   const [zoom, setZoom] = useState(50);
@@ -1704,55 +1689,7 @@ function App() {
     }
   };
 
-  // ── Narração — segunda faixa independente ────────────────────────────────
-  const handleNarrChange = (file) => {
-    if (!file) return;
-    setNarrSrc(URL.createObjectURL(file));
-    setNarrFile(file);
-    setNarrOffset(0); setNarrTrimStart(0); setNarrTrimEnd(null);
-    narrOffsetRef.current = 0; narrTrimStartRef.current = 0;
-    const b64Reader = new FileReader();
-    b64Reader.onload = (ev) => setNarrBase64(ev.target.result);
-    b64Reader.readAsDataURL(file);
-    // Decode waveform para narração
-    file.arrayBuffer().then(buf => {
-      const ac = new (window.AudioContext || window.webkitAudioContext)();
-      ac.decodeAudioData(buf).then(decoded => {
-        const raw = decoded.getChannelData(0);
-        const buckets = 300;
-        const step = Math.floor(raw.length / buckets);
-        const peaks = [];
-        for (let i = 0; i < buckets; i++) {
-          let max = 0;
-          for (let j = 0; j < step; j++) max = Math.max(max, Math.abs(raw[i * step + j] || 0));
-          peaks.push(max);
-        }
-        setNarrWaveformPeaks(peaks);
-        ac.close();
-      }).catch(() => {});
-    }).catch(() => {});
-  };
-
-  const removeNarr = () => {
-    if (narrRef.current) { narrRef.current.pause(); narrRef.current.currentTime = 0; }
-    setNarrSrc(null); setNarrFile(null); setNarrBase64(null);
-    setNarrDuration(0); setNarrOffset(0); setNarrTrimStart(0); setNarrTrimEnd(null);
-    setNarrWaveformPeaks([]);
-  };
-
-  const handleNarrTimelineMouseDown = (type, e) => {
-    e.stopPropagation();
-    const narrDur = narrRef.current?.duration || narrDuration;
-    const displayDur = narrTrimEnd !== null ? (narrTrimEnd - narrTrimStart) : (narrDur - narrTrimStart);
-    _setDragging({
-      id: 'narr', type, itemKind: 'narr',
-      initialX: e.clientX,
-      initialOffset: narrOffset,
-      initialTrimStart: narrTrimStart,
-      initialTrimEnd: narrTrimEnd ?? narrDur,
-      narrDur,
-    });
-  };
+  // ── Trilhas — biblioteca local (/public/trilhas) ───────────────────────────
   const BASE_URL = '/trilhas/';
 
   const TRILHAS_LIST = [
@@ -1984,7 +1921,7 @@ function App() {
       if (!resp.ok) throw new Error(`Erro ${resp.status}. Tente novamente.`);
       const blob = await resp.blob();
       const file = new File([blob], 'narracao.mp3', { type: 'audio/mpeg' });
-      handleNarrChange(file);
+      handleAudioChange({ target: { files: [file] } });
       localStorage.setItem('el_api_key', narracaoApiKey.trim());
       setShowNarracaoPanel(false);
       setNarracaoText('');
@@ -2618,7 +2555,6 @@ function App() {
     isPlayingRef.current = false;
     const audio = audioRef.current;
     if (audio) { audio.pause(); audio.currentTime = 0; }
-    if (narrRef.current) { narrRef.current.pause(); narrRef.current.currentTime = 0; }
     if (clockIntervalRef.current) { clearInterval(clockIntervalRef.current); clockIntervalRef.current = null; }
     // Para o export RT se estiver rodando
     if (exportStopRef.current) { exportStopRef.current(); exportStopRef.current = null; }
@@ -3153,29 +3089,6 @@ function App() {
         // Recua trim end (corta o final)
         const newTrimEnd = Math.max(dragging.initialTrimStart + 0.1, Math.min(dragging.initialTrimEnd + dx, audioDur));
         setAudioTrimEnd(newTrimEnd);
-      }
-      return;
-    }
-
-    // Timeline narração drag/trim
-    if (dragging && dragging.itemKind === 'narr') {
-      const dx = (e.clientX - dragging.initialX) / zoom;
-      const narrDur = dragging.narrDur;
-      if (dragging.type === 'move') {
-        const newOffset = Math.max(0, dragging.initialOffset + dx);
-        setNarrOffset(newOffset);
-        if (narrRef.current) {
-          const t = virtualTimeRef.current;
-          if (t >= newOffset) narrRef.current.currentTime = t - newOffset + narrTrimStart;
-        }
-      } else if (dragging.type === 'trim-start') {
-        const newTrimStart = Math.max(0, Math.min(dragging.initialTrimStart + dx, dragging.initialTrimEnd - 0.1));
-        const offsetDelta = newTrimStart - dragging.initialTrimStart;
-        setNarrTrimStart(newTrimStart);
-        setNarrOffset(Math.max(0, dragging.initialOffset + offsetDelta));
-      } else if (dragging.type === 'trim-end') {
-        const newTrimEnd = Math.max(dragging.initialTrimStart + 0.1, Math.min(dragging.initialTrimEnd + dx, narrDur));
-        setNarrTrimEnd(newTrimEnd);
       }
       return;
     }
@@ -5557,33 +5470,7 @@ _setDragging(null);
         } catch(e) { console.warn('[WEBM RT] bg audio error', e); }
       }
 
-      // 2b. Narração — segunda faixa de áudio independente
-      let narrSource = null;
-      if (narrBase64 || narrFile) {
-        try {
-          let narrBuf;
-          if (narrFile) { narrBuf = await narrFile.arrayBuffer(); }
-          else {
-            const b64n = narrBase64.split(',')[1];
-            const binn = atob(b64n); const bytesn = new Uint8Array(binn.length);
-            for (let i = 0; i < binn.length; i++) bytesn[i] = binn.charCodeAt(i);
-            narrBuf = bytesn.buffer;
-          }
-          const decodedNarr = await ac.decodeAudioData(narrBuf);
-          const _nTrimS = Math.round((narrTrimStart || 0) * decodedNarr.sampleRate);
-          const _nTrimE = narrTrimEnd !== null
-            ? Math.round(narrTrimEnd * decodedNarr.sampleRate)
-            : decodedNarr.length;
-          const _nCh = decodedNarr.numberOfChannels;
-          const _narrBuf = ac.createBuffer(_nCh, Math.max(1, _nTrimE - _nTrimS), decodedNarr.sampleRate);
-          for (let _ch = 0; _ch < _nCh; _ch++)
-            _narrBuf.getChannelData(_ch).set(decodedNarr.getChannelData(_ch).subarray(_nTrimS, _nTrimE));
-          narrSource = ac.createBufferSource();
-          narrSource.buffer = _narrBuf;
-          narrSource.playbackRate.value = _spd1;
-          narrSource.connect(gainNode);
-        } catch(e) { console.warn('[WEBM RT] narr audio error', e); }
-      }
+      // 3. Áudio dos vídeos: usa audioBuffer (já decodificado) — MediaElementSource
       //    capturaria silêncio pois videoEl.muted=true durante playback Web Audio
       const vidSources = [];
       const vidVolumesBackup = []; // mantido para compatibilidade com cleanup
@@ -5653,7 +5540,6 @@ _setDragging(null);
       // 7. Começa a tocar tudo em sincronia
       // audioOffset: agendar o início do bgSource no tempo correto da timeline
       if (bgSource) bgSource.start(ac.currentTime + (audioOffset || 0) / _spd1);
-      if (narrSource) narrSource.start(ac.currentTime + (narrOffset || 0) / _spd1);
       for (const v of vidsToPlay) {
         if (0 >= v.start && 0 <= v.end) v.videoEl.play().catch(() => {});
       }
@@ -5692,7 +5578,6 @@ _setDragging(null);
       clearInterval(clockIntervalRef.current); clockIntervalRef.current = null;
       for (const v of vidsToPlay) { if (!v.videoEl.paused) v.videoEl.pause(); }
       if (bgSource) { try { bgSource.stop(); } catch {} }
-      if (narrSource) { try { narrSource.stop(); } catch {} }
 
       // 11. Para o recorder e aguarda finalização
       await new Promise(resolve => {
@@ -8828,7 +8713,6 @@ _setDragging(null);
                     if (isPlaying) {
                       isPlayingRef.current = false;
                       if (audio) audio.pause();
-                      if (narrRef.current) narrRef.current.pause();
                       if (clockIntervalRef.current) { clearInterval(clockIntervalRef.current); clockIntervalRef.current = null; }
                       stopAllVideoAudio();
                       videosRef.current.forEach(v => { if (v.videoEl && !v.videoEl.paused) v.videoEl.pause(); });
@@ -8882,35 +8766,7 @@ _setDragging(null);
                             }
                           }, 30);
                         }
-                      }
-                      // ── Narração: sincroniza e toca junto ──────────────────
-                      if (narrRef.current && narrSrc) {
-                        const narrEl = narrRef.current;
-                        narrEl.volume = Math.max(0, Math.min(1, projectVolumeRef.current));
-                        narrEl.playbackRate = Math.max(0.25, Math.min(4, projectSpeedRef.current));
-                        const tNarrNow = virtualTimeRef.current;
-                        const narrOff = narrOffsetRef.current || 0;
-                        const narrTrim = narrTrimStartRef.current || 0;
-                        if (tNarrNow >= narrOff) {
-                          const narrRel = narrTrim + (tNarrNow - narrOff);
-                          if (Math.abs(narrEl.currentTime - narrRel) > 0.1) narrEl.currentTime = narrRel;
-                          narrEl.play().catch(() => {});
-                        }
-                        // Se a narração começa depois, agenda início
-                        else {
-                          const snw = Date.now(); const snv = tNarrNow; const snsp = Math.max(0.25, Math.min(4, projectSpeedRef.current));
-                          const narrTimer = setInterval(() => {
-                            if (!isPlayingRef.current) { clearInterval(narrTimer); return; }
-                            const nt = snv + (Date.now() - snw) / 1000 * snsp;
-                            if (nt >= narrOff) {
-                              clearInterval(narrTimer);
-                              narrEl.currentTime = narrTrim;
-                              narrEl.play().catch(() => {});
-                            }
-                          }, 30);
-                        }
-                      }
-                      if (!audio) {
+                      } else {
                         const startWall = Date.now(); const startVirt = virtualTimeRef.current;
                         const clockSpd = Math.max(0.25, Math.min(4, projectSpeedRef.current));
                         if (clockIntervalRef.current) clearInterval(clockIntervalRef.current);
@@ -9454,41 +9310,6 @@ _setDragging(null);
               </div>
             )}
 
-            {/* FAIXA DE NARRAÇÃO — segunda faixa independente */}
-            {narrSrc && (
-              <div
-                onMouseDown={(e) => handleNarrTimelineMouseDown('move', e)}
-                onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); removeNarr(); }}
-                style={{
-                  position: 'absolute',
-                  left: `${narrOffset * zoom}px`,
-                  width: `${((narrTrimEnd !== null ? narrTrimEnd : (narrDuration || 30)) - narrTrimStart) * zoom}px`,
-                  top: '143px',
-                  height: '26px',
-                  background: 'rgba(244,114,182,0.18)',
-                  border: '1px solid rgba(244,114,182,0.5)',
-                  borderRadius: '8px',
-                  cursor: 'grab',
-                  overflow: 'hidden',
-                  zIndex: 20,
-                  userSelect: 'none',
-                  display: 'flex',
-                  alignItems: 'center',
-                }}
-              >
-                <div onMouseDown={(e) => { e.stopPropagation(); handleNarrTimelineMouseDown('trim-start', e); }}
-                  style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: '10px', cursor: 'ew-resize', background: 'rgba(244,114,182,0.4)', borderTopLeftRadius: '7px', borderBottomLeftRadius: '7px', zIndex: 3 }} />
-                <span style={{ position: 'absolute', left: 14, fontSize: 9, color: '#f472b6', fontWeight: 700, pointerEvents: 'none', whiteSpace: 'nowrap', textShadow: '0 1px 4px #000' }}>🎙️ NARRAÇÃO</span>
-                <button
-                  onMouseDown={e => e.stopPropagation()}
-                  onClick={e => { e.stopPropagation(); removeNarr(); }}
-                  style={{ position:'absolute', right:16, top:'50%', transform:'translateY(-50%)', background:'rgba(239,68,68,0.85)', border:'none', borderRadius:4, color:'#fff', fontSize:10, fontWeight:700, cursor:'pointer', padding:'2px 6px', lineHeight:1, zIndex:4 }}
-                >✕</button>
-                <div onMouseDown={(e) => { e.stopPropagation(); handleNarrTimelineMouseDown('trim-end', e); }}
-                  style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: '10px', cursor: 'ew-resize', background: 'rgba(244,114,182,0.4)', borderTopRightRadius: '7px', borderBottomRightRadius: '7px', zIndex: 3 }} />
-              </div>
-            )}
-
             {/* BARRA FINA QUE MARCA O FIM DA MÚSICA */}
             {duration > 0 && (
               <div style={{ position: 'absolute', left: audioPxWidth + 'px', top: 0, bottom: 0, width: '2px', backgroundColor: 'rgba(0,191,255,0.4)', pointerEvents: 'none', zIndex: 8 }} />
@@ -9512,7 +9333,6 @@ _setDragging(null);
             <div style={{ position: 'absolute', right: 6, top: 16, fontSize: 9, color: 'rgba(0,191,255,0.4)', pointerEvents: 'none' }}>LETRA</div>
             <div style={{ position: 'absolute', right: 6, top: 54, fontSize: 9, color: 'rgba(251,191,36,0.4)', pointerEvents: 'none' }}>IMG</div>
             <div style={{ position: 'absolute', right: 6, top: 88, fontSize: 9, color: 'rgba(167,139,250,0.4)', pointerEvents: 'none' }}>VID</div>
-            <div style={{ position: 'absolute', right: 6, top: 148, fontSize: 9, color: 'rgba(244,114,182,0.4)', pointerEvents: 'none' }}>NARR</div>
             
             {lyrics.map((l) => (
               <div
@@ -9688,19 +9508,6 @@ _setDragging(null);
             e.target.playbackRate = Math.max(0.25, Math.min(4, projectSpeedRef.current));
           }}
           onEnded={() => setIsPlaying(false)}
-        />
-      )}
-
-      {/* ── Elemento de áudio da narração ── */}
-      {narrSrc && (
-        <audio
-          ref={narrRef}
-          src={narrSrc}
-          onLoadedMetadata={(e) => {
-            setNarrDuration(e.target.duration);
-            e.target.volume       = Math.max(0, Math.min(1, projectVolumeRef.current));
-            e.target.playbackRate = Math.max(0.25, Math.min(4, projectSpeedRef.current));
-          }}
         />
       )}
 
