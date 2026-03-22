@@ -9094,7 +9094,7 @@ _setDragging(null);
 
       {/* TIMELINE INFERIOR */}
       <div className="cs-timeline" style={{ 
-        height: '210px', 
+        height: '250px', 
         background: '#080808', 
         borderTop: '1px solid rgba(255,255,255,0.07)', 
         width: '100%',
