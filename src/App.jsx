@@ -1708,7 +1708,6 @@ function App() {
   const handleNarrChange = (file) => {
     if (!file) return;
     const narrUrl = URL.createObjectURL(file);
-    console.log('[NARR] handleNarrChange chamado, file:', file.name, 'size:', file.size, 'url:', narrUrl);
     setNarrSrc(narrUrl);
     setNarrFile(file);
     setNarrOffset(0); setNarrTrimStart(0); setNarrTrimEnd(null);
@@ -9464,7 +9463,6 @@ _setDragging(null);
             )}
 
             {/* FAIXA DE NARRAÇÃO — segunda faixa independente */}
-            {narrSrc && console.log('[NARR] Renderizando faixa, narrSrc:', narrSrc, 'narrDuration:', narrDuration)}
             {narrSrc && (
               <div
                 onMouseDown={(e) => handleNarrTimelineMouseDown('move', e)}
@@ -9472,11 +9470,11 @@ _setDragging(null);
                 style={{
                   position: 'absolute',
                   left: `${narrOffset * zoom}px`,
-                  width: `${((narrTrimEnd !== null ? narrTrimEnd : (narrDuration || 30)) - narrTrimStart) * zoom}px`,
+                  width: `${Math.max(60, ((narrTrimEnd !== null ? narrTrimEnd : (narrDuration || 10)) - narrTrimStart) * zoom)}px`,
                   top: '143px',
                   height: '26px',
-                  background: 'rgba(244,114,182,0.18)',
-                  border: '1px solid rgba(244,114,182,0.5)',
+                  background: 'rgba(244,114,182,0.35)',
+                  border: '2px solid rgba(244,114,182,0.8)',
                   borderRadius: '8px',
                   cursor: 'grab',
                   overflow: 'hidden',
