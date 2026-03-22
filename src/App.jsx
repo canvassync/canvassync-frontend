@@ -1017,6 +1017,65 @@ function App() {
     e.target.value = '';
   };
 
+
+  // ── Carregamento automático das fontes de /public/fonts/ ─────────────────
+  useEffect(() => {
+    const PROJECT_FONTS = [
+      { name: "A Box For", file: "A Box For.ttf" },
+      { name: "A Box For 2", file: "A Box For 2.ttf" },
+      { name: "Alice in Wonderland", file: "Alice in Wonderland.ttf" },
+      { name: "Artifact", file: "Artifact.otf" },
+      { name: "Assassin", file: "Assassin.ttf" },
+      { name: "Baby Doll", file: "Baby Doll.otf" },
+      { name: "BeautyDemo", file: "BeautyDemo.otf" },
+      { name: "Cocogoose Pro Block Border", file: "Cocogoose Pro Block Border.ttf" },
+      { name: "Cocogoose Pro Block Gradient", file: "Cocogoose Pro Block Gradient.ttf" },
+      { name: "Cocogoose Pro Block Innerline", file: "Cocogoose Pro Block Innerline.ttf" },
+      { name: "Cocogoose Pro Block Shadow Black", file: "Cocogoose Pro Block Shadow Black.ttf" },
+      { name: "Cocogoose Pro Inline", file: "Cocogoose Pro Inline.ttf" },
+      { name: "Cocogoose Pro Letterpress", file: "Cocogoose Pro Letterpress.ttf" },
+      { name: "Cocogoose Pro Light", file: "Cocogoose Pro Light.ttf" },
+      { name: "Cocogoose Pro Outlined", file: "Cocogoose Pro Outlined.ttf" },
+      { name: "Cocogoose Pro Regular", file: "Cocogoose Pro Regular.ttf" },
+      { name: "Coolvetica HV Comp", file: "Coolvetica HV Comp.otf" },
+      { name: "Coolvetica RG Cond", file: "Coolvetica RG Cond.otf" },
+      { name: "Coolvetica RG Cram", file: "Coolvetica RG Cram.otf" },
+      { name: "Coolvetica Rg", file: "Coolvetica Rg.otf" },
+      { name: "Earwig Factory RG", file: "Earwig Factory RG.otf" },
+      { name: "Edition", file: "Edition.TTF" },
+      { name: "FC Barcelona", file: "FC Barcelona.ttf" },
+      { name: "Ghastly Panic", file: "Ghastly Panic.ttf" },
+      { name: "Iknowaghost", file: "Iknowaghost.ttf" },
+      { name: "JosefinSans", file: "JosefinSans.ttf" },
+      { name: "JosefinSans Light", file: "JosefinSans Light.ttf" },
+      { name: "Loves", file: "Loves.ttf" },
+      { name: "Moonrising", file: "Moonrising.otf" },
+      { name: "Moonrising Italic", file: "Moonrising Italic.otf" },
+      { name: "OldLondon", file: "OldLondon.ttf" },
+      { name: "Olondona", file: "Olondona.otf" },
+      { name: "Positions Arixbored", file: "Positions Arixbored.otf" },
+      { name: "Seagram TFB", file: "Seagram TFB.ttf" },
+      { name: "SuperstarM54", file: "SuperstarM54.ttf" },
+      { name: "Tonight Christmas", file: "Tonight Christmas.otf" },
+      { name: "Vogue", file: "Vogue.ttf" },
+    ];
+    const loadAll = async () => {
+      const loaded = [];
+      for (const { name, file } of PROJECT_FONTS) {
+        try {
+          const face = new FontFace(name, `url(/fonts/${encodeURIComponent(file)})`);
+          await face.load();
+          document.fonts.add(face);
+          loaded.push({ name, fileName: file });
+        } catch(e) { console.warn('[font]', name, e.message); }
+      }
+      if (loaded.length) setCustomFonts(prev => {
+        const names = new Set(prev.map(f => f.name));
+        return [...prev, ...loaded.filter(f => !names.has(f.name))];
+      });
+    };
+    loadAll();
+  }, []);
   // ── SOMBRA E GRADIENTE DO TEXTO PRINCIPAL ─────────────────────────────────
   const [shadowEnabled,  setShadowEnabled]  = useState(true);
   const [shadowBlur,     setShadowBlur]     = useState(12);
@@ -8272,7 +8331,9 @@ _setDragging(null);
                   <option value="Press Start 2P">Press Start 2P</option>
                   <option value="Share Tech Mono">Share Tech Mono</option>
                   </optgroup>
+                  <optgroup label="── 🎨 Fontes CanvasSync ──">
                   {customFonts.map(f => <option key={f.name} value={f.name}>{f.name}</option>)}
+                  </optgroup>
                 </select>
                 <span style={{ fontSize: '10px', color: '#94a3b8' }}>
                   {activeExtraTextId ? (extraTexts.find(t=>t.id===activeExtraTextId)?.fontSize || extraTextFontSize) : (extraTexts.length ? extraTexts[extraTexts.length-1]?.fontSize || extraTextFontSize : extraTextFontSize)}px
@@ -8432,7 +8493,9 @@ _setDragging(null);
                 <option value="Press Start 2P">Press Start 2P</option>
                 <option value="Share Tech Mono">Share Tech Mono</option>
                 </optgroup>
+                <optgroup label="── 🎨 Fontes CanvasSync ──">
                 {customFonts.map(f => <option key={f.name} value={f.name}>{f.name}</option>)}
+                </optgroup>
               </select>
               <span style={{ fontSize: '10px', color: '#94a3b8' }}>
                 {activeLyricId ? (lyrics.find(l => l.id === activeLyricId)?.fontSize || fontSize) : fontSize}px
