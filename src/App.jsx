@@ -5567,29 +5567,36 @@ _setDragging(null);
 
       // 2b. Narração — segunda faixa de áudio independente
       let narrSource = null;
-      if (narrBase64 || narrFile) {
+      if (narrSrc || narrBase64 || narrFile) {
         try {
           let narrBuf;
-          if (narrFile) { narrBuf = await narrFile.arrayBuffer(); }
-          else {
+          // Prioridade: blob URL (narrSrc) → File object → base64
+          if (narrSrc && narrSrc.startsWith('blob:')) {
+            const resp = await fetch(narrSrc);
+            narrBuf = await resp.arrayBuffer();
+          } else if (narrFile) {
+            narrBuf = await narrFile.arrayBuffer();
+          } else if (narrBase64) {
             const b64n = narrBase64.split(',')[1];
             const binn = atob(b64n); const bytesn = new Uint8Array(binn.length);
             for (let i = 0; i < binn.length; i++) bytesn[i] = binn.charCodeAt(i);
             narrBuf = bytesn.buffer;
           }
-          const decodedNarr = await ac.decodeAudioData(narrBuf);
-          const _nTrimS = Math.round((narrTrimStart || 0) * decodedNarr.sampleRate);
-          const _nTrimE = narrTrimEnd !== null
-            ? Math.round(narrTrimEnd * decodedNarr.sampleRate)
-            : decodedNarr.length;
-          const _nCh = decodedNarr.numberOfChannels;
-          const _narrBuf = ac.createBuffer(_nCh, Math.max(1, _nTrimE - _nTrimS), decodedNarr.sampleRate);
-          for (let _ch = 0; _ch < _nCh; _ch++)
-            _narrBuf.getChannelData(_ch).set(decodedNarr.getChannelData(_ch).subarray(_nTrimS, _nTrimE));
-          narrSource = ac.createBufferSource();
-          narrSource.buffer = _narrBuf;
-          narrSource.playbackRate.value = _spd1;
-          narrSource.connect(gainNode);
+          if (narrBuf) {
+            const decodedNarr = await ac.decodeAudioData(narrBuf);
+            const _nTrimS = Math.round((narrTrimStart || 0) * decodedNarr.sampleRate);
+            const _nTrimE = narrTrimEnd !== null
+              ? Math.round(narrTrimEnd * decodedNarr.sampleRate)
+              : decodedNarr.length;
+            const _nCh = decodedNarr.numberOfChannels;
+            const _narrBuf = ac.createBuffer(_nCh, Math.max(1, _nTrimE - _nTrimS), decodedNarr.sampleRate);
+            for (let _ch = 0; _ch < _nCh; _ch++)
+              _narrBuf.getChannelData(_ch).set(decodedNarr.getChannelData(_ch).subarray(_nTrimS, _nTrimE));
+            narrSource = ac.createBufferSource();
+            narrSource.buffer = _narrBuf;
+            narrSource.playbackRate.value = _spd1;
+            narrSource.connect(gainNode);
+          }
         } catch(e) { console.warn('[WEBM RT] narr audio error', e); }
       }
       //    capturaria silêncio pois videoEl.muted=true durante playback Web Audio
@@ -6132,6 +6139,42 @@ _setDragging(null);
           }
           await _mixSfxIntoBuffers(outL, outR, soundEffects, 48000);
           await _mixVideoAudioIntoBuffers(outL, outR, videosRef.current, spd, vol, 48000);
+
+          // ── Narração: mixar na faixa de saída ──────────────────────────────
+          if (narrSrc || narrBase64 || narrFile) {
+            try {
+              let narrRawBuf;
+              if (narrSrc && narrSrc.startsWith('blob:')) {
+                const nr = await fetch(narrSrc); narrRawBuf = await nr.arrayBuffer();
+              } else if (narrFile) {
+                narrRawBuf = await narrFile.arrayBuffer();
+              } else if (narrBase64) {
+                const b64n = narrBase64.split(',')[1]; const binn = atob(b64n);
+                const byn = new Uint8Array(binn.length); for (let i=0;i<binn.length;i++) byn[i]=binn.charCodeAt(i);
+                narrRawBuf = byn.buffer;
+              }
+              if (narrRawBuf) {
+                const _acN = new (window.AudioContext||window.webkitAudioContext)({ sampleRate:48000 });
+                const decodedN = await _acN.decodeAudioData(narrRawBuf); _acN.close();
+                const nTrimS = Math.round((narrTrimStart || 0) * decodedN.sampleRate);
+                const nTrimE = narrTrimEnd !== null ? Math.round(narrTrimEnd * decodedN.sampleRate) : decodedN.length;
+                const _acN2 = new (window.AudioContext||window.webkitAudioContext)();
+                const narrSubBuf = _acN2.createBuffer(decodedN.numberOfChannels, Math.max(1, nTrimE - nTrimS), decodedN.sampleRate);
+                for (let ch=0; ch<decodedN.numberOfChannels; ch++)
+                  narrSubBuf.getChannelData(ch).set(decodedN.getChannelData(ch).subarray(nTrimS, nTrimE));
+                _acN2.close();
+                const [nL, nR] = await _renderAudioStretched(narrSubBuf, spd, vol, 48000);
+                const narrOffsetSamples = Math.round((narrOffset || 0) / spd * 48000);
+                const narrCopyLen = Math.min(nL.length, outL.length - narrOffsetSamples);
+                if (narrCopyLen > 0 && narrOffsetSamples < outL.length) {
+                  for (let i=0; i<narrCopyLen; i++) {
+                    outL[narrOffsetSamples + i] = (outL[narrOffsetSamples + i] || 0) + (nL[i] || 0);
+                    outR[narrOffsetSamples + i] = (outR[narrOffsetSamples + i] || 0) + (nR[i] || 0);
+                  }
+                }
+              }
+            } catch(e) { console.warn('[export] narr mix error', e); }
+          }
 
           const BLK = 4096;
           for (let op = 0; op < outL.length; op += BLK) {
