@@ -1028,15 +1028,15 @@ function App() {
       { name: "Assassin", file: "Assassin.ttf" },
       { name: "Baby Doll", file: "Baby Doll.otf" },
       { name: "BeautyDemo", file: "BeautyDemo.otf" },
-      { name: "Cocogoose Pro Block Border", file: "Cocogoose Pro Block Border.ttf" },
-      { name: "Cocogoose Pro Block Gradient", file: "Cocogoose Pro Block Gradient.ttf" },
-      { name: "Cocogoose Pro Block Innerline", file: "Cocogoose Pro Block Innerline.ttf" },
-      { name: "Cocogoose Pro Block Shadow", file: "Cocogoose Pro Block Shadow.ttf" },
-      { name: "Cocogoose Pro Inline", file: "Cocogoose Pro Inline.ttf" },
-      { name: "Cocogoose Pro Letterpress", file: "Cocogoose Pro Letterpress.ttf" },
-      { name: "Cocogoose Pro Light", file: "Cocogoose Pro Light.ttf" },
-      { name: "Cocogoose Pro Outlined", file: "Cocogoose Pro Outlined.ttf" },
-      { name: "Cocogoose Pro Regular", file: "Cocogoose Pro Regular.ttf" },
+      { name: "Cocogoose Block Border", file: "Cocogoose Pro Block Border.ttf" },
+      { name: "Cocogoose Block Gradient", file: "Cocogoose Pro Block Gradient.ttf" },
+      { name: "Cocogoose Block Innerline", file: "Cocogoose Pro Block Innerline.ttf" },
+      { name: "Cocogoose Block Shadow", file: "Cocogoose Pro Block Shadow.ttf" },
+      { name: "Cocogoose Inline", file: "Cocogoose Pro Inline.ttf" },
+      { name: "Cocogoose Letterpress", file: "Cocogoose Pro Letterpress.ttf" },
+      { name: "Cocogoose Light", file: "Cocogoose Pro Light.ttf" },
+      { name: "Cocogoose Outlined", file: "Cocogoose Pro Outlined.ttf" },
+      { name: "Cocogoose Regular", file: "Cocogoose Pro Regular.ttf" },
       { name: "Coolvetica HV Comp", file: "Coolvetica HV Comp.otf" },
       { name: "Coolvetica RG Cond", file: "Coolvetica RG Cond.otf" },
       { name: "Coolvetica RG Cram", file: "Coolvetica RG Cram.otf" },
@@ -4357,6 +4357,8 @@ _setDragging(null);
       const _elaps = Math.max(0, time - activeLine.start);
       const _ease  = 1 - Math.pow(1 - Math.min(1, _elaps / 0.45), 2);
       const _twCh  = _anim === 'typewriter' ? Math.floor(_elaps * _twSpd) : Infinity;
+      // Karaoke: velocidade de chars por segundo (mesma ref twSpeed)
+      const _karCh = _anim === 'karaoke' ? Math.floor(_elaps * _twSpd) : Infinity;
       // Efeito de fundo atrás do texto
       const _bgFx = activeLine.bgEffect ?? textBgEffect;
       if (_bgFx && _bgFx !== 'none') {
@@ -4403,6 +4405,67 @@ _setDragging(null);
           if (rem <= 0) return;
           vis = upperLine.slice(0, rem);
         }
+
+        // ── Karaoke word-highlight ──────────────────────────────────────────
+        if (_anim === 'karaoke') {
+          const _karColor = activeLine.karaokeColor || '#000000';
+          const _karAlpha = activeLine.karaokeAlpha ?? 0.82;
+          const _karPadX  = lFontSize * 0.22;
+          const _karPadY  = lFontSize * 0.14;
+          const words = upperLine.split(' ');
+          let charPos = 0;
+          // conta chars anteriores a esta linha
+          lines.slice(0, li).forEach(prevLine => { charPos += prevLine.toUpperCase().split('').length + 1; });
+          // calcula posição X de cada palavra acumulando larguras
+          const wordWidths = words.map(w2 => ctx.measureText(w2 + ' ').width);
+          const totalLineW = words.reduce((s, w2) => s + ctx.measureText(w2 + ' ').width, 0) - ctx.measureText(' ').width;
+          let wordX = -totalLineW / 2;
+          words.forEach((word, wi) => {
+            const wChars = word.length;
+            const wordStartChar = charPos + words.slice(0, wi).reduce((s, w2) => s + w2.length + 1, 0);
+            const wordEndChar   = wordStartChar + wChars;
+            const isHighlighted = _karCh > wordStartChar;
+            const isPartial     = _karCh > wordStartChar && _karCh < wordEndChar;
+            const ww = ctx.measureText(word).width;
+            const wx = wordX + ww / 2; // centro da palavra relativo ao centro da linha
+            if (isHighlighted) {
+              // Fundo colorido atrás da palavra destacada
+              ctx.save();
+              ctx.shadowBlur = 0; ctx.shadowColor = 'transparent';
+              const partialW = isPartial ? ctx.measureText(word.slice(0, _karCh - wordStartChar)).width : ww;
+              ctx.fillStyle = _karColor;
+              ctx.globalAlpha = _karAlpha;
+              ctx.beginPath();
+              const bx = wordX - _karPadX / 2;
+              const by = lineY - lFontSize / 2 - _karPadY / 2;
+              const bw = (isPartial ? partialW : ww) + _karPadX;
+              const bh = lFontSize + _karPadY;
+              const br = Math.min(lFontSize * 0.18, bw / 2, bh / 2);
+              ctx.moveTo(bx + br, by);
+              ctx.arcTo(bx + bw, by, bx + bw, by + bh, br);
+              ctx.arcTo(bx + bw, by + bh, bx, by + bh, br);
+              ctx.arcTo(bx, by + bh, bx, by, br);
+              ctx.arcTo(bx, by, bx + bw, by, br);
+              ctx.closePath();
+              ctx.fill();
+              ctx.globalAlpha = 1;
+              ctx.restore();
+            }
+            wordX += wordWidths[wi];
+          });
+          // Desenha o texto por cima
+          if (_grOn) {
+            const w2 = ctx.measureText(upperLine).width;
+            const grad = ctx.createLinearGradient(-w2 / 2, lineY - lFontSize / 2, w2 / 2, lineY + lFontSize / 2);
+            grad.addColorStop(0, _gr1); grad.addColorStop(1, _gr2);
+            ctx.fillStyle = grad;
+          } else { ctx.fillStyle = _col; }
+          ctx.fillText(upperLine, 0, lineY);
+          drawTextDecorations(ctx, upperLine, lineY, lFontSize, activeLine.fontUnderline ?? fontUnderlineRef.current, activeLine.fontStrike ?? fontStrikeRef.current);
+          return;
+        }
+        // ── Fim karaoke ─────────────────────────────────────────────────────
+
         if (_grOn) {
           const w = ctx.measureText(vis).width;
           const grad = ctx.createLinearGradient(-w / 2, lineY - lFontSize / 2, w / 2, lineY + lFontSize / 2);
@@ -5212,6 +5275,7 @@ _setDragging(null);
       const _elaps = Math.max(0, t - activeLine.start);
       const _ease  = 1 - Math.pow(1 - Math.min(1, _elaps / 0.45), 2);
       const _twCh  = _anim === 'typewriter' ? Math.floor(_elaps * _twSpd) : Infinity;
+      const _karCh = _anim === 'karaoke'    ? Math.floor(_elaps * _twSpd) : Infinity;
       const _bgFxR = activeLine.bgEffect ?? textBgEffect;
       if (_bgFxR && _bgFxR !== 'none') {
         ctx.save();
@@ -5256,6 +5320,62 @@ _setDragging(null);
           if (rem <= 0) return;
           vis = upperLine.slice(0, rem);
         }
+
+        // ── Karaoke word-highlight (export) ────────────────────────────────
+        if (_anim === 'karaoke') {
+          const _karColor = activeLine.karaokeColor || '#000000';
+          const _karAlpha = activeLine.karaokeAlpha ?? 0.82;
+          const _karPadX  = lFontSize * 0.22;
+          const _karPadY  = lFontSize * 0.14;
+          const words = upperLine.split(' ');
+          let charPos = 0;
+          lines.slice(0, li).forEach(prevLine => { charPos += prevLine.toUpperCase().split('').length + 1; });
+          const wordWidths = words.map(w2 => ctx.measureText(w2 + ' ').width);
+          const totalLineW = words.reduce((s, w2) => s + ctx.measureText(w2 + ' ').width, 0) - ctx.measureText(' ').width;
+          let wordX = -totalLineW / 2;
+          words.forEach((word, wi) => {
+            const wChars = word.length;
+            const wordStartChar = charPos + words.slice(0, wi).reduce((s, w2) => s + w2.length + 1, 0);
+            const wordEndChar   = wordStartChar + wChars;
+            const isHighlighted = _karCh > wordStartChar;
+            const isPartial     = _karCh > wordStartChar && _karCh < wordEndChar;
+            const ww = ctx.measureText(word).width;
+            if (isHighlighted) {
+              ctx.save();
+              ctx.shadowBlur = 0; ctx.shadowColor = 'transparent';
+              const partialW = isPartial ? ctx.measureText(word.slice(0, _karCh - wordStartChar)).width : ww;
+              ctx.fillStyle = _karColor;
+              ctx.globalAlpha = _karAlpha;
+              ctx.beginPath();
+              const bx = wordX - _karPadX / 2;
+              const by = lineY - lFontSize / 2 - _karPadY / 2;
+              const bw = (isPartial ? partialW : ww) + _karPadX;
+              const bh = lFontSize + _karPadY;
+              const br = Math.min(lFontSize * 0.18, bw / 2, bh / 2);
+              ctx.moveTo(bx + br, by);
+              ctx.arcTo(bx + bw, by, bx + bw, by + bh, br);
+              ctx.arcTo(bx + bw, by + bh, bx, by + bh, br);
+              ctx.arcTo(bx, by + bh, bx, by, br);
+              ctx.arcTo(bx, by, bx + bw, by, br);
+              ctx.closePath();
+              ctx.fill();
+              ctx.globalAlpha = 1;
+              ctx.restore();
+            }
+            wordX += wordWidths[wi];
+          });
+          if (_grOn) {
+            const w2 = ctx.measureText(upperLine).width;
+            const grad = ctx.createLinearGradient(-w2 / 2, lineY - lFontSize / 2, w2 / 2, lineY + lFontSize / 2);
+            grad.addColorStop(0, _gr1); grad.addColorStop(1, _gr2);
+            ctx.fillStyle = grad;
+          } else { ctx.fillStyle = _col; }
+          ctx.fillText(upperLine, 0, lineY);
+          drawTextDecorations(ctx, upperLine, lineY, lFontSize, activeLine.fontUnderline ?? fontUnderlineRef.current, activeLine.fontStrike ?? fontStrikeRef.current);
+          return;
+        }
+        // ── Fim karaoke (export) ────────────────────────────────────────────
+
         if (_grOn) {
           const w = ctx.measureText(vis).width;
           const grad = ctx.createLinearGradient(-w / 2, lineY - lFontSize / 2, w / 2, lineY + lFontSize / 2);
@@ -8747,7 +8867,7 @@ _setDragging(null);
               return (
                 <div style={{ display:'flex', alignItems:'center', gap:'8px', flexWrap:'wrap', background:'rgba(139,92,246,0.06)', border:'1px solid rgba(139,92,246,0.2)', borderRadius:10, padding:'8px 10px' }}>
                   <span style={{ fontSize:'10px', color:'#a78bfa', fontWeight:700, marginRight:2 }}>{t('ed_animation')}</span>
-                  {[['none', t('anim_none')],['fade','Fade'],['slide','Slide'],['typewriter','Typewriter']].map(([v, label]) => (
+                  {[['none', t('anim_none')],['fade','Fade'],['slide','Slide'],['typewriter','Typewriter'],['karaoke','🎤 Karaoke']].map(([v, label]) => (
                     <button key={v} onClick={() => setAnim(v)} style={{
                       padding:'3px 10px', fontSize:'10px', borderRadius:'8px', cursor:'pointer', fontWeight:600,
                       background: curAnim === v ? 'rgba(139,92,246,0.3)' : 'rgba(255,255,255,0.04)',
@@ -8755,7 +8875,7 @@ _setDragging(null);
                       color: curAnim === v ? '#c4b5fd' : '#666',
                     }}>{label}</button>
                   ))}
-                  {curAnim === 'typewriter' && (
+                  {(curAnim === 'typewriter' || curAnim === 'karaoke') && (
                     <div style={{ display:'flex', alignItems:'center', gap:'5px', marginLeft:4 }}>
                       <span style={{ fontSize:'10px', color:'#64748b' }}>{t('ed_speed_anim')}</span>
                       <input type="range" min="5" max="80" step="5" value={curSpeed}
@@ -8764,6 +8884,36 @@ _setDragging(null);
                       <span style={{ fontSize:'10px', color:'#a78bfa', minWidth:30 }}>{curSpeed}/s</span>
                     </div>
                   )}
+                  {curAnim === 'karaoke' && (() => {
+                    const selLK = activeLyricId ? lyrics.find(l => l.id === activeLyricId) : null;
+                    const curKColor = selLK?.karaokeColor ?? '#000000';
+                    const curKAlpha = selLK?.karaokeAlpha ?? 0.82;
+                    const setKColor = val => {
+                      if (selLK) setLyrics(prev => prev.map(l => l.id === activeLyricId ? {...l, karaokeColor: val} : l));
+                    };
+                    const setKAlpha = val => {
+                      if (selLK) setLyrics(prev => prev.map(l => l.id === activeLyricId ? {...l, karaokeAlpha: val} : l));
+                    };
+                    return (
+                      <div style={{ display:'flex', alignItems:'center', gap:8, flexWrap:'wrap', background:'rgba(139,92,246,0.08)', border:'1px solid rgba(139,92,246,0.25)', borderRadius:9, padding:'5px 10px', marginTop:2, width:'100%' }}>
+                        <span style={{ fontSize:10, color:'#c4b5fd', fontWeight:700 }}>Fundo Karaoke</span>
+                        <input type="color" value={curKColor}
+                          onChange={e => setKColor(e.target.value)}
+                          style={{ width:26, height:26, padding:0, border:'1px solid rgba(139,92,246,0.4)', borderRadius:6, cursor:'pointer', background:'none' }}
+                          title="Cor do fundo" />
+                        {/* Presets rápidos */}
+                        {['#000000','#1a1a2e','#0d0d0d','#1e3a2f','#2d1b4e','#ffffff','#ff6b6b','#fbbf24'].map(c => (
+                          <div key={c} onClick={() => setKColor(c)}
+                            style={{ width:18, height:18, borderRadius:4, background:c, cursor:'pointer', border: curKColor===c ? '2px solid #c4b5fd' : '1px solid rgba(255,255,255,0.2)', flexShrink:0 }} />
+                        ))}
+                        <span style={{ fontSize:9, color:'#666', marginLeft:2 }}>Opacidade</span>
+                        <input type="range" min="0.2" max="1" step="0.05" value={curKAlpha}
+                          onChange={e => setKAlpha(+e.target.value)}
+                          style={{ width:60, accentColor:'#a78bfa' }} />
+                        <span style={{ fontSize:10, color:'#a78bfa', minWidth:26 }}>{Math.round(curKAlpha * 100)}%</span>
+                      </div>
+                    );
+                  })()}
                 </div>
               );
             })()}
