@@ -6303,8 +6303,12 @@ _setDragging(null);
           }
 
           try {
+            // Usa elapsed real como timestamp — evita aceleração quando setInterval
+            // dispara mais devagar que 33ms sob carga de CPU durante o encoding.
+            // frameCount*(1e6/FPS) assume intervalo perfeito, mas o vídeo avança
+            // em tempo real → divergência = vídeo acelerado no arquivo final.
             const frame = new VideoFrame(srcCanvas, {
-              timestamp: Math.round(frameCount * (1e6 / FPS)),
+              timestamp: Math.round(elapsed * 1e6),
               duration:  Math.round(1e6 / FPS),
             });
             vEnc.encode(frame, { keyFrame: frameCount % 60 === 0 });
@@ -6336,15 +6340,23 @@ _setDragging(null);
           const vt = elapsed * spd;
           virtualTimeRef.current = vt;
           setCurrentTime(vt);
-          // Ativa/desativa vídeos conforme o tempo — sem alterar estado de play do usuário
+          // Ativa/desativa vídeos e corrige drift de posição a cada 100ms
           for (const v of videosRef.current) {
             if (!v.videoEl) continue;
-            if (vt >= v.start && vt <= v.end && v.videoEl.paused) {
+            if (vt >= v.start && vt <= v.end) {
               const trimSt = v.trimStart ?? 0;
-              const rel = trimSt + Math.max(0, vt - v.start) * (v.vidSpeed ?? 1);
-              v.videoEl.currentTime = Math.min(rel, v.videoEl.duration || rel);
-              v.videoEl.playbackRate = Math.max(0.25, Math.min(4, v.vidSpeed ?? 1));
-              v.videoEl.play().catch(() => {});
+              const expectedVidTime = trimSt + Math.max(0, vt - v.start) * (v.vidSpeed ?? 1);
+              if (v.videoEl.paused) {
+                v.videoEl.currentTime = Math.min(expectedVidTime, v.videoEl.duration || expectedVidTime);
+                v.videoEl.playbackRate = Math.max(0.25, Math.min(4, v.vidSpeed ?? 1));
+                v.videoEl.play().catch(() => {});
+              } else {
+                // Corrige drift se o videoEl desviou mais de 150ms do esperado
+                const drift = Math.abs(v.videoEl.currentTime - expectedVidTime);
+                if (drift > 0.15) {
+                  v.videoEl.currentTime = Math.min(expectedVidTime, v.videoEl.duration || expectedVidTime);
+                }
+              }
             } else if ((vt < v.start || vt > v.end) && !v.videoEl.paused) {
               v.videoEl.pause();
             }
