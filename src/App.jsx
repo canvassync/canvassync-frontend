@@ -5532,7 +5532,9 @@ _setDragging(null);
       const _lyricEnd = lyricsRef.current.length ? Math.max(...lyricsRef.current.map(l => l.end || 0)) : 0;
       const _imgEnd   = imagesRef.current.length ? Math.max(...imagesRef.current.map(i => i.end || 0)) : 0;
       const _vidEnd   = videosRef.current.length ? Math.max(...videosRef.current.map(v => v.end || 0)) : 0;
-      return Math.max(_audEnd, _lyricEnd, _imgEnd, _vidEnd) || 3;
+      const _narrDur = narrRef.current?.duration || narrDuration || 0;
+      const _narrEnd = _narrDur > 0 ? (narrOffset || 0) + (_narrDur - (narrTrimStart || 0)) : 0;
+      return Math.max(_audEnd, _lyricEnd, _imgEnd, _vidEnd, _narrEnd) || 3;
     })();
     if (!effectiveDuration || effectiveDuration <= 0) return;
     const _spdW = Math.max(0.25, Math.min(4, projectSpeedRef.current));
@@ -5581,7 +5583,9 @@ _setDragging(null);
       const _lyricEnd = lyricsRef.current.length ? Math.max(...lyricsRef.current.map(l => l.end || 0)) : 0;
       const _imgEnd   = imagesRef.current.length ? Math.max(...imagesRef.current.map(i => i.end || 0)) : 0;
       const _vidEnd   = videosRef.current.length ? Math.max(...videosRef.current.map(v => v.end || 0)) : 0;
-      return Math.max(_audEnd, _lyricEnd, _imgEnd, _vidEnd) || 3;
+      const _narrDur = narrRef.current?.duration || narrDuration || 0;
+      const _narrEnd = _narrDur > 0 ? (narrOffset || 0) + (_narrDur - (narrTrimStart || 0)) : 0;
+      return Math.max(_audEnd, _lyricEnd, _imgEnd, _vidEnd, _narrEnd) || 3;
     })();
     if (!effectiveDuration || effectiveDuration <= 0) return;
 
@@ -6103,7 +6107,9 @@ _setDragging(null);
       const _lyricEnd = lyricsRef.current.length ? Math.max(...lyricsRef.current.map(l => l.end || 0)) : 0;
       const _imgEnd   = imagesRef.current.length ? Math.max(...imagesRef.current.map(i => i.end || 0)) : 0;
       const _vidEnd   = videosRef.current.length ? Math.max(...videosRef.current.map(v => v.end || 0)) : 0;
-      return Math.max(_audEnd, _lyricEnd, _imgEnd, _vidEnd) || 3;
+      const _narrDur = narrRef.current?.duration || narrDuration || 0;
+      const _narrEnd = _narrDur > 0 ? (narrOffset || 0) + (_narrDur - (narrTrimStart || 0)) : 0;
+      return Math.max(_audEnd, _lyricEnd, _imgEnd, _vidEnd, _narrEnd) || 3;
     })();
     if (!effectiveDuration || effectiveDuration <= 0) return;
 
@@ -9044,10 +9050,13 @@ _setDragging(null);
                         clockIntervalRef.current = setInterval(() => {
                           const elapsed = (Date.now() - startWall) / 1000;
                           const newTime = startVirt + elapsed * clockSpd;
+                          const _narrDurFS = narrRef.current?.duration || 0;
+                          const _narrEndFS = _narrDurFS > 0 ? (narrOffsetRef.current || 0) + (_narrDurFS - (narrTrimStartRef.current || 0)) : 0;
                           const contentEnd = Math.max(
                             lyricsRef.current.reduce((m, l) => Math.max(m, l.end || 0), 0),
                             imagesRef.current.reduce((m, i) => Math.max(m, i.end || 0), 0),
                             videosRef.current.reduce((m, v) => Math.max(m, v.end || 0), 0),
+                            _narrEndFS,
                           );
                           if (contentEnd > 0 && newTime >= contentEnd) {
                             clearInterval(clockIntervalRef.current); clockIntervalRef.current = null;
@@ -9363,10 +9372,13 @@ _setDragging(null);
                       }
                     });
                     // Para automaticamente ao final do conteúdo (sem áudio)
+                    const _narrDurClock = narrRef.current?.duration || 0;
+                    const _narrEndClock = _narrDurClock > 0 ? (narrOffsetRef.current || 0) + (_narrDurClock - (narrTrimStartRef.current || 0)) : 0;
                     const contentEnd = Math.max(
                       lyricsRef.current.reduce((m, l) => Math.max(m, l.end || 0), 0),
                       imagesRef.current.reduce((m, i) => Math.max(m, i.end || 0), 0),
                       videosRef.current.reduce((m, v) => Math.max(m, v.end || 0), 0),
+                      _narrEndClock,
                     );
                     if (contentEnd > 0 && newTime >= contentEnd) {
                       clearInterval(clockIntervalRef.current);
@@ -9842,6 +9854,17 @@ _setDragging(null);
             setNarrDuration(e.target.duration);
             e.target.volume       = Math.max(0, Math.min(1, projectVolumeRef.current));
             e.target.playbackRate = Math.max(0.25, Math.min(4, projectSpeedRef.current));
+          }}
+          onEnded={() => {
+            // Só para o playback se não houver áudio principal tocando
+            // (o audioRef.onEnded já cuida do caso com música de fundo)
+            if (!audioRef.current || audioRef.current.paused) {
+              isPlayingRef.current = false;
+              setIsPlaying(false);
+              if (clockIntervalRef.current) { clearInterval(clockIntervalRef.current); clockIntervalRef.current = null; }
+              stopAllVideoAudio();
+              videosRef.current.forEach(v => { if (v.videoEl && !v.videoEl.paused) v.videoEl.pause(); });
+            }
           }}
         />
       )}
