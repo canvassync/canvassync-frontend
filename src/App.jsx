@@ -4406,51 +4406,64 @@ _setDragging(null);
           vis = upperLine.slice(0, rem);
         }
 
-        // ── Karaoke sliding-bar ─────────────────────────────────────────────
+        // ── Karaoke word-jump: fundo SOMENTE na palavra atual ─────────────
         if (_anim === 'karaoke') {
           const _karColor = activeLine.karaokeColor || '#000000';
           const _karAlpha = activeLine.karaokeAlpha ?? 0.82;
           const _karPadY  = lFontSize * 0.18;
-          const _karPadX  = lFontSize * 0.18;
-          const totalLineW = ctx.measureText(upperLine).width;
-          const startX     = -totalLineW / 2 - _karPadX;
-          const fullW      = totalLineW + _karPadX * 2;
-          const by         = lineY - lFontSize / 2 - _karPadY / 2;
-          const bh         = lFontSize + _karPadY;
-          const br         = Math.min(lFontSize * 0.18, fullW / 2, bh / 2);
+          const _karPadX  = lFontSize * 0.22;
 
-          // Progresso: quantos chars já foram "lidos" nesta linha
+          // Acumula offset de chars das linhas anteriores
           let lineCharOffset = 0;
           lines.slice(0, li).forEach(pl => { lineCharOffset += pl.length + 1; });
-          const lineTotal = upperLine.length || 1;
-          const charsInLine = Math.max(0, _karCh - lineCharOffset);
-          const progress = Math.min(1, charsInLine / lineTotal);
-          const filledW = fullW * progress;
 
-          if (filledW > 0.5) {
-            ctx.save();
-            ctx.shadowBlur = 0; ctx.shadowColor = 'transparent';
-            ctx.fillStyle = _karColor;
-            ctx.globalAlpha = _karAlpha;
-            // Clip ao rect arredondado completo para o preenchimento não vazar
-            ctx.beginPath();
-            ctx.moveTo(startX + br, by);
-            ctx.arcTo(startX + fullW, by, startX + fullW, by + bh, br);
-            ctx.arcTo(startX + fullW, by + bh, startX, by + bh, br);
-            ctx.arcTo(startX, by + bh, startX, by, br);
-            ctx.arcTo(startX, by, startX + fullW, by, br);
-            ctx.closePath();
-            ctx.save(); ctx.clip();
-            ctx.fillRect(startX, by, filledW, bh);
-            ctx.restore();
-            ctx.globalAlpha = 1;
-            ctx.restore();
+          // Descobre qual palavra está ativa agora
+          const words = upperLine.split(' ');
+          let cumChars = lineCharOffset; // char global acumulado até aqui
+          let activeWordIdx = -1;
+          for (let wi = 0; wi < words.length; wi++) {
+            const wStart = cumChars;
+            const wEnd   = cumChars + words[wi].length;
+            if (_karCh >= wStart && _karCh <= wEnd) { activeWordIdx = wi; break; }
+            cumChars += words[wi].length + 1; // +1 pelo espaço
           }
 
-          // Texto por cima
+          // Calcula posição X de cada palavra para achar a ativa
+          const wordWidths = words.map(w2 => ctx.measureText(w2).width);
+          const spaceW = ctx.measureText(' ').width;
+          const totalLineW = wordWidths.reduce((s, w2) => s + w2, 0) + spaceW * (words.length - 1);
+          let wordX = -totalLineW / 2; // inicia no extremo esquerdo da linha
+
+          words.forEach((word, wi) => {
+            const ww = wordWidths[wi];
+            if (wi === activeWordIdx) {
+              // Fundo apenas desta palavra
+              ctx.save();
+              ctx.shadowBlur = 0; ctx.shadowColor = 'transparent';
+              ctx.fillStyle = _karColor;
+              ctx.globalAlpha = _karAlpha;
+              const bx = wordX - _karPadX / 2;
+              const by = lineY - lFontSize / 2 - _karPadY / 2;
+              const bw = ww + _karPadX;
+              const bh = lFontSize + _karPadY;
+              const br = Math.min(lFontSize * 0.18, bw / 2, bh / 2);
+              ctx.beginPath();
+              ctx.moveTo(bx + br, by);
+              ctx.arcTo(bx + bw, by, bx + bw, by + bh, br);
+              ctx.arcTo(bx + bw, by + bh, bx, by + bh, br);
+              ctx.arcTo(bx, by + bh, bx, by, br);
+              ctx.arcTo(bx, by, bx + bw, by, br);
+              ctx.closePath();
+              ctx.fill();
+              ctx.globalAlpha = 1;
+              ctx.restore();
+            }
+            wordX += ww + spaceW;
+          });
+
+          // Texto por cima (linha completa)
           if (_grOn) {
-            const w2 = totalLineW;
-            const grad = ctx.createLinearGradient(-w2 / 2, lineY - lFontSize / 2, w2 / 2, lineY + lFontSize / 2);
+            const grad = ctx.createLinearGradient(-totalLineW / 2, lineY - lFontSize / 2, totalLineW / 2, lineY + lFontSize / 2);
             grad.addColorStop(0, _gr1); grad.addColorStop(1, _gr2);
             ctx.fillStyle = grad;
           } else { ctx.fillStyle = _col; }
@@ -5315,45 +5328,59 @@ _setDragging(null);
           vis = upperLine.slice(0, rem);
         }
 
-        // ── Karaoke sliding-bar (export) ────────────────────────────────────
+        // ── Karaoke word-jump (export): fundo SOMENTE na palavra atual ────
         if (_anim === 'karaoke') {
           const _karColor = activeLine.karaokeColor || '#000000';
           const _karAlpha = activeLine.karaokeAlpha ?? 0.82;
           const _karPadY  = lFontSize * 0.18;
-          const _karPadX  = lFontSize * 0.18;
-          const totalLineW = ctx.measureText(upperLine).width;
-          const startX     = -totalLineW / 2 - _karPadX;
-          const fullW      = totalLineW + _karPadX * 2;
-          const by         = lineY - lFontSize / 2 - _karPadY / 2;
-          const bh         = lFontSize + _karPadY;
-          const br         = Math.min(lFontSize * 0.18, fullW / 2, bh / 2);
+          const _karPadX  = lFontSize * 0.22;
+
           let lineCharOffset = 0;
           lines.slice(0, li).forEach(pl => { lineCharOffset += pl.length + 1; });
-          const lineTotal   = upperLine.length || 1;
-          const charsInLine = Math.max(0, _karCh - lineCharOffset);
-          const progress    = Math.min(1, charsInLine / lineTotal);
-          const filledW     = fullW * progress;
-          if (filledW > 0.5) {
-            ctx.save();
-            ctx.shadowBlur = 0; ctx.shadowColor = 'transparent';
-            ctx.fillStyle = _karColor;
-            ctx.globalAlpha = _karAlpha;
-            ctx.beginPath();
-            ctx.moveTo(startX + br, by);
-            ctx.arcTo(startX + fullW, by, startX + fullW, by + bh, br);
-            ctx.arcTo(startX + fullW, by + bh, startX, by + bh, br);
-            ctx.arcTo(startX, by + bh, startX, by, br);
-            ctx.arcTo(startX, by, startX + fullW, by, br);
-            ctx.closePath();
-            ctx.save(); ctx.clip();
-            ctx.fillRect(startX, by, filledW, bh);
-            ctx.restore();
-            ctx.globalAlpha = 1;
-            ctx.restore();
+
+          const words = upperLine.split(' ');
+          let cumChars = lineCharOffset;
+          let activeWordIdx = -1;
+          for (let wi = 0; wi < words.length; wi++) {
+            const wStart = cumChars;
+            const wEnd   = cumChars + words[wi].length;
+            if (_karCh >= wStart && _karCh <= wEnd) { activeWordIdx = wi; break; }
+            cumChars += words[wi].length + 1;
           }
+
+          const wordWidths = words.map(w2 => ctx.measureText(w2).width);
+          const spaceW = ctx.measureText(' ').width;
+          const totalLineW = wordWidths.reduce((s, w2) => s + w2, 0) + spaceW * (words.length - 1);
+          let wordX = -totalLineW / 2;
+
+          words.forEach((word, wi) => {
+            const ww = wordWidths[wi];
+            if (wi === activeWordIdx) {
+              ctx.save();
+              ctx.shadowBlur = 0; ctx.shadowColor = 'transparent';
+              ctx.fillStyle = _karColor;
+              ctx.globalAlpha = _karAlpha;
+              const bx = wordX - _karPadX / 2;
+              const by = lineY - lFontSize / 2 - _karPadY / 2;
+              const bw = ww + _karPadX;
+              const bh = lFontSize + _karPadY;
+              const br = Math.min(lFontSize * 0.18, bw / 2, bh / 2);
+              ctx.beginPath();
+              ctx.moveTo(bx + br, by);
+              ctx.arcTo(bx + bw, by, bx + bw, by + bh, br);
+              ctx.arcTo(bx + bw, by + bh, bx, by + bh, br);
+              ctx.arcTo(bx, by + bh, bx, by, br);
+              ctx.arcTo(bx, by, bx + bw, by, br);
+              ctx.closePath();
+              ctx.fill();
+              ctx.globalAlpha = 1;
+              ctx.restore();
+            }
+            wordX += ww + spaceW;
+          });
+
           if (_grOn) {
-            const w2 = totalLineW;
-            const grad = ctx.createLinearGradient(-w2 / 2, lineY - lFontSize / 2, w2 / 2, lineY + lFontSize / 2);
+            const grad = ctx.createLinearGradient(-totalLineW / 2, lineY - lFontSize / 2, totalLineW / 2, lineY + lFontSize / 2);
             grad.addColorStop(0, _gr1); grad.addColorStop(1, _gr2);
             ctx.fillStyle = grad;
           } else { ctx.fillStyle = _col; }
