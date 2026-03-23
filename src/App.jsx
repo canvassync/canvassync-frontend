@@ -6292,8 +6292,16 @@ _setDragging(null);
 
         const captureId = setInterval(() => {
           if (stopped || encoderError) { stop(); return; }
-          const elapsed = (Date.now() - startWall) / 1000;
-          if (elapsed >= outDur + 0.2 || frameCount >= totalFrames + 3) { stop(); return; }
+          if (frameCount >= totalFrames) { stop(); return; }
+
+          // Sincroniza virtualTimeRef com o frame exato ANTES de desenhar.
+          // Problema original: syncId atualizava virtualTimeRef só a cada 100ms,
+          // então 3 frames consecutivos mostravam o mesmo conteúdo do canvas
+          // mas com timestamps diferentes → trechos congelados + saltos rápidos.
+          // Solução: forçar virtualTimeRef = posição exata deste frame e redesenhar.
+          virtualTimeRef.current = frameCount * (1 / FPS) * spd;
+          setCurrentTime(virtualTimeRef.current);
+          try { if (drawRef.current) drawRef.current(); } catch(_) {}
 
           const srcCanvas = offCanvas || baseCanvas;
           if (offCanvas) {
@@ -6303,12 +6311,10 @@ _setDragging(null);
           }
 
           try {
-            // Usa elapsed real como timestamp — evita aceleração quando setInterval
-            // dispara mais devagar que 33ms sob carga de CPU durante o encoding.
-            // frameCount*(1e6/FPS) assume intervalo perfeito, mas o vídeo avança
-            // em tempo real → divergência = vídeo acelerado no arquivo final.
+            // Timestamp monotonicamente crescente baseado no frameCount —
+            // obrigatório para o VideoEncoder não lançar erro.
             const frame = new VideoFrame(srcCanvas, {
-              timestamp: Math.round(elapsed * 1e6),
+              timestamp: Math.round(frameCount * (1e6 / FPS)),
               duration:  Math.round(1e6 / FPS),
             });
             vEnc.encode(frame, { keyFrame: frameCount % 60 === 0 });
@@ -6336,11 +6342,9 @@ _setDragging(null);
         });
 
         const syncId = setInterval(() => {
-          const elapsed = (Date.now() - startWall) / 1000;
-          const vt = elapsed * spd;
-          virtualTimeRef.current = vt;
-          setCurrentTime(vt);
-          // Ativa/desativa vídeos e corrige drift de posição a cada 100ms
+          // virtualTimeRef já está correto (atualizado pelo captureId a cada frame).
+          // syncId só precisa manter os videoEls sincronizados com o tempo atual.
+          const vt = virtualTimeRef.current;
           for (const v of videosRef.current) {
             if (!v.videoEl) continue;
             if (vt >= v.start && vt <= v.end) {
@@ -6351,9 +6355,9 @@ _setDragging(null);
                 v.videoEl.playbackRate = Math.max(0.25, Math.min(4, v.vidSpeed ?? 1));
                 v.videoEl.play().catch(() => {});
               } else {
-                // Corrige drift se o videoEl desviou mais de 150ms do esperado
+                // Corrige drift se videoEl desviou mais de 80ms do esperado
                 const drift = Math.abs(v.videoEl.currentTime - expectedVidTime);
-                if (drift > 0.15) {
+                if (drift > 0.08) {
                   v.videoEl.currentTime = Math.min(expectedVidTime, v.videoEl.duration || expectedVidTime);
                 }
               }
@@ -6361,7 +6365,7 @@ _setDragging(null);
               v.videoEl.pause();
             }
           }
-        }, 100);
+        }, 50);
       });
 
       // Para os vídeos do export e restaura volume
