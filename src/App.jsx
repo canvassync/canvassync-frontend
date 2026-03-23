@@ -1031,7 +1031,7 @@ function App() {
       { name: "Cocogoose Pro Block Border", file: "Cocogoose Pro Block Border.ttf" },
       { name: "Cocogoose Pro Block Gradient", file: "Cocogoose Pro Block Gradient.ttf" },
       { name: "Cocogoose Pro Block Innerline", file: "Cocogoose Pro Block Innerline.ttf" },
-      { name: "Cocogoose Pro Block Shadow Black", file: "Cocogoose Pro Block Shadow Black.ttf" },
+      { name: "Cocogoose Pro Block Shadow", file: "Cocogoose Pro Block Shadow.ttf" },
       { name: "Cocogoose Pro Inline", file: "Cocogoose Pro Inline.ttf" },
       { name: "Cocogoose Pro Letterpress", file: "Cocogoose Pro Letterpress.ttf" },
       { name: "Cocogoose Pro Light", file: "Cocogoose Pro Light.ttf" },
@@ -2362,11 +2362,45 @@ function App() {
           img.onload = () => setImage(img);
           img.src = p.imageSrc;
         }
-        if (p.projectVolume !== undefined) setVolume(p.projectVolume);
-        if (p.projectSpeed  !== undefined) setSpeed(p.projectSpeed);
-        if (p.screenEffect    !== undefined) setScreenEffect(p.screenEffect);
-        if (p.chromaAberration!== undefined) setChromaAberration(p.chromaAberration);
+        if (p.projectVolume    !== undefined) setVolume(p.projectVolume);
+        if (p.projectSpeed     !== undefined) setSpeed(p.projectSpeed);
+        if (p.screenEffect     !== undefined) setScreenEffect(p.screenEffect);
+        if (p.chromaAberration !== undefined) setChromaAberration(p.chromaAberration);
         if (p.colorCurves      !== undefined) setColorCurves(p.colorCurves);
+        if (p.activeOverlay    !== undefined) setActiveOverlay(p.activeOverlay || null);
+        if (p.overlayOpacity   !== undefined) setOverlayOpacity(p.overlayOpacity ?? 0.85);
+        // Restaura narração
+        if (p.narrBase64) {
+          setNarrBase64(p.narrBase64);
+          setNarrSrc(p.narrBase64);
+          setNarrFile(null);
+          setNarrOffset(p.narrOffset || 0);
+          setNarrTrimStart(p.narrTrimStart || 0);
+          setNarrTrimEnd(p.narrTrimEnd ?? null);
+          narrOffsetRef.current = p.narrOffset || 0;
+          narrTrimStartRef.current = p.narrTrimStart || 0;
+          // Decodifica waveform da narração
+          try {
+            const b64n = p.narrBase64.split(',')[1];
+            const binn = atob(b64n);
+            const byn = new Uint8Array(binn.length);
+            for (let i = 0; i < binn.length; i++) byn[i] = binn.charCodeAt(i);
+            const acN = new (window.AudioContext || window.webkitAudioContext)();
+            acN.decodeAudioData(byn.buffer).then(decoded => {
+              const raw = decoded.getChannelData(0);
+              const buckets = 300;
+              const step = Math.floor(raw.length / buckets);
+              const peaks = [];
+              for (let i = 0; i < buckets; i++) {
+                let max = 0;
+                for (let j = 0; j < step; j++) max = Math.max(max, Math.abs(raw[i * step + j] || 0));
+                peaks.push(max);
+              }
+              setNarrWaveformPeaks(peaks);
+              acN.close();
+            }).catch(() => {});
+          } catch { void 0; }
+        }
         if (p.audioBase64) {
           setAudioBase64(p.audioBase64);
           setAudioMimeType(p.audioMimeType || 'audio/mpeg');
@@ -2735,6 +2769,15 @@ function App() {
     setScreenEffect('none');
     setChromaAberration(0);
     setColorCurves({r:1,g:1,b:1,midtone:1,shadows:0,highlights:0});
+    setActiveOverlay(null);
+    setOverlayOpacity(0.85);
+    setSoundEffects([]);
+    // Limpa narração
+    if (narrRef.current) { narrRef.current.pause(); narrRef.current.currentTime = 0; }
+    setNarrSrc(null); setNarrFile(null); setNarrBase64(null);
+    setNarrDuration(0); setNarrOffset(0); setNarrTrimStart(0); setNarrTrimEnd(null);
+    setNarrWaveformPeaks([]);
+    narrOffsetRef.current = 0; narrTrimStartRef.current = 0;
     setAudioMimeType(null);
     setWaveformPeaks([]);
     setDuration(0);
@@ -5915,9 +5958,15 @@ _setDragging(null);
     audioMimeType: audioMimeType || null,
     projectVolume: projectVolume ?? 1,
     projectSpeed:  projectSpeed  ?? 1,
-    screenEffect:  screenEffect  || 'none',
+    screenEffect:     screenEffect  || 'none',
     chromaAberration: chromaAberration || 0,
-    colorCurves: colorCurves || {r:1,g:1,b:1,midtone:1,shadows:0,highlights:0},
+    colorCurves:      colorCurves || {r:1,g:1,b:1,midtone:1,shadows:0,highlights:0},
+    activeOverlay:    activeOverlay || null,
+    overlayOpacity:   overlayOpacity ?? 0.85,
+    narrBase64:       narrBase64 || null,
+    narrOffset:       narrOffset || 0,
+    narrTrimStart:    narrTrimStart || 0,
+    narrTrimEnd:      narrTrimEnd ?? null,
   });
 
   const exportProject = async () => {
@@ -6059,11 +6108,45 @@ _setDragging(null);
         }
 
         // Restaura áudio do projeto
-        if (p.projectVolume !== undefined) setVolume(p.projectVolume);
-        if (p.projectSpeed  !== undefined) setSpeed(p.projectSpeed);
-        if (p.screenEffect    !== undefined) setScreenEffect(p.screenEffect);
-        if (p.chromaAberration!== undefined) setChromaAberration(p.chromaAberration);
+        if (p.projectVolume    !== undefined) setVolume(p.projectVolume);
+        if (p.projectSpeed     !== undefined) setSpeed(p.projectSpeed);
+        if (p.screenEffect     !== undefined) setScreenEffect(p.screenEffect);
+        if (p.chromaAberration !== undefined) setChromaAberration(p.chromaAberration);
         if (p.colorCurves      !== undefined) setColorCurves(p.colorCurves);
+        if (p.activeOverlay    !== undefined) setActiveOverlay(p.activeOverlay || null);
+        if (p.overlayOpacity   !== undefined) setOverlayOpacity(p.overlayOpacity ?? 0.85);
+        // Restaura narração
+        if (p.narrBase64) {
+          setNarrBase64(p.narrBase64);
+          setNarrSrc(p.narrBase64);
+          setNarrFile(null);
+          setNarrOffset(p.narrOffset || 0);
+          setNarrTrimStart(p.narrTrimStart || 0);
+          setNarrTrimEnd(p.narrTrimEnd ?? null);
+          narrOffsetRef.current = p.narrOffset || 0;
+          narrTrimStartRef.current = p.narrTrimStart || 0;
+          // Decodifica waveform da narração
+          try {
+            const b64n = p.narrBase64.split(',')[1];
+            const binn = atob(b64n);
+            const byn = new Uint8Array(binn.length);
+            for (let i = 0; i < binn.length; i++) byn[i] = binn.charCodeAt(i);
+            const acN = new (window.AudioContext || window.webkitAudioContext)();
+            acN.decodeAudioData(byn.buffer).then(decoded => {
+              const raw = decoded.getChannelData(0);
+              const buckets = 300;
+              const step = Math.floor(raw.length / buckets);
+              const peaks = [];
+              for (let i = 0; i < buckets; i++) {
+                let max = 0;
+                for (let j = 0; j < step; j++) max = Math.max(max, Math.abs(raw[i * step + j] || 0));
+                peaks.push(max);
+              }
+              setNarrWaveformPeaks(peaks);
+              acN.close();
+            }).catch(() => {});
+          } catch { void 0; }
+        }
         if (p.audioBase64) {
           setAudioBase64(p.audioBase64);
           setAudioMimeType(p.audioMimeType || 'audio/mpeg');
