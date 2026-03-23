@@ -7,44 +7,60 @@ import { useLanguage, LangToggle } from './hooks/useLanguage.jsx';
 function SupportChat({ chatTopic, setChatTopic, setChatOpen }) {
   const faqs = [
     {
-      q: '🎵 Como sincronizar a letra?',
-      a: 'Cole a letra no painel esquerdo (uma frase por linha) e clique em ▶ Play. No ritmo de cada frase, pressione ⚡ MARCAR AGORA. A frase entra na timeline. Você pode arrastar ou redimensionar cada bloco depois.',
+      q: '🎵 Como sincronizar a letra manualmente?',
+      a: 'Cole a letra no painel esquerdo (uma frase por linha). Clique em ▶ Play e, no ritmo de cada frase, pressione ⚡ MARCAR AGORA. A frase entra na timeline. Arraste ou redimensione os blocos para ajustar.',
+    },
+    {
+      q: '🤖 Como sincronizar a letra com IA?',
+      a: 'Cole a letra no painel esquerdo e carregue a música. No painel da letra clique em "🤖 Sincronizar Letra com IA". Insira sua API key gratuita do Groq (console.groq.com). Clique em Sincronizar — a IA analisa o áudio e posiciona cada frase automaticamente.',
+    },
+    {
+      q: '🎙️ Como gerar narração com IA?',
+      a: 'Vá em Mídias → 🎙️ Narração (TTS). Insira sua API key gratuita do ElevenLabs (elevenlabs.io → Desenvolvedores → Chaves de API). Escolha a voz, digite o texto e clique em "🎙️ Gerar e Adicionar à Timeline". O áudio entra direto na faixa de áudio.',
     },
     {
       q: '🖼️ Como adicionar e editar imagens?',
-      a: 'Clique em "Imagens" no header para fazer upload. A imagem aparece no canvas — clique para selecionar, arraste para mover e use as alças dos cantos para redimensionar. No painel lateral: Rotação e Filtros (Brilho, Contraste, Neon, P&B…).',
+      a: 'Clique em Mídias → 🖼️ Fundo para o plano de fundo, ou 🏞️ Imagens overlay para imagens sobrepostas. No canvas: clique para selecionar, arraste para mover, alças nos cantos para redimensionar. Painel lateral: Rotação, Filtros e Transições.',
     },
     {
       q: '🎬 Como adicionar e editar vídeos?',
-      a: 'Clique em "Vídeos" no header e escolha o arquivo. O vídeo entra no canvas e na timeline. Clique para selecionar → arraste para mover → alças para redimensionar. No painel lateral: Rotação, Filtros e Transições. Na timeline arraste as bordas para cortar.',
+      a: 'Clique em Mídias → 🎬 Vídeo. O vídeo entra no canvas e na timeline. Clique para selecionar → arraste para mover → alças para redimensionar. Painel lateral: Rotação, Filtros e Transições. Na timeline arraste as bordas para cortar.',
     },
     {
-      q: '🎨 Como usar Filtros e Transições?',
-      a: 'Selecione uma imagem ou vídeo no canvas. No painel lateral surgem 10 presets de filtro (Cinema, Neon, Vintage…) e 8 sliders finos. Abaixo ficam as Transições — escolha Entrada e Saída independentes (Fade, Zoom, Bounce, Elástico…) e ajuste a duração.',
+      q: '🎵 Como adicionar música ou áudio?',
+      a: 'Clique em Mídias → 🎵 Música / Áudio para importar seu arquivo, ou Mídias → 🎼 Trilhas para escolher entre as 170+ trilhas gratuitas. O áudio aparece na timeline com controles de corte e volume.',
     },
     {
-      q: '✨ Como usar Templates?',
-      a: 'Clique em 🎨 Templates no header. Filtre por formato (9:16, 16:9, 1:1, 4:3) e clique em "Usar template". Fontes, cores, textos e layout são aplicados automaticamente — suas mídias (fundo, áudio, vídeos) não são alteradas.',
-    },
-    {
-      q: '🔊 Como adicionar Efeitos Sonoros?',
-      a: 'Clique em 🔊 Efeitos no header. Pause o vídeo na posição desejada e clique num dos 24 efeitos. Ele aparece na lista "Colocados no Vídeo" com slider de volume. Os efeitos são incluídos no export final.',
-    },
-    {
-      q: '✨ Como usar Stickers e Emojis?',
-      a: 'Clique em ✨ Stickers no header. Aba Emojis: 120 opções. Aba Animados: 32 stickers (bounce, pulse, spin…). Clique no sticker no canvas para selecionar — barra de tamanho aparece na base. Arraste para mover, botão direito para remover.',
-    },
-    {
-      q: '💾 Como exportar o vídeo?',
-      a: 'Escolha o formato: WEBM + Áudio (recomendado), MP4 + Áudio, HD 1080p WEBM ou HD 1080p MP4. Clique em 💾 Salvar Vídeo. A barra de progresso mostra o andamento — não feche a aba. O arquivo é baixado automaticamente.',
+      q: '🎞️ Como usar Overlays de Cinema?',
+      a: 'No painel esquerdo, vá na aba Efeitos → seção "🎞️ Texturas & Overlays". Escolha entre os 37 overlays (fogo, partículas, glitter, neve…). Use o slider de opacidade para ajustar a intensidade.',
     },
     {
       q: '✏️ Como adicionar Textos Extras?',
-      a: 'No painel lateral em "✏️ TEXTOS EXTRAS", digite e clique +. Escolha cor, fonte e tamanho. Ative Sombra ou Gradiente para efeitos. No canvas: arraste para mover, círculo roxo para girar, botão direito para remover.',
+      a: 'No painel lateral em "✏️ TEXTOS EXTRAS", digite o texto e clique +. Escolha cor, fonte, tamanho e estilo (Negrito, Itálico, Sublinhado, Riscado). Ative Sombra ou Gradiente. No canvas: arraste para mover, círculo roxo para girar, botão direito para remover.',
+    },
+    {
+      q: '🎨 Como usar Filtros e Transições?',
+      a: 'Selecione uma imagem ou vídeo no canvas. No painel lateral surgem os presets de filtro (Cinema, Neon, Vintage…) e sliders de ajuste. Abaixo ficam as Transições — escolha Entrada e Saída independentes (Fade, Zoom, Bounce…) e ajuste a duração.',
+    },
+    {
+      q: '✨ Como usar Templates?',
+      a: 'Clique em 🎨 Templates no header. Filtre por formato (9:16, 16:9, 1:1, 4:3) e clique em "Usar template". Fontes, cores e layout são aplicados automaticamente — suas mídias não são alteradas.',
+    },
+    {
+      q: '🔊 Como adicionar Efeitos Sonoros?',
+      a: 'Clique em 🔊 SFX no header. Pause no ponto desejado e clique em um dos efeitos. Ele aparece na lista com slider de volume. Os efeitos são incluídos no export final.',
+    },
+    {
+      q: '✨ Como usar Stickers e Emojis?',
+      a: 'Clique em ✨ Stickers no header. Aba Emojis: diversas opções. Aba Animados: stickers com animações (bounce, pulse, spin…). Arraste para mover, botão direito para remover.',
+    },
+    {
+      q: '💾 Como exportar o vídeo?',
+      a: 'Clique em 💾 Exportar no header. Escolha o formato (MP4 HD+ recomendado). Clique em ⬇ Salvar Vídeo. A barra de progresso mostra o andamento — não feche a aba. O arquivo é baixado automaticamente.',
     },
     {
       q: '📦 Como salvar e carregar o projeto?',
-      a: 'Use 📦 Exportar Projeto para salvar um JSON com todo o estado (mídias, letras, stickers, efeitos). Use 📂 Importar Projeto para recarregar. O projeto também é auto-salvo no navegador a cada 500ms.',
+      a: 'Clique em 📦 Projeto → Exportar Projeto para salvar um JSON com todo o estado. Use Importar Projeto para recarregar. O projeto é auto-salvo no navegador automaticamente.',
     },
   ];
 
@@ -174,510 +190,160 @@ const ANIMATED_STICKERS = [
   { key:'flex',      emoji:'💪', anim:'pulse',  label:'Força'     },
 ];
 
-const SFX_LIST = [
-  // ── Reações / Público ─────────────────────────────────────────────────────
-  { key:'applause',  emoji:'👏', name:'Aplausos',     dur:2.5 },
-  { key:'crowd',     emoji:'🎉', name:'Multidão',     dur:2.5 },
-  { key:'laugh',     emoji:'😂', name:'Risadas',      dur:2.2 },
-  { key:'boo',       emoji:'👎', name:'Vaias',        dur:1.8 },
-  { key:'gasp',      emoji:'😱', name:'Suspiro',      dur:0.8 },
-  { key:'woah',      emoji:'😮', name:'Woah',         dur:0.9 },
-  // ── Música / Ritmo ────────────────────────────────────────────────────────
-  { key:'kick',      emoji:'🥁', name:'Bumbo',        dur:0.6 },
-  { key:'drums',     emoji:'🎵', name:'Bateria',      dur:1.6 },
-  { key:'snare',     emoji:'🪘', name:'Caixa',        dur:0.4 },
-  { key:'hihat',     emoji:'🎶', name:'Hi-Hat',       dur:0.3 },
-  { key:'bass',      emoji:'🎸', name:'Baixo',        dur:1.0 },
-  { key:'fanfare',   emoji:'🎺', name:'Fanfarra',     dur:2.2 },
-  { key:'horn',      emoji:'📯', name:'Buzina',       dur:1.0 },
-  { key:'vinyl',     emoji:'💿', name:'Vinil',        dur:1.2 },
-  // ── Ações / Impacto ───────────────────────────────────────────────────────
-  { key:'explosion', emoji:'💥', name:'Explosão',     dur:2.0 },
-  { key:'punch',     emoji:'👊', name:'Soco',         dur:0.4 },
-  { key:'whoosh',    emoji:'💨', name:'Whoosh',       dur:0.8 },
-  { key:'swoosh',    emoji:'⚡', name:'Swoosh',       dur:0.4 },
-  { key:'thunder',   emoji:'⛈️', name:'Trovão',      dur:3.0 },
-  { key:'gunshot',   emoji:'🔫', name:'Tiro',         dur:0.5 },
-  { key:'glass_break',emoji:'🔨',name:'Vidro',        dur:1.0 },
-  { key:'thud',      emoji:'🪨', name:'Impacto',      dur:0.5 },
-  // ── Interface / Feedback ──────────────────────────────────────────────────
-  { key:'success',   emoji:'✅', name:'Sucesso',      dur:1.0 },
-  { key:'error',     emoji:'❌', name:'Erro',         dur:0.6 },
-  { key:'notify',    emoji:'🔕', name:'Notificação',  dur:0.5 },
-  { key:'bell',      emoji:'🔔', name:'Sino',         dur:1.8 },
-  { key:'coin',      emoji:'🪙', name:'Moeda',        dur:0.6 },
-  { key:'powerup',   emoji:'🎮', name:'Power Up',     dur:1.2 },
-  { key:'levelup',   emoji:'⬆️', name:'Level Up',    dur:1.5 },
-  { key:'pop',       emoji:'🎈', name:'Pop',          dur:0.3 },
-  { key:'click',     emoji:'🖱️', name:'Click',       dur:0.15 },
-  { key:'swipe',     emoji:'👆', name:'Swipe',        dur:0.3 },
-  // ── Natureza / Ambiente ───────────────────────────────────────────────────
-  { key:'drop',      emoji:'💧', name:'Gota',         dur:0.6 },
-  { key:'rain',      emoji:'🌧️', name:'Chuva',       dur:2.0 },
-  { key:'wind',      emoji:'🌬️', name:'Vento',       dur:2.0 },
-  { key:'fire',      emoji:'🔥', name:'Fogo',         dur:2.0 },
-  { key:'ocean',     emoji:'🌊', name:'Oceano',       dur:3.0 },
-  // ── Especiais ─────────────────────────────────────────────────────────────
-  { key:'laser',     emoji:'🔆', name:'Laser',        dur:0.7 },
-  { key:'glitch',    emoji:'📺', name:'Glitch',       dur:0.6 },
-  { key:'rewind',    emoji:'⏪', name:'Rebobinar',    dur:0.8 },
-  { key:'heartbeat', emoji:'💓', name:'Coração',      dur:1.2 },
-  { key:'glass',     emoji:'🥂', name:'Brinde',       dur:2.0 },
-  { key:'cash',      emoji:'💰', name:'Dinheiro',     dur:1.0 },
-];
-
-const synthesizeSfxBuffer = async (key) => {
-  const SR = 44100;
-  const dur = (SFX_LIST.find(s => s.key === key) || {dur:1}).dur;
-  const len = Math.ceil(SR * dur);
-  const ctx = new OfflineAudioContext(2, len, SR);
-  const dest = ctx.destination;
-
-  const osc = (type, freq, gainVal, startT, stopT, freqEnd) => {
-    const o = ctx.createOscillator();
-    const g = ctx.createGain();
-    o.type = type;
-    o.frequency.setValueAtTime(freq, startT);
-    if (freqEnd !== undefined) o.frequency.exponentialRampToValueAtTime(Math.max(1, freqEnd), stopT);
-    g.gain.setValueAtTime(gainVal, startT);
-    o.connect(g); g.connect(dest);
-    o.start(startT); o.stop(stopT);
-    return g;
-  };
-  const env = (gainNode, a, d, s, r, startT) => {
-    const g = gainNode.gain;
-    g.setValueAtTime(0, startT);
-    g.linearRampToValueAtTime(1, startT + a);
-    g.linearRampToValueAtTime(s, startT + a + d);
-    g.setValueAtTime(s, startT + a + d);
-    g.linearRampToValueAtTime(0, startT + a + d + r);
-  };
-  const noise = (gainVal, startT, stopT, filterType, filterFreq) => {
-    const bufLen = Math.ceil(SR * (stopT - startT));
-    const nb = ctx.createBuffer(1, bufLen, SR);
-    const nd = nb.getChannelData(0);
-    for (let i = 0; i < bufLen; i++) nd[i] = Math.random() * 2 - 1;
-    const src = ctx.createBufferSource();
-    src.buffer = nb;
-    const g = ctx.createGain(); g.gain.value = gainVal;
-    if (filterType) {
-      const f = ctx.createBiquadFilter();
-      f.type = filterType; f.frequency.value = filterFreq || 1000;
-      src.connect(f); f.connect(g);
-    } else { src.connect(g); }
-    g.connect(dest);
-    src.start(startT); src.stop(stopT);
-    return g;
-  };
-
-  switch (key) {
-    case 'applause': {
-      const g = noise(0, 0, dur, 'bandpass', 2200);
-      g.gain.setValueAtTime(0, 0);
-      g.gain.linearRampToValueAtTime(0.5, 0.4);
-      g.gain.setValueAtTime(0.5, dur - 0.6);
-      g.gain.linearRampToValueAtTime(0, dur);
-      noise(0.15, 0, dur, 'highpass', 4000);
-      break;
-    }
-    case 'explosion': {
-      const g = noise(0, 0, dur, 'lowpass', 300);
-      g.gain.setValueAtTime(0.8, 0);
-      g.gain.exponentialRampToValueAtTime(0.01, dur);
-      const g2 = noise(0, 0, 0.2, null, 0);
-      g2.gain.setValueAtTime(0.6, 0);
-      g2.gain.exponentialRampToValueAtTime(0.01, 0.2);
-      const og = osc('sine', 80, 0.6, 0, 0.3, 30);
-      og.gain.exponentialRampToValueAtTime(0.01, 0.3);
-      break;
-    }
-    case 'whoosh': {
-      const g = noise(0.5, 0, dur, 'bandpass', 3000);
-      g.gain.setValueAtTime(0, 0);
-      g.gain.linearRampToValueAtTime(0.6, dur * 0.3);
-      g.gain.linearRampToValueAtTime(0, dur);
-      break;
-    }
-    case 'bell': {
-      const freqs = [880, 1320, 2200, 3520];
-      const vols  = [0.5, 0.25, 0.12, 0.06];
-      freqs.forEach((f, i) => {
-        const g = osc('sine', f, vols[i], 0, dur);
-        g.gain.setValueAtTime(vols[i], 0);
-        g.gain.exponentialRampToValueAtTime(0.001, dur);
-      });
-      break;
-    }
-    case 'kick': {
-      const og = osc('sine', 150, 0.8, 0, 0.5, 40);
-      og.gain.setValueAtTime(0.8, 0);
-      og.gain.exponentialRampToValueAtTime(0.01, 0.4);
-      const ng = noise(0, 0, 0.06, 'highpass', 3000);
-      ng.gain.setValueAtTime(0.4, 0);
-      ng.gain.exponentialRampToValueAtTime(0.01, 0.06);
-      break;
-    }
-    case 'fanfare': {
-      const notes = [[523,0],[659,0.3],[784,0.6],[1047,0.9]];
-      notes.forEach(([f,t]) => {
-        const g = osc('sawtooth', f, 0.15, t, t+0.6);
-        g.gain.setValueAtTime(0, t);
-        g.gain.linearRampToValueAtTime(0.2, t+0.05);
-        g.gain.setValueAtTime(0.2, t+0.4);
-        g.gain.linearRampToValueAtTime(0, t+0.6);
-      });
-      // final chord
-      [523,659,784].forEach(f => {
-        const g = osc('sawtooth', f, 0.12, 1.2, dur);
-        g.gain.setValueAtTime(0.12, 1.2);
-        g.gain.linearRampToValueAtTime(0, dur);
-      });
-      break;
-    }
-    case 'laser': {
-      const g = osc('sawtooth', 1200, 0.4, 0, dur, 150);
-      g.gain.setValueAtTime(0.4, 0);
-      g.gain.exponentialRampToValueAtTime(0.01, dur);
-      break;
-    }
-    case 'success': {
-      [[523,0],[659,0.15],[784,0.3],[1047,0.45]].forEach(([f,t]) => {
-        const g = osc('sine', f, 0.4, t, t+0.35);
-        g.gain.setValueAtTime(0.4, t);
-        g.gain.linearRampToValueAtTime(0, t+0.35);
-      });
-      break;
-    }
-    case 'error': {
-      [[440,0],[330,0.2]].forEach(([f,t]) => {
-        const g = osc('sawtooth', f, 0.35, t, t+0.25);
-        g.gain.setValueAtTime(0.35, t);
-        g.gain.linearRampToValueAtTime(0, t+0.25);
-        noise(0.05, t, t+0.25, 'highpass', 2000);
-      });
-      break;
-    }
-    case 'notify': {
-      [[880,0],[1047,0.18]].forEach(([f,t]) => {
-        const g = osc('sine', f, 0.4, t, t+0.15);
-        g.gain.setValueAtTime(0.4, t);
-        g.gain.linearRampToValueAtTime(0, t+0.15);
-      });
-      break;
-    }
-    case 'coin': {
-      [[1200,0],[1400,0.08],[1600,0.16]].forEach(([f,t]) => {
-        const g = osc('sine', f, 0.35, t, t+0.2);
-        g.gain.setValueAtTime(0.35, t);
-        g.gain.exponentialRampToValueAtTime(0.001, t+0.2);
-      });
-      break;
-    }
-    case 'punch': {
-      const og = osc('sine', 120, 0.6, 0, 0.3, 40);
-      og.gain.setValueAtTime(0.6, 0);
-      og.gain.exponentialRampToValueAtTime(0.01, 0.3);
-      const ng = noise(0, 0, 0.08, 'lowpass', 500);
-      ng.gain.setValueAtTime(0.5, 0);
-      ng.gain.exponentialRampToValueAtTime(0.01, 0.08);
-      break;
-    }
-    case 'glass': {
-      [2093,2637,3136].forEach((f,i) => {
-        const g = osc('sine', f, 0.2-i*0.05, 0, dur);
-        g.gain.setValueAtTime(0.2-i*0.05, 0.005);
-        g.gain.exponentialRampToValueAtTime(0.001, dur);
-      });
-      noise(0.08, 0, 0.05, 'highpass', 5000);
-      break;
-    }
-    case 'powerup': {
-      const g = osc('square', 220, 0.2, 0, 0.8, 880);
-      g.gain.setValueAtTime(0.2, 0);
-      g.gain.setValueAtTime(0.2, 0.7);
-      g.gain.linearRampToValueAtTime(0, 0.8);
-      [[880,0.8],[1047,0.9],[1319,1.0]].forEach(([f,t]) => {
-        const g2 = osc('square', f, 0.25, t, t+0.2);
-        g2.gain.setValueAtTime(0.25, t);
-        g2.gain.linearRampToValueAtTime(0, t+0.2);
-      });
-      break;
-    }
-    case 'pop': {
-      const og = osc('sine', 800, 0.6, 0, 0.15, 80);
-      og.gain.setValueAtTime(0.6, 0);
-      og.gain.exponentialRampToValueAtTime(0.01, 0.15);
-      noise(0.3, 0, 0.04, null, 0);
-      break;
-    }
-    case 'thunder': {
-      const g1 = noise(0, 0, dur, 'lowpass', 200);
-      g1.gain.setValueAtTime(0.01, 0);
-      g1.gain.linearRampToValueAtTime(0.9, 0.05);
-      g1.gain.exponentialRampToValueAtTime(0.1, 1.5);
-      g1.gain.linearRampToValueAtTime(0, dur);
-      noise(0.4, 0, 0.1, 'highpass', 2000);
-      osc('sine', 60, 0.3, 0, 0.8, 30);
-      break;
-    }
-    case 'heartbeat': {
-      const beat = (t) => {
-        const og = osc('sine', 100, 0.5, t, t+0.12, 40);
-        og.gain.setValueAtTime(0.5, t);
-        og.gain.exponentialRampToValueAtTime(0.01, t+0.12);
-        const og2 = osc('sine', 80, 0.3, t+0.14, t+0.24, 35);
-        og2.gain.setValueAtTime(0.3, t+0.14);
-        og2.gain.exponentialRampToValueAtTime(0.01, t+0.24);
-      };
-      beat(0); beat(0.6);
-      break;
-    }
-    case 'swoosh': {
-      const g = noise(0, 0, dur, 'bandpass', 5000);
-      g.gain.setValueAtTime(0, 0);
-      g.gain.linearRampToValueAtTime(0.7, dur * 0.2);
-      g.gain.linearRampToValueAtTime(0, dur);
-      break;
-    }
-    case 'horn': {
-      const g = osc('sawtooth', 220, 0, 0, dur);
-      g.gain.setValueAtTime(0, 0);
-      g.gain.linearRampToValueAtTime(0.4, 0.1);
-      g.gain.setValueAtTime(0.4, dur-0.2);
-      g.gain.linearRampToValueAtTime(0, dur);
-      osc('sawtooth', 330, 0.15, 0, dur);
-      break;
-    }
-    case 'crowd': {
-      const g = noise(0, 0, dur, 'bandpass', 1800);
-      g.gain.setValueAtTime(0.2, 0);
-      g.gain.linearRampToValueAtTime(0.55, 0.5);
-      g.gain.setValueAtTime(0.55, dur-0.5);
-      g.gain.linearRampToValueAtTime(0.1, dur);
-      noise(0.1, 0, dur, 'highpass', 3500);
-      break;
-    }
-    case 'drop': {
-      const g = osc('sine', 880, 0.5, 0, dur, 110);
-      g.gain.setValueAtTime(0.5, 0);
-      g.gain.exponentialRampToValueAtTime(0.001, dur);
-      break;
-    }
-    case 'drums': {
-      // kick at 0, 0.4, 0.8; snare at 0.2, 0.6, 1.0, 1.4
-      [0, 0.4, 0.8, 1.2].forEach(t => {
-        const og = osc('sine', 150, 0.7, t, t+0.3, 40);
-        og.gain.setValueAtTime(0.7, t);
-        og.gain.exponentialRampToValueAtTime(0.01, t+0.25);
-      });
-      [0.2, 0.6, 1.0, 1.4].forEach(t => {
-        const ng = noise(0, t, t+0.15, 'bandpass', 3000);
-        ng.gain.setValueAtTime(0.4, t);
-        ng.gain.exponentialRampToValueAtTime(0.01, t+0.15);
-      });
-      break;
-    }
-    case 'woah': {
-      const g = osc('sine', 200, 0.4, 0, dur, 800);
-      g.gain.setValueAtTime(0, 0);
-      g.gain.linearRampToValueAtTime(0.4, 0.05);
-      g.gain.setValueAtTime(0.4, dur-0.1);
-      g.gain.linearRampToValueAtTime(0, dur);
-      break;
-    }
-    case 'cash': {
-      [[800,0],[1000,0.1],[1200,0.2],[1600,0.35],[2000,0.5]].forEach(([f,t]) => {
-        const g = osc('triangle', f, 0.3, t, t+0.15);
-        g.gain.setValueAtTime(0.3, t);
-        g.gain.exponentialRampToValueAtTime(0.001, t+0.15);
-      });
-      noise(0.1, 0, 0.05, 'highpass', 5000);
-      break;
-    }
-    // ── Novos sons ────────────────────────────────────────────────────────────
-    case 'laugh': {
-      // Risadas: modulação de frequência em grupos de 3
-      for (let i = 0; i < 6; i++) {
-        const t0 = i * 0.35; const f = 300 + Math.random() * 200;
-        const g = noise(0, t0, t0 + 0.25, 'bandpass', f);
-        g.gain.setValueAtTime(0, t0);
-        g.gain.linearRampToValueAtTime(0.4, t0 + 0.06);
-        g.gain.linearRampToValueAtTime(0, t0 + 0.25);
-      }
-      break;
-    }
-    case 'boo': {
-      const g = noise(0, 0, dur, 'bandpass', 800);
-      g.gain.setValueAtTime(0, 0);
-      g.gain.linearRampToValueAtTime(0.5, 0.3);
-      g.gain.setValueAtTime(0.5, dur - 0.4);
-      g.gain.linearRampToValueAtTime(0, dur);
-      const og = osc('sawtooth', 180, 0.15, 0, dur);
-      og.gain.setValueAtTime(0.15, 0);
-      og.gain.linearRampToValueAtTime(0, dur);
-      break;
-    }
-    case 'gasp': {
-      const g = noise(0, 0, 0.4, 'highpass', 1200);
-      g.gain.setValueAtTime(0, 0);
-      g.gain.linearRampToValueAtTime(0.5, 0.1);
-      g.gain.linearRampToValueAtTime(0, 0.4);
-      osc('sine', 600, 0.2, 0.1, 0.4, 400);
-      break;
-    }
-    case 'snare': {
-      const ng = noise(0, 0, 0.2, 'bandpass', 3000);
-      ng.gain.setValueAtTime(0.6, 0); ng.gain.exponentialRampToValueAtTime(0.001, 0.2);
-      const og = osc('sine', 200, 0.4, 0, 0.1, 60);
-      og.gain.setValueAtTime(0.4, 0); og.gain.exponentialRampToValueAtTime(0.001, 0.1);
-      break;
-    }
-    case 'hihat': {
-      const ng = noise(0, 0, 0.08, 'highpass', 8000);
-      ng.gain.setValueAtTime(0.5, 0); ng.gain.exponentialRampToValueAtTime(0.001, 0.08);
-      break;
-    }
-    case 'bass': {
-      const og = osc('sine', 60, 0.7, 0, dur, 40);
-      og.gain.setValueAtTime(0, 0);
-      og.gain.linearRampToValueAtTime(0.7, 0.02);
-      og.gain.setValueAtTime(0.7, 0.4);
-      og.gain.linearRampToValueAtTime(0, dur);
-      osc('sawtooth', 60, 0.1, 0, 0.05);
-      break;
-    }
-    case 'vinyl': {
-      // Crackle de vinil
-      noise(0.15, 0, dur, 'highpass', 3000);
-      for (let i = 0; i < 8; i++) {
-        const t0 = i * dur / 8;
-        const ng = noise(0, t0, t0 + 0.05, 'bandpass', 2000 + Math.random() * 3000);
-        ng.gain.setValueAtTime(0.3 * Math.random(), t0);
-        ng.gain.exponentialRampToValueAtTime(0.001, t0 + 0.05);
-      }
-      break;
-    }
-    case 'gunshot': {
-      const ng = noise(0, 0, 0.3, 'lowpass', 400);
-      ng.gain.setValueAtTime(0.9, 0); ng.gain.exponentialRampToValueAtTime(0.001, 0.3);
-      noise(0.4, 0, 0.08, null, 0);
-      osc('sine', 100, 0.5, 0, 0.15, 30);
-      break;
-    }
-    case 'glass_break': {
-      noise(0.5, 0, 0.1, null, 0);
-      for (let i = 0; i < 5; i++) {
-        const t0 = 0.05 + i * 0.15; const f = 2000 + Math.random() * 4000;
-        const ng = noise(0, t0, t0 + 0.2, 'highpass', f);
-        ng.gain.setValueAtTime(0.3, t0); ng.gain.exponentialRampToValueAtTime(0.001, t0 + 0.2);
-      }
-      break;
-    }
-    case 'thud': {
-      const og = osc('sine', 100, 0.7, 0, 0.4, 30);
-      og.gain.setValueAtTime(0.7, 0); og.gain.exponentialRampToValueAtTime(0.001, 0.4);
-      noise(0.3, 0, 0.08, 'lowpass', 300);
-      break;
-    }
-    case 'levelup': {
-      [[261,0],[329,0.2],[392,0.4],[523,0.6],[659,0.8],[784,1.0]].forEach(([f,t]) => {
-        const g = osc('square', f, 0.2, t, t + 0.25);
-        g.gain.setValueAtTime(0.2, t); g.gain.linearRampToValueAtTime(0, t + 0.25);
-      });
-      break;
-    }
-    case 'click': {
-      const og = osc('sine', 1200, 0.5, 0, 0.05);
-      og.gain.setValueAtTime(0.5, 0); og.gain.exponentialRampToValueAtTime(0.001, 0.05);
-      break;
-    }
-    case 'swipe': {
-      const g = noise(0.4, 0, 0.2, 'bandpass', 2000);
-      g.gain.setValueAtTime(0, 0);
-      g.gain.linearRampToValueAtTime(0.4, 0.05);
-      g.gain.linearRampToValueAtTime(0, 0.2);
-      const og = osc('sine', 800, 0.2, 0, 0.2, 1600);
-      og.gain.setValueAtTime(0.2, 0); og.gain.linearRampToValueAtTime(0, 0.2);
-      break;
-    }
-    case 'rain': {
-      noise(0.25, 0, dur, 'highpass', 4000);
-      noise(0.1, 0, dur, 'bandpass', 1500);
-      for (let i = 0; i < 12; i++) {
-        const t0 = Math.random() * dur;
-        const ng = noise(0, t0, t0 + 0.04, 'highpass', 5000 + Math.random() * 3000);
-        ng.gain.setValueAtTime(0.15, t0); ng.gain.exponentialRampToValueAtTime(0.001, t0 + 0.04);
-      }
-      break;
-    }
-    case 'wind': {
-      const g = noise(0.3, 0, dur, 'bandpass', 600);
-      g.gain.setValueAtTime(0.1, 0);
-      g.gain.linearRampToValueAtTime(0.4, dur * 0.3);
-      g.gain.linearRampToValueAtTime(0.2, dur * 0.7);
-      g.gain.linearRampToValueAtTime(0.1, dur);
-      noise(0.1, 0, dur, 'highpass', 2000);
-      break;
-    }
-    case 'fire': {
-      noise(0.25, 0, dur, 'bandpass', 800);
-      noise(0.1, 0, dur, 'bandpass', 300);
-      for (let i = 0; i < 10; i++) {
-        const t0 = Math.random() * dur;
-        const ng = noise(0, t0, t0 + 0.1, 'bandpass', 1000 + Math.random() * 1000);
-        ng.gain.setValueAtTime(0.2, t0); ng.gain.exponentialRampToValueAtTime(0.001, t0 + 0.1);
-      }
-      break;
-    }
-    case 'ocean': {
-      const g = noise(0.3, 0, dur, 'bandpass', 400);
-      // Onda lenta
-      for (let i = 0; i < 3; i++) {
-        const t0 = i * (dur / 3);
-        g.gain.setValueAtTime(0.15, t0);
-        g.gain.linearRampToValueAtTime(0.35, t0 + dur/6);
-        g.gain.linearRampToValueAtTime(0.15, t0 + dur/3);
-      }
-      noise(0.1, 0, dur, 'highpass', 2000);
-      break;
-    }
-    case 'glitch': {
-      for (let i = 0; i < 8; i++) {
-        const t0 = i * 0.07; const f = 200 + Math.random() * 2000;
-        const g = osc(i%2===0?'square':'sawtooth', f, 0.3, t0, t0 + 0.05);
-        g.gain.setValueAtTime(0.3, t0); g.gain.exponentialRampToValueAtTime(0.001, t0+0.05);
-      }
-      noise(0.2, 0, 0.1, 'highpass', 3000);
-      break;
-    }
-    case 'rewind': {
-      const g = noise(0.3, 0, 0.6, 'bandpass', 2000);
-      g.gain.setValueAtTime(0, 0);
-      g.gain.linearRampToValueAtTime(0.4, 0.1);
-      g.gain.setValueAtTime(0.4, 0.5);
-      g.gain.linearRampToValueAtTime(0, 0.6);
-      const og = osc('sawtooth', 1200, 0.15, 0, 0.6, 200);
-      og.gain.setValueAtTime(0.15, 0); og.gain.linearRampToValueAtTime(0, 0.6);
-      break;
-    }
-  }
-
-  try { return await ctx.startRendering(); }
-  catch(e) { console.error('[SFX synth]', key, e); return null; }
-};
-
 const getStickerAnimTransform = (anim, t, size) => {
   switch (anim) {
-    case 'bounce':  return { dy: Math.sin(t * 5) * size * 0.12, s: 1, r: 0, a: 1 };
-    case 'pulse':   return { dy: 0, s: 1 + Math.sin(t * 3.5) * 0.18, r: 0, a: 1 };
-    case 'spin':    return { dy: 0, s: 1, r: t * 1.8, a: 1 };
-    case 'shake':   return { dy: 0, s: 1, r: Math.sin(t * 9) * 0.25, a: 1 };
-    case 'float':   return { dy: Math.sin(t * 2) * size * 0.08, s: 1, r: 0, a: 0.82 + Math.sin(t * 2.5) * 0.18 };
-    default:        return { dy: 0, s: 1, r: 0, a: 1 };
+    case 'bounce': return { dy: Math.sin(t * 5) * size * 0.12, s: 1, r: 0, a: 1 };
+    case 'pulse':  return { dy: 0, s: 1 + Math.sin(t * 3.5) * 0.18, r: 0, a: 1 };
+    case 'spin':   return { dy: 0, s: 1, r: t * 1.8, a: 1 };
+    case 'shake':  return { dy: 0, s: 1, r: Math.sin(t * 9) * 0.25, a: 1 };
+    case 'float':  return { dy: Math.sin(t * 2) * size * 0.08, s: 1, r: 0, a: 0.82 + Math.sin(t * 2.5) * 0.18 };
+    default:       return { dy: 0, s: 1, r: 0, a: 1 };
   }
 };
 
-// ── DADOS DOS TEMPLATES ────────────────────────────────────────────────────
+// ── Efeitos Sonoros — biblioteca local /public/sfx/ ──────────────────────────
+const SFX_CATS = [
+  {
+    cat: '🌊 Ambiente', color: '#00BFFF',
+    items: [
+      { key:'vento_rapido',   emoji:'💨', name:'Vento Rápido',   file:'2- Vento Rápido.mp3' },
+      { key:'vento_rapido2',  emoji:'💨', name:'Vento Rápido 2', file:'3- Vento Rápido 2.mp3' },
+      { key:'vento_lento',    emoji:'🌬️', name:'Vento Lento',    file:'4- Vento Lento.mp3' },
+      { key:'gota',           emoji:'💧', name:'Gota',           file:'23- Gota.mp3' },
+      { key:'agua1',          emoji:'🌊', name:'Água 1',         file:'34- Água 1.mp3' },
+      { key:'agua2',          emoji:'🌊', name:'Água 2',         file:'35- Água 2.mp3' },
+      { key:'grilo',          emoji:'🦗', name:'Grilo',          file:'22- Grilo.mp3' },
+      { key:'grilos',         emoji:'🦗', name:'Grilos',         file:'60- Grilos.mp3' },
+    ],
+  },
+  {
+    cat: '⚡ Ação', color: '#f59e0b',
+    items: [
+      { key:'arma1',          emoji:'🔫', name:'Arma 1',         file:'10 - Arma 1.mp3' },
+      { key:'arma2',          emoji:'🔫', name:'Arma 2',         file:'11 - Arma 2.mp3' },
+      { key:'pulo',           emoji:'🦘', name:'Pulo',           file:'16- Pulo.mp3' },
+      { key:'chicote',        emoji:'⚡', name:'Chicote',        file:'37- Chicote.mp3' },
+      { key:'punch',          emoji:'👊', name:'Punch',          file:'42- Punch1.mp3' },
+      { key:'nave',           emoji:'🚀', name:'Nave',           file:'18- Nave.mp3' },
+      { key:'nave2',          emoji:'🚀', name:'Nave 2',         file:'19- Nave 2.mp3' },
+      { key:'raio',           emoji:'⚡', name:'Raio Logo',      file:'15- Raio Logo.mp3' },
+    ],
+  },
+  {
+    cat: '😱 Suspense', color: '#a78bfa',
+    items: [
+      { key:'suspense',       emoji:'😰', name:'Suspense',       file:'8- Suspense.mp3' },
+      { key:'suspense2',      emoji:'😨', name:'Suspense 2',     file:'9- Suspense 2.mp3' },
+      { key:'experimentos',   emoji:'🔬', name:'Experimentos',   file:'44- Experimentos Secretos.mp3' },
+      { key:'sirene',         emoji:'🚨', name:'Sirene',         file:'62- Sirene.mp3' },
+      { key:'magica',         emoji:'✨', name:'Mágica',         file:'21- Mágica.mp3' },
+      { key:'warpy',          emoji:'🌀', name:'Warpy',          file:'63- Warpy.mp3' },
+    ],
+  },
+  {
+    cat: '😂 Comédia', color: '#f87171',
+    items: [
+      { key:'pegadinha',      emoji:'😜', name:'Pegadinha',      file:'17- Pegadinha.mp3' },
+      { key:'derp',           emoji:'😵', name:'Derp',           file:'38- Derp - Gaming Sound Effect (HD).mp3' },
+      { key:'morri',          emoji:'💀', name:'MORRI',          file:'39- MORRI.mp3' },
+      { key:'plun',           emoji:'🪣', name:'PLUN',           file:'41- PLUN.mp3' },
+      { key:'nope',           emoji:'🙅', name:'Nope',           file:'40- Nope (Construction Worker TF2) - Gaming Sound Effect (HD).mp3' },
+      { key:'sumiu',          emoji:'👻', name:'SUMIU!',         file:'43- SUMIU!!!.mp3' },
+      { key:'whaaat',         emoji:'😦', name:'Whaaat',         file:'45- Whaaat - Sound Effect.mp3' },
+      { key:'fail',           emoji:'❌', name:'Fail',           file:'46- Fail Sound.wav' },
+      { key:'peido',          emoji:'💨', name:'Peido',          file:'57- PEIDO.mp3' },
+      { key:'naoconsegue',    emoji:'🤦', name:'Não consegue',   file:'61- Não consegue né-.mp3' },
+      { key:'humwaa',         emoji:'😩', name:'Hu Waa Waa',     file:'66- Hu Waa Waa - Gaming Sound Effect (HD).mp3' },
+      { key:'cartoon_slip',   emoji:'🤸', name:'Cartoon Slip',   file:'64- Cartoon Slip - Gaming Sound Effect (HD).mp3' },
+    ],
+  },
+  {
+    cat: '🖥️ UI / Tech', color: '#10b981',
+    items: [
+      { key:'click',          emoji:'🖱️', name:'Click',          file:'29- Click.mp3' },
+      { key:'digitando',      emoji:'⌨️', name:'Digitando',      file:'28- Digitando.mp3' },
+      { key:'mouse',          emoji:'🖱️', name:'Mouse',          file:'20- Mouse.mp3' },
+      { key:'foto',           emoji:'📷', name:'Foto',           file:'24- Foto.mp3' },
+      { key:'bip_longo',      emoji:'📳', name:'Bip Longo',      file:'31- Bip Longo.mp3' },
+      { key:'bip_longo2',     emoji:'📳', name:'Bip Longo 2',    file:'32- Bip Longo 2.mp3' },
+      { key:'errou',          emoji:'❌', name:'Errou',          file:'25- Errou.mp3' },
+      { key:'erro_windows',   emoji:'💻', name:'Erro Windows',   file:'65- (erro no windows).mp3' },
+      { key:'aparecendo',     emoji:'✨', name:'Aparecendo',     file:'33- Aparecendo.mp3' },
+      { key:'voltando',       emoji:'⏪', name:'Voltando Vídeo', file:'1- Voltando Vídeo.mp3' },
+    ],
+  },
+  {
+    cat: '🔔 Notificação', color: '#fbbf24',
+    items: [
+      { key:'sino_longo',     emoji:'🔔', name:'Sino Longo',     file:'12- Sino Longo.mp3' },
+      { key:'sino_longo2',    emoji:'🔔', name:'Sino Longo 2',   file:'13- Sino Longo 2.mp3' },
+      { key:'sino_escola',    emoji:'🏫', name:'Sino Escola',    file:'14- Sino Escola.mp3' },
+      { key:'tadaah',         emoji:'🎊', name:'TADAAH!',        file:'48- TADAAH Sound Effect.mp3' },
+      { key:'buzzer',         emoji:'🔴', name:'Buzzer',         file:'58- Buzzer.mp3' },
+      { key:'price_right',    emoji:'📺', name:'Price is Right', file:'49- The Price is Right Losing Horn - Gaming Sound Effect (HD).mp3' },
+    ],
+  },
+  {
+    cat: '💰 Dinheiro', color: '#d4af37',
+    items: [
+      { key:'dinheiro1',      emoji:'💸', name:'Dinheiro 1',     file:'27- Dinheiro 1.mp3' },
+      { key:'dinheiro2',      emoji:'💵', name:'Dinheiro 2',     file:'26- Dinheiro 2.mp3' },
+      { key:'tchan',          emoji:'🎉', name:'Tchan!',         file:'7- Tchan.mp3' },
+      { key:'buzina',         emoji:'📯', name:'Buzina',         file:'30- Buzina.mp3' },
+    ],
+  },
+  {
+    cat: '🎭 Meme', color: '#e879f9',
+    items: [
+      { key:'john_cena',      emoji:'🤼', name:'John Cena',      file:'55- And His Name is JOHN CENA - Sound Effect (HD).mp3' },
+      { key:'turn_down',      emoji:'🔥', name:'Turn Down',      file:'47- Turn down for what.mp3' },
+      { key:'female_scream',  emoji:'😱', name:'Scream',         file:'50- Female Scream - Sound Effect.mp3' },
+      { key:'e_morreu',       emoji:'💀', name:'E Morreu Didi',  file:'51- E Morreu - Didi.mp3' },
+      { key:'cego',           emoji:'🙈', name:'Tu é Cego',      file:'52- tu é cego.mp3' },
+      { key:'really',         emoji:'😤', name:'Really Nigga',   file:'53- Really Nigga Sound Effect.mp3' },
+      { key:'surprise',       emoji:'😤', name:'Surprise MF',    file:'54- Suprise Mother Fuck.mp3' },
+      { key:'taffarel',       emoji:'🥅', name:'Taffarel',       file:'68- Sai que é sua TAFFAREL!!!!!.mp3' },
+      { key:'whatcha_say',    emoji:'🎤', name:'Whatcha Say',    file:'67- Whatcha Say - MLG Sound Effects (HD).mp3' },
+      { key:'banana_song',    emoji:'🍌', name:'Banana Song',    file:'59- Banana Song.mp3' },
+      { key:'ops',            emoji:'😬', name:'Ops',            file:'56- Ops.mp3' },
+      { key:'triste',         emoji:'😢', name:'Triste',         file:'5- Triste.mp3' },
+      { key:'tempo_passando', emoji:'⏰', name:'Tempo Passando', file:'6- Tempo Passando.mp3' },
+      { key:'exclamacao',     emoji:'❗', name:'!',              file:'36- !.mp3' },
+    ],
+  },
+];
+
+// Flat list for lookup (key → {emoji, name, file})
+const SFX_LIST = SFX_CATS.flatMap(c => c.items);
+
+// Cache de AudioBuffers decodificados
+const _sfxBufferCache = {};
+
+const loadSfxBuffer = async (file) => {
+  if (_sfxBufferCache[file]) return _sfxBufferCache[file];
+  try {
+    const url = '/sfx/' + encodeURIComponent(file);
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const arrayBuf = await res.arrayBuffer();
+    const offlineCtx = new OfflineAudioContext(2, 44100 * 10, 44100);
+    const decoded = await offlineCtx.decodeAudioData(arrayBuf);
+    _sfxBufferCache[file] = decoded;
+    return decoded;
+  } catch (e) {
+    console.warn('[SFX] Erro ao carregar:', file, e.message);
+    return null;
+  }
+};
+
+// Alias para compatibilidade com o código existente que chama synthesizeSfxBuffer(key)
+const synthesizeSfxBuffer = async (key) => {
+  const sfx = SFX_LIST.find(s => s.key === key);
+  if (!sfx) return null;
+  return loadSfxBuffer(sfx.file);
+};
+
+
 const CANVAS_TEMPLATES = [
   // ─── 16:9 ──────────────────────────────────────────────────────────────
   { id:'169_bold', format:'16:9', name:'Bold Center', accent:'#00BFFF',
@@ -915,6 +581,48 @@ const CANVAS_TEMPLATES = [
     ]},
 ];
 
+// ── Overlays de Vídeo (Texturas) ─────────────────────────────────────────────
+const OVERLAY_BASE_URL = 'https://grxejgpdnefyjjznaads.supabase.co/storage/v1/object/public/overlays/';
+const OVERLAY_EFFECTS = [
+  { id:'advanced-particles',   name:'Advanced Particles',   icon:'✨', file:'Advanced particles.mp4',            blend:'screen'   },
+  { id:'bleeds-footages',      name:'Bleeds Footages',      icon:'🩸', file:'Bleeds footages.mp4',               blend:'screen'   },
+  { id:'burn',                 name:'Burn',                 icon:'🔥', file:'Burn.mp4',                          blend:'screen'   },
+  { id:'burning-fire',         name:'Burning Fire',         icon:'🔥', file:'Burning parkling fire.mp4',         blend:'screen'   },
+  { id:'bursting-snow',        name:'Bursting Snow',        icon:'❄️', file:'Bursting Snow.mp4',                 blend:'screen'   },
+  { id:'color-light-leak-1',   name:'Color Light Leak 1',   icon:'🌈', file:'Color Light Leak (1).mp4',          blend:'screen'   },
+  { id:'color-light-leak-2',   name:'Color Light Leak 2',   icon:'🌈', file:'Color Light Leak (2).mp4',          blend:'screen'   },
+  { id:'color-light-leak-3',   name:'Color Light Leak 3',   icon:'🌈', file:'Color Light Leak (3).mp4',          blend:'screen'   },
+  { id:'dust-light-leaks',     name:'Dust Light Leaks',     icon:'💨', file:'Dust light leaks.mp4',              blend:'screen'   },
+  { id:'dust-overlay',         name:'Dust Overlay',         icon:'🌫️', file:'Dust overlay.mp4',                  blend:'screen'   },
+  { id:'falling-sparks',       name:'Falling Sparks',       icon:'⚡', file:'Falling sparks.mp4',                blend:'screen'   },
+  { id:'fire-particles',       name:'Fire Particles',       icon:'🔥', file:'Fire particles.mp4',                blend:'screen'   },
+  { id:'fire-spark-black',     name:'Fire Spark',           icon:'✴️', file:'Fire spark black.mp4',              blend:'screen'   },
+  { id:'fire',                 name:'Fire',                 icon:'🔥', file:'Fire.mp4',                          blend:'screen'   },
+  { id:'galaxy-gust',          name:'Galaxy Gust',          icon:'🌌', file:'Galaxy Gust.mp4',                   blend:'screen'   },
+  { id:'gold-flare',           name:'Gold Light Flare',     icon:'✨', file:'Gold light flare particles.mp4',    blend:'screen'   },
+  { id:'golden-smoke',         name:'Golden Smoke',         icon:'💛', file:'Golden Smoke.mp4',                  blend:'screen'   },
+  { id:'goldendust',           name:'Golden Dust',          icon:'🏆', file:'Goldendust.mp4',                    blend:'screen'   },
+  { id:'gray-particles',       name:'Gray Particles',       icon:'🌫️', file:'Gray particles.mp4',                blend:'screen'   },
+  { id:'green-lines',          name:'Green Lines',          icon:'💚', file:'Green Lines.mp4',                   blend:'screen'   },
+  { id:'grunge',               name:'Grunge',               icon:'🖤', file:'Grunge.mp4',                        blend:'multiply' },
+  { id:'huge-dust',            name:'Huge Dust',            icon:'💨', file:'Huge Dust Particles.mp4',           blend:'screen'   },
+  { id:'ink-drops',            name:'Ink Drops',            icon:'🖋️', file:'Ink Drops.mp4',                     blend:'multiply' },
+  { id:'magical-ground',       name:'Magical Ground',       icon:'🔮', file:'Magical Ground.mp4',                blend:'screen'   },
+  { id:'multicolor-particles', name:'Multicolor Particles', icon:'🌈', file:'Multicolor particles.mp4',          blend:'screen'   },
+  { id:'orange-particles',     name:'Orange Particles',     icon:'🟠', file:'Orange particles.mp4',              blend:'screen'   },
+  { id:'orange-sparkles',      name:'Orange Sparkles',      icon:'✨', file:'Orange Sparkles.mp4',               blend:'screen'   },
+  { id:'light-flares',         name:'Light Flares',         icon:'💥', file:'Overlays Light Flers.mp4',          blend:'screen'   },
+  { id:'colored-snow',         name:'Colored Snow',         icon:'🎨', file:'Particles Colored Snow.mp4',        blend:'screen'   },
+  { id:'particles-red',        name:'Red Particles',        icon:'🔴', file:'Particles red.mp4',                 blend:'screen'   },
+  { id:'rain',                 name:'Rain',                 icon:'🌧️', file:'Rain.mp4',                          blend:'screen'   },
+  { id:'rainbow-sparks',       name:'Rainbow Sparks',       icon:'🌈', file:'Rainbow sparks.mp4',                blend:'screen'   },
+  { id:'smoke-blue',           name:'Smoke Blue',           icon:'💙', file:'Smoke particles Blue.mp4',          blend:'screen'   },
+  { id:'smoke-gray',           name:'Smoke Gray',           icon:'🌫️', file:'Smoke particles Gray.mp4',          blend:'screen'   },
+  { id:'space',                name:'Space',                icon:'🌌', file:'Space.mp4',                         blend:'screen'   },
+  { id:'star-field',           name:'Star Field',           icon:'⭐', file:'Star field.mp4',                    blend:'screen'   },
+  { id:'thunder-sparkles',     name:'Thunder Sparkles',     icon:'⚡', file:'Thunder Sparkles.mp4',              blend:'screen'   },
+];
+
 function App() {
   const { user, isLoggedIn, isPro, loading: authLoading } = useAuth();
   const { t, lang } = useLanguage();
@@ -948,6 +656,16 @@ function App() {
   const [textColor, setTextColor] = useState('#ffffff');
   const [textBgEffect, setTextBgEffect] = useState('none'); // efeito de fundo do texto de letra
   const [fontFamily, setFontFamily] = useState('Poppins');
+  // ── Estilos de fonte (letra da música) ───────────────────────────────────────
+  const [fontBold,      setFontBold]      = useState(true);
+  const [fontItalic,    setFontItalic]    = useState(false);
+  const [fontUnderline, setFontUnderline] = useState(false);
+  const [fontStrike,    setFontStrike]    = useState(false);
+  // ── Estilos de fonte (textos extras) ─────────────────────────────────────────
+  const [extraFontBold,      setExtraFontBold]      = useState(true);
+  const [extraFontItalic,    setExtraFontItalic]    = useState(false);
+  const [extraFontUnderline, setExtraFontUnderline] = useState(false);
+  const [extraFontStrike,    setExtraFontStrike]    = useState(false);
   const [exportFormat, setExportFormat] = useState('mp4_hd');
   const fileHandleRef = useRef(null); // armazena o handle do picker para uso nos sub-handlers
 
@@ -980,6 +698,14 @@ function App() {
   const exportBtnRef = useRef(null);
   const projetoBtnRef = useRef(null);
   const [screenEffect, setScreenEffect] = useState('none');
+  const [activeOverlay, setActiveOverlay] = useState(null);
+  const [overlayOpacity, setOverlayOpacity] = useState(0.85);
+  const overlayVideoRef = useRef(null);
+  const overlayReadyRef = useRef(false);
+  const activeOverlayRef = useRef(null);
+  const overlayOpacityRef = useRef(0.85);
+  useEffect(() => { activeOverlayRef.current = activeOverlay; }, [activeOverlay]);
+  useEffect(() => { overlayOpacityRef.current = overlayOpacity; }, [overlayOpacity]);
   const [showFxPanel, setShowFxPanel] = useState(false);
   const fxBtnRef = useRef(null);
   const screenEffectRef = useRef('none');
@@ -999,6 +725,22 @@ function App() {
   const [trilhasUsingId, setTrilhasUsingId]       = useState(null);
   const trilhasPreviewRef = useRef(null);
   const trilhasBtnRef     = useRef(null);
+  // ── Narração TTS ─────────────────────────────────────────────────────────────
+  const [showNarracaoPanel, setShowNarracaoPanel] = useState(false);
+  const [narracaoText,      setNarracaoText]      = useState('');
+  const [narracaoVoice,     setNarracaoVoice]     = useState('pNInz6obpgDQGcFmaJgB');
+  const [narracaoLoading,   setNarracaoLoading]   = useState(false);
+  const [narracaoError,     setNarracaoError]     = useState('');
+  const [narracaoApiKey,    setNarracaoApiKey]    = useState(() => localStorage.getItem('el_api_key') || '');
+  const [narracaoShowGuia,  setNarracaoShowGuia]  = useState(false);
+  // ── Sincronização Automática IA ──────────────────────────────────────────────
+  const [showSyncPanel,   setShowSyncPanel]   = useState(false);
+  const [syncApiKey,      setSyncApiKey]      = useState(() => localStorage.getItem('groq_api_key') || '');
+  const [syncLoading,     setSyncLoading]     = useState(false);
+  const [syncError,       setSyncError]       = useState('');
+  const [syncShowGuia,    setSyncShowGuia]    = useState(false);
+  const syncBtnRef = useRef(null);
+  const narracaoBtnRef = useRef(null);
   const [stickerPanelPos, setStickerPanelPos] = useState({ top: 80, left: 0 });
   const [stickerTab, setStickerTab] = useState('emoji');  // 'emoji'|'sticker'|'gif'
   const activeStickerRef = useRef(null);                  // id do sticker selecionado (sem re-render)
@@ -1228,6 +970,21 @@ function App() {
   const [audioBase64, setAudioBase64] = useState(null);
   const [audioMimeType, setAudioMimeType] = useState(null);
   const [waveformPeaks, setWaveformPeaks] = useState([]);
+  // ── Faixa de Narração (segunda faixa independente) ────────────────────────
+  const [narrSrc,       setNarrSrc]       = useState(null);
+  const [narrFile,      setNarrFile]      = useState(null);
+  const [narrBase64,    setNarrBase64]    = useState(null);
+  const [narrDuration,  setNarrDuration]  = useState(0);
+  const [narrOffset,    setNarrOffset]    = useState(0);
+  const [narrTrimStart, setNarrTrimStart] = useState(0);
+  const [narrTrimEnd,   setNarrTrimEnd]   = useState(null);
+  const narrRef           = useRef(null);
+  const narrOffsetRef     = useRef(0);
+  const narrTrimStartRef  = useRef(0);
+  const waveformNarrCanvasRef = useRef(null);
+  const [narrWaveformPeaks, setNarrWaveformPeaks] = useState([]);
+  useEffect(() => { narrOffsetRef.current = narrOffset; }, [narrOffset]);
+  useEffect(() => { narrTrimStartRef.current = narrTrimStart; }, [narrTrimStart]);
 
   // Estado de Zoom (Multiplicador de largura)
   const [zoom, setZoom] = useState(50);
@@ -1260,6 +1017,74 @@ function App() {
     e.target.value = '';
   };
 
+
+  // ── Carregamento automático das fontes de /public/fonts/ ─────────────────
+  useEffect(() => {
+    const PROJECT_FONTS = [
+      { name: "A Box For", file: "A Box For.ttf" },
+      { name: "A Box For 2", file: "A Box For 2.ttf" },
+      { name: "Alice in Wonderland", file: "Alice in Wonderland.ttf" },
+      { name: "Artifact", file: "Artifact.otf" },
+      { name: "Assassin", file: "Assassin.ttf" },
+      { name: "Baby Doll", file: "Baby Doll.otf" },
+      { name: "BeautyDemo", file: "BeautyDemo.otf" },
+      { name: "Cocogoose Block Border", file: "Cocogoose Pro Block Border.ttf" },
+      { name: "Cocogoose Block Gradient", file: "Cocogoose Pro Block Gradient.ttf" },
+      { name: "Cocogoose Block Innerline", file: "Cocogoose Pro Block Innerline.ttf" },
+      { name: "Cocogoose Block Shadow", file: "Cocogoose Pro Block Shadow.ttf" },
+      { name: "Cocogoose Inline", file: "Cocogoose Pro Inline.ttf" },
+      { name: "Cocogoose Letterpress", file: "Cocogoose Pro Letterpress.ttf" },
+      { name: "Cocogoose Light", file: "Cocogoose Pro Light.ttf" },
+      { name: "Cocogoose Outlined", file: "Cocogoose Pro Outlined.ttf" },
+      { name: "Cocogoose Regular", file: "Cocogoose Pro Regular.ttf" },
+      { name: "Coolvetica HV Comp", file: "Coolvetica HV Comp.otf" },
+      { name: "Coolvetica RG Cond", file: "Coolvetica RG Cond.otf" },
+      { name: "Coolvetica RG Cram", file: "Coolvetica RG Cram.otf" },
+      { name: "Coolvetica Rg", file: "Coolvetica Rg.otf" },
+      { name: "Earwig Factory RG", file: "Earwig Factory RG.otf" },
+      { name: "Edition", file: "Edition.TTF" },
+      { name: "FC Barcelona", file: "FC Barcelona.ttf" },
+      { name: "Ghastly Panic", file: "Ghastly Panic.ttf" },
+      { name: "Iknowaghost", file: "Iknowaghost.ttf" },
+      { name: "JosefinSans", file: "JosefinSans.ttf" },
+      { name: "JosefinSans Light", file: "JosefinSans Light.ttf" },
+      { name: "Loves", file: "Loves.ttf" },
+      { name: "Moonrising", file: "Moonrising.otf" },
+      { name: "Moonrising Italic", file: "Moonrising Italic.otf" },
+      { name: "OldLondon", file: "OldLondon.ttf" },
+      { name: "Olondona", file: "Olondona.otf" },
+      { name: "Positions Arixbored", file: "Positions Arixbored.otf" },
+      { name: "Seagram TFB", file: "Seagram TFB.ttf" },
+      { name: "SuperstarM54", file: "SuperstarM54.ttf" },
+      { name: "Tonight Christmas", file: "Tonight Christmas.otf" },
+      { name: "Vogue", file: "Vogue.ttf" },
+    ];
+    const loadAll = async () => {
+      const results = await Promise.allSettled(
+        PROJECT_FONTS.map(async ({ name, file }) => {
+          // Usa url('...') com aspas internas — mais robusto para nomes com espaço
+          const face = new FontFace(name, `url('/fonts/${file.replace(/ /g, '%20')}')`);
+          await face.load();
+          document.fonts.add(face);
+          return { name, fileName: file };
+        })
+      );
+      const loaded = results
+        .filter(r => r.status === 'fulfilled')
+        .map(r => r.value);
+      if (loaded.length < PROJECT_FONTS.length) {
+        const failed = results
+          .map((r, i) => r.status === 'rejected' ? PROJECT_FONTS[i].name : null)
+          .filter(Boolean);
+        console.warn('[CanvasSync fonts] Falha ao carregar:', failed);
+      }
+      if (loaded.length) setCustomFonts(prev => {
+        const names = new Set(prev.map(f => f.name));
+        return [...prev, ...loaded.filter(f => !names.has(f.name))];
+      });
+    };
+    loadAll();
+  }, []);
   // ── SOMBRA E GRADIENTE DO TEXTO PRINCIPAL ─────────────────────────────────
   const [shadowEnabled,  setShadowEnabled]  = useState(true);
   const [shadowBlur,     setShadowBlur]     = useState(12);
@@ -1292,6 +1117,23 @@ function App() {
   const fontFamilyRef = useRef(fontFamily);
   useEffect(() => { fontSizeRef.current = fontSize; }, [fontSize]);
   useEffect(() => { fontFamilyRef.current = fontFamily; }, [fontFamily]);
+  // ── Refs para estilos de fonte (evita closure stale no draw) ─────────────────
+  const fontBoldRef      = useRef(true);
+  const fontItalicRef    = useRef(false);
+  const fontUnderlineRef = useRef(false);
+  const fontStrikeRef    = useRef(false);
+  const extraFontBoldRef      = useRef(true);
+  const extraFontItalicRef    = useRef(false);
+  const extraFontUnderlineRef = useRef(false);
+  const extraFontStrikeRef    = useRef(false);
+  useEffect(() => { fontBoldRef.current      = fontBold;      }, [fontBold]);
+  useEffect(() => { fontItalicRef.current    = fontItalic;    }, [fontItalic]);
+  useEffect(() => { fontUnderlineRef.current = fontUnderline; }, [fontUnderline]);
+  useEffect(() => { fontStrikeRef.current    = fontStrike;    }, [fontStrike]);
+  useEffect(() => { extraFontBoldRef.current      = extraFontBold;      }, [extraFontBold]);
+  useEffect(() => { extraFontItalicRef.current    = extraFontItalic;    }, [extraFontItalic]);
+  useEffect(() => { extraFontUnderlineRef.current = extraFontUnderline; }, [extraFontUnderline]);
+  useEffect(() => { extraFontStrikeRef.current    = extraFontStrike;    }, [extraFontStrike]);
   const [animType, setAnimType] = useState('none');
   const [twSpeed,  setTwSpeed]  = useState(30);
   const animTypeRef = useRef('none');
@@ -1304,13 +1146,34 @@ function App() {
   const [chatOpen,  setChatOpen]  = useState(false);
   const [chatTopic, setChatTopic] = useState(null);
   const [isScrubbing, setIsScrubbing] = useState(false);
+  // ── PWA Install ──────────────────────────────────────────────────────────────
+  const [pwaPrompt, setPwaPrompt] = useState(null);
+  const [pwaInstalled, setPwaInstalled] = useState(false);
+  useEffect(() => {
+    const handler = e => { e.preventDefault(); setPwaPrompt(e); };
+    window.addEventListener('beforeinstallprompt', handler);
+    window.addEventListener('appinstalled', () => { setPwaInstalled(true); setPwaPrompt(null); });
+    if (window.matchMedia('(display-mode: standalone)').matches) setPwaInstalled(true);
+    if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
+    return () => window.removeEventListener('beforeinstallprompt', handler);
+  }, []);
+  const handlePwaInstall = async () => {
+    if (!pwaPrompt) return;
+    await pwaPrompt.prompt();
+    const { outcome } = await pwaPrompt.userChoice;
+    if (outcome === 'accepted') { setPwaInstalled(true); setPwaPrompt(null); }
+  };
+  // ── Mobile banner ────────────────────────────────────────────────────────────
+  const [showMobileBanner, setShowMobileBanner] = useState(
+    () => typeof window !== 'undefined' && window.innerWidth < 768
+  );
   const [editingLyricId, setEditingLyricId] = useState(null);
   const [editingExtraTextId, setEditingExtraTextId] = useState(null);
 
   // ── UNDO / REDO ────────────────────────────────────────────────────────────
   useEffect(() => {
     const link = document.createElement('link');
-    link.href = 'https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Bebas+Neue&family=Montserrat:wght@700&family=Poppins:wght@700&family=Oswald:wght@700&family=Roboto+Condensed:wght@700&family=Raleway:wght@700&family=Playfair+Display:wght@700&family=Lora:wght@700&family=Anton&family=Black+Han+Sans&family=Righteous&family=Russo+One&family=Lilita+One&family=Exo+2:wght@700&family=Kanit:wght@700&family=Nunito:wght@700&family=Ubuntu:wght@700&family=Pacifico&family=Permanent+Marker&family=Caveat:wght@700&family=Dancing+Script:wght@700&family=Lobster&family=Abril+Fatface&family=Press+Start+2P&family=Orbitron:wght@700&family=Share+Tech+Mono&display=swap';
+    link.href = 'https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400;1,700&family=Bebas+Neue&family=Montserrat:ital,wght@0,400;0,700;1,400;1,700&family=Poppins:ital,wght@0,400;0,700;1,400;1,700&family=Oswald:wght@400;700&family=Roboto+Condensed:ital,wght@0,400;0,700;1,400;1,700&family=Raleway:ital,wght@0,400;0,700;1,400;1,700&family=Playfair+Display:ital,wght@0,400;0,700;1,400;1,700&family=Lora:ital,wght@0,400;0,700;1,400;1,700&family=Anton&family=Black+Han+Sans&family=Righteous&family=Russo+One&family=Lilita+One&family=Exo+2:ital,wght@0,400;0,700;1,400;1,700&family=Kanit:ital,wght@0,400;0,700;1,400;1,700&family=Nunito:ital,wght@0,400;0,700;1,400;1,700&family=Ubuntu:ital,wght@0,400;0,700;1,400;1,700&family=Pacifico&family=Permanent+Marker&family=Caveat:wght@400;700&family=Dancing+Script:ital,wght@0,400;0,700&family=Lobster&family=Abril+Fatface&family=Press+Start+2P&family=Orbitron:wght@400;700&family=Share+Tech+Mono&display=swap';
     link.rel = 'stylesheet';
     document.head.appendChild(link);
   }, []);
@@ -1909,181 +1772,482 @@ function App() {
     }
   };
 
-  // ── Trilhas — biblioteca local (/public/trilhas) ───────────────────────────
-  const BASE_URL = 'https://raw.githubusercontent.com/canvassync/canvassync-frontend/main/public/trilhas/';
+  // ── Narração — segunda faixa independente ────────────────────────────────
+  const handleNarrChange = (file) => {
+    if (!file) return;
+    const narrUrl = URL.createObjectURL(file);
+    setNarrSrc(narrUrl);
+    setNarrFile(file);
+    setNarrOffset(0); setNarrTrimStart(0); setNarrTrimEnd(null);
+    narrOffsetRef.current = 0; narrTrimStartRef.current = 0;
+    const b64Reader = new FileReader();
+    b64Reader.onload = (ev) => setNarrBase64(ev.target.result);
+    b64Reader.readAsDataURL(file);
+    // Decode waveform para narração
+    file.arrayBuffer().then(buf => {
+      const ac = new (window.AudioContext || window.webkitAudioContext)();
+      ac.decodeAudioData(buf).then(decoded => {
+        const raw = decoded.getChannelData(0);
+        const buckets = 300;
+        const step = Math.floor(raw.length / buckets);
+        const peaks = [];
+        for (let i = 0; i < buckets; i++) {
+          let max = 0;
+          for (let j = 0; j < step; j++) max = Math.max(max, Math.abs(raw[i * step + j] || 0));
+          peaks.push(max);
+        }
+        setNarrWaveformPeaks(peaks);
+        ac.close();
+      }).catch(() => {});
+    }).catch(() => {});
+  };
+
+  const removeNarr = () => {
+    if (narrRef.current) { narrRef.current.pause(); narrRef.current.currentTime = 0; }
+    setNarrSrc(null); setNarrFile(null); setNarrBase64(null);
+    setNarrDuration(0); setNarrOffset(0); setNarrTrimStart(0); setNarrTrimEnd(null);
+    setNarrWaveformPeaks([]);
+  };
+
+  const handleNarrTimelineMouseDown = (type, e) => {
+    e.stopPropagation();
+    const narrDur = narrRef.current?.duration || narrDuration;
+    const displayDur = narrTrimEnd !== null ? (narrTrimEnd - narrTrimStart) : (narrDur - narrTrimStart);
+    _setDragging({
+      id: 'narr', type, itemKind: 'narr',
+      initialX: e.clientX,
+      initialOffset: narrOffset,
+      initialTrimStart: narrTrimStart,
+      initialTrimEnd: narrTrimEnd ?? narrDur,
+      narrDur,
+    });
+  };
+  const BASE_URL = '/trilhas/';
 
   const TRILHAS_LIST = [
     { id:1,   title:'1st',                              artist:'',                          file:'1st.mp3' },
-    { id:2,   title:'Electric',                         artist:'Akacia',                    file:'akacia-electric-ncs-release.mp3' },
-    { id:3,   title:'AndreoBee Full Outro Song',        artist:'',                          file:'andreobee-full-outro-song.mp3' },
-    { id:4,   title:'Cyberpunk',                        artist:'Alex Productions',          file:'angry-dubstep-music-no-copyright-cyberpunk-by-alex-productions.mp3' },
-    { id:5,   title:'Arms Dealer',                      artist:'Anno Domini Beats',         file:'anno-domini-beats-arms-dealer.mp3' },
-    { id:6,   title:'Glass',                            artist:'Anno Domini Beats',         file:'anno-domini-beats-glass.mp3' },
-    { id:7,   title:'Sinister',                         artist:'Anno Domini Beats',         file:'anno-domini-beats-sinister.mp3' },
-    { id:8,   title:'Arms Dealer',                      artist:'Anno Domini Beats',         file:'arms-dealer-anno-domini-beats.mp3' },
-    { id:9,   title:'Arrival',                          artist:'',                          file:'arrival.mp3' },
-    { id:10,  title:'Tin Man',                          artist:'Ava Low',                   file:'ava-low-tin-man-royalty-free-music.mp3' },
-    { id:11,  title:'Awake',                            artist:'Sappheiros',                file:'awake-by-sappheiros-chinese-electronic-music-no-copyright.mp3' },
-    { id:12,  title:'Back To 1981',                     artist:'Iaio',                      file:'back-to-1981-iaio-free-background-music-audio-library-release.mp3' },
-    { id:13,  title:'Bathtub Explorations',             artist:'',                          file:'bathtub-explorations.m4a' },
-    { id:14,  title:'Alone',                            artist:'BEAUZ & Heleen',            file:'beauz-heleen-alone-ncs-release.mp3' },
-    { id:15,  title:'Book The Rental Wit It',           artist:'RAGE',                      file:'book-the-rental-wit-it-rage.mp3' },
-    { id:16,  title:'Breakpoint',                       artist:'Eoin Mantell',              file:'breakpoint-eoin-mantell.mp3' },
-    { id:17,  title:'CarryMinati Background Music 2',   artist:'',                          file:'carryminati-background-music-2.mp3' },
-    { id:18,  title:'CarryMinati BackGround Music',     artist:'',                          file:'carryminati-background-music.mp3' },
-    { id:19,  title:'Traveller',                        artist:'Unfeel',                    file:'chill-electronic-calm-by-unfeel-no-copyright-music-traveller.mp3' },
-    { id:20,  title:'Breakfast In Paris',               artist:'Alex-Productions',          file:'chilling-stylish-lo-fi-hip-hop-by-alex-productions-no-copyright-music-breakfast-in-paris.mp3' },
-    { id:21,  title:'Chosen One',                       artist:'Verified Picasso',          file:'chosen-one-verified-picasso.mp3' },
-    { id:22,  title:'Tales From The Grave',             artist:'Christoffer Moe Ditlevsen', file:'christoffer-moe-ditlevsen-tales-from-the-grave-royalty-free-music.mp3' },
-    { id:23,  title:'Cinema',                           artist:'',                          file:'cinematic-background-music-for-videos-no-copyright-music-cinema.mp3' },
-    { id:24,  title:'Epic Shield',                      artist:'Alex-Productions',          file:'cinematic-epic-orchestra-by-alex-productions-no-copyright-music-epic-shield.mp3' },
-    { id:25,  title:'Call Of Duty Black Ops Main Theme',artist:'Cold War',                  file:'cold-war-call-of-duty-black-ops-cold-war-main-theme.mp3' },
-    { id:26,  title:'Comedy Music Background',          artist:'',                          file:'comedy-music-background-instrumental-no-copyright-background-music.mp3' },
-    { id:27,  title:'Comical Question Mark',            artist:'',                          file:'comical-question-mark-sound-effect-for-editing-free-copyright.mp3' },
-    { id:28,  title:'Contrast',                         artist:'Anno Domini Beats',         file:'contrast-anno-domini-beats.mp3' },
-    { id:29,  title:'Eastridge Turnstile',              artist:'The Loyalist',              file:'copyright-free-aesthetic-music-eastridge-turnstile-by-the-loyalist.mp3' },
-    { id:30,  title:'Reality',                          artist:'ASHUTOSH',                  file:'copyright-free-indian-music-chill-trap-reality-by-ashutosh.mp3' },
-    { id:31,  title:'Night City',                       artist:'MokkaMusic',                file:'cozy-lo-fi-background-calm-music-by-mokkamusic-night-city.mp3' },
-    { id:32,  title:'Crazy',                            artist:'Patrick Patrikios',         file:'crazy-patrick-patrikios.mp3' },
-    { id:33,  title:'Culture',                          artist:'Anno Domini Beats',         file:'culture-anno-domini-beats.mp3' },
-    { id:34,  title:'Cutting It Close',                 artist:'DJ Freedem',                file:'cutting-it-close-dj-freedem.mp3' },
-    { id:35,  title:'Risky Business',                   artist:'Infraction',                file:'cyberpunk-electro-retro-by-infraction-no-copyright-music-risky-business.mp3' },
-    { id:36,  title:'Big Plans',                        artist:'Dancehall Riddim',          file:'dancehall-riddim-instrumental-2023-big-plans.mp3' },
-    { id:37,  title:'Dark Tranquility',                 artist:'Anno Domini Beats',         file:'dark-tranquility-anno-domini-beats.mp3' },
-    { id:38,  title:'Dark Zephyr',                      artist:'Audio Hertz',               file:'dark-zephyr-audio-hertz.mp3' },
-    { id:39,  title:'Deathtown',                        artist:'',                          file:'deathtown-free-no-copyright-beat-2023.mp3' },
-    { id:40,  title:'Darix Togni',                      artist:'Digi G Alessio',            file:'digi-g-alessio-darix-togni.mp3' },
-    { id:41,  title:'Doraemon No Uta',                  artist:'Doraemon Lofi',             file:'doraemon-lofi-doraemon-no-uta-theme-song.mp3' },
-    { id:42,  title:'Doraemon',                         artist:'',                          file:'doraemon.mp3' },
-    { id:43,  title:'Drop',                             artist:'Anno Domini Beats',         file:'drop-anno-domini-beats.mp3' },
-    { id:44,  title:'Eine Kleine Nachtmusik',           artist:'Mozart',                    file:'eine-kleine-nachtmusik-mozart.mp3' },
-    { id:45,  title:'El Secreto',                       artist:'Yung Logos',                file:'el-secreto-yung-logos.mp3' },
-    { id:46,  title:'How Many Times',                   artist:'Alex-Productions',          file:'electronic-hybrid-future-bass-by-alex-productions-no-copyright-music-how-many-times.mp3' },
-    { id:47,  title:'Warrior',                          artist:'Yoitrax',                   file:'electronic-japanese-music-royalty-free-warrior-by-yoitrax.mp3' },
-    { id:48,  title:'Cinematic',                        artist:'Aylex',                     file:'epic-trailer-build-up-free-no-copyright-legendary-movie-film-background-music-cinematic-by-aylex.mp3' },
-    { id:49,  title:'Ritmo',                            artist:'Alex-Productions',          file:'extreme-electronic-stomp-trailer-by-alex-productions-no-copyright-music-ritmo.mp3' },
-    { id:50,  title:'Fight',                            artist:'Alex-Productions',          file:'extreme-powerful-energetic-midtempo-cyberpunk-music-by-alex-productions-no-copyright-music-fight.mp3' },
-    { id:51,  title:'Push',                             artist:'Alex-Productions',          file:'extreme-sport-electronic-stomp-by-alex-productions-no-copyright-music-push.mp3' },
-    { id:52,  title:'Faraway',                          artist:'Lucjo',                     file:'faraway-lucjo-free-background-music-audio-library-release.mp3' },
-    { id:53,  title:'Magazines',                        artist:'Infraction',                file:'fashion-calm-technology-by-infraction-no-copyright-music-magazines.mp3' },
-    { id:54,  title:'Stand Up',                         artist:'Infraction',                file:'fashion-saxophone-rnb-beat-by-infraction-no-copyright-music-stand-up.mp3' },
-    { id:55,  title:'Feelin Fine',                      artist:'Infraction',                file:'fashion-saxophone-trap-by-infraction-copyright-free-music-feelin-fine.mp3' },
-    { id:56,  title:'Sunset Lounge',                    artist:'Infraction',                file:'fashion-stylish-house-by-infraction-oddvision-no-copyright-music-sunset-lounge.mp3' },
-    { id:57,  title:'Whistling Rap',                    artist:'Infraction',                file:'fashion-stylish-r-b-by-infraction-no-copyright-music-whistling-rap.mp3' },
-    { id:58,  title:'Chilling Time',                    artist:'Infraction',                file:'fashion-vlog-lo-fi-hip-hop-by-oddvision-infraction-no-copyright-music-chilling-time.mp3' },
-    { id:59,  title:'Matrix',                           artist:'FAYZED',                    file:'fayzed-matrix-hard-flute-type-beat-trap-instrumental-beat.mp3' },
-    { id:60,  title:'Feel',                             artist:'Land Of Fire',              file:'feel-land-of-fire-no-copyright-music-release-preview.mp3' },
-    { id:61,  title:'Finally The Sun',                  artist:'NCS FF',                    file:'finally-the-sun-fact-background-music-ncs-ff.mp3' },
-    { id:62,  title:'Flute Beat',                       artist:'BeatboX',                   file:'flute-beat-copyright-free-music-beatbox.mp3' },
-    { id:63,  title:'Heads Up',                         artist:'',                          file:'free-beats-no-copyright-heads-up-free-type-beat-hype-type-trap-beat-instrumental.mp3' },
-    { id:64,  title:'Cutthroat',                        artist:'Syndrome',                  file:'free-old-school-dark-rap-beat-cutthroat-prod-by-syndrome.mp3' },
-    { id:65,  title:'Swoosh Whoosh',                    artist:'',                          file:'free-transition-sounds-effects-swoosh-swish-whoosh.mp3' },
-    { id:66,  title:'Funky Thing',                      artist:'Infraction',                file:'funk-stylish-groove-by-infraction-no-copyright-music-funky-thing.mp3' },
-    { id:67,  title:'Funky Background Music',           artist:'',                          file:'funky-background-music-for-video-royalty-free-funk-music.mp3' },
-    { id:68,  title:'Scheming Weasel',                  artist:'Kevin MacLeod',             file:'funny-background-music-music-04-scheming-weasel-kevin-macleod-no-copyright-ss-1912.mp3' },
-    { id:69,  title:'AndreoBee Song',                   artist:'Funny Background Song',     file:'funny-background-song-andreobee-song.mp3' },
-    { id:70,  title:'Glass',                            artist:'Anno Domini Beats',         file:'glass-anno-domini-beats.mp3' },
-    { id:71,  title:'Gully Dreams',                     artist:'Hanu Dixit',                file:'gully-dreams-hanu-dixit.mp3' },
-    { id:72,  title:'Whistle',                          artist:'Alex Productions',          file:'happy-lofi-music-for-videos-whistle-by-alex-productions.mp3' },
-    { id:73,  title:'Russian Slav',                     artist:'Leo',                       file:'hard-bass-type-beat-russian-slav-prod-leo-hard-bass-type-beat.mp3' },
-    { id:74,  title:'Hidden',                           artist:'Alex-Productions',          file:'hidden-alex-productions-no-copyright-music.mp3' },
-    { id:75,  title:'Hopeless',                         artist:'Jimena Contreras',          file:'hopeless-jimena-contreras.mp3' },
-    { id:76,  title:'Horror Background Music',          artist:'',                          file:'horror-music-no-copyright-horror-background-music-no-copyright-non-copyrighted-scary-music.mp3' },
-    { id:77,  title:'Illusions',                        artist:'Anno Domini Beats',         file:'illusions-anno-domini-beats.mp3' },
-    { id:78,  title:'Indian Bollywood Sampled',         artist:'',                          file:'indian-bollywood-sampled-x-west.mp3' },
-    { id:79,  title:'Ethereal Dream',                   artist:'Artificial Music',          file:'indian-r-b-electronic-music-for-videos-ethereal-dream-by-artificial-music-ashutosh.mp3' },
-    { id:80,  title:'Inspire',                          artist:'ASHUTOSH',                  file:'inspire-by-ashutosh.mp3' },
-    { id:81,  title:'Instrumental Trap 11',             artist:'',                          file:'instrumental-trap-11.mp3' },
-    { id:82,  title:'Instrumental Trap 8',              artist:'',                          file:'instrumental-trap-8.mp3' },
-    { id:83,  title:'Intense Action',                   artist:'Argsound',                  file:'intense-action-background-music-cinematic-music-by-argsound.mp3' },
-    { id:84,  title:'It Takes Two To Tango',            artist:'Vanoss Gaming',             file:'it-takes-two-to-tango-vanoss-gaming-background-music-hd.mp3' },
-    { id:85,  title:'Jazz In Paris',                    artist:'',                          file:'jazz-in-paris.mp3' },
-    { id:86,  title:'Jazz Hip Hop',                     artist:'Cosimo Fogg',               file:'jazzaddicts-by-cosimo-fogg-jazz-hip-hop-no-copyright-music.mp3' },
-    { id:87,  title:'Bus Rider',                        artist:'John Swihart',              file:'john-swihart-bus-rider.mp3' },
-    { id:88,  title:'Klondike',                         artist:'Audio Hertz',               file:'klondike-audio-hertz.mp3' },
-    { id:89,  title:'Late Night Driving',               artist:'Broke In Summer',           file:'late-night-driving-broke-in-summer-free-background-music-audio-library-release.mp3' },
-    { id:90,  title:'Heroic',                           artist:'Alex-Productions',          file:'legendary-epic-heroic- cinematic-music-by-alex-productions-no-copyright-music-free-music-heroic.mp3' },
-    { id:91,  title:'Less Rake',                        artist:'Tubebackr',                 file:'less-rake-tubebackr-no-copyright-music.mp3' },
-    { id:92,  title:'Chill Vibes',                      artist:'Pufino',                    file:'lofi-hip-hop-beat-no-copyright-free-soft-calm-aesthetic-background-music-chill-vibes-by-pufino.mp3' },
-    { id:93,  title:'Forgive Me',                       artist:'Italics',                   file:'lofi-hip-hop-instrumental-rap-free-no-copyright-sound-chill-type-beat-italics-forgive-me.mp3' },
-    { id:94,  title:'Blue Moon',                        artist:'Lo-fi Type Beat',           file:'lo-fi-type-beat-blue-moon.mp3' },
-    { id:95,  title:'Lottery',                          artist:'Anno Domini Beats',         file:'lottery-anno-domini-beats.mp3' },
-    { id:96,  title:'Luck Witch',                       artist:'Audio Hertz',               file:'luck-witch-audio-hertz.mp3' },
-    { id:97,  title:'Mario Jump Sound Effect',          artist:'',                          file:'mario-jump-sound-effect-download.m4a' },
-    { id:98,  title:'Take It Easy',                     artist:'MBB',                       file:'mbb-take-it-easy.mp3' },
-    { id:99,  title:'Mission Start',                    artist:'The Brothers Records',      file:'mission-start-the-brothers-records.mp3' },
-    { id:100, title:'Mission To Mars',                  artist:'Audio Hertz',               file:'mission-to-mars-audio-hertz.mp3' },
+    { id:2,   title:'Electric',                         artist:'Akacia',                    file:'Akacia - Electric [NCS Release].mp3' },
+    { id:3,   title:'AndreoBee Full Outro Song',        artist:'',                          file:'AndreoBee Full Outro Song(MP3_320K).mp3' },
+    { id:4,   title:'Cyberpunk',                        artist:'Alex Productions',          file:'Angry Dubstep Music (No Copyright) - _Cyberpunk_ by Alex Productions ----(MP3_320K).mp3' },
+    { id:5,   title:'Arms Dealer',                      artist:'Anno Domini Beats',         file:'Anno Domini Beats - Arms Dealer(MP3_160K).mp3' },
+    { id:6,   title:'Glass',                            artist:'Anno Domini Beats',         file:'Anno Domini Beats - Glass(MP3_160K).mp3' },
+    { id:7,   title:'Sinister',                         artist:'Anno Domini Beats',         file:'Anno Domini Beats - Sinister(MP3_160K).mp3' },
+    { id:8,   title:'Arms Dealer',                      artist:'Anno Domini Beats',         file:'Arms Dealer - Anno Domini Beats.mp3' },
+    { id:9,   title:'Arrival',                          artist:'',                          file:'Arrival(MP3_320K).mp3' },
+    { id:10,  title:'Tin Man',                          artist:'Ava Low',                   file:'Ava Low - Tin man (Royalty Free Music)(MP3_320K).mp3' },
+    { id:11,  title:'Awake',                            artist:'Sappheiros',                file:'Awake_ by _Sappheiros  _ ---- Chinese Electronic Music (No Copyright)(MP3_320K).mp3' },
+    { id:12,  title:'Back To 1981',                     artist:'Iaio',                      file:'Back to 1981 _ Iaio _ Free Background Music _ Audio Library Release(MP3_160K).mp3' },
+    { id:13,  title:'Bathtub Explorations',             artist:'',                          file:'Bathtub Explorations(M4A_128K).mp3' },
+    { id:14,  title:'Alone',                            artist:'BEAUZ & Heleen',            file:'BEAUZ & Heleen - Alone [NCS Release].mp3' },
+    { id:15,  title:'Book The Rental Wit It',           artist:'RAGE',                      file:'Book The Rental Wit It - RAGE.mp3' },
+    { id:16,  title:'Breakpoint',                       artist:'Eoin Mantell',              file:'Breakpoint - Eoin Mantell(MP3_320K).mp3' },
+    { id:17,  title:'CarryMinati Background Music 2',   artist:'',                          file:'CarryMinati Background Music _2(MP3_320K).mp3' },
+    { id:18,  title:'CarryMinati Background Music',     artist:'',                          file:'CarryMinati BackGround Music(MP3_320K).mp3' },
+    { id:19,  title:'Traveller',                        artist:'Unfeel',                    file:'Chill Electronic Calm by unfeel [No Copyright Music] _ Traveller(MP3_320K).mp3' },
+    { id:20,  title:'Breakfast In Paris',               artist:'Alex-Productions',          file:'Chilling Stylish Lo-Fi Hip Hop by Alex-Productions [No Copyright Music] _ Breakfast in Paris(MP3_160K).mp3' },
+    { id:21,  title:'Chosen One',                       artist:'Verified Picasso',          file:'Chosen One - Verified Picasso.mp3' },
+    { id:22,  title:'Tales From The Grave',             artist:'Christoffer Moe Ditlevsen', file:'Christoffer Moe Ditlevsen - Tales From the Grave (Royalty Free Music)(MP3_320K).mp3' },
+    { id:23,  title:'Cinema',                           artist:'',                          file:'Cinematic Background Music for videos (No Copyright Music) _ CINEMA(MP3_160K).mp3' },
+    { id:24,  title:'Epic Shield',                      artist:'Alex-Productions',          file:'Cinematic Epic Orchestra by Alex-Productions [No Copyright Music] _ Epic Shield(MP3_160K).mp3' },
+    { id:25,  title:'Call Of Duty Black Ops Main Theme',artist:'Cold War',                  file:'Cold War_ - Call of Duty®_ Black Ops Cold War Main Theme(MP3_320K).mp3' },
+    { id:26,  title:'Comedy Music Background',          artist:'',                          file:'COMEDY MUSIC BACKGROUND INSTRUMENTAL _ NO COPYRIGHT BACKGROUND MUSIC(MP3_320K).mp3' },
+    { id:27,  title:'Comical Question Mark',            artist:'',                          file:'Comical Question Mark   Sound Effect for editing   Free Copyright(MP3_320K).mp3' },
+    { id:28,  title:'Contrast',                         artist:'Anno Domini Beats',         file:'Contrast - Anno Domini Beats.mp3' },
+    { id:29,  title:'Eastridge Turnstile',              artist:'The Loyalist',              file:'Copyright Free Aesthetic Music - _Eastridge Turnstile_ by The Loyalist ----(MP3_320K).mp3' },
+    { id:30,  title:'Reality',                          artist:'ASHUTOSH',                  file:'Copyright Free Indian Music [Chill   Trap] _Reality_ by _ASHUTOSH  ----(MP3_320K).mp3' },
+    { id:31,  title:'Night City',                       artist:'MokkaMusic',                file:'Cozy Lo Fi Background [Calm Music] by MokkaMusic _ Night City(MP3_320K).mp3' },
+    { id:32,  title:'Crazy',                            artist:'Patrick Patrikios',         file:'Crazy - Patrick Patrikios.mp3' },
+    { id:33,  title:'Culture',                          artist:'Anno Domini Beats',         file:'Culture - Anno Domini Beats.mp3' },
+    { id:34,  title:'Cutting It Close',                 artist:'DJ Freedem',                file:'Cutting It Close - DJ Freedem.mp3' },
+    { id:35,  title:'Risky Business',                   artist:'Infraction',                file:'Cyberpunk Electro Retro by Infraction [No Copyright Music] _ Risky Business(MP3_320K).mp3' },
+    { id:36,  title:'Big Plans',                        artist:'Dancehall Riddim',          file:'Dancehall Riddim Instrumental 2023 - Big Plans(MP3_160K).mp3' },
+    { id:37,  title:'Dark Tranquility',                 artist:'Anno Domini Beats',         file:'Dark Tranquility - Anno Domini Beats.mp3' },
+    { id:38,  title:'Dark Zephyr',                      artist:'Audio Hertz',               file:'Dark Zephyr - Audio Hertz.mp3' },
+    { id:39,  title:'Deathtown',                        artist:'',                          file:'Deathtown - [FREE NO COPYRIGHT BEAT 2023].mp3' },
+    { id:40,  title:'Darix Togni',                      artist:'Digi G Alessio',            file:'Digi G_Alessio - Darix Togni(MP3_320K).mp3' },
+    { id:41,  title:'Doraemon No Uta',                  artist:'Doraemon Lofi',             file:'doraemon lofi _ doraemon no uta (theme song)(MP3_320K).mp3' },
+    { id:42,  title:'Doraemon',                         artist:'',                          file:'Doraemon(MP3_320K).mp3' },
+    { id:43,  title:'Drop',                             artist:'Anno Domini Beats',         file:'Drop - Anno Domini Beats.mp3' },
+    { id:44,  title:'Eine Kleine Nachtmusik',           artist:'Mozart',                    file:'Eine Kleine Nachtmusik - Mozart(MP3_320K).mp3' },
+    { id:45,  title:'El Secreto',                       artist:'Yung Logos',                file:'El Secreto - Yung Logos.mp3' },
+    { id:46,  title:'How Many Times',                   artist:'Alex-Productions',          file:'Electronic Hybrid Future Bass by Alex-Productions [No Copyright Music] _ How Many Times(MP3_160K).mp3' },
+    { id:47,  title:'Warrior',                          artist:'Yoitrax',                   file:'Electronic Japanese Music (Royalty Free) - _Warrior_ by Yoitrax(MP3_320K).mp3' },
+    { id:48,  title:'Cinematic',                        artist:'Aylex',                     file:'Epic Trailer Build-up Free No Copyright Legendary Movie_Film Background Music _ Cinematic by Aylex(MP3_160K).mp3' },
+    { id:49,  title:'Ritmo',                            artist:'Alex-Productions',          file:'Extreme Electronic Stomp Trailer  by Alex-Productions [No Copyright Music] _ Ritmo(MP3_160K).mp3' },
+    { id:50,  title:'Fight',                            artist:'Alex-Productions',          file:'Extreme Powerful Energetic Midtempo Cyberpunk music by Alex-Productions (No Copyright Music ) Fight(MP3_160K).mp3' },
+    { id:51,  title:'Push',                             artist:'Alex-Productions',          file:'Extreme Sport Electronic Stomp by Alex-Productions [No Copyright Music] _ Push(MP3_160K).mp3' },
+    { id:52,  title:'Faraway',                          artist:'Lucjo',                     file:'Faraway _ Lucjo _ Free Background Music _ Audio Library Release(MP3_160K).mp3' },
+    { id:53,  title:'Magazines',                        artist:'Infraction',                file:'Fashion Calm Technology by Infraction [No Copyright Music] _ Magazines(MP3_320K).mp3' },
+    { id:54,  title:'Stand Up',                         artist:'Infraction',                file:'Fashion Saxophone Rnb Beat by Infraction [No Copyright Music] _ Stand Up(MP3_160K).mp3' },
+    { id:55,  title:'Feelin Fine',                      artist:'Infraction',                file:'Fashion Saxophone Trap by Infraction [Copyright Free Music] _ Feelin Fine(MP3_320K).mp3' },
+    { id:56,  title:'Sunset Lounge',                    artist:'Infraction',                file:'Fashion Stylish House by Infraction_ OddVision [No Copyright Music] _ Sunset Lounge(MP3_320K).mp3' },
+    { id:57,  title:'Whistling Rap',                    artist:'Infraction',                file:'Fashion Stylish R_B by Infraction [No Copyright Music] _ Whistling Rap(MP3_160K).mp3' },
+    { id:58,  title:'Chilling Time',                    artist:'Infraction',                file:'Fashion Vlog Lo-Fi Hip-Hop by OddVision_ Infraction [No Copyright Music] _ Chilling Time(MP3_320K).mp3' },
+    { id:59,  title:'Matrix',                           artist:'FAYZED',                    file:'FAYZED - MATRIX - Hard Flute Type Beat - Trap Instrumental Beat [ FREE NO COPYRIGHT MUSIC ](MP3_160K).mp3' },
+    { id:60,  title:'Feel',                             artist:'Land Of Fire',              file:'Feel - Land of Fire (No Copyright Music) _ Release Preview(MP3_320K).mp3' },
+    { id:61,  title:'Finally The Sun',                  artist:'NCS FF',                    file:'Finally The Sun _ Fact Background Music _ NCS FF(MP3_320K).mp3' },
+    { id:62,  title:'Flute Beat',                       artist:'BeatboX',                   file:'Flute Beat Copyright Free Music  __ [BeatboX](MP3_320K).mp3' },
+    { id:63,  title:'Heads Up',                         artist:'',                          file:'FREE BEATS NO COPYRIGHT - _Heads Up_ _ Free Type Beat _ Hype Type Trap Beat Instrumental(MP3_160K).mp3' },
+    { id:64,  title:'Cutthroat',                        artist:'Syndrome',                  file:'FREE Old School Dark Rap Beat _ Cutthroat (Prod. By Syndrome)(MP3_160K).mp3' },
+    { id:65,  title:'Swoosh Whoosh',                    artist:'',                          file:'FREE Transition Sounds Effects_ _ Swoosh_ Swish_ Whoosh(MP3_320K).mp3' },
+    { id:66,  title:'Funky Thing',                      artist:'Infraction',                file:'Funk Stylish Groove by Infraction [No Copyright Music] _ Funky Thing(MP3_320K).mp3' },
+    { id:67,  title:'Funky Background Music',           artist:'',                          file:'Funky Background Music For Video __ Royalty Free Funk Music(MP3_160K).mp3' },
+    { id:68,  title:'Scheming Weasel',                  artist:'Kevin MacLeod',             file:'Funny Background Music _ Music _04 Scheming Weasel(Kevin MacLeod) _ NO COPYRIGHT _ SS 1912(MP3_320K).mp3' },
+    { id:69,  title:'AndreoBee Song',                   artist:'',                          file:'funny background song_ AndreoBee song(MP3_320K).mp3' },
+    { id:70,  title:'Glass',                            artist:'Anno Domini Beats',         file:'Glass - Anno Domini Beats.mp3' },
+    { id:71,  title:'Gully Dreams',                     artist:'Hanu Dixit',                file:'Gully Dreams - Hanu Dixit.mp3' },
+    { id:72,  title:'Whistle',                          artist:'Alex Productions',          file:'Vlog _ Happy Lofi (Music For Videos) - _Whistle_ by Alex Productions ----(MP3_160K).mp3' },
+    { id:73,  title:'Russian Slav',                     artist:'Leo',                       file:'Hard Bass Type Beat Russian _Slav_ (prod. Leo) hard bass type beat(MP3_320K).mp3' },
+    { id:74,  title:'Hidden',                           artist:'Alex-Productions',          file:'Hidden ÔÇª Alex-Productions (No Copyright Music)(MP3_160K).mp3' },
+    { id:75,  title:'Hopeless',                         artist:'Jimena Contreras',          file:'Hopeless - Jimena Contreras.mp3' },
+    { id:76,  title:'Horror Background Music',          artist:'',                          file:'Horror Music No Copyright]Horror Background Music No Copyright - Non Copyrighted Scary Music(MP3_320K).mp3' },
+    { id:77,  title:'Illusions',                        artist:'Anno Domini Beats',         file:'Illusions - Anno Domini Beats.mp3' },
+    { id:78,  title:'Indian Bollywood Sampled',         artist:'',                          file:'Indian Bollywood Sampled x West ).mp3' },
+    { id:79,  title:'Ethereal Dream',                   artist:'Artificial Music',          file:'Indian R_B Electronic Music (For Videos) - _Ethereal Dream_ by Artificial.Music _ ASHUTOSH(MP3_320K).mp3' },
+    { id:80,  title:'Inspire',                          artist:'ASHUTOSH',                  file:'Royalty Free Indian Electronic Music (For Videos) - _Inspire_ by ASHUTOSH ----(MP3_320K).mp3' },
+    { id:81,  title:'Instrumental Trap 11',             artist:'',                          file:'FREE INSTRUMENTAL TRAP _11(MP3_160K).mp3' },
+    { id:82,  title:'Instrumental Trap 8',              artist:'',                          file:'FREE INSTRUMENTAL TRAP _8(MP3_160K).mp3' },
+    { id:83,  title:'Intense Action',                   artist:'Argsound',                  file:'Intense Action Background Music _ Cinematic Music by Argsound(MP3_320K).mp3' },
+    { id:84,  title:'It Takes Two To Tango',            artist:'Vanoss Gaming',             file:'It Takes Two to Tango - Vanoss Gaming Background Music (HD)(MP3_320K).mp3' },
+    { id:85,  title:'Jazz In Paris',                    artist:'',                          file:'Jazz In Paris(MP3_320K).mp3' },
+    { id:86,  title:'Jazz Hip Hop',                     artist:'Cosimo Fogg',               file:'Jazzaddicts_ by Cosimo Fogg ---- _ Jazz Hip Hop (No Copyright Music) --(MP3_160K).mp3' },
+    { id:87,  title:'Bus Rider',                        artist:'John Swihart',              file:'John Swihart -- Bus Rider(MP3_320K).mp3' },
+    { id:88,  title:'Klondike',                         artist:'Audio Hertz',               file:'Klondike - Audio Hertz.mp3' },
+    { id:89,  title:'Late Night Driving',               artist:'Broke In Summer',           file:'Late Night Driving _ Broke In Summer _ Free Background Music _ Audio Library Release(MP3_320K).mp3' },
+    { id:90,  title:'Heroic',                           artist:'Alex-Productions',          file:'Legendary Epic Heroic Cinematic Music by Alex-Productions (No Copyright Music) Free Music _ Heroic(MP3_160K).mp3' },
+    { id:91,  title:'Less Rake',                        artist:'Tubebackr',                 file:'Less Rake ÔÇª tubebackr (No Copyright Music)(MP3_160K).mp3' },
+    { id:92,  title:'Chill Vibes',                      artist:'Pufino',                    file:'Lofi Hip Hop Beat No Copyright Free Soft _ Calm Aesthetic Background Music _ Chill Vibes by Pufino(MP3_160K).mp3' },
+    { id:93,  title:'Forgive Me',                       artist:'Italics',                   file:'Lofi Hip Hop Instrumental_ Rap [ FREE NO COPYRIGHT SOUND ] [ Chill Type Beat ] ITALICS - Forgive Me(MP3_160K).mp3' },
+    { id:94,  title:'Blue Moon',                        artist:'Lo-fi Type Beat',           file:'Lo-fi Type Beat - Blue Moon(MP3_160K).mp3' },
+    { id:95,  title:'Lottery',                          artist:'Anno Domini Beats',         file:'Lottery - Anno Domini Beats.mp3' },
+    { id:96,  title:'Luck Witch',                       artist:'Audio Hertz',               file:'Luck Witch - Audio Hertz.mp3' },
+    { id:97,  title:'Mario Jump Sound Effect',          artist:'',                          file:'Mario jump sound effect (download)(M4A_128K).m4a' },
+    { id:98,  title:'Take It Easy',                     artist:'MBB',                       file:'MBB - Take It Easy (MP3).mp3' },
+    { id:99,  title:'Mission Start',                    artist:'The Brothers Records',      file:'Mission Start - The Brothers Records.mp3' },
+    { id:100, title:'Mission To Mars',                  artist:'Audio Hertz',               file:'Mission to Mars - Audio Hertz.mp3' },
     { id:101, title:'Mixkit CBPD 400',                  artist:'',                          file:'mixkit-cbpd-400.mp3' },
-    { id:102, title:'Mr Gyani Fact',                    artist:'NCS FF',                    file:'mr-gyani-fact-fact-background-music-ncs-ff.mp3' },
-    { id:103, title:'Never Surrender',                  artist:'Anno Domini Beats',         file:'never-surrender-anno-domini-beats.mp3' },
-    { id:104, title:'Ember',                            artist:'Kubbi',                     file:'no-copyright-music-kubbi-ember-chiptune.mp3' },
-    { id:105, title:'Circles',                          artist:'Lensko',                    file:'no-copyright-music-lensko-circles-norwegian-house.mp3' },
-    { id:106, title:'Groove Day Hip Hop Beat',          artist:'',                          file:'no-copyright-groove-day-hip-hop-beat-groove-and-modern-background.mp3' },
-    { id:107, title:'Resonate',                         artist:'Aoeris',                    file:'non-copyrighted-music-aoeris-resonate-bc-release.mp3' },
-    { id:108, title:'Herbal Tea',                       artist:'SmartToaster',              file:'non-copyrighted-music-smarttoaster-herbal-tea-lo-fi.mp3' },
-    { id:109, title:'Not For Nothing',                  artist:'Otis McDonald',             file:'not-for-nothing-otis-mcdonald-no-copyright-music.mp3' },
-    { id:110, title:'Chase',                            artist:'Alexander Nakarada',        file:'royalty-free-chase-fast-music-chase-by-alexander-nakarada.mp3' },
-    { id:111, title:'Oh What A Whirl',                  artist:'',                          file:'oh-what-a-whirl.mp3' },
-    { id:112, title:'Okay Energy',                      artist:'',                          file:'okay-energy.mp3' },
-    { id:113, title:'Her Name Is Edith',                artist:'OTE',                       file:'ote-her-name-is-edith-instrumental-version-royalty-free-music.mp3' },
-    { id:114, title:'Orange Marmalade',                 artist:'OTE',                       file:'ote-orange-marmalade-royalty-free-music.mp3' },
-    { id:115, title:'Sea Lion',                         artist:'OTE',                       file:'ote-sea-lion-royalty-free-music.mp3' },
-    { id:116, title:'Out Of The Blue',                  artist:'Aldenmark Niklasson',       file:'out-of-the-blue-instrumental-version-by-aldenmark-niklasson-2010s-pop-music.mp3' },
-    { id:117, title:'Palm City Getaway',                artist:'',                          file:'palm-city-getaway-instrumental-ryan-trahan-donation-list-music.mp3' },
-    { id:118, title:'Past',                             artist:'Alex-Productions',          file:'past-alex-productions-no-copyright-music.mp3' },
-    { id:119, title:'Forget Me Not',                    artist:'Patrick Patrikios',         file:'patrick-patrikios-forget-me-not.mp3' },
-    { id:120, title:'Powerful Indie Rock',              artist:'Alex-Productions',          file:'powerful-indie-rock-music-by-alex-productions-no-copyright-music-promotional-video.mp3' },
-    { id:121, title:'Strong',                           artist:'Alex-Productions',          file:'powerful-trap-beat-by-alex-productions-no-copyright-music-extreme-car-trap-music-strong.mp3' },
-    { id:122, title:'The Goat',                         artist:'Alex-Productions',          file:'powerful-upbeat-energetic-lo-fi-hip-hop-by-alex-productions-no-copyright-music-the-goat.mp3' },
-    { id:123, title:'Pray',                             artist:'Anno Domini Beats',         file:'pray-anno-domini-beats.mp3' },
-    { id:124, title:'ProBoiz 95 Outro Song',            artist:'',                          file:'proboiz-95-outro-song.mp3' },
-    { id:125, title:'Firefly',                          artist:'Quincas Moreira',           file:'quincas-moreira-firefly.mp3' },
-    { id:126, title:'Racing',                           artist:'Alex-Productions',          file:'racing-sport-gaming-by-alex-productions-no-copyright-music-racing-free-music-download.mp3' },
-    { id:127, title:'Funny Background Music',           artist:'NCS FF',                    file:'raost-funny-background-music-ncs-ff.mp3' },
-    { id:128, title:'Funny Background Music 1',         artist:'NCS FF',                    file:'raost-funny-background-music-ncs-ff-1.mp3' },
-    { id:129, title:'Rebel',                            artist:'Alex-Productions',          file:'rebel-alex-productions-no-copyright-music.mp3' },
-    { id:130, title:'Game Over',                        artist:'',                          file:'royalty-free-heavy-metal-instrumental-game-over.mp3' },
-    { id:131, title:'Runaway Deer',                     artist:'',                          file:'runaway-deer.mp3' },
-    { id:132, title:'Schizo',                           artist:'Anno Domini Beats',         file:'schizo-anno-domini-beats.mp3' },
-    { id:133, title:'Ave Maria',                        artist:'Schubert',                  file:'schubert-ave-maria.mp3' },
-    { id:134, title:'Pleasant',                         artist:'SebastiAn',                 file:'sebastian-pleasant.mp3' },
-    { id:135, title:'Serial Killer Music',              artist:'',                          file:'serial-killer-music-no-copyright-background-music-royalty-free-background-music-audio-instore.mp3' },
-    { id:136, title:'Shake',                            artist:'Anno Domini Beats',         file:'shake-anno-domini-beats.mp3' },
-    { id:137, title:'Sinister',                         artist:'Anno Domini Beats',         file:'sinister-anno-domini-beats.mp3' },
-    { id:138, title:'Skylines',                         artist:'Anno Domini Beats',         file:'skylines-anno-domini-beats.mp3' },
-    { id:139, title:'Spaceship',                        artist:'',                          file:'spaceship.mp3' },
-    { id:140, title:'Happy Go Lively',                  artist:'SpongeBob Music',           file:'spongebob-music-happy-go-lively.mp3' },
-    { id:141, title:'House Of Horror',                  artist:'SpongeBob Production Music',file:'spongebob-production-music-house-of-horror.mp3' },
-    { id:142, title:'Digital Love',                     artist:'Alex-Productions',          file:'sport-future-bass-energy-by-alex-productions-no-copyright-music-digital-love.mp3' },
-    { id:143, title:'Bubbles',                          artist:'Alex-Productions',          file:'sport-percussive-rap-by-alex-productions-no-copyright-music-bubbles.mp3' },
-    { id:144, title:'Full Speed',                       artist:'Infraction',                file:'sport-racing-electro-punk-by-infraction-no-copyright-music-full-speed.mp3' },
-    { id:145, title:'Rock And Ride',                    artist:'Infraction',                file:'sport-racing-rock-by-infraction-no-copyright-music-rock-and-ride.mp3' },
-    { id:146, title:'Punch',                            artist:'Infraction',                file:'sport-rock-racing-workout-by-infraction-no-copyright-music-punch.mp3' },
-    { id:147, title:'Stand',                            artist:'Anno Domini Beats',         file:'stand-anno-domini-beats.mp3' },
-    { id:148, title:'Street Rhapsody',                  artist:'DJ Freedem',                file:'street-rhapsody-dj-freedem.mp3' },
-    { id:149, title:'Sunny Days',                       artist:'Anno Domini Beats',         file:'sunny-days-anno-domini-beats.mp3' },
-    { id:150, title:'Tension Music',                    artist:'',                          file:'suspense-copyright-free-music-royalty-free-background-music-tension-music.mp3' },
-    { id:151, title:'Teddy Gaming Cinematic',           artist:'',                          file:'teddy-gaming-cinematic-background-music-download-teddy-gaming-cinematic-background-song.mp3' },
-    { id:152, title:'Unreal',                           artist:'Infraction',                file:'trap-futuristic-stylish-technology-by-infraction-no-copyright-music-unreal.mp3' },
-    { id:153, title:'T-Rexed',                          artist:'Audio Hertz',               file:'t-rexed-audio-hertz.mp3' },
-    { id:154, title:'Triple Six',                       artist:'',                          file:'triple-six.mp3' },
-    { id:155, title:'Tropic',                           artist:'Anno Domini Beats',         file:'tropic-anno-domini-beats.mp3' },
-    { id:156, title:'Tropic Fuse',                      artist:'French Fuse',               file:'tropic-fuse-french-fuse.mp3' },
-    { id:157, title:'The Disc',                         artist:'Infraction',                file:'upbeat-dance-funk-pop-by-infraction-no-copyright-music-the-disc.mp3' },
-    { id:158, title:'Jazzy',                            artist:'Infraction',                file:'upbeat-energetic-hip-hop-by-infraction-no-copyright-music-jazzy.mp3' },
-    { id:159, title:'Groovy Town',                      artist:'Infraction',                file:'upbeat-funk-positive-by-infraction-no-copyright-music-groovy-town.mp3' },
-    { id:160, title:'Upbeat Funky Background Music',    artist:'',                          file:'upbeat-funky-background-music-for-video-royalty-free-funk-music-for-commercial-use.mp3' },
-    { id:161, title:'Upbeat Hip Hop',                   artist:'',                          file:'upbeat-hip-hop-background-music-for-videos-no-copyright.mp3' },
-    { id:162, title:'Shake Head',                       artist:'Infraction',                file:'upbeat-reggaeton-latin-by-infraction-no-copyright-music-shake-head.mp3' },
-    { id:163, title:'Uplifting Hip Hop',                artist:'',                          file:'uplifting-hip-hop-background-music-for-videos-free-for-non-commercial-use.mp3' },
-    { id:164, title:'Violin Instrumental',              artist:'',                          file:'violin-instrumental-no-copyright-music-royalty-free-violin-music-no-copyright-free-download-320kbps.mp3' },
-    { id:165, title:'Violin Instrumental 2',            artist:'',                          file:'violin-instrumental-no-copyright-music-royalty-free-violin-music-no-copyright-free-download.mp3' },
-    { id:166, title:'Warzone',                          artist:'Anno Domini Beats',         file:'warzone-anno-domini-beats.mp3' },
-    { id:167, title:'Where The Trap Is',                artist:'Audio Hertz',               file:'where-the-trap-is-audio-hertz.mp3' },
-    { id:168, title:'Wii Shop Channel Main Theme',      artist:'',                          file:'wii-shop-channel-main-theme-hq.mp3' },
-    { id:169, title:'World War Outerspace',             artist:'Audio Hertz',               file:'world-war-outerspace-audio-hertz.mp3' },
-    { id:170, title:'Mind Heist',                       artist:'Zack Hemsey',               file:'zack-hemsey-mind-heist.mp3' },
+    { id:102, title:'Mr Gyani Fact',                    artist:'NCS FF',                    file:'Mr Gyani Fact _ Fact Background Music _ NCS FF(MP3_320K).mp3' },
+    { id:103, title:'Never Surrender',                  artist:'Anno Domini Beats',         file:'Never Surrender - Anno Domini Beats.mp3' },
+    { id:104, title:'Ember',                            artist:'Kubbi',                     file:'Kubbi - Ember [Chiptune](MP3_160K).mp3' },
+    { id:105, title:'Circles',                          artist:'Lensko',                    file:'Lensko - Circles [Norwegian House](MP3_320K).mp3' },
+    { id:106, title:'Groove Day Hip Hop Beat',          artist:'',                          file:'No_Copyright_Groove_Day_Hip_Hop_Beat_Groove_and_Modern_Background.mp3' },
+    { id:107, title:'Resonate',                         artist:'Aoeris',                    file:'Non Copyrighted Music _ Aoeris - Resonate [BC Release](MP3_320K).mp3' },
+    { id:108, title:'Herbal Tea',                       artist:'SmartToaster',              file:'SmartToaster  - Herbal Tea [Lo-fi](MP3_160K).mp3' },
+    { id:109, title:'Not For Nothing',                  artist:'Otis McDonald',             file:'Not For Nothing ÔÇª Otis McDonald (No Copyright Music)(MP3_320K).mp3' },
+    { id:110, title:'Chase',                            artist:'Alexander Nakarada',        file:'ÔÅ® Royalty Free Chase Fast Music (For Videos) - _Chase_ by Alexander Nakarada ----(MP3_320K).mp3' },
+    { id:111, title:'Oh What A Whirl',                  artist:'',                          file:'Oh What A Whirl(MP3_320K).mp3' },
+    { id:112, title:'Okay Energy',                      artist:'',                          file:'Okay Energy(MP3_160K).mp3' },
+    { id:113, title:'Her Name Is Edith',                artist:'OTE',                       file:'OTE - Her Name Is Edith (Instrumental Version) (Royalty Free Music)(MP3_320K).mp3' },
+    { id:114, title:'Orange Marmalade',                 artist:'OTE',                       file:'OTE - Orange Marmalade (Royalty Free Music)(MP3_320K).mp3' },
+    { id:115, title:'Sea Lion',                         artist:'OTE',                       file:'OTE - Sea Lion (Royalty Free Music)(MP3_320K).mp3' },
+    { id:116, title:'Out Of The Blue',                  artist:'Aldenmark Niklasson',       file:'Out Of The Blue [Instrumental Version] by Aldenmark Niklasson - [2010s Pop Music](MP3_320K).mp3' },
+    { id:117, title:'Palm City Getaway',                artist:'',                          file:'Palm City- Getaway Instrumental (Ryan Trahan Donation List Music)(MP3_320K).mp3' },
+    { id:118, title:'Past',                             artist:'Alex-Productions',          file:'PAST ÔÇª Alex-Productions (No Copyright Music)(MP3_160K).mp3' },
+    { id:119, title:'Forget Me Not',                    artist:'Patrick Patrikios',         file:'Patrick Patrikios _ Forget Me Not(MP3_320K).mp3' },
+    { id:120, title:'Powerful Indie Rock',              artist:'Alex-Productions',          file:'Powerful Indie Rock music by Alex-Productions (No Copyright Music) _ Promotional Video(MP3_160K).mp3' },
+    { id:121, title:'Strong',                           artist:'Alex-Productions',          file:'Powerful Trap Beat By Alex-Productions ( No Copyright Music ) _ Extreme  Car Trap Music _ Strong _(MP3_160K).mp3' },
+    { id:122, title:'The Goat',                         artist:'Alex-Productions',          file:'Powerful Upbeat Energetic Lo-Fi Hip Hop by Alex-Productions [No Copyright Music] _ The GOAT(MP3_160K).mp3' },
+    { id:123, title:'Pray',                             artist:'Anno Domini Beats',         file:'Pray - Anno Domini Beats.mp3' },
+    { id:124, title:'ProBoiz 95 Outro Song',            artist:'',                          file:'ProBoiz 95 Outro Song ----------(SONG NAME___)(MP3_320K).mp3' },
+    { id:125, title:'Firefly',                          artist:'Quincas Moreira',           file:'Quincas Moreira _ Firefly(MP3_320K).mp3' },
+    { id:126, title:'Racing',                           artist:'Alex-Productions',          file:'Racing Sport Gaming by Alex-Productions [No Copyright Music] _ RACING _ FREE MUSIC DOWNLOAD _(MP3_160K).mp3' },
+    { id:127, title:'Funny Background Music',           artist:'NCS FF',                    file:'RAOST (FUNNY) BACKGROUND MUSIC _ NCS FF(MP3_320K).mp3' },
+    { id:128, title:'Funny Background Music 1',         artist:'NCS FF',                    file:'RAOST (FUNNY) BACKGROUND MUSIC _ NCS FF(MP3_320K)_1.mp3' },
+    { id:129, title:'Rebel',                            artist:'Alex-Productions',          file:'Rebel ÔÇª Alex-Productions (No Copyright Music)(MP3_160K).mp3' },
+    { id:130, title:'Game Over',                        artist:'',                          file:'Royalty Free Heavy Metal Instrumental - Game Over(MP3_320K).mp3' },
+    { id:131, title:'Runaway Deer',                     artist:'',                          file:'Runaway Deer(MP3_320K).mp3' },
+    { id:132, title:'Schizo',                           artist:'Anno Domini Beats',         file:'Schizo - Anno Domini Beats.mp3' },
+    { id:133, title:'Ave Maria',                        artist:'Schubert',                  file:'Schubert - Ave Maria(MP3_320K).mp3' },
+    { id:134, title:'Pleasant',                         artist:'SebastiAn',                 file:'SebastiAn - Pleasant(MP3_320K).mp3' },
+    { id:135, title:'Serial Killer Music',              artist:'',                          file:'Serial Killer Music [No Copyright Background  Music] _ Royalty Free Background music _ Audio Instore(MP3_320K).mp3' },
+    { id:136, title:'Shake',                            artist:'Anno Domini Beats',         file:'Shake - Anno Domini Beats.mp3' },
+    { id:137, title:'Sinister',                         artist:'Anno Domini Beats',         file:'Sinister - Anno Domini Beats.mp3' },
+    { id:138, title:'Skylines',                         artist:'Anno Domini Beats',         file:'Skylines - Anno Domini Beats.mp3' },
+    { id:139, title:'Spaceship',                        artist:'',                          file:'Spaceship.mp3' },
+    { id:140, title:'Happy Go Lively',                  artist:'SpongeBob Music',           file:'SpongeBob Music_ Happy-Go-Lively(MP3_320K).mp3' },
+    { id:141, title:'House Of Horror',                  artist:'SpongeBob Production Music',file:'SpongeBob Production Music House of Horror(MP3_320K).mp3' },
+    { id:142, title:'Digital Love',                     artist:'Alex-Productions',          file:'Sport Future Bass Energy by Alex-Productions ]No Copyright music] _ Digital Love(MP3_160K).mp3' },
+    { id:143, title:'Bubbles',                          artist:'Alex-Productions',          file:'Sport Percussive Rap by Alex-Productions (No Copyright Music) _ Bubbles(MP3_160K).mp3' },
+    { id:144, title:'Full Speed',                       artist:'Infraction',                file:'Sport Racing Electro Punk by Infraction [No Copyright Music] _ Full Speed(MP3_320K).mp3' },
+    { id:145, title:'Rock And Ride',                    artist:'Infraction',                file:'Sport Racing Rock by Infraction [No Copyright Music] _ Rock And Ride(MP3_160K).mp3' },
+    { id:146, title:'Punch',                            artist:'Infraction',                file:'Sport Rock Racing Workout by Infraction [No Copyright Music] _ Punch(MP3_160K).mp3' },
+    { id:147, title:'Stand',                            artist:'Anno Domini Beats',         file:'Stand - Anno Domini Beats.mp3' },
+    { id:148, title:'Street Rhapsody',                  artist:'DJ Freedem',                file:'Street Rhapsody - DJ Freedem.mp3' },
+    { id:149, title:'Sunny Days',                       artist:'Anno Domini Beats',         file:'Sunny Days - Anno Domini Beats.mp3' },
+    { id:150, title:'Tension Music',                    artist:'',                          file:'Suspense - copyright free music - royalty free Background music - Tension Music - free to use(MP3_320K).mp3' },
+    { id:151, title:'Teddy Gaming Cinematic',           artist:'',                          file:'Teddy gaming cinematic background music download _ teddy gaming cinematic background song(MP3_320K).mp3' },
+    { id:152, title:'Unreal',                           artist:'Infraction',                file:'Trap Futuristic Stylish Technology by Infraction [No Copyright Music] _ Unreal(MP3_320K).mp3' },
+    { id:153, title:'T-Rexed',                          artist:'Audio Hertz',               file:'T-Rexed - Audio Hertz.mp3' },
+    { id:154, title:'Triple Six',                       artist:'',                          file:'Triple Six(MP3_320K).mp3' },
+    { id:155, title:'Tropic',                           artist:'Anno Domini Beats',         file:'Tropic - Anno Domini Beats.mp3' },
+    { id:156, title:'Tropic Fuse',                      artist:'French Fuse',               file:'Tropic Fuse - French Fuse.mp3' },
+    { id:157, title:'The Disc',                         artist:'Infraction',                file:'Upbeat Dance Funk Pop by Infraction [No Copyright Music] _ The Disc(MP3_320K).mp3' },
+    { id:158, title:'Jazzy',                            artist:'Infraction',                file:'Upbeat Energetic Hip-Hop by Infraction [No Copyright Music] _ Jazzy(MP3_160K).mp3' },
+    { id:159, title:'Groovy Town',                      artist:'Infraction',                file:'Upbeat Funk Positive by Infraction [No Copyright Music] _ Groovy Town(MP3_320K).mp3' },
+    { id:160, title:'Upbeat Funky Background Music',    artist:'',                          file:'Upbeat Funky Background Music for Video __ ROYALTY FREE Funk Music for Commercial Use(MP3_160K).mp3' },
+    { id:161, title:'Upbeat Hip Hop',                   artist:'',                          file:'Upbeat Hip Hop Background Music for Videos (No Copyright)(MP3_160K).mp3' },
+    { id:162, title:'Shake Head',                       artist:'Infraction',                file:'Upbeat Reggaeton Latin by Infraction [No Copyright Music] _ Shake Head(MP3_160K).mp3' },
+    { id:163, title:'Uplifting Hip Hop',                artist:'',                          file:'Uplifting Hip Hop Background Music for Videos (Free For Non-Commercial Use)(MP3_160K).mp3' },
+    { id:164, title:'Violin Instrumental',              artist:'',                          file:'Violin Instrumental No Copyright Music Royalty free violin music no copyright Free Download (320kbps).mp3' },
+    { id:165, title:'Violin Instrumental 2',            artist:'',                          file:'Violin Instrumental No Copyright Music Royalty free violin music no copyright Free Download(MP3_320K).mp3' },
+    { id:166, title:'Warzone',                          artist:'Anno Domini Beats',         file:'Warzone - Anno Domini Beats.mp3' },
+    { id:167, title:'Where The Trap Is',                artist:'Audio Hertz',               file:'Where The Trap Is - Audio Hertz.mp3' },
+    { id:168, title:'Wii Shop Channel Main Theme',      artist:'',                          file:'Wii Shop Channel Main Theme (HQ)(MP3_320K).mp3' },
+    { id:169, title:'World War Outerspace',             artist:'Audio Hertz',               file:'World War Outerspace - Audio Hertz.mp3' },
+    { id:170, title:'Mind Heist',                       artist:'Zack Hemsey',               file:'Zack Hemsey - _Mind Heist_(MP3_320K).mp3' },
   ];
+
+  // ── Overlay de Vídeo ──────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (overlayVideoRef.current) {
+      overlayVideoRef.current.pause();
+      overlayVideoRef.current.src = '';
+      try { document.body.removeChild(overlayVideoRef.current); } catch {}
+      overlayVideoRef.current = null;
+    }
+    overlayReadyRef.current = false;
+    if (!activeOverlay) return;
+    const eff = OVERLAY_EFFECTS.find(o => o.id === activeOverlay);
+    if (!eff) return;
+    const vid = document.createElement('video');
+    vid.src = OVERLAY_BASE_URL + encodeURIComponent(eff.file);
+    vid.loop = true;
+    vid.muted = true;
+    vid.playsInline = true;
+    vid.crossOrigin = 'anonymous';
+    vid.style.cssText = 'position:fixed;width:1px;height:1px;top:-9999px;left:-9999px;visibility:hidden;pointer-events:none';
+    document.body.appendChild(vid);
+    vid.oncanplay = () => { overlayReadyRef.current = true; vid.play().catch(() => {}); };
+    overlayVideoRef.current = vid;
+    vid.load();
+    return () => {
+      vid.pause(); vid.src = '';
+      try { document.body.removeChild(vid); } catch {}
+      overlayVideoRef.current = null;
+      overlayReadyRef.current = false;
+    };
+  }, [activeOverlay]);
+
+  // ── Narração TTS via ElevenLabs ──────────────────────────────────────────────
+  const handleGerarNarracao = async () => {
+    if (!narracaoText.trim()) { setNarracaoError('Digite um texto para narrar.'); return; }
+    if (!narracaoApiKey.trim()) { setNarracaoError('Insira sua API key do ElevenLabs.'); return; }
+    setNarracaoLoading(true);
+    setNarracaoError('');
+    try {
+      const resp = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${narracaoVoice}`, {
+        method: 'POST',
+        headers: {
+          'xi-api-key': narracaoApiKey.trim(),
+          'Content-Type': 'application/json',
+          'Accept': 'audio/mpeg',
+        },
+        body: JSON.stringify({
+          text: narracaoText.trim(),
+          model_id: 'eleven_multilingual_v2',
+          voice_settings: { stability: 0.5, similarity_boost: 0.75 },
+        }),
+      });
+      if (resp.status === 401) {
+        // Tentar ler o body para ver o erro real
+        let detail = '';
+        try { const j = await resp.clone().json(); detail = j?.detail?.message || j?.detail || ''; } catch {}
+        throw new Error(detail.includes('unusual') || detail.includes('proxy')
+          ? 'ElevenLabs bloqueou: desative VPN/proxy e tente novamente.'
+          : `API key inválida ou bloqueada (401). ${detail}`);
+      }
+      if (resp.status === 422) throw new Error('Texto inválido ou voz não encontrada.');
+      if (!resp.ok) throw new Error(`Erro ${resp.status}. Tente novamente.`);
+      const blob = await resp.blob();
+      const file = new File([blob], 'narracao.mp3', { type: 'audio/mpeg' });
+      handleNarrChange(file);
+      localStorage.setItem('el_api_key', narracaoApiKey.trim());
+      setShowNarracaoPanel(false);
+      setNarracaoText('');
+    } catch (err) {
+      setNarracaoError(err.message || 'Erro desconhecido.');
+    } finally {
+      setNarracaoLoading(false);
+    }
+  };
+
+  // ── Sincronização Automática de Letras via Groq Whisper ─────────────────────
+  const handleSyncLyrics = async () => {
+    const lines = bulkText.split('\n').filter(l => l.trim() !== '');
+    if (lines.length === 0) { setSyncError('Cole a letra da música no painel antes de sincronizar.'); return; }
+    if (!syncApiKey.trim()) { setSyncError('Insira sua API key do Groq.'); return; }
+    if (!audioFile && !audioBase64) { setSyncError('Carregue uma música no editor antes de sincronizar.'); return; }
+    setSyncLoading(true);
+    setSyncError('');
+    try {
+      let blob;
+      if (audioFile) {
+        blob = audioFile;
+      } else {
+        const b64 = audioBase64.split(',')[1];
+        const bin = atob(b64);
+        const bytes = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+        blob = new Blob([bytes], { type: 'audio/mpeg' });
+      }
+      if (blob.size > 25 * 1024 * 1024) throw new Error('Áudio muito grande (máx 25MB). Use um arquivo menor.');
+
+      const formData = new FormData();
+      formData.append('file', blob, 'audio.mp3');
+      formData.append('model', 'whisper-large-v3-turbo');
+      formData.append('response_format', 'verbose_json');
+      formData.append('timestamp_granularities[]', 'word');
+      formData.append('timestamp_granularities[]', 'segment');
+
+      const resp = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${syncApiKey.trim()}` },
+        body: formData,
+      });
+      if (resp.status === 401) throw new Error('API key inválida. Verifique no Groq.');
+      if (!resp.ok) throw new Error(`Erro ${resp.status} — tente novamente.`);
+      const data = await resp.json();
+
+      const words = data.words || [];
+      const segments = data.segments || [];
+
+      // Ajuste de trim e offset: os timestamps do Whisper são relativos ao arquivo original.
+      // Se o usuário cortou o início (trimStart) e/ou moveu o áudio na timeline (audioOffset),
+      // precisamos subtrair trimStart e somar audioOffset para alinhar com a timeline.
+      const trimStart = audioTrimStart || 0;
+      const trimEnd   = audioTrimEnd !== null ? audioTrimEnd : (duration || 999);
+      const offset    = audioOffset || 0;
+
+      // Filtra palavras e segmentos que estão dentro do trecho não cortado
+      const adjustTime = t => Math.round((t - trimStart + offset) * 100) / 100;
+      const filteredWords    = words.filter(w => w.start >= trimStart && w.end <= trimEnd + 0.5);
+      const filteredSegments = segments.filter(s => s.start >= trimStart && s.end <= trimEnd + 0.5);
+
+      const totalDur = filteredSegments.length > 0
+        ? adjustTime(filteredSegments[filteredSegments.length - 1].end)
+        : (duration || 30);
+
+      const canvas = canvasRef.current;
+      const cx = canvas ? canvas.width / 2 : 360;
+      const cy = canvas ? Math.round(canvas.height * 0.75) : 960;
+
+      // Normaliza string: minúsculo, sem pontuação, sem acentos
+      const normalize = str => str
+        .toLowerCase()
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z0-9\s]/g, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+
+      let newLyrics = [];
+
+      if (filteredWords.length >= lines.length) {
+        // ── Estratégia 1: word-level matching ────────────────────────────────
+        const normWords = filteredWords.map(w => normalize(w.word));
+        let wordCursor = 0;
+
+        const lineTimestamps = lines.map((line, lineIdx) => {
+          const lineTokens = normalize(line).split(' ').filter(Boolean);
+          if (lineTokens.length === 0) return null;
+
+          let bestMatchStart = -1;
+          let bestScore = -1;
+
+          const maxStart = Math.min(wordCursor + Math.ceil(normWords.length / lines.length) * 3, normWords.length - lineTokens.length + 1);
+          for (let wi = wordCursor; wi < maxStart; wi++) {
+            let score = 0;
+            for (let ti = 0; ti < lineTokens.length && wi + ti < normWords.length; ti++) {
+              if (normWords[wi + ti] === lineTokens[ti]) score += 2;
+              else if (normWords[wi + ti]?.includes(lineTokens[ti]) || lineTokens[ti]?.includes(normWords[wi + ti])) score += 1;
+            }
+            if (score > bestScore) { bestScore = score; bestMatchStart = wi; }
+          }
+
+          if (bestScore >= lineTokens.length * 0.5 && bestMatchStart >= 0) {
+            const matchEnd = Math.min(bestMatchStart + lineTokens.length - 1, filteredWords.length - 1);
+            wordCursor = matchEnd + 1;
+            return {
+              start: adjustTime(filteredWords[bestMatchStart].start),
+              end:   adjustTime(filteredWords[matchEnd].end),
+            };
+          }
+
+          const ratio = lineIdx / lines.length;
+          return { start: offset + ratio * (totalDur - offset), end: null };
+        });
+
+        newLyrics = lines.map((text, idx) => {
+          const ts = lineTimestamps[idx];
+          const nextTs = lineTimestamps.find((t, i) => i > idx && t && t.start > (ts?.start ?? 0));
+          const start = ts?.start ?? (offset + (idx / lines.length) * totalDur);
+          let end = ts?.end
+            ? Math.max(ts.end, start + 1.0)
+            : (nextTs ? Math.max(nextTs.start - 0.1, start + 1.5) : start + 3);
+          if (nextTs && end > nextTs.start - 0.05) end = nextTs.start - 0.05;
+          end = Math.max(end, start + 1.0);
+
+          return {
+            id: Date.now() + idx,
+            text,
+            start: Math.round(start * 100) / 100,
+            end:   Math.round(end   * 100) / 100,
+            x: cx, y: cy, rotation: 0,
+            fontSize: fontSizeRef.current,
+            fontFamily: fontFamilyRef.current,
+            animType: animTypeRef.current,
+            twSpeed: twSpeedRef.current,
+          };
+        });
+
+      } else if (filteredSegments.length > 0) {
+        // ── Estratégia 2: segment-level ───────────────────────────────────────
+        const linesPerSeg = lines.length / filteredSegments.length;
+        newLyrics = lines.map((text, idx) => {
+          const segIdx = Math.min(Math.floor(idx / linesPerSeg), filteredSegments.length - 1);
+          const seg = filteredSegments[segIdx];
+          const linesInThisSeg = Math.round(linesPerSeg) || 1;
+          const posInSeg = idx - Math.floor(segIdx * linesPerSeg);
+          const segDur = seg.end - seg.start;
+          const slotSize = segDur / linesInThisSeg;
+          const rawStart = seg.start + posInSeg * slotSize;
+          const rawEnd   = rawStart + slotSize - 0.1;
+
+          return {
+            id: Date.now() + idx,
+            text,
+            start: Math.round(adjustTime(rawStart) * 100) / 100,
+            end:   Math.round(Math.max(adjustTime(rawEnd), adjustTime(rawStart) + 1.0) * 100) / 100,
+            x: cx, y: cy, rotation: 0,
+            fontSize: fontSizeRef.current,
+            fontFamily: fontFamilyRef.current,
+            animType: animTypeRef.current,
+            twSpeed: twSpeedRef.current,
+          };
+        });
+
+      } else {
+        throw new Error('Nenhum segmento detectado no áudio.');
+      }
+
+      // Garantia final: ordenar e eliminar qualquer sobreposição residual
+      newLyrics.sort((a, b) => a.start - b.start);
+      for (let i = 0; i < newLyrics.length - 1; i++) {
+        if (newLyrics[i].end > newLyrics[i + 1].start - 0.05) {
+          newLyrics[i].end = Math.max(newLyrics[i + 1].start - 0.05, newLyrics[i].start + 0.5);
+        }
+      }
+
+      pushHistory();
+      setLyrics(newLyrics);
+      setCurrentLineIndex(lines.length);
+      localStorage.setItem('groq_api_key', syncApiKey.trim());
+      setShowSyncPanel(false);
+    } catch (err) {
+      setSyncError(err.message || 'Erro desconhecido.');
+    } finally {
+      setSyncLoading(false);
+    }
+  };
 
   const stopTrilhasPreview = () => {
     if (trilhasPreviewRef.current) {
@@ -2198,11 +2362,45 @@ function App() {
           img.onload = () => setImage(img);
           img.src = p.imageSrc;
         }
-        if (p.projectVolume !== undefined) setVolume(p.projectVolume);
-        if (p.projectSpeed  !== undefined) setSpeed(p.projectSpeed);
-        if (p.screenEffect    !== undefined) setScreenEffect(p.screenEffect);
-        if (p.chromaAberration!== undefined) setChromaAberration(p.chromaAberration);
+        if (p.projectVolume    !== undefined) setVolume(p.projectVolume);
+        if (p.projectSpeed     !== undefined) setSpeed(p.projectSpeed);
+        if (p.screenEffect     !== undefined) setScreenEffect(p.screenEffect);
+        if (p.chromaAberration !== undefined) setChromaAberration(p.chromaAberration);
         if (p.colorCurves      !== undefined) setColorCurves(p.colorCurves);
+        if (p.activeOverlay    !== undefined) setActiveOverlay(p.activeOverlay || null);
+        if (p.overlayOpacity   !== undefined) setOverlayOpacity(p.overlayOpacity ?? 0.85);
+        // Restaura narração
+        if (p.narrBase64) {
+          setNarrBase64(p.narrBase64);
+          setNarrSrc(p.narrBase64);
+          setNarrFile(null);
+          setNarrOffset(p.narrOffset || 0);
+          setNarrTrimStart(p.narrTrimStart || 0);
+          setNarrTrimEnd(p.narrTrimEnd ?? null);
+          narrOffsetRef.current = p.narrOffset || 0;
+          narrTrimStartRef.current = p.narrTrimStart || 0;
+          // Decodifica waveform da narração
+          try {
+            const b64n = p.narrBase64.split(',')[1];
+            const binn = atob(b64n);
+            const byn = new Uint8Array(binn.length);
+            for (let i = 0; i < binn.length; i++) byn[i] = binn.charCodeAt(i);
+            const acN = new (window.AudioContext || window.webkitAudioContext)();
+            acN.decodeAudioData(byn.buffer).then(decoded => {
+              const raw = decoded.getChannelData(0);
+              const buckets = 300;
+              const step = Math.floor(raw.length / buckets);
+              const peaks = [];
+              for (let i = 0; i < buckets; i++) {
+                let max = 0;
+                for (let j = 0; j < step; j++) max = Math.max(max, Math.abs(raw[i * step + j] || 0));
+                peaks.push(max);
+              }
+              setNarrWaveformPeaks(peaks);
+              acN.close();
+            }).catch(() => {});
+          } catch { void 0; }
+        }
         if (p.audioBase64) {
           setAudioBase64(p.audioBase64);
           setAudioMimeType(p.audioMimeType || 'audio/mpeg');
@@ -2530,6 +2728,7 @@ function App() {
     isPlayingRef.current = false;
     const audio = audioRef.current;
     if (audio) { audio.pause(); audio.currentTime = 0; }
+    if (narrRef.current) { narrRef.current.pause(); narrRef.current.currentTime = 0; }
     if (clockIntervalRef.current) { clearInterval(clockIntervalRef.current); clockIntervalRef.current = null; }
     // Para o export RT se estiver rodando
     if (exportStopRef.current) { exportStopRef.current(); exportStopRef.current = null; }
@@ -2570,6 +2769,15 @@ function App() {
     setScreenEffect('none');
     setChromaAberration(0);
     setColorCurves({r:1,g:1,b:1,midtone:1,shadows:0,highlights:0});
+    setActiveOverlay(null);
+    setOverlayOpacity(0.85);
+    setSoundEffects([]);
+    // Limpa narração
+    if (narrRef.current) { narrRef.current.pause(); narrRef.current.currentTime = 0; }
+    setNarrSrc(null); setNarrFile(null); setNarrBase64(null);
+    setNarrDuration(0); setNarrOffset(0); setNarrTrimStart(0); setNarrTrimEnd(null);
+    setNarrWaveformPeaks([]);
+    narrOffsetRef.current = 0; narrTrimStartRef.current = 0;
     setAudioMimeType(null);
     setWaveformPeaks([]);
     setDuration(0);
@@ -2591,6 +2799,26 @@ function App() {
     try {
       localStorage.removeItem('gc_project');
     } catch { void 0; }
+  };
+
+  // Helper: desenha underline/strikethrough
+  const drawTextDecorations = (ctx, vis, lineY, fontSize, underline, strike) => {
+    if (!underline && !strike) return;
+    const w = ctx.measureText(vis).width;
+    const x0 = -w / 2, x1 = w / 2;
+    ctx.save();
+    ctx.lineWidth = Math.max(1, fontSize * 0.05);
+    ctx.strokeStyle = ctx.fillStyle || '#ffffff';
+    ctx.globalAlpha = 1;
+    if (underline) {
+      const y = lineY + fontSize * 0.55;
+      ctx.beginPath(); ctx.moveTo(x0, y); ctx.lineTo(x1, y); ctx.stroke();
+    }
+    if (strike) {
+      const y = lineY;
+      ctx.beginPath(); ctx.moveTo(x0, y); ctx.lineTo(x1, y); ctx.stroke();
+    }
+    ctx.restore();
   };
 
   // Quebra o texto da letra respeitando \n manuais e auto-wrap
@@ -2735,7 +2963,7 @@ function App() {
     const ff = txt.fontFamily || extraTextFontFamily;
     const lines = txt.text.split('\n');
     const lineH = fs * 1.25;
-    ctx.font = `bold ${fs}px ${ff}`;
+    ctx.font = `bold ${fs}px "${ff}"`;
     const maxW = lines.reduce((m, l) => Math.max(m, ctx.measureText(l).width), 0);
     const totalH = lines.length * lineH;
     return { halfW: maxW / 2 + 10, halfH: totalH / 2 + 8, lineH, lines };
@@ -2846,13 +3074,14 @@ function App() {
     // Deseleciona texto extra se clicou fora
     setActiveExtraTextId(null);
 
-    // Verifica clique em lyric ativa no canvas
+    // Verifica clique em lyric ativa no canvas — suporta múltiplos simultâneos
     const time = audioRef.current ? audioRef.current.currentTime : virtualTimeRef.current;
-    const visibleLyric = lyrics.find(l => time >= l.start && time <= l.end);
-    if (visibleLyric) {
+    const visibleLyrics = lyrics.filter(l => time >= l.start && time <= l.end);
+    let clickedLyric = null;
+    for (const visibleLyric of visibleLyrics) {
       const vFontSize = visibleLyric.fontSize || fontSize;
       const vFontFamily = visibleLyric.fontFamily || fontFamily;
-      ctx.font = `bold ${vFontSize}px ${vFontFamily}`;
+      ctx.font = `bold ${vFontSize}px "${vFontFamily}"`;
       const lines = wrapLyricText(visibleLyric.text, ctx, canvas.width - 40);
       const lineH = vFontSize * 1.3;
       const totalH = lines.length * lineH;
@@ -2880,14 +3109,20 @@ function App() {
       // Hit-test in local rotated space
       const { lx: llx, ly: lly } = toLocalSpace(mouseX, mouseY, lx, ly, lRot);
       if (Math.abs(llx) <= hw && Math.abs(lly) <= hh) {
-        setActiveLyricId(visibleLyric.id);
-        if (e.detail === 2) {
-          setEditingLyricId(visibleLyric.id);
-          return;
-        }
-        _setDragging({ type: 'lyric-canvas', id: visibleLyric.id, offsetX: mouseX - lx, offsetY: mouseY - ly });
+        clickedLyric = visibleLyric;
+        break;
+      }
+    }
+    if (clickedLyric) {
+      const lx = clickedLyric.x ?? canvas.width / 2;
+      const ly = clickedLyric.y ?? canvas.height * 0.75;
+      setActiveLyricId(clickedLyric.id);
+      if (e.detail === 2) {
+        setEditingLyricId(clickedLyric.id);
         return;
       }
+      _setDragging({ type: 'lyric-canvas', id: clickedLyric.id, offsetX: mouseX - lx, offsetY: mouseY - ly });
+      return;
     }
 
     setActiveLyricId(null);
@@ -3037,6 +3272,29 @@ function App() {
         // Recua trim end (corta o final)
         const newTrimEnd = Math.max(dragging.initialTrimStart + 0.1, Math.min(dragging.initialTrimEnd + dx, audioDur));
         setAudioTrimEnd(newTrimEnd);
+      }
+      return;
+    }
+
+    // Timeline narração drag/trim
+    if (dragging && dragging.itemKind === 'narr') {
+      const dx = (e.clientX - dragging.initialX) / zoom;
+      const narrDur = dragging.narrDur;
+      if (dragging.type === 'move') {
+        const newOffset = Math.max(0, dragging.initialOffset + dx);
+        setNarrOffset(newOffset);
+        if (narrRef.current) {
+          const t = virtualTimeRef.current;
+          if (t >= newOffset) narrRef.current.currentTime = t - newOffset + narrTrimStart;
+        }
+      } else if (dragging.type === 'trim-start') {
+        const newTrimStart = Math.max(0, Math.min(dragging.initialTrimStart + dx, dragging.initialTrimEnd - 0.1));
+        const offsetDelta = newTrimStart - dragging.initialTrimStart;
+        setNarrTrimStart(newTrimStart);
+        setNarrOffset(Math.max(0, dragging.initialOffset + offsetDelta));
+      } else if (dragging.type === 'trim-end') {
+        const newTrimEnd = Math.max(dragging.initialTrimStart + 0.1, Math.min(dragging.initialTrimEnd + dx, narrDur));
+        setNarrTrimEnd(newTrimEnd);
       }
       return;
     }
@@ -4001,7 +4259,7 @@ _setDragging(null);
         ctx.save();
         ctx.translate(txt.x, txt.y);
         ctx.rotate(rot);
-        ctx.font = `bold ${tSize}px ${tFont}`;
+        ctx.font = `${(txt.fontBold ?? extraFontBoldRef.current) ? "bold " : ""}${(txt.fontItalic ?? extraFontItalicRef.current) ? "italic " : ""}${tSize}px "${tFont}"`;
         ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
         const _etotalH = lines.length * lineH;
         drawTextBgEffectRef.current?.(ctx, txt.bgEffect, lines, tSize, lineH, _etotalH);
@@ -4012,7 +4270,7 @@ _setDragging(null);
         ctx.save();
         ctx.translate(txt.x, txt.y);
         ctx.rotate(rot);
-        ctx.font = `bold ${tSize}px ${tFont}`;
+        ctx.font = `${(txt.fontBold ?? extraFontBoldRef.current) ? "bold " : ""}${(txt.fontItalic ?? extraFontItalicRef.current) ? "italic " : ""}${tSize}px "${tFont}"`;
         ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
         const _etH = lines.length * lineH;
         drawTextBgEffectRef.current?.(ctx, txt.bgEffect, lines, tSize, lineH, _etH);
@@ -4020,7 +4278,7 @@ _setDragging(null);
       }
       ctx.translate(txt.x, txt.y);
       ctx.rotate(rot);
-      ctx.font = `bold ${tSize}px ${tFont}`;
+      ctx.font = `${(txt.fontBold ?? extraFontBoldRef.current) ? "bold " : ""}${(txt.fontItalic ?? extraFontItalicRef.current) ? "italic " : ""}${tSize}px "${tFont}"`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       if (txt.shadowEnabled ?? true) {
@@ -4030,6 +4288,8 @@ _setDragging(null);
         ctx.shadowOffsetY = 2;
       }
       const totalH = lines.length * lineH;
+      const _tUnder = txt.fontUnderline ?? extraFontUnderlineRef.current;
+      const _tStrike = txt.fontStrike ?? extraFontStrikeRef.current;
       lines.forEach((line, li) => {
         const lineY = -totalH / 2 + li * lineH + lineH / 2;
         if (txt.gradientEnabled) {
@@ -4042,12 +4302,13 @@ _setDragging(null);
           ctx.fillStyle = tColor;
         }
         ctx.fillText(line, 0, lineY);
+        drawTextDecorations(ctx, line, lineY, tSize, _tUnder, _tStrike);
       });
       ctx.shadowBlur = 0; ctx.shadowOffsetX = 0; ctx.shadowOffsetY = 0;
 
       // Indicador de seleção
       if (activeExtraTextId === txt.id) {
-        ctx.font = `bold ${tSize}px ${tFont}`;
+        ctx.font = `${(txt.fontBold ?? extraFontBoldRef.current) ? "bold " : ""}${(txt.fontItalic ?? extraFontItalicRef.current) ? "italic " : ""}${tSize}px "${tFont}"`;
         const maxW = lines.reduce((m, l) => Math.max(m, ctx.measureText(l).width), 0);
         const hw = maxW / 2 + 10;
         const hh = totalH / 2 + 8;
@@ -4076,16 +4337,16 @@ _setDragging(null);
       ctx.restore();
     });
 
-    // Desenha Letra da Música
-    const activeLine = lyrics.find(l => time >= l.start && time <= l.end);
-    if (activeLine) {
+    // Desenha Letra da Música — suporta múltiplos lyrics simultâneos
+    const activeLines = lyrics.filter(l => time >= l.start && time <= l.end);
+    activeLines.forEach((activeLine) => {
       const lx = activeLine.x ?? canvas.width / 2;
       const ly = activeLine.y ?? canvas.height * 0.75;
       const lRot = (activeLine.rotation || 0) * Math.PI / 180;
       // ── Usa font/size por-lyric se definido, senão usa global ──────────────
       const lFontSize = activeLine.fontSize || fontSize;
       const lFontFamily = activeLine.fontFamily || fontFamily;
-      ctx.font = `bold ${lFontSize}px ${lFontFamily}`;
+      ctx.font = `${(activeLine.fontBold ?? fontBoldRef.current) ? "bold " : ""}${(activeLine.fontItalic ?? fontItalicRef.current) ? "italic " : ""}${lFontSize}px "${lFontFamily}"`;
       const lines = wrapLyricText(activeLine.text, ctx, canvas.width - 40);
       const lineH = lFontSize * 1.3;
       const totalH = lines.length * lineH;
@@ -4096,6 +4357,8 @@ _setDragging(null);
       const _elaps = Math.max(0, time - activeLine.start);
       const _ease  = 1 - Math.pow(1 - Math.min(1, _elaps / 0.45), 2);
       const _twCh  = _anim === 'typewriter' ? Math.floor(_elaps * _twSpd) : Infinity;
+      // Karaoke: velocidade de chars por segundo (mesma ref twSpeed)
+      const _karCh = _anim === 'karaoke' ? Math.floor(_elaps * _twSpd) : Infinity;
       // Efeito de fundo atrás do texto
       const _bgFx = activeLine.bgEffect ?? textBgEffect;
       if (_bgFx && _bgFx !== 'none') {
@@ -4104,7 +4367,7 @@ _setDragging(null);
         if (_anim === 'slide') ctx.translate(0, (1 - _ease) * 48);
         ctx.translate(lx, ly);
         ctx.rotate(lRot);
-        ctx.font = `bold ${lFontSize}px ${lFontFamily}`;
+        ctx.font = `${(activeLine.fontBold ?? fontBoldRef.current) ? "bold " : ""}${(activeLine.fontItalic ?? fontItalicRef.current) ? "italic " : ""}${lFontSize}px "${lFontFamily}"`;
         ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
         drawTextBgEffectRef.current?.(ctx, _bgFx, lines, lFontSize, lineH, totalH);
         ctx.restore();
@@ -4142,6 +4405,74 @@ _setDragging(null);
           if (rem <= 0) return;
           vis = upperLine.slice(0, rem);
         }
+
+        // ── Karaoke word-jump: fundo SOMENTE na palavra atual ─────────────
+        if (_anim === 'karaoke') {
+          const _karColor = activeLine.karaokeColor || '#000000';
+          const _karAlpha = activeLine.karaokeAlpha ?? 0.82;
+          const _karPadY  = lFontSize * 0.18;
+          const _karPadX  = lFontSize * 0.22;
+
+          // Acumula offset de chars das linhas anteriores
+          let lineCharOffset = 0;
+          lines.slice(0, li).forEach(pl => { lineCharOffset += pl.length + 1; });
+
+          // Descobre qual palavra está ativa agora
+          const words = upperLine.split(' ');
+          let cumChars = lineCharOffset; // char global acumulado até aqui
+          let activeWordIdx = -1;
+          for (let wi = 0; wi < words.length; wi++) {
+            const wStart = cumChars;
+            const wEnd   = cumChars + words[wi].length;
+            if (_karCh >= wStart && _karCh <= wEnd) { activeWordIdx = wi; break; }
+            cumChars += words[wi].length + 1; // +1 pelo espaço
+          }
+
+          // Calcula posição X de cada palavra para achar a ativa
+          const wordWidths = words.map(w2 => ctx.measureText(w2).width);
+          const spaceW = ctx.measureText(' ').width;
+          const totalLineW = wordWidths.reduce((s, w2) => s + w2, 0) + spaceW * (words.length - 1);
+          let wordX = -totalLineW / 2; // inicia no extremo esquerdo da linha
+
+          words.forEach((word, wi) => {
+            const ww = wordWidths[wi];
+            if (wi === activeWordIdx) {
+              // Fundo apenas desta palavra
+              ctx.save();
+              ctx.shadowBlur = 0; ctx.shadowColor = 'transparent';
+              ctx.fillStyle = _karColor;
+              ctx.globalAlpha = _karAlpha;
+              const bx = wordX - _karPadX / 2;
+              const by = lineY - lFontSize / 2 - _karPadY / 2;
+              const bw = ww + _karPadX;
+              const bh = lFontSize + _karPadY;
+              const br = Math.min(lFontSize * 0.18, bw / 2, bh / 2);
+              ctx.beginPath();
+              ctx.moveTo(bx + br, by);
+              ctx.arcTo(bx + bw, by, bx + bw, by + bh, br);
+              ctx.arcTo(bx + bw, by + bh, bx, by + bh, br);
+              ctx.arcTo(bx, by + bh, bx, by, br);
+              ctx.arcTo(bx, by, bx + bw, by, br);
+              ctx.closePath();
+              ctx.fill();
+              ctx.globalAlpha = 1;
+              ctx.restore();
+            }
+            wordX += ww + spaceW;
+          });
+
+          // Texto por cima (linha completa)
+          if (_grOn) {
+            const grad = ctx.createLinearGradient(-totalLineW / 2, lineY - lFontSize / 2, totalLineW / 2, lineY + lFontSize / 2);
+            grad.addColorStop(0, _gr1); grad.addColorStop(1, _gr2);
+            ctx.fillStyle = grad;
+          } else { ctx.fillStyle = _col; }
+          ctx.fillText(upperLine, 0, lineY);
+          drawTextDecorations(ctx, upperLine, lineY, lFontSize, activeLine.fontUnderline ?? fontUnderlineRef.current, activeLine.fontStrike ?? fontStrikeRef.current);
+          return;
+        }
+        // ── Fim karaoke ─────────────────────────────────────────────────────
+
         if (_grOn) {
           const w = ctx.measureText(vis).width;
           const grad = ctx.createLinearGradient(-w / 2, lineY - lFontSize / 2, w / 2, lineY + lFontSize / 2);
@@ -4152,6 +4483,7 @@ _setDragging(null);
           ctx.fillStyle = _col;
         }
         ctx.fillText(vis, 0, lineY);
+        drawTextDecorations(ctx, vis, lineY, lFontSize, activeLine.fontUnderline ?? fontUnderlineRef.current, activeLine.fontStrike ?? fontStrikeRef.current);
       });
       ctx.shadowBlur = 0; ctx.shadowOffsetX = 0; ctx.shadowOffsetY = 0;
       ctx.globalAlpha = 1;
@@ -4159,7 +4491,7 @@ _setDragging(null);
 
       // Indicador de seleção / arrasto + handle de rotação
       if (activeLyricId === activeLine.id && editingLyricId !== activeLine.id) {
-        ctx.font = `bold ${lFontSize}px ${lFontFamily}`;
+        ctx.font = `${(activeLine.fontBold ?? fontBoldRef.current) ? "bold " : ""}${(activeLine.fontItalic ?? fontItalicRef.current) ? "italic " : ""}${lFontSize}px "${lFontFamily}"`;
         const maxW = lines.reduce((m, l) => Math.max(m, ctx.measureText(l.toUpperCase()).width), 0);
         const hw = maxW / 2 + 14;
         const hh = totalH / 2 + 10;
@@ -4188,7 +4520,7 @@ _setDragging(null);
         ctx.stroke();
         ctx.restore();
       }
-    }
+    });
 
     // ── Stickers / Emojis / GIFs ─────────────────────────────────────────────
     const _sNow = Date.now() / 1000;
@@ -4452,6 +4784,19 @@ _setDragging(null);
         ctx.drawImage(tmp, 0, 0);
       } catch(e) {}
     }
+    // ── Overlay de Vídeo ──────────────────────────────────────────────────────────
+    const _ovEl = overlayVideoRef.current;
+    const _ovId = activeOverlayRef.current;
+    if (_ovEl && _ovId && overlayReadyRef.current && _ovEl.readyState >= 2) {
+      const _ovEff = OVERLAY_EFFECTS.find(o => o.id === _ovId);
+      ctx.save();
+      ctx.globalAlpha = overlayOpacityRef.current;
+      ctx.globalCompositeOperation = _ovEff?.blend || 'screen';
+      ctx.drawImage(_ovEl, 0, 0, canvas.width, canvas.height);
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.globalAlpha = 1;
+      ctx.restore();
+    }
     // Efeito de tela (overlay sobre tudo)
     if (screenEffect && screenEffect !== 'none') {
       drawScreenEffectRef.current?.(ctx, screenEffect, canvas.width, canvas.height, Date.now()/1000);
@@ -4704,7 +5049,9 @@ _setDragging(null);
       // 2) Sincronizar vídeos
       if (syncVideosInRAFRef.current) syncVideosInRAFRef.current();
       // 3) Desenhar o canvas
-      if (drawRef.current) drawRef.current();
+      try {
+        if (drawRef.current) drawRef.current();
+      } catch(e) { console.warn('[draw error]', e); }
       rafId = requestAnimationFrame(loop);
     };
     rafId = requestAnimationFrame(loop);
@@ -4889,7 +5236,7 @@ _setDragging(null);
       ctx.save();
       ctx.translate(txt.x, txt.y);
       ctx.rotate(rot);
-      ctx.font = `bold ${tSize}px ${tFont}`;
+      ctx.font = `${(txt.fontBold ?? extraFontBoldRef.current) ? "bold " : ""}${(txt.fontItalic ?? extraFontItalicRef.current) ? "italic " : ""}${tSize}px "${tFont}"`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       if (txt.shadowEnabled ?? true) {
@@ -4899,6 +5246,8 @@ _setDragging(null);
         ctx.shadowOffsetY = 2;
       }
       const totalH = lines.length * lineH;
+      const _tUnder = txt.fontUnderline ?? extraFontUnderlineRef.current;
+      const _tStrike = txt.fontStrike ?? extraFontStrikeRef.current;
       lines.forEach((line, li) => {
         const lineY = -totalH / 2 + li * lineH + lineH / 2;
         if (txt.gradientEnabled) {
@@ -4911,18 +5260,19 @@ _setDragging(null);
           ctx.fillStyle = tColor;
         }
         ctx.fillText(line, 0, lineY);
+        drawTextDecorations(ctx, line, lineY, tSize, _tUnder, _tStrike);
       });
       ctx.shadowBlur = 0; ctx.shadowOffsetX = 0; ctx.shadowOffsetY = 0;
       ctx.restore();
     });
-    const activeLine = (lyricsRef.current || lyrics).find(l => t >= l.start && t <= l.end);
-    if (activeLine) {
+    const activeLines = (lyricsRef.current || lyrics).filter(l => t >= l.start && t <= l.end);
+    activeLines.forEach((activeLine) => {
       const lx = activeLine.x ?? logicalW / 2;
       const ly = activeLine.y ?? logicalH * 0.75;
       const lRot = (activeLine.rotation || 0) * Math.PI / 180;
       const lFontSize = activeLine.fontSize || fontSize;
       const lFontFamily = activeLine.fontFamily || fontFamily;
-      ctx.font = `bold ${lFontSize}px ${lFontFamily}`;
+      ctx.font = `${(activeLine.fontBold ?? fontBoldRef.current) ? "bold " : ""}${(activeLine.fontItalic ?? fontItalicRef.current) ? "italic " : ""}${lFontSize}px "${lFontFamily}"`;
       const lines = wrapLyricText(activeLine.text, ctx, logicalW - 40);
       const lineH = lFontSize * 1.3;
       const totalH = lines.length * lineH;
@@ -4932,13 +5282,14 @@ _setDragging(null);
       const _elaps = Math.max(0, t - activeLine.start);
       const _ease  = 1 - Math.pow(1 - Math.min(1, _elaps / 0.45), 2);
       const _twCh  = _anim === 'typewriter' ? Math.floor(_elaps * _twSpd) : Infinity;
+      const _karCh = _anim === 'karaoke'    ? Math.floor(_elaps * _twSpd) : Infinity;
       const _bgFxR = activeLine.bgEffect ?? textBgEffect;
       if (_bgFxR && _bgFxR !== 'none') {
         ctx.save();
         if (_anim === 'fade')  ctx.globalAlpha = _ease;
         if (_anim === 'slide') ctx.translate(0, (1 - _ease) * 48);
         ctx.translate(lx, ly); ctx.rotate(lRot);
-        ctx.font = `bold ${lFontSize}px ${lFontFamily}`;
+        ctx.font = `${(activeLine.fontBold ?? fontBoldRef.current) ? "bold " : ""}${(activeLine.fontItalic ?? fontItalicRef.current) ? "italic " : ""}${lFontSize}px "${lFontFamily}"`;
         ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
         drawTextBgEffectRef.current?.(ctx, _bgFxR, lines, lFontSize, lineH, totalH);
         ctx.restore();
@@ -4976,6 +5327,69 @@ _setDragging(null);
           if (rem <= 0) return;
           vis = upperLine.slice(0, rem);
         }
+
+        // ── Karaoke word-jump (export): fundo SOMENTE na palavra atual ────
+        if (_anim === 'karaoke') {
+          const _karColor = activeLine.karaokeColor || '#000000';
+          const _karAlpha = activeLine.karaokeAlpha ?? 0.82;
+          const _karPadY  = lFontSize * 0.18;
+          const _karPadX  = lFontSize * 0.22;
+
+          let lineCharOffset = 0;
+          lines.slice(0, li).forEach(pl => { lineCharOffset += pl.length + 1; });
+
+          const words = upperLine.split(' ');
+          let cumChars = lineCharOffset;
+          let activeWordIdx = -1;
+          for (let wi = 0; wi < words.length; wi++) {
+            const wStart = cumChars;
+            const wEnd   = cumChars + words[wi].length;
+            if (_karCh >= wStart && _karCh <= wEnd) { activeWordIdx = wi; break; }
+            cumChars += words[wi].length + 1;
+          }
+
+          const wordWidths = words.map(w2 => ctx.measureText(w2).width);
+          const spaceW = ctx.measureText(' ').width;
+          const totalLineW = wordWidths.reduce((s, w2) => s + w2, 0) + spaceW * (words.length - 1);
+          let wordX = -totalLineW / 2;
+
+          words.forEach((word, wi) => {
+            const ww = wordWidths[wi];
+            if (wi === activeWordIdx) {
+              ctx.save();
+              ctx.shadowBlur = 0; ctx.shadowColor = 'transparent';
+              ctx.fillStyle = _karColor;
+              ctx.globalAlpha = _karAlpha;
+              const bx = wordX - _karPadX / 2;
+              const by = lineY - lFontSize / 2 - _karPadY / 2;
+              const bw = ww + _karPadX;
+              const bh = lFontSize + _karPadY;
+              const br = Math.min(lFontSize * 0.18, bw / 2, bh / 2);
+              ctx.beginPath();
+              ctx.moveTo(bx + br, by);
+              ctx.arcTo(bx + bw, by, bx + bw, by + bh, br);
+              ctx.arcTo(bx + bw, by + bh, bx, by + bh, br);
+              ctx.arcTo(bx, by + bh, bx, by, br);
+              ctx.arcTo(bx, by, bx + bw, by, br);
+              ctx.closePath();
+              ctx.fill();
+              ctx.globalAlpha = 1;
+              ctx.restore();
+            }
+            wordX += ww + spaceW;
+          });
+
+          if (_grOn) {
+            const grad = ctx.createLinearGradient(-totalLineW / 2, lineY - lFontSize / 2, totalLineW / 2, lineY + lFontSize / 2);
+            grad.addColorStop(0, _gr1); grad.addColorStop(1, _gr2);
+            ctx.fillStyle = grad;
+          } else { ctx.fillStyle = _col; }
+          ctx.fillText(upperLine, 0, lineY);
+          drawTextDecorations(ctx, upperLine, lineY, lFontSize, activeLine.fontUnderline ?? fontUnderlineRef.current, activeLine.fontStrike ?? fontStrikeRef.current);
+          return;
+        }
+        // ── Fim karaoke (export) ────────────────────────────────────────────
+
         if (_grOn) {
           const w = ctx.measureText(vis).width;
           const grad = ctx.createLinearGradient(-w / 2, lineY - lFontSize / 2, w / 2, lineY + lFontSize / 2);
@@ -4986,11 +5400,12 @@ _setDragging(null);
           ctx.fillStyle = _col;
         }
         ctx.fillText(vis, 0, lineY);
+        drawTextDecorations(ctx, vis, lineY, lFontSize, activeLine.fontUnderline ?? fontUnderlineRef.current, activeLine.fontStrike ?? fontStrikeRef.current);
       });
       ctx.shadowBlur = 0; ctx.shadowOffsetX = 0; ctx.shadowOffsetY = 0;
       ctx.globalAlpha = 1;
       ctx.restore();
-    }
+    });
 
     // ── Stickers / Emojis / GIFs (export) ───────────────────────────────────
     stickersRef.current.filter(stk => {
@@ -5283,17 +5698,20 @@ _setDragging(null);
     if (!baseCanvas) return;
     const effectiveDuration = (() => {
       // Calcula o fim real do áudio na timeline: offset + duração após trim
-      const _audEnd = duration > 0
+      const _dur = duration > 0 ? duration : (audioRef.current?.duration || 0);
+      const _audEnd = _dur > 0
         ? (audioOffset || 0) + (
             audioTrimEnd !== null
               ? (audioTrimEnd - (audioTrimStart || 0))
-              : (duration - (audioTrimStart || 0))
+              : (_dur - (audioTrimStart || 0))
           )
         : 0;
-      const _lyricEnd = lyrics && lyrics.length ? Math.max(...lyrics.map(l => l.end || 0)) : 0;
-      const _imgEnd   = images && images.length ? Math.max(...images.map(i => i.end || 0)) : 0;
-      const _vidEnd   = videos && videos.length ? Math.max(...videos.map(v => v.end || 0)) : 0;
-      return Math.max(_audEnd, _lyricEnd, _imgEnd, _vidEnd) || 3;
+      const _lyricEnd = lyricsRef.current.length ? Math.max(...lyricsRef.current.map(l => l.end || 0)) : 0;
+      const _imgEnd   = imagesRef.current.length ? Math.max(...imagesRef.current.map(i => i.end || 0)) : 0;
+      const _vidEnd   = videosRef.current.length ? Math.max(...videosRef.current.map(v => v.end || 0)) : 0;
+      const _narrDur = narrRef.current?.duration || narrDuration || 0;
+      const _narrEnd = _narrDur > 0 ? (narrOffset || 0) + (_narrDur - (narrTrimStart || 0)) : 0;
+      return Math.max(_audEnd, _lyricEnd, _imgEnd, _vidEnd, _narrEnd) || 3;
     })();
     if (!effectiveDuration || effectiveDuration <= 0) return;
     const _spdW = Math.max(0.25, Math.min(4, projectSpeedRef.current));
@@ -5331,17 +5749,20 @@ _setDragging(null);
 
     const effectiveDuration = (() => {
       // Calcula o fim real do áudio na timeline: offset + duração após trim
-      const _audEnd = duration > 0
+      const _dur = duration > 0 ? duration : (audioRef.current?.duration || 0);
+      const _audEnd = _dur > 0
         ? (audioOffset || 0) + (
             audioTrimEnd !== null
               ? (audioTrimEnd - (audioTrimStart || 0))
-              : (duration - (audioTrimStart || 0))
+              : (_dur - (audioTrimStart || 0))
           )
         : 0;
-      const _lyricEnd = lyrics && lyrics.length ? Math.max(...lyrics.map(l => l.end || 0)) : 0;
-      const _imgEnd   = images && images.length ? Math.max(...images.map(i => i.end || 0)) : 0;
-      const _vidEnd   = videos && videos.length ? Math.max(...videos.map(v => v.end || 0)) : 0;
-      return Math.max(_audEnd, _lyricEnd, _imgEnd, _vidEnd) || 3;
+      const _lyricEnd = lyricsRef.current.length ? Math.max(...lyricsRef.current.map(l => l.end || 0)) : 0;
+      const _imgEnd   = imagesRef.current.length ? Math.max(...imagesRef.current.map(i => i.end || 0)) : 0;
+      const _vidEnd   = videosRef.current.length ? Math.max(...videosRef.current.map(v => v.end || 0)) : 0;
+      const _narrDur = narrRef.current?.duration || narrDuration || 0;
+      const _narrEnd = _narrDur > 0 ? (narrOffset || 0) + (_narrDur - (narrTrimStart || 0)) : 0;
+      return Math.max(_audEnd, _lyricEnd, _imgEnd, _vidEnd, _narrEnd) || 3;
     })();
     if (!effectiveDuration || effectiveDuration <= 0) return;
 
@@ -5395,7 +5816,40 @@ _setDragging(null);
         } catch(e) { console.warn('[WEBM RT] bg audio error', e); }
       }
 
-      // 3. Áudio dos vídeos: usa audioBuffer (já decodificado) — MediaElementSource
+      // 2b. Narração — segunda faixa de áudio independente
+      let narrSource = null;
+      if (narrSrc || narrBase64 || narrFile) {
+        try {
+          let narrBuf;
+          // Prioridade: blob URL (narrSrc) → File object → base64
+          if (narrSrc && narrSrc.startsWith('blob:')) {
+            const resp = await fetch(narrSrc);
+            narrBuf = await resp.arrayBuffer();
+          } else if (narrFile) {
+            narrBuf = await narrFile.arrayBuffer();
+          } else if (narrBase64) {
+            const b64n = narrBase64.split(',')[1];
+            const binn = atob(b64n); const bytesn = new Uint8Array(binn.length);
+            for (let i = 0; i < binn.length; i++) bytesn[i] = binn.charCodeAt(i);
+            narrBuf = bytesn.buffer;
+          }
+          if (narrBuf) {
+            const decodedNarr = await ac.decodeAudioData(narrBuf);
+            const _nTrimS = Math.round((narrTrimStart || 0) * decodedNarr.sampleRate);
+            const _nTrimE = narrTrimEnd !== null
+              ? Math.round(narrTrimEnd * decodedNarr.sampleRate)
+              : decodedNarr.length;
+            const _nCh = decodedNarr.numberOfChannels;
+            const _narrBuf = ac.createBuffer(_nCh, Math.max(1, _nTrimE - _nTrimS), decodedNarr.sampleRate);
+            for (let _ch = 0; _ch < _nCh; _ch++)
+              _narrBuf.getChannelData(_ch).set(decodedNarr.getChannelData(_ch).subarray(_nTrimS, _nTrimE));
+            narrSource = ac.createBufferSource();
+            narrSource.buffer = _narrBuf;
+            narrSource.playbackRate.value = _spd1;
+            narrSource.connect(gainNode);
+          }
+        } catch(e) { console.warn('[WEBM RT] narr audio error', e); }
+      }
       //    capturaria silêncio pois videoEl.muted=true durante playback Web Audio
       const vidSources = [];
       const vidVolumesBackup = []; // mantido para compatibilidade com cleanup
@@ -5465,6 +5919,7 @@ _setDragging(null);
       // 7. Começa a tocar tudo em sincronia
       // audioOffset: agendar o início do bgSource no tempo correto da timeline
       if (bgSource) bgSource.start(ac.currentTime + (audioOffset || 0) / _spd1);
+      if (narrSource) narrSource.start(ac.currentTime + (narrOffset || 0) / _spd1);
       for (const v of vidsToPlay) {
         if (0 >= v.start && 0 <= v.end) v.videoEl.play().catch(() => {});
       }
@@ -5503,6 +5958,7 @@ _setDragging(null);
       clearInterval(clockIntervalRef.current); clockIntervalRef.current = null;
       for (const v of vidsToPlay) { if (!v.videoEl.paused) v.videoEl.pause(); }
       if (bgSource) { try { bgSource.stop(); } catch {} }
+      if (narrSource) { try { narrSource.stop(); } catch {} }
 
       // 11. Para o recorder e aguarda finalização
       await new Promise(resolve => {
@@ -5511,6 +5967,9 @@ _setDragging(null);
       });
 
       rtExportRef.current = false; // restaura draw() para usar audioRef.current
+      // Restaura posição para o início após export
+      virtualTimeRef.current = 0;
+      setCurrentTime(0);
       // 12. Limpa WebAudio
       for (const s of vidSources) { try { s.stop(); } catch {} try { s.disconnect(); } catch {} }
       // Restaura volume original dos vídeos após export
@@ -5633,9 +6092,15 @@ _setDragging(null);
     audioMimeType: audioMimeType || null,
     projectVolume: projectVolume ?? 1,
     projectSpeed:  projectSpeed  ?? 1,
-    screenEffect:  screenEffect  || 'none',
+    screenEffect:     screenEffect  || 'none',
     chromaAberration: chromaAberration || 0,
-    colorCurves: colorCurves || {r:1,g:1,b:1,midtone:1,shadows:0,highlights:0},
+    colorCurves:      colorCurves || {r:1,g:1,b:1,midtone:1,shadows:0,highlights:0},
+    activeOverlay:    activeOverlay || null,
+    overlayOpacity:   overlayOpacity ?? 0.85,
+    narrBase64:       narrBase64 || null,
+    narrOffset:       narrOffset || 0,
+    narrTrimStart:    narrTrimStart || 0,
+    narrTrimEnd:      narrTrimEnd ?? null,
   });
 
   const exportProject = async () => {
@@ -5777,11 +6242,45 @@ _setDragging(null);
         }
 
         // Restaura áudio do projeto
-        if (p.projectVolume !== undefined) setVolume(p.projectVolume);
-        if (p.projectSpeed  !== undefined) setSpeed(p.projectSpeed);
-        if (p.screenEffect    !== undefined) setScreenEffect(p.screenEffect);
-        if (p.chromaAberration!== undefined) setChromaAberration(p.chromaAberration);
+        if (p.projectVolume    !== undefined) setVolume(p.projectVolume);
+        if (p.projectSpeed     !== undefined) setSpeed(p.projectSpeed);
+        if (p.screenEffect     !== undefined) setScreenEffect(p.screenEffect);
+        if (p.chromaAberration !== undefined) setChromaAberration(p.chromaAberration);
         if (p.colorCurves      !== undefined) setColorCurves(p.colorCurves);
+        if (p.activeOverlay    !== undefined) setActiveOverlay(p.activeOverlay || null);
+        if (p.overlayOpacity   !== undefined) setOverlayOpacity(p.overlayOpacity ?? 0.85);
+        // Restaura narração
+        if (p.narrBase64) {
+          setNarrBase64(p.narrBase64);
+          setNarrSrc(p.narrBase64);
+          setNarrFile(null);
+          setNarrOffset(p.narrOffset || 0);
+          setNarrTrimStart(p.narrTrimStart || 0);
+          setNarrTrimEnd(p.narrTrimEnd ?? null);
+          narrOffsetRef.current = p.narrOffset || 0;
+          narrTrimStartRef.current = p.narrTrimStart || 0;
+          // Decodifica waveform da narração
+          try {
+            const b64n = p.narrBase64.split(',')[1];
+            const binn = atob(b64n);
+            const byn = new Uint8Array(binn.length);
+            for (let i = 0; i < binn.length; i++) byn[i] = binn.charCodeAt(i);
+            const acN = new (window.AudioContext || window.webkitAudioContext)();
+            acN.decodeAudioData(byn.buffer).then(decoded => {
+              const raw = decoded.getChannelData(0);
+              const buckets = 300;
+              const step = Math.floor(raw.length / buckets);
+              const peaks = [];
+              for (let i = 0; i < buckets; i++) {
+                let max = 0;
+                for (let j = 0; j < step; j++) max = Math.max(max, Math.abs(raw[i * step + j] || 0));
+                peaks.push(max);
+              }
+              setNarrWaveformPeaks(peaks);
+              acN.close();
+            }).catch(() => {});
+          } catch { void 0; }
+        }
         if (p.audioBase64) {
           setAudioBase64(p.audioBase64);
           setAudioMimeType(p.audioMimeType || 'audio/mpeg');
@@ -5814,17 +6313,20 @@ _setDragging(null);
     if (!baseCanvas) return;
 
     const effectiveDuration = (() => {
-      const _audEnd = duration > 0
+      const _dur = duration > 0 ? duration : (audioRef.current?.duration || 0);
+      const _audEnd = _dur > 0
         ? (audioOffset || 0) + (
             audioTrimEnd !== null
               ? (audioTrimEnd - (audioTrimStart || 0))
-              : (duration - (audioTrimStart || 0))
+              : (_dur - (audioTrimStart || 0))
           )
         : 0;
-      const _lyricEnd = lyrics.length ? Math.max(...lyrics.map(l => l.end || 0)) : 0;
-      const _imgEnd   = images.length ? Math.max(...images.map(i => i.end || 0)) : 0;
-      const _vidEnd   = videos.length ? Math.max(...videos.map(v => v.end || 0)) : 0;
-      return Math.max(_audEnd, _lyricEnd, _imgEnd, _vidEnd) || 3;
+      const _lyricEnd = lyricsRef.current.length ? Math.max(...lyricsRef.current.map(l => l.end || 0)) : 0;
+      const _imgEnd   = imagesRef.current.length ? Math.max(...imagesRef.current.map(i => i.end || 0)) : 0;
+      const _vidEnd   = videosRef.current.length ? Math.max(...videosRef.current.map(v => v.end || 0)) : 0;
+      const _narrDur = narrRef.current?.duration || narrDuration || 0;
+      const _narrEnd = _narrDur > 0 ? (narrOffset || 0) + (_narrDur - (narrTrimStart || 0)) : 0;
+      return Math.max(_audEnd, _lyricEnd, _imgEnd, _vidEnd, _narrEnd) || 3;
     })();
     if (!effectiveDuration || effectiveDuration <= 0) return;
 
@@ -5863,7 +6365,8 @@ _setDragging(null);
       // mp4-muxer usa 'avc' e 'aac'; webm-muxer usa 'V_VP8' e 'A_OPUS'
       const muxVideoCodec = isMP4 ? 'avc' : videoCodec;
       const muxAudioCodec = isMP4 ? 'aac' : audioCodec;
-      const hasAudio = !!(audioFile || audioBase64 || videosRef.current.some(v => !v.muted));
+      const hasAudio = !!(audioFile || audioBase64 || narrFile || narrBase64 || narrSrc ||
+        videosRef.current.some(v => !v.muted && v.audioBuffer));
 
       const muxer = new Muxer({
         target,
@@ -5932,6 +6435,42 @@ _setDragging(null);
           await _mixSfxIntoBuffers(outL, outR, soundEffects, 48000);
           await _mixVideoAudioIntoBuffers(outL, outR, videosRef.current, spd, vol, 48000);
 
+          // ── Narração: mixar na faixa de saída ──────────────────────────────
+          if (narrSrc || narrBase64 || narrFile) {
+            try {
+              let narrRawBuf;
+              if (narrSrc && narrSrc.startsWith('blob:')) {
+                const nr = await fetch(narrSrc); narrRawBuf = await nr.arrayBuffer();
+              } else if (narrFile) {
+                narrRawBuf = await narrFile.arrayBuffer();
+              } else if (narrBase64) {
+                const b64n = narrBase64.split(',')[1]; const binn = atob(b64n);
+                const byn = new Uint8Array(binn.length); for (let i=0;i<binn.length;i++) byn[i]=binn.charCodeAt(i);
+                narrRawBuf = byn.buffer;
+              }
+              if (narrRawBuf) {
+                const _acN = new (window.AudioContext||window.webkitAudioContext)({ sampleRate:48000 });
+                const decodedN = await _acN.decodeAudioData(narrRawBuf); _acN.close();
+                const nTrimS = Math.round((narrTrimStart || 0) * decodedN.sampleRate);
+                const nTrimE = narrTrimEnd !== null ? Math.round(narrTrimEnd * decodedN.sampleRate) : decodedN.length;
+                const _acN2 = new (window.AudioContext||window.webkitAudioContext)();
+                const narrSubBuf = _acN2.createBuffer(decodedN.numberOfChannels, Math.max(1, nTrimE - nTrimS), decodedN.sampleRate);
+                for (let ch=0; ch<decodedN.numberOfChannels; ch++)
+                  narrSubBuf.getChannelData(ch).set(decodedN.getChannelData(ch).subarray(nTrimS, nTrimE));
+                _acN2.close();
+                const [nL, nR] = await _renderAudioStretched(narrSubBuf, spd, vol, 48000);
+                const narrOffsetSamples = Math.round((narrOffset || 0) / spd * 48000);
+                const narrCopyLen = Math.min(nL.length, outL.length - narrOffsetSamples);
+                if (narrCopyLen > 0 && narrOffsetSamples < outL.length) {
+                  for (let i=0; i<narrCopyLen; i++) {
+                    outL[narrOffsetSamples + i] = (outL[narrOffsetSamples + i] || 0) + (nL[i] || 0);
+                    outR[narrOffsetSamples + i] = (outR[narrOffsetSamples + i] || 0) + (nR[i] || 0);
+                  }
+                }
+              }
+            } catch(e) { console.warn('[export] narr mix error', e); }
+          }
+
           const BLK = 4096;
           for (let op = 0; op < outL.length; op += BLK) {
             const bl = Math.min(BLK, outL.length - op);
@@ -5968,10 +6507,53 @@ _setDragging(null);
         };
         exportStopRef.current = stop; // permite que Stop pare o export
 
+        // ── Pre-posiciona e inicia vídeos para o export ───────────────────────
+        videosRef.current.forEach(v => {
+          if (!v.videoEl) return;
+          v.videoEl.muted = false;
+          v.videoEl.volume = 0; // silencia speaker; export captura via muxer de áudio
+          v.videoEl.playbackRate = Math.max(0.25, Math.min(4, v.vidSpeed ?? 1));
+          v.videoEl.currentTime = v.trimStart ?? 0;
+        });
+        videosRef.current.forEach(v => {
+          if (!v.videoEl || v.start > 0) return;
+          v.videoEl.play().catch(() => {});
+        });
+
+        // ── syncId: gerencia play/pause dos videoEls SEM seeks ─────────────
+        // NUNCA faz currentTime= em vídeo que já está tocando durante o export:
+        // seek força o browser a pausar o decode pipeline → travada de ~1s no frame.
+        const syncId = setInterval(() => {
+          const vt = virtualTimeRef.current;
+          for (const v of videosRef.current) {
+            if (!v.videoEl) continue;
+            if (vt >= v.start && vt <= v.end) {
+              if (v.videoEl.paused) {
+                // Só posiciona e dá play se estava pausado (entrada na faixa)
+                const trimSt = v.trimStart ?? 0;
+                const expected = trimSt + Math.max(0, vt - v.start) * (v.vidSpeed ?? 1);
+                v.videoEl.currentTime = Math.min(expected, v.videoEl.duration || expected);
+                v.videoEl.playbackRate = Math.max(0.25, Math.min(4, v.vidSpeed ?? 1));
+                v.videoEl.play().catch(() => {});
+              }
+              // Se já está tocando: NÃO faz seek. Deixa o browser decodar naturalmente.
+            } else if (!v.videoEl.paused) {
+              v.videoEl.pause();
+            }
+          }
+        }, 100);
+
+        // ── captureId: captura frames sem interferir no canvas ──────────────
+        // O RAF loop (60fps) já mantém o canvas atualizado com virtualTimeRef.
+        // captureId apenas: (1) avança virtualTimeRef frame-a-frame, (2) captura.
+        // NÃO chama drawRef() aqui — concorrência com RAF corrompe o ctx 2D.
         const captureId = setInterval(() => {
           if (stopped || encoderError) { stop(); return; }
-          const elapsed = (Date.now() - startWall) / 1000;
-          if (elapsed >= outDur + 0.2 || frameCount >= totalFrames + 3) { stop(); return; }
+          if (frameCount >= totalFrames) { stop(); return; }
+
+          // Avança virtualTimeRef para o instante exato deste frame
+          // RAF vai ler isso na próxima volta (~16ms) e desenhar corretamente
+          virtualTimeRef.current = frameCount * (1 / FPS) * spd;
 
           const srcCanvas = offCanvas || baseCanvas;
           if (offCanvas) {
@@ -5992,42 +6574,6 @@ _setDragging(null);
           frameCount++;
           if (frameCount % 15 === 0) setExportProgress(Math.min(frameCount / totalFrames, 0.99));
         }, Math.round(1000 / FPS));
-
-        // Pre-posiciona e desmuta vídeos para o export (sem aparecer no editor)
-        videosRef.current.forEach(v => {
-          if (!v.videoEl) return;
-          v.videoEl.muted = false; // precisa de áudio se usar MediaElementSource
-          v.videoEl.volume = 0;    // silencia saída do speaker — export captura via offscreen
-          // Igual ao RT export: virtualTimeRef já embute projectSpeed,
-          // então o videoEl deve tocar em vidSpeed apenas para não acelerar.
-          v.videoEl.playbackRate = Math.max(0.25, Math.min(4, v.vidSpeed ?? 1));
-          v.videoEl.currentTime = v.trimStart ?? 0;
-        });
-        // Inicia vídeos no range t=0
-        videosRef.current.forEach(v => {
-          if (!v.videoEl || v.start > 0) return;
-          v.videoEl.play().catch(() => {});
-        });
-
-        const syncId = setInterval(() => {
-          const elapsed = (Date.now() - startWall) / 1000;
-          const vt = elapsed * spd;
-          virtualTimeRef.current = vt;
-          setCurrentTime(vt);
-          // Ativa/desativa vídeos conforme o tempo — sem alterar estado de play do usuário
-          for (const v of videosRef.current) {
-            if (!v.videoEl) continue;
-            if (vt >= v.start && vt <= v.end && v.videoEl.paused) {
-              const trimSt = v.trimStart ?? 0;
-              const rel = trimSt + Math.max(0, vt - v.start) * (v.vidSpeed ?? 1);
-              v.videoEl.currentTime = Math.min(rel, v.videoEl.duration || rel);
-              v.videoEl.playbackRate = Math.max(0.25, Math.min(4, v.vidSpeed ?? 1));
-              v.videoEl.play().catch(() => {});
-            } else if ((vt < v.start || vt > v.end) && !v.videoEl.paused) {
-              v.videoEl.pause();
-            }
-          }
-        }, 100);
       });
 
       // Para os vídeos do export e restaura volume
@@ -6245,10 +6791,23 @@ _setDragging(null);
           background: #111;
           border-radius: 12px;
         }
+        @media (max-width: 768px) {
+          .cs-left-panel { display: none !important; }
+          .cs-timeline    { display: none !important; }
+          .cs-header      { overflow-x: auto !important; -webkit-overflow-scrolling: touch !important; }
+        }
       `}</style>
-      
+
+      {/* Banner mobile */}
+      {showMobileBanner && (
+        <div style={{ background:'linear-gradient(90deg,#1a0e00,#0a1200)', borderBottom:'1px solid rgba(251,191,36,0.25)', padding:'7px 14px', display:'flex', alignItems:'center', justifyContent:'space-between', gap:8, zIndex:200, flexShrink:0 }}>
+          <span style={{ fontSize:11, color:'#fbbf24', lineHeight:1.4 }}>📱 Para melhor experiência use no <strong>computador</strong> em <strong>modo paisagem</strong>.</span>
+          <button onClick={() => setShowMobileBanner(false)} style={{ background:'none', border:'none', color:'#fbbf24', cursor:'pointer', fontSize:18, flexShrink:0, lineHeight:1 }}>✕</button>
+        </div>
+      )}
+
       {/* HEADER CONTROLS — Redesign profissional: barra única com grupos */}
-      <div style={{ display:'flex', alignItems:'center', gap:4, padding:'0 10px', height:52, background:'linear-gradient(180deg,#0d1117 0%,#090d13 100%)', borderBottom:'1px solid rgba(255,255,255,0.07)', width:'100%', boxSizing:'border-box', flexShrink:0, zIndex:100 }}>
+      <div className="cs-header" style={{ display:'flex', alignItems:'center', gap:4, padding:'0 10px', height:52, background:'linear-gradient(180deg,#0d1117 0%,#090d13 100%)', borderBottom:'1px solid rgba(255,255,255,0.07)', width:'100%', boxSizing:'border-box', flexShrink:0, zIndex:100 }}>
 
         {/* ── Logo ── */}
         <div style={{ display:'flex', alignItems:'center', gap:6, marginRight:6, flexShrink:0 }}>
@@ -6282,6 +6841,7 @@ _setDragging(null);
                   { icon:'🎬', label:'Vídeo',                    color:'#a78bfa',  action:()=>{ videoInputRef.current?.click(); setShowMidiasPanel(false); } },
                   { icon:'🎵', label:'Música / Áudio',           color:'#10b981',  action:()=>{ audioInputRef.current?.click(); setShowMidiasPanel(false); } },
                   { icon:'🎼', label:'Trilhas',                        color:'#a78bfa',  action:()=>{ setShowMidiasPanel(false); setShowTrilhasPanel(v=>!v); } },
+                  { icon:'🎙️', label:'Narração (TTS)',                 color:'#f472b6',  action:()=>{ setShowMidiasPanel(false); setShowNarracaoPanel(v=>!v); } },
                 ].map(item=>(
                   <div key={item.label} onClick={item.action}
                     style={{ display:'flex', alignItems:'center', gap:10, padding:'9px 14px', cursor:'pointer', transition:'background 0.1s' }}
@@ -6448,26 +7008,33 @@ _setDragging(null);
             <span style={{fontSize:14}}>🔊</span> {t('ed_sfx')} {soundEffects.length>0&&<span style={{background:'#10b981',color:'#000',borderRadius:6,padding:'0 5px',fontSize:10,fontWeight:900,marginLeft:2}}>{soundEffects.length}</span>}
           </button>
           {showSfxPanel && createPortal(
-            <div data-sfx-portal onClick={e=>e.stopPropagation()} style={{ position:'fixed', top:sfxPanelPos.top, left:sfxPanelPos.left, zIndex:99999, background:'#0f172a', border:'1px solid rgba(16,185,129,0.25)', borderRadius:18, width:380, maxHeight:'80vh', boxShadow:'0 16px 48px rgba(0,0,0,0.8)', display:'flex', flexDirection:'column', overflow:'hidden' }}>
+            <div data-sfx-portal onClick={e=>e.stopPropagation()} style={{ position:'fixed', top:sfxPanelPos.top, left:sfxPanelPos.left, zIndex:99999, background:'#0f172a', border:'1px solid rgba(16,185,129,0.25)', borderRadius:18, width:400, maxHeight:'82vh', boxShadow:'0 16px 48px rgba(0,0,0,0.8)', display:'flex', flexDirection:'column', overflow:'hidden' }}>
               <div style={{ padding:'12px 16px 8px', borderBottom:'1px solid rgba(255,255,255,0.06)', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
-                <span style={{ fontWeight:800, fontSize:13, color:'#10b981' }}>🔊 {t('sfx_title')}</span>
+                <span style={{ fontWeight:800, fontSize:13, color:'#10b981' }}>{t('sfx_title')} <span style={{fontSize:10,opacity:0.6,fontWeight:400}}>{t('sfx_count')}</span></span>
                 <button onClick={()=>setShowSfxPanel(false)} style={{ background:'none', border:'none', color:'#555', cursor:'pointer', fontSize:16 }}>✕</button>
               </div>
-              <div style={{ overflowY:'auto', flex:1, padding:'10px 12px', display:'grid', gridTemplateColumns:'repeat(6,1fr)', gap:6 }}>
-                {SFX_LIST.map(sfx=>(
-                  <button key={sfx.key}
-                    title={sfx.name}
-                    onClick={()=>{
-                      const t=virtualTimeRef.current;
-                      pushHistory(); setSoundEffects(prev=>[...prev,{id:Date.now()+Math.random(),key:sfx.key,name:sfx.name,emoji:sfx.emoji,startTime:parseFloat(t.toFixed(2)),volume:1}]);
-                    }}
-                    style={{ background:'rgba(255,255,255,0.04)', border:'1px solid rgba(16,185,129,0.15)', borderRadius:10, padding:'8px 4px', cursor:'pointer', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:3, width:'100%', boxSizing:'border-box' }}
-                    onMouseEnter={e=>e.currentTarget.style.background='rgba(16,185,129,0.15)'}
-                    onMouseLeave={e=>e.currentTarget.style.background='rgba(255,255,255,0.04)'}
-                  >
-                    <span style={{fontSize:20,lineHeight:1}}>{sfx.emoji}</span>
-                    <span style={{fontSize:9,color:'#aaa',fontWeight:600,textAlign:'center',lineHeight:1.2,wordBreak:'break-word'}}>{sfx.name}</span>
-                  </button>
+              <div style={{ overflowY:'auto', flex:1, padding:'10px 12px' }}>
+                {SFX_CATS.map(cat => (
+                  <div key={cat.cat} style={{ marginBottom:12 }}>
+                    <div style={{ fontSize:10, fontWeight:700, color: cat.color, letterSpacing:'0.6px', marginBottom:6, opacity:0.85 }}>{cat.cat}</div>
+                    <div style={{ display:'grid', gridTemplateColumns:'repeat(5,1fr)', gap:5 }}>
+                      {cat.items.map(sfx => (
+                        <button key={sfx.key}
+                          title={sfx.name}
+                          onClick={()=>{
+                            const t=virtualTimeRef.current;
+                            pushHistory(); setSoundEffects(prev=>[...prev,{id:Date.now()+Math.random(),key:sfx.key,name:sfx.name,emoji:sfx.emoji,startTime:parseFloat(t.toFixed(2)),volume:1}]);
+                          }}
+                          style={{ background:'rgba(255,255,255,0.04)', border:`1px solid rgba(255,255,255,0.08)`, borderRadius:9, padding:'7px 3px', cursor:'pointer', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:2, width:'100%', boxSizing:'border-box', transition:'all 0.12s' }}
+                          onMouseEnter={e=>{ e.currentTarget.style.background=`${cat.color}22`; e.currentTarget.style.borderColor=`${cat.color}55`; }}
+                          onMouseLeave={e=>{ e.currentTarget.style.background='rgba(255,255,255,0.04)'; e.currentTarget.style.borderColor='rgba(255,255,255,0.08)'; }}
+                        >
+                          <span style={{fontSize:18,lineHeight:1}}>{sfx.emoji}</span>
+                          <span style={{fontSize:8,color:'#aaa',fontWeight:600,textAlign:'center',lineHeight:1.2,wordBreak:'break-word',maxWidth:'100%',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',padding:'0 2px'}}>{sfx.name}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                 ))}
               </div>
               {soundEffects.length>0&&(
@@ -6504,7 +7071,7 @@ _setDragging(null);
             onMouseEnter={e=>{if(!showFramePanel)e.currentTarget.style.background='rgba(255,255,255,0.05)'}}
             onMouseLeave={e=>{if(!showFramePanel)e.currentTarget.style.background=showFramePanel?'rgba(16,185,129,0.18)':'transparent'}}
           >
-            <span style={{fontSize:14}}>🖼</span> Molduras {frames.length>0&&<span style={{background:'#10b981',borderRadius:8,padding:'1px 5px',fontSize:9,color:'#000',fontWeight:900}}>{frames.length}</span>}
+            <span style={{fontSize:14}}>🖼</span> {t('frames_btn')} {frames.length>0&&<span style={{background:'#10b981',borderRadius:8,padding:'1px 5px',fontSize:9,color:'#000',fontWeight:900}}>{frames.length}</span>}
           </button>
           {showFramePanel && (() => {
             const FRAME_CATALOG = [
@@ -6549,8 +7116,8 @@ _setDragging(null);
                 <div style={{ padding:'12px 16px 10px', borderBottom:'1px solid rgba(255,255,255,0.06)',
                   display:'flex', alignItems:'center', justifyContent:'space-between', flexShrink:0 }}>
                   <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-                    <span style={{ fontWeight:800, fontSize:15, color:'#10b981' }}>🖼 Molduras</span>
-                    {frames.length>0&&<span style={{ fontSize:10, background:'rgba(16,185,129,0.2)', border:'1px solid rgba(16,185,129,0.4)', borderRadius:20, padding:'2px 8px', color:'#10b981' }}>{frames.length} ativa{frames.length>1?'s':''}</span>}
+                    <span style={{ fontWeight:800, fontSize:15, color:'#10b981' }}>{t('frames_title')}</span>
+                    {frames.length>0&&<span style={{ fontSize:10, background:'rgba(16,185,129,0.2)', border:'1px solid rgba(16,185,129,0.4)', borderRadius:20, padding:'2px 8px', color:'#10b981' }}>{frames.length} {frames.length>1?t('frames_active_many'):t('frames_active_one')}</span>}
                   </div>
                   <button onClick={()=>setShowFramePanel(false)} style={{ background:'none',border:'none',color:'#555',cursor:'pointer',fontSize:18,lineHeight:1 }}>✕</button>
                 </div>
@@ -6584,28 +7151,28 @@ _setDragging(null);
                                 border:`1px solid ${isAct?'rgba(16,185,129,0.4)':'rgba(255,255,255,0.06)'}`,
                                 borderRadius:10, padding:'8px 10px', display:'flex', flexDirection:'column', gap:7, cursor:'pointer' }}>
                               <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-                                <span style={{ fontSize:11, color:'#10b981', fontWeight:700, flex:1 }}>🖼 Moldura {fi+1} — {fr.style}</span>
+                                <span style={{ fontSize:11, color:'#10b981', fontWeight:700, flex:1 }}>{t('frames_label')} {fi+1} — {fr.style}</span>
                                 <button onClick={e=>{e.stopPropagation();pushHistory();setFrames(prev=>prev.filter(f=>f.id!==fr.id));if(activeFrameId===fr.id)setActiveFrameId(null);}}
-                                  style={{ background:'rgba(239,68,68,0.1)',border:'1px solid rgba(239,68,68,0.25)',borderRadius:7,padding:'2px 8px',fontSize:11,color:'#f87171',cursor:'pointer' }}>✕ Remover</button>
+                                  style={{ background:'rgba(239,68,68,0.1)',border:'1px solid rgba(239,68,68,0.25)',borderRadius:7,padding:'2px 8px',fontSize:11,color:'#f87171',cursor:'pointer' }}>{t('frames_remove')}</button>
                               </div>
                               {isAct&&(
                                 <div style={{ display:'flex', flexDirection:'column', gap:5 }}>
                                   <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-                                    <span style={{ fontSize:10, color:'#666', minWidth:60 }}>Cor</span>
+                                    <span style={{ fontSize:10, color:'#666', minWidth:60 }}>{t('frames_color')}</span>
                                     <input type="color" value={fr.color||'#ffffff'}
                                       onChange={e=>setFrames(prev=>prev.map(f=>f.id===fr.id?{...f,color:e.target.value}:f))}
                                       style={{ width:28,height:28,padding:0,border:'none',background:'none',cursor:'pointer',borderRadius:6 }} />
                                     {(fr.style==='gradient'||fr.style==='neon_double')&&<>
-                                      <span style={{ fontSize:10, color:'#666' }}>Cor 2</span>
+                                      <span style={{ fontSize:10, color:'#666' }}>{t('frames_color2')}</span>
                                       <input type="color" value={fr.color2||'#00bfff'}
                                         onChange={e=>setFrames(prev=>prev.map(f=>f.id===fr.id?{...f,color2:e.target.value}:f))}
                                         style={{ width:28,height:28,padding:0,border:'none',background:'none',cursor:'pointer',borderRadius:6 }} />
                                     </>}
                                   </div>
                                   {[
-                                    {label:'Espessura',min:1,max:40,step:1,key:'thickness',unit:'px',def:8,accent:'#10b981'},
-                                    {label:'Opacidade',min:0,max:1,step:0.01,key:'opacity',unit:'%',def:1,accent:'#10b981',fmt:v=>Math.round(v*100)+'%'},
-                                    {label:'Rotação',min:-180,max:180,step:1,key:'rotation',unit:'°',def:0,accent:'#10b981',fmt:v=>v+'°'},
+                                    {label:t('frames_thickness'),min:1,max:40,step:1,key:'thickness',unit:'px',def:8,accent:'#10b981'},
+                                    {label:t('frames_opacity'),min:0,max:1,step:0.01,key:'opacity',unit:'%',def:1,accent:'#10b981',fmt:v=>Math.round(v*100)+'%'},
+                                    {label:t('frames_rotation'),min:-180,max:180,step:1,key:'rotation',unit:'°',def:0,accent:'#10b981',fmt:v=>v+'°'},
                                   ].map(({label,min,max,step,key,def,accent,fmt})=>(
                                     <div key={key} style={{ display:'flex', alignItems:'center', gap:8 }}>
                                       <span style={{ fontSize:10, color:'#666', minWidth:60 }}>{label}</span>
@@ -6618,7 +7185,7 @@ _setDragging(null);
                                   ))}
                                   {fr.style==='solid'&&(
                                     <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-                                      <span style={{ fontSize:10, color:'#666', minWidth:60 }}>Cantos</span>
+                                      <span style={{ fontSize:10, color:'#666', minWidth:60 }}>{t('frames_corners')}</span>
                                       <input type="range" min={0} max={200} value={fr.cornerRadius||0}
                                         onChange={e=>setFrames(prev=>prev.map(f=>f.id===fr.id?{...f,cornerRadius:+e.target.value}:f))}
                                         onMouseDown={ev=>ev.stopPropagation()} onPointerDown={ev=>ev.stopPropagation()}
@@ -6627,8 +7194,8 @@ _setDragging(null);
                                     </div>
                                   )}
                                   <div style={{ display:'flex', gap:4, flexWrap:'wrap', marginTop:2 }}>
-                                    <span style={{ fontSize:10, color:'#555', alignSelf:'center', marginRight:2 }}>Tamanho:</span>
-                                    {[['Tela cheia','full'],['Quadrado','square'],['16:9','wide'],['9:16','tall']].map(([lbl,preset])=>(
+                                    <span style={{ fontSize:10, color:'#555', alignSelf:'center', marginRight:2 }}>{t('frames_size')}</span>
+                                    {[[t('frames_fullscreen'),'full'],[t('frames_square'),'square'],['16:9','wide'],['9:16','tall']].map(([lbl,preset])=>(
                                       <button key={preset} onClick={e=>{
                                         e.stopPropagation();
                                         const cv=canvasRef.current;
@@ -6654,7 +7221,7 @@ _setDragging(null);
                         <button onClick={()=>{pushHistory();setFrames([]);setActiveFrameId(null);}}
                           style={{ marginTop:2,background:'rgba(239,68,68,0.07)',border:'1px solid rgba(239,68,68,0.2)',
                             borderRadius:8,padding:'5px 0',fontSize:11,color:'#f87171',cursor:'pointer',width:'100%',fontWeight:700 }}>
-                          ✕ Remover todas as molduras
+                          {t('frames_remove_all')}
                         </button>
                       </div>
                     </div>
@@ -6732,15 +7299,52 @@ _setDragging(null);
               <div style={{ position:'fixed', top:(rect2?.bottom??52)+4, left:Math.max(8,(rect2?.left??0)), zIndex:99999, background:'#0d1117', border:'1px solid rgba(167,139,250,0.25)', borderRadius:18, width:400, maxHeight:'82vh', boxShadow:'0 24px 64px rgba(0,0,0,0.85)', display:'flex', flexDirection:'column', overflow:'hidden' }}>
                 <div style={{ padding:'14px 16px 10px', borderBottom:'1px solid rgba(255,255,255,0.06)', display:'flex', alignItems:'center', justifyContent:'space-between', flexShrink:0 }}>
                   <div>
-                    <span style={{ fontWeight:800, fontSize:15, color:'#a78bfa' }}>🎬 Efeitos</span>
-                    {screenEffect!=='none'&&<span style={{ marginLeft:8, fontSize:10, background:'rgba(167,139,250,0.2)', border:'1px solid rgba(167,139,250,0.4)', borderRadius:20, padding:'2px 8px', color:'#a78bfa' }}>Ativo</span>}
+                    <span style={{ fontWeight:800, fontSize:15, color:'#a78bfa' }}>{t('fx_title')}</span>
+                    {screenEffect!=='none'&&<span style={{ marginLeft:8, fontSize:10, background:'rgba(167,139,250,0.2)', border:'1px solid rgba(167,139,250,0.4)', borderRadius:20, padding:'2px 8px', color:'#a78bfa' }}>{t('fx_active')}</span>}
                   </div>
                   <div style={{ display:'flex', gap:8, alignItems:'center' }}>
-                    {screenEffect!=='none'&&<button onClick={()=>{ pushHistory(); setScreenEffect('none'); }} style={{ background:'rgba(239,68,68,0.15)', border:'1px solid rgba(239,68,68,0.3)', borderRadius:6, padding:'3px 10px', color:'#f87171', fontSize:10, cursor:'pointer', fontWeight:700 }}>✕ Remover</button>}
+                    {screenEffect!=='none'&&<button onClick={()=>{ pushHistory(); setScreenEffect('none'); }} style={{ background:'rgba(239,68,68,0.15)', border:'1px solid rgba(239,68,68,0.3)', borderRadius:6, padding:'3px 10px', color:'#f87171', fontSize:10, cursor:'pointer', fontWeight:700 }}>{t('fx_remove')}</button>}
                     <button onClick={()=>setShowFxPanel(false)} style={{ background:'none', border:'none', color:'#555', cursor:'pointer', fontSize:18, lineHeight:1 }}>✕</button>
                   </div>
                 </div>
                 <div style={{ overflowY:'auto', flex:1, padding:'12px 12px 16px' }}>
+                  {/* ── Overlays de Vídeo ─────────────────────────────── */}
+                  <div style={{ marginBottom: 16 }}>
+                    <div style={{ fontSize: 11, color: '#888', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 1 }}>
+                      🎞️ Texturas & Overlays
+                    </div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
+                      <button onClick={() => setActiveOverlay(null)}
+                        style={{ fontSize: 11, padding: '4px 10px', borderRadius: 8, border: '1px solid',
+                          borderColor: !activeOverlay ? '#00BFFF' : 'rgba(255,255,255,0.12)',
+                          background: !activeOverlay ? 'rgba(0,191,255,0.15)' : 'rgba(255,255,255,0.04)',
+                          color: !activeOverlay ? '#00BFFF' : '#888', cursor: 'pointer' }}>
+                        Nenhum
+                      </button>
+                      {OVERLAY_EFFECTS.map(ov => (
+                        <button key={ov.id} onClick={() => setActiveOverlay(ov.id)}
+                          style={{ fontSize: 11, padding: '4px 10px', borderRadius: 8, border: '1px solid',
+                            borderColor: activeOverlay === ov.id ? '#00BFFF' : 'rgba(255,255,255,0.12)',
+                            background: activeOverlay === ov.id ? 'rgba(0,191,255,0.15)' : 'rgba(255,255,255,0.04)',
+                            color: activeOverlay === ov.id ? '#00BFFF' : '#ccc', cursor: 'pointer',
+                            transition: 'all 0.15s', display: 'flex', alignItems: 'center', gap: 4 }}>
+                          <span>{ov.icon}</span>{ov.name}
+                        </button>
+                      ))}
+                    </div>
+                    {activeOverlay && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 4 }}>
+                        <span style={{ fontSize: 11, color: '#888', whiteSpace: 'nowrap' }}>Opacidade</span>
+                        <input type="range" min={0} max={1} step={0.05} value={overlayOpacity}
+                          onChange={e => setOverlayOpacity(Number(e.target.value))}
+                          style={{ flex: 1, accentColor: '#00BFFF' }} />
+                        <span style={{ fontSize: 11, color: '#aaa', width: 32, textAlign: 'right' }}>
+                          {Math.round(overlayOpacity * 100)}%
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                  <hr style={{ border: 'none', borderTop: '1px solid rgba(255,255,255,0.06)', margin: '0 0 12px' }} />
                   {FX_CATS.map(cat => (
                     <div key={cat.cat} style={{ marginBottom:16 }}>
                       <div style={{ fontSize:10, fontWeight:700, color:'#555', letterSpacing:'0.8px', textTransform:'uppercase', marginBottom:8, paddingLeft:2 }}>{cat.cat}</div>
@@ -6776,18 +7380,18 @@ _setDragging(null);
             onMouseEnter={e=>{if(!showKeyframePanel)e.currentTarget.style.background='rgba(255,255,255,0.05)'}}
             onMouseLeave={e=>{if(!showKeyframePanel)e.currentTarget.style.background=showKeyframePanel?'rgba(251,191,36,0.18)':'transparent'}}
           >
-            <span style={{fontSize:13}}>🎨</span> Cor & Curvas
+            <span style={{fontSize:13}}>🎨</span> {t('cc_btn')}
           </button>
           {showKeyframePanel && (() => {
             const r2 = fxBtnRef.current?.getBoundingClientRect();
             return createPortal(
               <div style={{ position:'fixed', top:(r2?.bottom??52)+4, right:16, zIndex:99999, background:'#0f172a', border:'1px solid rgba(251,191,36,0.3)', borderRadius:16, width:320, boxShadow:'0 20px 60px rgba(0,0,0,0.8)', padding:16, display:'flex', flexDirection:'column', gap:12 }}>
                 <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
-                  <span style={{ fontWeight:800, fontSize:14, color:'#fbbf24' }}>🎨 Cor Cinematográfica</span>
+                  <span style={{ fontWeight:800, fontSize:14, color:'#fbbf24' }}>{t('cc_title')}</span>
                   <button onClick={()=>setShowKeyframePanel(false)} style={{ background:'none', border:'none', color:'#555', cursor:'pointer', fontSize:16 }}>✕</button>
                 </div>
                 <div>
-                  <span style={{ fontSize:11, color:'#fbbf24', fontWeight:700, display:'block', marginBottom:6 }}>🌈 Aberração Cromática Global</span>
+                  <span style={{ fontSize:11, color:'#fbbf24', fontWeight:700, display:'block', marginBottom:6 }}>{t('cc_chroma_global')}</span>
                   <div style={{ display:'flex', alignItems:'center', gap:8 }}>
                     <input type="range" min={0} max={20} value={chromaAberration} onChange={e=>setChromaAberration(+e.target.value)} style={{ flex:1, accentColor:'#fbbf24', height:3 }} />
                     <span style={{ fontSize:10, color:chromaAberration>0?'#fbbf24':'#555', minWidth:24 }}>{chromaAberration}</span>
@@ -6795,7 +7399,7 @@ _setDragging(null);
                   </div>
                 </div>
                 <div>
-                  <span style={{ fontSize:11, color:'#fbbf24', fontWeight:700, display:'block', marginBottom:6 }}>📊 Curvas de Cor</span>
+                  <span style={{ fontSize:11, color:'#fbbf24', fontWeight:700, display:'block', marginBottom:6 }}>{t('cc_curves')}</span>
                   {[{key:'r',label:'R — Vermelho',color:'#f87171'},{key:'g',label:'G — Verde',color:'#4ade80'},{key:'b',label:'B — Azul',color:'#60a5fa'},{key:'midtone',label:'Meios-tons',color:'#fbbf24'},{key:'shadows',label:'Sombras',color:'#94a3b8'},{key:'highlights',label:'Altas Luzes',color:'#fff'}].map(({key,label,color})=>{
                     const def=key==='r'||key==='g'||key==='b'||key==='midtone'?1:0;
                     const min2=key==='shadows'||key==='highlights'?-0.3:0.2;
@@ -6811,7 +7415,7 @@ _setDragging(null);
                       </div>
                     );
                   })}
-                  <button onClick={()=>setColorCurves({r:1,g:1,b:1,midtone:1,shadows:0,highlights:0})} style={{ marginTop:4, background:'rgba(251,191,36,0.08)', border:'1px solid rgba(251,191,36,0.2)', borderRadius:8, padding:'3px 12px', fontSize:10, color:'#fbbf24', cursor:'pointer', width:'100%' }}>↺ Reset curvas</button>
+                  <button onClick={()=>setColorCurves({r:1,g:1,b:1,midtone:1,shadows:0,highlights:0})} style={{ marginTop:4, background:'rgba(251,191,36,0.08)', border:'1px solid rgba(251,191,36,0.2)', borderRadius:8, padding:'3px 12px', fontSize:10, color:'#fbbf24', cursor:'pointer', width:'100%' }}>{t('cc_reset')}</button>
                 </div>
               </div>,
               document.body
@@ -6997,7 +7601,7 @@ _setDragging(null);
               <div style={{ padding:'12px 16px 8px', borderBottom:'1px solid rgba(255,255,255,0.06)', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
                 <span style={{ fontWeight:800, fontSize:14, color:'#00BFFF' }}>🎨 Fundos</span>
                 <div style={{ display:'flex', gap:6 }}>
-                  {[['gradients','🎨 Gradientes'],['unsplash','🔍 Fotos'],['generate','⚡ Gerar']].map(([tab,label])=>(
+                  {[['gradients',t('bg_tab_gradients')],['unsplash',t('bg_tab_photos')],['generate',t('bg_tab_generate')]].map(([tab,label])=>(
                     <button key={tab} onClick={()=>setBgTab(tab)} style={{ padding:'4px 10px', borderRadius:7, border:'none', cursor:'pointer', fontSize:10, fontWeight:700, background:bgTab===tab?'#00BFFF':'rgba(255,255,255,0.06)', color:bgTab===tab?'#000':'#888' }}>{label}</button>
                   ))}
                   <button onClick={()=>setShowBgPanel(false)} style={{ background:'none', border:'none', color:'#555', cursor:'pointer', fontSize:16 }}>✕</button>
@@ -7020,9 +7624,9 @@ _setDragging(null);
                     <div style={{ display:'flex', gap:6 }}>
                       <input value={bgSearch} onChange={e=>{setBgSearch(e.target.value);}}
                         onKeyDown={e=>e.key==='Enter'&&searchBgImages()}
-                        placeholder="Buscar fotos..." style={{ flex:1, background:'rgba(255,255,255,0.06)', border:'1px solid rgba(255,255,255,0.1)', borderRadius:8, padding:'7px 10px', color:'#fff', fontSize:12 }} />
+                        placeholder={t('bg_search_placeholder')} style={{ flex:1, background:'rgba(255,255,255,0.06)', border:'1px solid rgba(255,255,255,0.1)', borderRadius:8, padding:'7px 10px', color:'#fff', fontSize:12 }} />
                       <button onClick={searchBgImages} disabled={bgSearchLoading} style={{ padding:'7px 14px', background:'rgba(0,191,255,0.15)', border:'1px solid rgba(0,191,255,0.3)', borderRadius:8, color:'#00BFFF', fontSize:12, cursor:'pointer', fontWeight:700 }}>
-                        {bgSearchLoading?'...':'Buscar'}
+                        {bgSearchLoading?'...':t('bg_search_btn')}
                       </button>
                     </div>
                     <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:6, maxHeight:300, overflowY:'auto' }}>
@@ -7082,6 +7686,262 @@ _setDragging(null);
           );
         })()}
 
+        {/* ── Painel Sincronização Automática IA ── */}
+        {showSyncPanel && createPortal(
+          <>
+            <div onClick={() => setShowSyncPanel(false)} style={{ position:'fixed', inset:0, zIndex:99997 }} />
+            <div style={{
+              position:'fixed',
+              bottom: syncBtnRef.current ? window.innerHeight - syncBtnRef.current.getBoundingClientRect().top + 8 : 200,
+              left: Math.min(
+                syncBtnRef.current ? syncBtnRef.current.getBoundingClientRect().left : 200,
+                window.innerWidth - 356
+              ),
+              zIndex: 99998,
+              background: '#0f172a',
+              border: '1px solid rgba(139,92,246,0.3)',
+              borderRadius: 14,
+              width: 340,
+              boxShadow: '0 16px 48px rgba(0,0,0,0.8)',
+              padding: '16px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 12,
+              maxHeight: syncBtnRef.current ? `${syncBtnRef.current.getBoundingClientRect().top - 20}px` : '80vh',
+              overflowY: 'auto',
+            }}>
+              {/* Header */}
+              <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+                <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                  <span style={{ fontSize:20 }}>🤖</span>
+                  <div>
+                    <div style={{ fontSize:13, fontWeight:700, color:'#f0f0f0' }}>Sincronização Automática</div>
+                    <div style={{ fontSize:10, color:'#a78bfa' }}>Groq Whisper — Grátis (2h/dia)</div>
+                  </div>
+                </div>
+                <button onClick={() => setShowSyncPanel(false)} style={{ background:'none', border:'none', color:'#555', cursor:'pointer', fontSize:16 }}>✕</button>
+              </div>
+
+              {/* Como funciona */}
+              <div style={{ background:'rgba(139,92,246,0.08)', border:'1px solid rgba(139,92,246,0.2)', borderRadius:10, padding:'10px 12px', fontSize:11, color:'#94a3b8', lineHeight:1.7 }}>
+                <strong style={{color:'#c4b5fd'}}>Como funciona:</strong><br/>
+                1. Cole a letra no painel esquerdo<br/>
+                2. Carregue a música no editor<br/>
+                3. Clique em <strong style={{color:'#a78bfa'}}>Sincronizar</strong> — a IA analisa o áudio e distribui as frases automaticamente na timeline
+              </div>
+
+              {/* API Key */}
+              <div>
+                <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:4 }}>
+                  <label style={{ fontSize:11, color:'#aaa', fontWeight:600 }}>API Key Groq</label>
+                  <button
+                    onClick={() => setSyncShowGuia(v => !v)}
+                    style={{ background:'rgba(139,92,246,0.12)', border:'1px solid rgba(139,92,246,0.3)', borderRadius:6, color:'#a78bfa', fontSize:10, fontWeight:700, padding:'2px 8px', cursor:'pointer' }}
+                  >{syncShowGuia ? '✕ Fechar' : '❓ Como obter'}</button>
+                </div>
+
+                {syncShowGuia && (
+                  <div style={{ background:'rgba(139,92,246,0.06)', border:'1px solid rgba(139,92,246,0.2)', borderRadius:10, padding:'12px', marginBottom:8, fontSize:11, color:'#ccc', lineHeight:1.8 }}>
+                    <div style={{ fontWeight:700, color:'#a78bfa', marginBottom:6 }}>📋 Como criar sua API Key grátis:</div>
+                    <div>1. Acesse <a href="https://console.groq.com" target="_blank" rel="noreferrer" style={{ color:'#a78bfa' }}>console.groq.com</a></div>
+                    <div>2. Crie uma conta gratuita (sem cartão)</div>
+                    <div>3. Vá em <strong style={{color:'#fff'}}>API Keys</strong> no menu lateral</div>
+                    <div>4. Clique em <strong style={{color:'#fff'}}>Create API Key</strong></div>
+                    <div>5. Copie e cole aqui</div>
+                    <div style={{ marginTop:6, color:'#a78bfa', fontSize:10 }}>✅ Plano grátis: 2 horas de áudio/dia</div>
+                    <div style={{ color:'#555', fontSize:10 }}>Não requer cartão de crédito</div>
+                  </div>
+                )}
+
+                <input
+                  type="password"
+                  value={syncApiKey}
+                  onChange={e => { setSyncApiKey(e.target.value); setSyncError(''); }}
+                  placeholder="gsk_..."
+                  style={{ width:'100%', background:'#1e293b', border:'1px solid rgba(255,255,255,0.1)', borderRadius:8, color:'#f0f0f0', padding:'7px 10px', fontSize:12, outline:'none', boxSizing:'border-box', fontFamily:'monospace' }}
+                />
+                {syncApiKey && <div style={{ fontSize:10, color:'#10b981', marginTop:3 }}>✓ API key salva no navegador</div>}
+              </div>
+
+              {/* Status */}
+              <div style={{ background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.06)', borderRadius:10, padding:'10px 12px', fontSize:11, color:'#64748b', lineHeight:1.7 }}>
+                <div>📝 Frases na letra: <strong style={{color: bulkText.split('\n').filter(l=>l.trim()).length > 0 ? '#a78bfa' : '#f87171'}}>{bulkText.split('\n').filter(l=>l.trim()).length}</strong></div>
+                <div>🎵 Áudio carregado: <strong style={{color: (audioFile || audioBase64) ? '#10b981' : '#f87171'}}>{(audioFile || audioBase64) ? 'Sim' : 'Não'}</strong></div>
+                <div>⏱ Duração: <strong style={{color:'#94a3b8'}}>{duration > 0 ? `${Math.round(duration)}s` : '—'}</strong></div>
+              </div>
+
+              {/* Erro */}
+              {syncError && (
+                <div style={{ background:'rgba(239,68,68,0.1)', border:'1px solid rgba(239,68,68,0.3)', borderRadius:8, padding:'8px 10px', fontSize:11, color:'#f87171' }}>
+                  ⚠️ {syncError}
+                </div>
+              )}
+
+              {/* Botão */}
+              <button
+                onClick={handleSyncLyrics}
+                disabled={syncLoading}
+                style={{
+                  background: syncLoading ? 'rgba(139,92,246,0.2)' : 'linear-gradient(135deg,#8b5cf6,#3b82f6)',
+                  border:'none', borderRadius:10, color:'#fff', padding:'11px 0',
+                  fontSize:13, fontWeight:700, cursor: syncLoading ? 'not-allowed' : 'pointer',
+                  display:'flex', alignItems:'center', justifyContent:'center', gap:8
+                }}
+              >
+                {syncLoading
+                  ? <><span style={{ display:'inline-block', width:14, height:14, border:'2px solid rgba(255,255,255,0.3)', borderTopColor:'#fff', borderRadius:'50%', animation:'spin 0.7s linear infinite' }} />Analisando áudio...</>
+                  : <>🤖 Sincronizar Agora</>
+                }
+              </button>
+
+              <div style={{ fontSize:10, color:'#334155', lineHeight:1.6 }}>
+                A IA analisa o áudio e distribui as frases nos tempos certos. Você pode ajustar qualquer bloco depois arrastando na timeline.
+              </div>
+            </div>
+          </>,
+          document.body
+        )}
+
+        {/* ── Painel de Narração TTS ── */}
+        {showNarracaoPanel && createPortal(
+          <>
+            <div onClick={() => setShowNarracaoPanel(false)} style={{ position:'fixed', inset:0, zIndex:99997 }} />
+            <div style={{
+              position:'fixed',
+              top: (midiaBtnRef.current?.getBoundingClientRect().bottom ?? 52) + 4,
+              left: Math.max(8, (midiaBtnRef.current?.getBoundingClientRect().left ?? 200)),
+              zIndex: 99998,
+              background: '#0f172a',
+              border: '1px solid rgba(244,114,182,0.25)',
+              borderRadius: 14,
+              width: 340,
+              boxShadow: '0 16px 48px rgba(0,0,0,0.8)',
+              padding: '16px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 12,
+            }}>
+              {/* Header */}
+              <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+                <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                  <span style={{ fontSize:18 }}>🎙️</span>
+                  <div>
+                    <div style={{ fontSize:13, fontWeight:700, color:'#f0f0f0' }}>Narração</div>
+                    <div style={{ fontSize:10, color:'#f472b6' }}>ElevenLabs — 10.000 chars/mês grátis</div>
+                  </div>
+                </div>
+                <button onClick={() => setShowNarracaoPanel(false)} style={{ background:'none', border:'none', color:'#555', cursor:'pointer', fontSize:16, lineHeight:1 }}>✕</button>
+              </div>
+
+              {/* API Key */}
+              <div>
+                <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:4 }}>
+                  <label style={{ fontSize:11, color:'#aaa', fontWeight:600 }}>API Key ElevenLabs</label>
+                  <button
+                    onClick={() => setNarracaoShowGuia(v => !v)}
+                    style={{ background:'rgba(244,114,182,0.12)', border:'1px solid rgba(244,114,182,0.3)', borderRadius:6, color:'#f472b6', fontSize:10, fontWeight:700, padding:'2px 8px', cursor:'pointer' }}
+                  >{narracaoShowGuia ? '✕ Fechar' : '❓ Como obter'}</button>
+                </div>
+
+                {/* Guia passo a passo */}
+                {narracaoShowGuia && (
+                  <div style={{ background:'rgba(244,114,182,0.06)', border:'1px solid rgba(244,114,182,0.2)', borderRadius:10, padding:'12px', marginBottom:8, fontSize:11, color:'#ccc', lineHeight:1.8 }}>
+                    <div style={{ fontWeight:700, color:'#f472b6', marginBottom:6 }}>📋 Como criar sua API Key grátis:</div>
+                    <div>1. Acesse <a href="https://elevenlabs.io" target="_blank" rel="noreferrer" style={{ color:'#f472b6' }}>elevenlabs.io</a> e crie uma conta</div>
+                    <div>2. No menu lateral, clique em <strong style={{color:'#fff'}}>Desenvolvedores</strong></div>
+                    <div>3. Clique em <strong style={{color:'#fff'}}>Chaves de API</strong></div>
+                    <div>4. Clique em <strong style={{color:'#fff'}}>+ Criar chave de API</strong></div>
+                    <div>5. Dê o nome <strong style={{color:'#fff'}}>canvassync</strong> e ative <strong style={{color:'#fff'}}>Restringir Chave</strong></div>
+                    <div>6. Em <strong style={{color:'#fff'}}>Text to Speech</strong> selecione <strong style={{color:'#fff'}}>Acesso</strong></div>
+                    <div>7. Clique em <strong style={{color:'#fff'}}>Criar chave</strong> e copie</div>
+                    <div style={{ marginTop:6, color:'#f472b6', fontSize:10 }}>⚠️ Não use VPN ao criar a conta — pode bloquear o plano grátis.</div>
+                    <div style={{ marginTop:4, color:'#888', fontSize:10 }}>Plano grátis: 10.000 caracteres/mês</div>
+                  </div>
+                )}
+
+                <input
+                  type="password"
+                  value={narracaoApiKey}
+                  onChange={e => { setNarracaoApiKey(e.target.value); setNarracaoError(''); }}
+                  placeholder="sk_..."
+                  style={{ width:'100%', background:'#1e293b', border:'1px solid rgba(255,255,255,0.1)', borderRadius:8, color:'#f0f0f0', padding:'7px 10px', fontSize:12, outline:'none', boxSizing:'border-box', fontFamily:'monospace' }}
+                />
+                {narracaoApiKey && <div style={{ fontSize:10, color:'#10b981', marginTop:3 }}>✓ API key salva no navegador</div>}
+              </div>
+
+              {/* Seletor de voz */}
+              <div>
+                <label style={{ fontSize:11, color:'#aaa', fontWeight:600, display:'block', marginBottom:4 }}>Voz</label>
+                <select
+                  value={narracaoVoice}
+                  onChange={e => setNarracaoVoice(e.target.value)}
+                  style={{ width:'100%', background:'#1e293b', border:'1px solid rgba(255,255,255,0.1)', borderRadius:8, color:'#f0f0f0', padding:'7px 10px', fontSize:12, cursor:'pointer', outline:'none' }}
+                >
+                  <optgroup label="🇧🇷 Português BR — Recomendadas">
+                    <option value="pNInz6obpgDQGcFmaJgB">Adam (Masculino — Natural)</option>
+                    <option value="EXAVITQu4vr4xnSDxMaL">Bella (Feminino — Suave)</option>
+                    <option value="ErXwobaYiN019PkySvjV">Antoni (Masculino — Jovem)</option>
+                    <option value="MF3mGyEYCl7XYWbV9V6O">Elli (Feminino — Expressiva)</option>
+                    <option value="TxGEqnHWrfWFTfGW9XjX">Josh (Masculino — Profundo)</option>
+                    <option value="VR6AewLTigWG4xSOukaG">Arnold (Masculino — Forte)</option>
+                    <option value="pqHfZKP75CvOlQylNhV4">Bill (Masculino — Maduro)</option>
+                    <option value="onwK4e9ZLuTAKqWW03F9">Daniel (Masculino — Britânico)</option>
+                  </optgroup>
+                  <optgroup label="🌍 Multilingual v2 (suportam PT)">
+                    <option value="XB0fDUnXU5powFXDhCwa">Charlotte (Feminino)</option>
+                    <option value="Xb7hH8MSUJpSbSDYk0k2">Alice (Feminino)</option>
+                    <option value="iP95p4xoKVk53GoZ742B">Chris (Masculino)</option>
+                    <option value="nPczCjzI2devNBz1zQrb">Brian (Masculino)</option>
+                  </optgroup>
+                </select>
+              </div>
+
+              {/* Textarea */}
+              <div>
+                <label style={{ fontSize:11, color:'#aaa', fontWeight:600, display:'block', marginBottom:4 }}>
+                  Texto <span style={{ color:'#555', fontWeight:400 }}>({narracaoText.length}/2500)</span>
+                </label>
+                <textarea
+                  value={narracaoText}
+                  onChange={e => { if (e.target.value.length <= 2500) { setNarracaoText(e.target.value); setNarracaoError(''); } }}
+                  placeholder="Digite aqui o texto que será narrado..."
+                  rows={5}
+                  style={{ width:'100%', background:'#1e293b', border:'1px solid rgba(255,255,255,0.08)', borderRadius:8, color:'#f0f0f0', padding:'9px 10px', fontSize:12, resize:'vertical', outline:'none', fontFamily:'inherit', boxSizing:'border-box' }}
+                />
+              </div>
+
+              {/* Erro */}
+              {narracaoError && (
+                <div style={{ background:'rgba(239,68,68,0.1)', border:'1px solid rgba(239,68,68,0.3)', borderRadius:8, padding:'8px 10px', fontSize:11, color:'#f87171' }}>
+                  ⚠️ {narracaoError}
+                </div>
+              )}
+
+              {/* Botão gerar */}
+              <button
+                onClick={handleGerarNarracao}
+                disabled={narracaoLoading || !narracaoText.trim() || !narracaoApiKey.trim()}
+                style={{
+                  background: narracaoLoading || !narracaoText.trim() || !narracaoApiKey.trim() ? 'rgba(244,114,182,0.2)' : 'linear-gradient(135deg,#f472b6,#db2777)',
+                  border:'none', borderRadius:10, color:'#fff', padding:'11px 0',
+                  fontSize:13, fontWeight:700, cursor: narracaoLoading || !narracaoText.trim() || !narracaoApiKey.trim() ? 'not-allowed' : 'pointer',
+                  transition:'all 0.15s', display:'flex', alignItems:'center', justifyContent:'center', gap:8
+                }}
+              >
+                {narracaoLoading
+                  ? <><span style={{ display:'inline-block', width:14, height:14, border:'2px solid rgba(255,255,255,0.3)', borderTopColor:'#fff', borderRadius:'50%', animation:'spin 0.7s linear infinite' }} />Gerando áudio...</>
+                  : <>🎙️ Gerar e Adicionar à Timeline</>
+                }
+              </button>
+
+              <div style={{ fontSize:10, color:'#444', lineHeight:1.6 }}>
+                O áudio gerado entra direto na faixa de áudio do editor. A API key é salva localmente no seu navegador.
+              </div>
+            </div>
+          </>,
+          document.body
+        )}
+
         {/* ── Painel de Trilhas ── */}
         {showTrilhasPanel && createPortal(
           <>
@@ -7099,8 +7959,8 @@ _setDragging(null);
               <div style={{padding:'12px 16px 10px', borderBottom:'1px solid rgba(255,255,255,0.07)', display:'flex', alignItems:'center', justifyContent:'space-between', flexShrink:0}}>
                 <div style={{display:'flex', alignItems:'center', gap:8}}>
                   <span style={{fontSize:18}}>🎼</span>
-                  <span style={{fontWeight:800, fontSize:14, color:'#a78bfa'}}>Trilhas — 170 músicas</span>
-                  <span style={{fontSize:10, color:'#666', background:'rgba(255,255,255,0.05)', borderRadius:20, padding:'2px 8px'}}>Royalty-free</span>
+                  <span style={{fontWeight:800, fontSize:14, color:'#a78bfa'}}>{t('trilhas_title')}</span>
+                  <span style={{fontSize:10, color:'#666', background:'rgba(255,255,255,0.05)', borderRadius:20, padding:'2px 8px'}}>{t('trilhas_royalty')}</span>
                 </div>
                 <button onClick={()=>{ setShowTrilhasPanel(false); stopTrilhasPreview(); }}
                   style={{background:'none', border:'none', color:'#555', cursor:'pointer', fontSize:18, lineHeight:1}}>✕</button>
@@ -7111,7 +7971,7 @@ _setDragging(null);
                 <input
                   value={trilhasSearch}
                   onChange={e=>setTrilhasSearch(e.target.value)}
-                  placeholder="Buscar por título ou artista…"
+                  placeholder={t('trilhas_search')}
                   style={{width:'100%', boxSizing:'border-box', background:'rgba(255,255,255,0.06)', border:'1px solid rgba(255,255,255,0.1)', borderRadius:8, padding:'7px 10px', color:'#fff', fontSize:12, outline:'none'}}
                 />
               </div>
@@ -7126,7 +7986,7 @@ _setDragging(null);
                   if (filtered.length === 0) return (
                     <div style={{display:'flex', flexDirection:'column', alignItems:'center', padding:'40px 0', gap:8}}>
                       <span style={{fontSize:28}}>🎼</span>
-                      <span style={{fontSize:12, color:'#555'}}>Nenhuma trilha encontrada</span>
+                      <span style={{fontSize:12, color:'#555'}}>{t('trilhas_empty')}</span>
                     </div>
                   );
                   return filtered.map(track => {
@@ -7191,7 +8051,7 @@ _setDragging(null);
                             color:'#c4b5fd', fontSize:11, cursor: isUsing ? 'wait' : 'pointer',
                             fontWeight:700, transition:'all 0.15s', flexShrink:0, whiteSpace:'nowrap'
                           }}>
-                          {isUsing ? '⏳' : '✓ Usar'}
+                          {isUsing ? '⏳' : t('trilhas_use')}
                         </button>
                       </div>
                     );
@@ -7208,12 +8068,22 @@ _setDragging(null);
           <LangToggle />
         </div>
 
+        {/* ── Botão PWA ── */}
+        {pwaPrompt && !pwaInstalled && (
+          <button onClick={handlePwaInstall}
+            title="Instalar CanvasSync como aplicativo"
+            style={{ display:'flex', alignItems:'center', gap:4, padding:'5px 10px', borderRadius:7, background:'rgba(0,191,255,0.12)', border:'1px solid rgba(0,191,255,0.35)', cursor:'pointer', color:'#00BFFF', fontSize:11, fontWeight:700, flexShrink:0, whiteSpace:'nowrap' }}
+            onMouseEnter={e => e.currentTarget.style.background='rgba(0,191,255,0.22)'}
+            onMouseLeave={e => e.currentTarget.style.background='rgba(0,191,255,0.12)'}
+          >⬇ Instalar App</button>
+        )}
+
       </div>{/* fim HEADER CONTROLS */}
 
       <div style={{ display: 'flex', flex: 1, width: '100%', overflow: 'hidden' }}>
         
         {/* EDITOR ESQUERDA — 580PX */}
-        <div style={{ width: '580px', minWidth: '580px', borderRight: '1px solid rgba(255,255,255,0.07)', display: 'flex', flexDirection: 'column', background: '#0d0d0d', boxShadow: 'none', overflowY: 'auto' }}>
+        <div className="cs-left-panel" style={{ width: '580px', minWidth: '580px', borderRight: '1px solid rgba(255,255,255,0.07)', display: 'flex', flexDirection: 'column', background: '#0d0d0d', boxShadow: 'none', overflowY: 'auto' }}>
 
           {/* ══ SEÇÃO SELEÇÃO IMAGEM/VÍDEO — rotação ══ */}
           {(activeImageId || activeVideoId) && (() => {
@@ -7451,7 +8321,7 @@ _setDragging(null);
               <div style={{ padding: '12px 18px', borderBottom: '1px solid rgba(255,255,255,0.07)', display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {/* ── Máscara de Forma ── */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  <span style={{ fontSize: 11, color: accent, fontWeight: 700, letterSpacing: '0.5px' }}>✂️ Máscara</span>
+                  <span style={{ fontSize: 11, color: accent, fontWeight: 700, letterSpacing: '0.5px' }}>{t('el_mask')}</span>
                   <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
                     {[['none','Sem'],['circle','⬤ Círculo'],['ellipse','⬭ Elipse'],['diamond','◇ Losango'],['star','★ Estrela'],['heart','♥ Coração'],['hexagon','⬡ Hex'],['triangle','▲ Triângulo']].map(([v,l]) => (
                       <button key={v} onClick={() => upd({mask: v})}
@@ -7463,7 +8333,7 @@ _setDragging(null);
                   </div>
                   {sel.mask && sel.mask !== 'none' && (
                     <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-                      <span style={{ fontSize:10, color:'#666', minWidth:70 }}>Suavidade</span>
+                      <span style={{ fontSize:10, color:'#666', minWidth:70 }}>{t('el_mask_feather')}</span>
                       <input type="range" min={0} max={15} value={sel.maskFeather||0}
                         onChange={e => upd({maskFeather: +e.target.value})}
                         style={{ flex:1, accentColor: accent, height:3 }} />
@@ -7473,9 +8343,9 @@ _setDragging(null);
                 </div>
                 {/* ── Aberração Cromática por elemento ── */}
                 <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
-                  <span style={{ fontSize:11, color: accent, fontWeight:700, letterSpacing:'0.5px' }}>🌈 Aberração Cromática</span>
+                  <span style={{ fontSize:11, color: accent, fontWeight:700, letterSpacing:'0.5px' }}>{t('el_chroma')}</span>
                   <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-                    <span style={{ fontSize:10, color:'#666', minWidth:70 }}>Intensidade</span>
+                    <span style={{ fontSize:10, color:'#666', minWidth:70 }}>{t('el_chroma_int')}</span>
                     <input type="range" min={0} max={20} value={sel.chromaticAberration||0}
                       onChange={e => upd({chromaticAberration: +e.target.value})}
                       style={{ flex:1, accentColor: accent, height:3 }} />
@@ -7487,7 +8357,7 @@ _setDragging(null);
                 <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
                   <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
                     <div>
-                      <span style={{ fontSize:11, color: accent, fontWeight:700, letterSpacing:'0.5px' }}>🎬 Zoom Animado</span>
+                      <span style={{ fontSize:11, color: accent, fontWeight:700, letterSpacing:'0.5px' }}>{t('kf_zoom_title')}</span>
                       {kfs.length > 0 && <span style={{ marginLeft:6, fontSize:9, background:`${accentBg}0.2)`, border:`1px solid ${accentBg}0.4)`, borderRadius:10, padding:'1px 6px', color:accent }}>{kfs.length} KF</span>}
                     </div>
                     <div style={{ display:'flex', gap:5 }}>
@@ -7520,28 +8390,28 @@ _setDragging(null);
                   {/* Presets de zoom rápido */}
                   <div style={{ display:'flex', gap:4, flexWrap:'wrap' }}>
                     {[
-                      { label:'Ken Burns', title:'Zoom suave de entrada', fn:() => {
+                      { label:t('kf_preset_kenburns'), title:'Zoom suave de entrada', fn:() => {
                         const dur = (sel.end||5) - (sel.start||0);
                         upd({ keyframes: [
                           { t: sel.start||0, x: sel.x, y: sel.y, scale:1,    opacity:1, rotation:sel.rotation||0, anchorX:0.5, anchorY:0.5, easing:'ease_in_out' },
                           { t: (sel.start||0)+dur, x: sel.x - sel.width*0.1, y: sel.y - sel.height*0.1, scale:1.2, opacity:1, rotation:sel.rotation||0, anchorX:0.5, anchorY:0.5, easing:'ease_in_out' },
                         ]});
                       }},
-                      { label:'Punch In', title:'Zoom rápido de aproximação', fn:() => {
+                      { label:t('kf_preset_punchin'), title:'Zoom rápido de aproximação', fn:() => {
                         const s = sel.start||0;
                         upd({ keyframes: [
                           { t: s,      x: sel.x, y: sel.y, scale:1,   opacity:1, rotation:sel.rotation||0, anchorX:0.5, anchorY:0.5, easing:'ease_out' },
                           { t: s+0.6,  x: sel.x - sel.width*0.15, y: sel.y - sel.height*0.15, scale:1.3, opacity:1, rotation:sel.rotation||0, anchorX:0.5, anchorY:0.5, easing:'ease_out' },
                         ]});
                       }},
-                      { label:'Zoom Out', title:'Zoom suave de afastamento', fn:() => {
+                      { label:t('kf_preset_zoomout'), title:'Zoom suave de afastamento', fn:() => {
                         const dur = (sel.end||5) - (sel.start||0);
                         upd({ keyframes: [
                           { t: sel.start||0, x: sel.x - sel.width*0.15, y: sel.y - sel.height*0.15, scale:1.3, opacity:1, rotation:sel.rotation||0, anchorX:0.5, anchorY:0.5, easing:'ease_in_out' },
                           { t: (sel.start||0)+dur, x: sel.x, y: sel.y, scale:1, opacity:1, rotation:sel.rotation||0, anchorX:0.5, anchorY:0.5, easing:'ease_in_out' },
                         ]});
                       }},
-                      { label:'Pulse', title:'Pulso rítmico de escala', fn:() => {
+                      { label:t('kf_preset_pulse'), title:'Pulso rítmico de escala', fn:() => {
                         const s = sel.start||0;
                         upd({ keyframes: [
                           { t: s,      x:sel.x, y:sel.y, scale:1,    opacity:1, rotation:sel.rotation||0, anchorX:0.5, anchorY:0.5, easing:'ease_in_out' },
@@ -7551,20 +8421,20 @@ _setDragging(null);
                           { t: s+2.0,  x:sel.x, y:sel.y, scale:1,    opacity:1, rotation:sel.rotation||0, anchorX:0.5, anchorY:0.5, easing:'ease_in_out' },
                         ]});
                       }},
-                      { label:'Fade In', title:'Aparece gradualmente', fn:() => {
+                      { label:t('kf_preset_fadein'), title:'Aparece gradualmente', fn:() => {
                         const s = sel.start||0;
                         upd({ keyframes: [
                           { t: s,     x:sel.x, y:sel.y, scale:1, opacity:0, rotation:sel.rotation||0, anchorX:0.5, anchorY:0.5, easing:'ease_out' },
                           { t: s+0.8, x:sel.x, y:sel.y, scale:1, opacity:1, rotation:sel.rotation||0, anchorX:0.5, anchorY:0.5, easing:'ease_out' },
                         ]});
                       }},
-                      { label:'Limpar', title:'Remove todos os keyframes', fn:() => upd({keyframes:[]}) },
+                      { label:t('kf_clear'), id:'clear', title:'Remove todos os keyframes', fn:() => upd({keyframes:[]}) },
                     ].map(p => (
                       <button key={p.label} onClick={p.fn} title={p.title}
                         style={{ padding:'3px 8px', fontSize:9, borderRadius:6, cursor:'pointer', fontWeight:700,
-                          background: p.label==='Limpar' ? 'rgba(239,68,68,0.08)' : `${accentBg}0.1)`,
-                          border: `1px solid ${p.label==='Limpar' ? 'rgba(239,68,68,0.25)' : accentBg+'0.3)'}`,
-                          color: p.label==='Limpar' ? '#f87171' : accent }}>{p.label}</button>
+                          background: p.id==='clear' ? 'rgba(239,68,68,0.08)' : `${accentBg}0.1)`,
+                          border: `1px solid ${p.id==='clear' ? 'rgba(239,68,68,0.25)' : accentBg+'0.3)'}` ,
+                          color: p.id==='clear' ? '#f87171' : accent }}>{p.label}</button>
                     ))}
                   </div>
 
@@ -7613,7 +8483,7 @@ _setDragging(null);
                           </div>
                           {/* Escala */}
                           <div style={{ display:'flex', alignItems:'center', gap:6 }}>
-                            <span style={{ fontSize:9, color:'#666', minWidth:46 }}>Escala</span>
+                            <span style={{ fontSize:9, color:'#666', minWidth:46 }}>{t('kf_scale')}</span>
                             <input type="range" min={0.1} max={3} step={0.01} value={kf.scale||1}
                               onMouseDown={e => e.stopPropagation()} onPointerDown={e => e.stopPropagation()}
                               onChange={e => upd({keyframes: kfs.map((k,i) => i===ki?{...k,scale:+e.target.value}:k)})}
@@ -7624,7 +8494,7 @@ _setDragging(null);
                           </div>
                           {/* Opacidade */}
                           <div style={{ display:'flex', alignItems:'center', gap:6 }}>
-                            <span style={{ fontSize:9, color:'#666', minWidth:46 }}>Opacidade</span>
+                            <span style={{ fontSize:9, color:'#666', minWidth:46 }}>{t('kf_opacity')}</span>
                             <input type="range" min={0} max={1} step={0.01} value={kf.opacity??1}
                               onMouseDown={e => e.stopPropagation()} onPointerDown={e => e.stopPropagation()}
                               onChange={e => upd({keyframes: kfs.map((k,i) => i===ki?{...k,opacity:+e.target.value}:k)})}
@@ -7633,7 +8503,7 @@ _setDragging(null);
                           </div>
                           {/* Ancora (ponto de zoom) */}
                           <div style={{ display:'flex', gap:4, alignItems:'center' }}>
-                            <span style={{ fontSize:9, color:'#666', minWidth:46 }}>Âncora</span>
+                            <span style={{ fontSize:9, color:'#666', minWidth:46 }}>{t('kf_anchor')}</span>
                             {[['↖','0,0'],['↑','0.5,0'],['↗','1,0'],['←','0,0.5'],['⊙','0.5,0.5'],['→','1,0.5'],['↙','0,1'],['↓','0.5,1'],['↘','1,1']].map(([lbl,val]) => {
                               const [ax,ay] = val.split(',').map(Number);
                               const isActive = Math.abs((kf.anchorX??0.5)-ax)<0.01 && Math.abs((kf.anchorY??0.5)-ay)<0.01;
@@ -7649,7 +8519,7 @@ _setDragging(null);
                   ) : (
                     <div style={{ background:'rgba(255,255,255,0.02)', borderRadius:8, padding:'10px 12px', fontSize:10, color:'#444', textAlign:'center', lineHeight:1.6 }}>
                       Use um preset acima ou clique <strong style={{color:accent}}>+ KF</strong> para adicionar keyframes manualmente.<br/>
-                      <span style={{fontSize:9}}>Pausa o play, ajuste o tempo e clique + KF para capturar.</span>
+                      <span style={{fontSize:9}}>{t('kf_hint_main')}</span>
                     </div>
                   )}
                 </div>
@@ -7704,7 +8574,9 @@ _setDragging(null);
                   <option value="Press Start 2P">Press Start 2P</option>
                   <option value="Share Tech Mono">Share Tech Mono</option>
                   </optgroup>
+                  <optgroup label="── 🎨 Fontes CanvasSync ──">
                   {customFonts.map(f => <option key={f.name} value={f.name}>{f.name}</option>)}
+                  </optgroup>
                 </select>
                 <span style={{ fontSize: '10px', color: '#94a3b8' }}>
                   {activeExtraTextId ? (extraTexts.find(t=>t.id===activeExtraTextId)?.fontSize || extraTextFontSize) : (extraTexts.length ? extraTexts[extraTexts.length-1]?.fontSize || extraTextFontSize : extraTextFontSize)}px
@@ -7745,6 +8617,33 @@ _setDragging(null);
                 <button onClick={() => fontInputRef.current?.click()} style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.25)', borderRadius: '8px', padding: '3px 9px', fontSize: '10px', color: '#f59e0b', cursor: 'pointer' }}>+ {t('ed_add_font')}</button>
               </div>
             </div>
+            {/* Estilo de fonte — Negrito / Itálico / Sublinhado / Riscado */}
+            {(() => {
+              const tid = activeExtraTextId || (extraTexts.length ? extraTexts[extraTexts.length-1]?.id : null);
+              const sel = extraTexts.find(t => t.id === tid);
+              if (!sel) return null;
+              const setP = (prop, val) => setExtraTexts(prev => prev.map(t => t.id === tid ? {...t, [prop]: val} : t));
+              const curBold      = sel.fontBold      ?? extraFontBold;
+              const curItalic    = sel.fontItalic    ?? extraFontItalic;
+              const curUnderline = sel.fontUnderline ?? extraFontUnderline;
+              const curStrike    = sel.fontStrike    ?? extraFontStrike;
+              const btnStyle = (active) => ({
+                width:28, height:28, borderRadius:7, border:`1px solid ${active?'rgba(0,191,255,0.7)':'rgba(255,255,255,0.1)'}`,
+                background: active?'rgba(0,191,255,0.2)':'rgba(255,255,255,0.04)',
+                color: active?'#00BFFF':'#888', cursor:'pointer', fontSize:13, fontWeight:700,
+                display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0,
+              });
+              return (
+                <div style={{ display:'flex', alignItems:'center', gap:4 }}>
+                  <span style={{ fontSize:'10px', color:'#64748b', fontWeight:700, marginRight:4 }}>Estilo</span>
+                  <button title="Negrito" style={btnStyle(curBold)} onClick={() => setP('fontBold', !curBold)}><strong>B</strong></button>
+                  <button title="Itálico" style={{...btnStyle(curItalic), fontStyle:'italic'}} onClick={() => setP('fontItalic', !curItalic)}><em>I</em></button>
+                  <button title="Sublinhado" style={{...btnStyle(curUnderline), textDecoration:'underline'}} onClick={() => setP('fontUnderline', !curUnderline)}>U̲</button>
+                  <button title="Riscado" style={{...btnStyle(curStrike), textDecoration:'line-through'}} onClick={() => setP('fontStrike', !curStrike)}>S̶</button>
+                </div>
+              );
+            })()}
+
             {/* Sombra + Gradiente por item */}
             {(() => {
               const tid = activeExtraTextId || (extraTexts.length ? extraTexts[extraTexts.length-1]?.id : null);
@@ -7837,7 +8736,9 @@ _setDragging(null);
                 <option value="Press Start 2P">Press Start 2P</option>
                 <option value="Share Tech Mono">Share Tech Mono</option>
                 </optgroup>
+                <optgroup label="── 🎨 Fontes CanvasSync ──">
                 {customFonts.map(f => <option key={f.name} value={f.name}>{f.name}</option>)}
+                </optgroup>
               </select>
               <span style={{ fontSize: '10px', color: '#94a3b8' }}>
                 {activeLyricId ? (lyrics.find(l => l.id === activeLyricId)?.fontSize || fontSize) : fontSize}px
@@ -7884,6 +8785,39 @@ _setDragging(null);
               </select>
               </div>
             </div>
+
+            {/* Sombra + Gradiente + Upload fonte — por marcação quando selecionada */}
+            {(() => {
+              const selL = activeLyricId ? lyrics.find(l => l.id === activeLyricId) : null;
+              const applyLP = (prop, val) => {
+                if (selL) setLyrics(prev => prev.map(l => l.id === activeLyricId ? {...l, [prop]: val} : l));
+                else {
+                  if (prop === 'fontBold')      setFontBold(val);
+                  if (prop === 'fontItalic')    setFontItalic(val);
+                  if (prop === 'fontUnderline') setFontUnderline(val);
+                  if (prop === 'fontStrike')    setFontStrike(val);
+                }
+              };
+              const curBold      = selL ? (selL.fontBold      ?? fontBold)      : fontBold;
+              const curItalic    = selL ? (selL.fontItalic    ?? fontItalic)    : fontItalic;
+              const curUnderline = selL ? (selL.fontUnderline ?? fontUnderline) : fontUnderline;
+              const curStrike    = selL ? (selL.fontStrike    ?? fontStrike)    : fontStrike;
+              const btnStyle = (active) => ({
+                width:28, height:28, borderRadius:7, border:`1px solid ${active?'rgba(0,191,255,0.7)':'rgba(255,255,255,0.1)'}`,
+                background: active?'rgba(0,191,255,0.2)':'rgba(255,255,255,0.04)',
+                color: active?'#00BFFF':'#888', cursor:'pointer', fontSize:13, fontWeight:700,
+                display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0,
+              });
+              return (
+                <div style={{ display:'flex', alignItems:'center', gap:4, marginBottom:2 }}>
+                  <span style={{ fontSize:'10px', color:'#64748b', fontWeight:700, marginRight:4 }}>Estilo</span>
+                  <button title="Negrito" style={btnStyle(curBold)} onClick={() => applyLP('fontBold', !curBold)}><strong>B</strong></button>
+                  <button title="Itálico" style={{...btnStyle(curItalic), fontStyle:'italic'}} onClick={() => applyLP('fontItalic', !curItalic)}><em>I</em></button>
+                  <button title="Sublinhado" style={{...btnStyle(curUnderline), textDecoration:'underline'}} onClick={() => applyLP('fontUnderline', !curUnderline)}>U̲</button>
+                  <button title="Riscado" style={{...btnStyle(curStrike), textDecoration:'line-through'}} onClick={() => applyLP('fontStrike', !curStrike)}>S̶</button>
+                </div>
+              );
+            })()}
 
             {/* Sombra + Gradiente + Upload fonte — por marcação quando selecionada */}
             {(() => {
@@ -7947,7 +8881,7 @@ _setDragging(null);
               return (
                 <div style={{ display:'flex', alignItems:'center', gap:'8px', flexWrap:'wrap', background:'rgba(139,92,246,0.06)', border:'1px solid rgba(139,92,246,0.2)', borderRadius:10, padding:'8px 10px' }}>
                   <span style={{ fontSize:'10px', color:'#a78bfa', fontWeight:700, marginRight:2 }}>{t('ed_animation')}</span>
-                  {[['none', t('anim_none')],['fade','Fade'],['slide','Slide'],['typewriter','Typewriter']].map(([v, label]) => (
+                  {[['none', t('anim_none')],['fade','Fade'],['slide','Slide'],['typewriter','Typewriter'],['karaoke','🎤 Karaoke']].map(([v, label]) => (
                     <button key={v} onClick={() => setAnim(v)} style={{
                       padding:'3px 10px', fontSize:'10px', borderRadius:'8px', cursor:'pointer', fontWeight:600,
                       background: curAnim === v ? 'rgba(139,92,246,0.3)' : 'rgba(255,255,255,0.04)',
@@ -7955,7 +8889,7 @@ _setDragging(null);
                       color: curAnim === v ? '#c4b5fd' : '#666',
                     }}>{label}</button>
                   ))}
-                  {curAnim === 'typewriter' && (
+                  {(curAnim === 'typewriter' || curAnim === 'karaoke') && (
                     <div style={{ display:'flex', alignItems:'center', gap:'5px', marginLeft:4 }}>
                       <span style={{ fontSize:'10px', color:'#64748b' }}>{t('ed_speed_anim')}</span>
                       <input type="range" min="5" max="80" step="5" value={curSpeed}
@@ -7964,6 +8898,36 @@ _setDragging(null);
                       <span style={{ fontSize:'10px', color:'#a78bfa', minWidth:30 }}>{curSpeed}/s</span>
                     </div>
                   )}
+                  {curAnim === 'karaoke' && (() => {
+                    const selLK = activeLyricId ? lyrics.find(l => l.id === activeLyricId) : null;
+                    const curKColor = selLK?.karaokeColor ?? '#000000';
+                    const curKAlpha = selLK?.karaokeAlpha ?? 0.82;
+                    const setKColor = val => {
+                      if (selLK) setLyrics(prev => prev.map(l => l.id === activeLyricId ? {...l, karaokeColor: val} : l));
+                    };
+                    const setKAlpha = val => {
+                      if (selLK) setLyrics(prev => prev.map(l => l.id === activeLyricId ? {...l, karaokeAlpha: val} : l));
+                    };
+                    return (
+                      <div style={{ display:'flex', alignItems:'center', gap:8, flexWrap:'wrap', background:'rgba(139,92,246,0.08)', border:'1px solid rgba(139,92,246,0.25)', borderRadius:9, padding:'5px 10px', marginTop:2, width:'100%' }}>
+                        <span style={{ fontSize:10, color:'#c4b5fd', fontWeight:700 }}>Fundo Karaoke</span>
+                        <input type="color" value={curKColor}
+                          onChange={e => setKColor(e.target.value)}
+                          style={{ width:26, height:26, padding:0, border:'1px solid rgba(139,92,246,0.4)', borderRadius:6, cursor:'pointer', background:'none' }}
+                          title="Cor do fundo" />
+                        {/* Presets rápidos */}
+                        {['#000000','#1a1a2e','#0d0d0d','#1e3a2f','#2d1b4e','#ffffff','#ff6b6b','#fbbf24'].map(c => (
+                          <div key={c} onClick={() => setKColor(c)}
+                            style={{ width:18, height:18, borderRadius:4, background:c, cursor:'pointer', border: curKColor===c ? '2px solid #c4b5fd' : '1px solid rgba(255,255,255,0.2)', flexShrink:0 }} />
+                        ))}
+                        <span style={{ fontSize:9, color:'#666', marginLeft:2 }}>Opacidade</span>
+                        <input type="range" min="0.2" max="1" step="0.05" value={curKAlpha}
+                          onChange={e => setKAlpha(+e.target.value)}
+                          style={{ width:60, accentColor:'#a78bfa' }} />
+                        <span style={{ fontSize:10, color:'#a78bfa', minWidth:26 }}>{Math.round(curKAlpha * 100)}%</span>
+                      </div>
+                    );
+                  })()}
                 </div>
               );
             })()}
@@ -8016,11 +8980,22 @@ _setDragging(null);
             <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.22)', marginTop: '-4px' }}>
               {t('ed_lyrics_hint')}
             </span>
+
+            {/* Botão Sincronização Automática IA */}
+            <button
+              ref={syncBtnRef}
+              onClick={() => setShowSyncPanel(v => !v)}
+              style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:6, padding:'8px 0', borderRadius:12, background:'linear-gradient(135deg,rgba(139,92,246,0.2),rgba(59,130,246,0.2))', border:'1px solid rgba(139,92,246,0.4)', cursor:'pointer', color:'#a78bfa', fontSize:11, fontWeight:700, transition:'all 0.15s' }}
+              onMouseEnter={e => e.currentTarget.style.background='linear-gradient(135deg,rgba(139,92,246,0.35),rgba(59,130,246,0.35))'}
+              onMouseLeave={e => e.currentTarget.style.background='linear-gradient(135deg,rgba(139,92,246,0.2),rgba(59,130,246,0.2))'}
+            >
+              🤖 Sincronizar Letra com IA
+            </button>
           </div>
         </div>
 
         {/* PREVIEW CENTRO */}
-        <div ref={canvasContainerRef} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg, #141b34 0%, #0b1024 100%)', position: 'relative' }}>
+        <div ref={canvasContainerRef} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg, #141b34 0%, #0b1024 100%)', position: 'relative', padding: '1mm' }}>
           {/* Botão tela cheia */}
           <button
             onClick={() => setIsFullscreen(true)}
@@ -8071,7 +9046,7 @@ _setDragging(null);
                 const rot = (txt.rotation || 0) * Math.PI / 180;
                 const lines = txt.text.split('\n');
                 const lineH = extraTextFontSize * 1.25;
-                ctx.font = `bold ${extraTextFontSize}px ${extraTextFontFamily}`;
+                ctx.font = `${(txt.fontBold ?? extraFontBold) ? "bold " : ""}${(txt.fontItalic ?? extraFontItalic) ? "italic " : ""}${extraTextFontSize}px "${extraTextFontFamily}"`;
                 const maxW = lines.reduce((m, l) => Math.max(m, ctx.measureText(l).width), 0);
                 const halfW = maxW / 2 + 10;
                 const halfH = (lines.length * lineH) / 2 + 8;
@@ -8083,7 +9058,7 @@ _setDragging(null);
                 }
               });
             }}
-            style={{ border: '1px solid rgba(0,191,255,0.15)', borderRadius: '12px', maxWidth: '100%', maxHeight: '88%', cursor: 'move', boxShadow: '0 24px 50px rgba(10, 12, 24, 0.55)', objectFit: 'contain' }} 
+            style={{ border: '1px solid rgba(0,191,255,0.15)', borderRadius: '12px', maxWidth: '100%', maxHeight: '99%', cursor: 'move', boxShadow: '0 24px 50px rgba(10, 12, 24, 0.55)', objectFit: 'contain' }} 
           />
 
 
@@ -8152,6 +9127,15 @@ _setDragging(null);
                   <span style={{ fontSize: 10, color: '#fbbf24', fontWeight: 700, minWidth: 36, textAlign: 'right' }}>{Math.round(selImg.height || 100)}px</span>
                 </div>
 
+                {/* Botão Tela Cheia — Imagem */}
+                <button
+                  title="Preencher tela cheia"
+                  onClick={() => setImages(prev => prev.map(i => i.id === selImg.id ? { ...i, width: canvasW, height: canvasH, x: 0, y: 0 } : i))}
+                  style={{ background: 'rgba(251,191,36,0.12)', border: '1px solid rgba(251,191,36,0.4)', borderRadius: 8, color: '#fbbf24', cursor: 'pointer', fontSize: 13, lineHeight: 1, padding: '4px 8px', whiteSpace: 'nowrap', flexShrink: 0 }}
+                  onMouseEnter={e => { e.currentTarget.style.background = 'rgba(251,191,36,0.25)'; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = 'rgba(251,191,36,0.12)'; }}
+                >⛶</button>
+
                 <button
                   onClick={() => setActiveImageId(null)}
                   style={{ background: 'none', border: 'none', color: '#666', cursor: 'pointer', fontSize: 16, lineHeight: 1 }}
@@ -8205,6 +9189,15 @@ _setDragging(null);
                   <span style={{ fontSize: 10, color: '#a78bfa', fontWeight: 700, minWidth: 36, textAlign: 'right' }}>{Math.round(selVid.height || 100)}px</span>
                 </div>
 
+                {/* Botão Tela Cheia — Vídeo */}
+                <button
+                  title="Preencher tela cheia"
+                  onClick={() => setVideos(prev => prev.map(vv => vv.id === selVid.id ? { ...vv, width: canvasW, height: canvasH, x: 0, y: 0 } : vv))}
+                  style={{ background: 'rgba(167,139,250,0.12)', border: '1px solid rgba(167,139,250,0.4)', borderRadius: 8, color: '#a78bfa', cursor: 'pointer', fontSize: 13, lineHeight: 1, padding: '4px 8px', whiteSpace: 'nowrap', flexShrink: 0 }}
+                  onMouseEnter={e => { e.currentTarget.style.background = 'rgba(167,139,250,0.25)'; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = 'rgba(167,139,250,0.12)'; }}
+                >⛶</button>
+
                 <button
                   onClick={() => setActiveVideoId(null)}
                   style={{ background: 'none', border: 'none', color: '#666', cursor: 'pointer', fontSize: 16, lineHeight: 1 }}
@@ -8240,6 +9233,7 @@ _setDragging(null);
                     if (isPlaying) {
                       isPlayingRef.current = false;
                       if (audio) audio.pause();
+                      if (narrRef.current) narrRef.current.pause();
                       if (clockIntervalRef.current) { clearInterval(clockIntervalRef.current); clockIntervalRef.current = null; }
                       stopAllVideoAudio();
                       videosRef.current.forEach(v => { if (v.videoEl && !v.videoEl.paused) v.videoEl.pause(); });
@@ -8293,17 +9287,48 @@ _setDragging(null);
                             }
                           }, 30);
                         }
-                      } else {
+                      }
+                      // ── Narração: sincroniza e toca junto ──────────────────
+                      if (narrRef.current && narrSrc) {
+                        const narrEl = narrRef.current;
+                        narrEl.volume = Math.max(0, Math.min(1, projectVolumeRef.current));
+                        narrEl.playbackRate = Math.max(0.25, Math.min(4, projectSpeedRef.current));
+                        const tNarrNow = virtualTimeRef.current;
+                        const narrOff = narrOffsetRef.current || 0;
+                        const narrTrim = narrTrimStartRef.current || 0;
+                        if (tNarrNow >= narrOff) {
+                          const narrRel = narrTrim + (tNarrNow - narrOff);
+                          if (Math.abs(narrEl.currentTime - narrRel) > 0.1) narrEl.currentTime = narrRel;
+                          narrEl.play().catch(() => {});
+                        }
+                        // Se a narração começa depois, agenda início
+                        else {
+                          const snw = Date.now(); const snv = tNarrNow; const snsp = Math.max(0.25, Math.min(4, projectSpeedRef.current));
+                          const narrTimer = setInterval(() => {
+                            if (!isPlayingRef.current) { clearInterval(narrTimer); return; }
+                            const nt = snv + (Date.now() - snw) / 1000 * snsp;
+                            if (nt >= narrOff) {
+                              clearInterval(narrTimer);
+                              narrEl.currentTime = narrTrim;
+                              narrEl.play().catch(() => {});
+                            }
+                          }, 30);
+                        }
+                      }
+                      if (!audio) {
                         const startWall = Date.now(); const startVirt = virtualTimeRef.current;
                         const clockSpd = Math.max(0.25, Math.min(4, projectSpeedRef.current));
                         if (clockIntervalRef.current) clearInterval(clockIntervalRef.current);
                         clockIntervalRef.current = setInterval(() => {
                           const elapsed = (Date.now() - startWall) / 1000;
                           const newTime = startVirt + elapsed * clockSpd;
+                          const _narrDurFS = narrRef.current?.duration || 0;
+                          const _narrEndFS = _narrDurFS > 0 ? (narrOffsetRef.current || 0) + (_narrDurFS - (narrTrimStartRef.current || 0)) : 0;
                           const contentEnd = Math.max(
                             lyricsRef.current.reduce((m, l) => Math.max(m, l.end || 0), 0),
                             imagesRef.current.reduce((m, i) => Math.max(m, i.end || 0), 0),
                             videosRef.current.reduce((m, v) => Math.max(m, v.end || 0), 0),
+                            _narrEndFS,
                           );
                           if (contentEnd > 0 && newTime >= contentEnd) {
                             clearInterval(clockIntervalRef.current); clockIntervalRef.current = null;
@@ -8468,8 +9493,8 @@ _setDragging(null);
       </div>
 
       {/* TIMELINE INFERIOR */}
-      <div style={{ 
-        height: '210px', 
+      <div className="cs-timeline" style={{ 
+        height: '250px', 
         background: '#080808', 
         borderTop: '1px solid rgba(255,255,255,0.07)', 
         width: '100%',
@@ -8619,10 +9644,13 @@ _setDragging(null);
                       }
                     });
                     // Para automaticamente ao final do conteúdo (sem áudio)
+                    const _narrDurClock = narrRef.current?.duration || 0;
+                    const _narrEndClock = _narrDurClock > 0 ? (narrOffsetRef.current || 0) + (_narrDurClock - (narrTrimStartRef.current || 0)) : 0;
                     const contentEnd = Math.max(
                       lyricsRef.current.reduce((m, l) => Math.max(m, l.end || 0), 0),
                       imagesRef.current.reduce((m, i) => Math.max(m, i.end || 0), 0),
                       videosRef.current.reduce((m, v) => Math.max(m, v.end || 0), 0),
+                      _narrEndClock,
                     );
                     if (contentEnd > 0 && newTime >= contentEnd) {
                       clearInterval(clockIntervalRef.current);
@@ -8635,6 +9663,20 @@ _setDragging(null);
                     virtualTimeRef.current = newTime;
                     setCurrentTime(newTime);
                   }, 30);
+                }
+                // ── Narração: toca junto em ambos os botões play ──────────────
+                if (narrRef.current && narrSrc) {
+                  const narrEl = narrRef.current;
+                  narrEl.volume = Math.max(0, Math.min(1, projectVolumeRef.current));
+                  narrEl.playbackRate = Math.max(0.25, Math.min(4, projectSpeedRef.current));
+                  const tNarrNow = virtualTimeRef.current;
+                  const narrOff = narrOffsetRef.current || 0;
+                  const narrTr = narrTrimStartRef.current || 0;
+                  if (tNarrNow >= narrOff) {
+                    const narrRel = narrTr + (tNarrNow - narrOff);
+                    if (Math.abs(narrEl.currentTime - narrRel) > 0.1) narrEl.currentTime = narrRel;
+                    narrEl.play().catch(() => {});
+                  }
                 }
                 setIsPlaying(true);
               }
@@ -8771,7 +9813,7 @@ _setDragging(null);
             if (isScrubTarget) { scrubToClientX(e.clientX); }
           }}
         >
-          <div id="track-bg" style={{ position: 'relative', height: '155px', width: timelineWidth + 'px', background: '#0d0d0d', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.06)', boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.02)', overflow: 'hidden' }}>
+          <div id="track-bg" style={{ position: 'relative', height: '182px', width: timelineWidth + 'px', background: '#0d0d0d', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.06)', boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.02)', overflow: 'hidden' }}>
 
             {/* RÉGUA DE TEMPO */}
             <div style={{ position: 'absolute', top: 0, left: 0, width: audioPxWidth + 'px', height: '14px', pointerEvents: 'none', zIndex: 5 }}>
@@ -8837,6 +9879,41 @@ _setDragging(null);
               </div>
             )}
 
+            {/* FAIXA DE NARRAÇÃO — segunda faixa independente */}
+            {narrSrc && (
+              <div
+                onMouseDown={(e) => handleNarrTimelineMouseDown('move', e)}
+                onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); removeNarr(); }}
+                style={{
+                  position: 'absolute',
+                  left: `${narrOffset * zoom}px`,
+                  width: `${Math.max(60, ((narrTrimEnd !== null ? narrTrimEnd : (narrDuration || 10)) - narrTrimStart) * zoom)}px`,
+                  top: '143px',
+                  height: '26px',
+                  background: 'rgba(244,114,182,0.35)',
+                  border: '2px solid rgba(244,114,182,0.8)',
+                  borderRadius: '8px',
+                  cursor: 'grab',
+                  overflow: 'hidden',
+                  zIndex: 20,
+                  userSelect: 'none',
+                  display: 'flex',
+                  alignItems: 'center',
+                }}
+              >
+                <div onMouseDown={(e) => { e.stopPropagation(); handleNarrTimelineMouseDown('trim-start', e); }}
+                  style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: '10px', cursor: 'ew-resize', background: 'rgba(244,114,182,0.4)', borderTopLeftRadius: '7px', borderBottomLeftRadius: '7px', zIndex: 3 }} />
+                <span style={{ position: 'absolute', left: 14, fontSize: 9, color: '#f472b6', fontWeight: 700, pointerEvents: 'none', whiteSpace: 'nowrap', textShadow: '0 1px 4px #000' }}>🎙️ NARRAÇÃO</span>
+                <button
+                  onMouseDown={e => e.stopPropagation()}
+                  onClick={e => { e.stopPropagation(); removeNarr(); }}
+                  style={{ position:'absolute', right:16, top:'50%', transform:'translateY(-50%)', background:'rgba(239,68,68,0.85)', border:'none', borderRadius:4, color:'#fff', fontSize:10, fontWeight:700, cursor:'pointer', padding:'2px 6px', lineHeight:1, zIndex:4 }}
+                >✕</button>
+                <div onMouseDown={(e) => { e.stopPropagation(); handleNarrTimelineMouseDown('trim-end', e); }}
+                  style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: '10px', cursor: 'ew-resize', background: 'rgba(244,114,182,0.4)', borderTopRightRadius: '7px', borderBottomRightRadius: '7px', zIndex: 3 }} />
+              </div>
+            )}
+
             {/* BARRA FINA QUE MARCA O FIM DA MÚSICA */}
             {duration > 0 && (
               <div style={{ position: 'absolute', left: audioPxWidth + 'px', top: 0, bottom: 0, width: '2px', backgroundColor: 'rgba(0,191,255,0.4)', pointerEvents: 'none', zIndex: 8 }} />
@@ -8856,13 +9933,15 @@ _setDragging(null);
             <div style={{ position: 'absolute', top: '42px', left: 0, right: 0, height: '1px', backgroundColor: 'rgba(255,255,255,0.05)' }} />
             <div style={{ position: 'absolute', top: '80px', left: 0, right: 0, height: '1px', backgroundColor: 'rgba(255,255,255,0.05)' }} />
             <div style={{ position: 'absolute', top: '114px', left: 0, right: 0, height: '1px', backgroundColor: 'rgba(255,255,255,0.05)' }} />
+            <div style={{ position: 'absolute', top: '148px', left: 0, right: 0, height: '1px', backgroundColor: 'rgba(244,114,182,0.1)' }} />
             {/* Labels das faixas */}
             <div style={{ position: 'absolute', right: 6, top: 16, fontSize: 9, color: 'rgba(0,191,255,0.4)', pointerEvents: 'none' }}>LETRA</div>
             <div style={{ position: 'absolute', right: 6, top: 54, fontSize: 9, color: 'rgba(251,191,36,0.4)', pointerEvents: 'none' }}>IMG</div>
             <div style={{ position: 'absolute', right: 6, top: 88, fontSize: 9, color: 'rgba(167,139,250,0.4)', pointerEvents: 'none' }}>VID</div>
+            <div style={{ position: 'absolute', right: 6, top: 148, fontSize: 9, color: 'rgba(244,114,182,0.4)', pointerEvents: 'none' }}>NARR</div>
             
             {lyrics.map((l) => (
-              <div 
+              <div
                 key={l.id}
                 onMouseDown={(e) => handleTimelineMouseDown(l.id, 'move', e)}
                 onContextMenu={(e) => { e.preventDefault(); removeLyric(l.id); }}
@@ -9035,6 +10114,30 @@ _setDragging(null);
             e.target.playbackRate = Math.max(0.25, Math.min(4, projectSpeedRef.current));
           }}
           onEnded={() => setIsPlaying(false)}
+        />
+      )}
+
+      {/* ── Elemento de áudio da narração ── */}
+      {narrSrc && (
+        <audio
+          ref={narrRef}
+          src={narrSrc}
+          onLoadedMetadata={(e) => {
+            setNarrDuration(e.target.duration);
+            e.target.volume       = Math.max(0, Math.min(1, projectVolumeRef.current));
+            e.target.playbackRate = Math.max(0.25, Math.min(4, projectSpeedRef.current));
+          }}
+          onEnded={() => {
+            // Só para o playback se não houver áudio principal tocando
+            // (o audioRef.onEnded já cuida do caso com música de fundo)
+            if (!audioRef.current || audioRef.current.paused) {
+              isPlayingRef.current = false;
+              setIsPlaying(false);
+              if (clockIntervalRef.current) { clearInterval(clockIntervalRef.current); clockIntervalRef.current = null; }
+              stopAllVideoAudio();
+              videosRef.current.forEach(v => { if (v.videoEl && !v.videoEl.paused) v.videoEl.pause(); });
+            }
+          }}
         />
       )}
 

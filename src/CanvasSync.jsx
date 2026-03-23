@@ -9,12 +9,13 @@ import {
 
 
 function SupportChat({ chatTopic, setChatTopic, setChatOpen }) {
+  const { t } = useLanguage();
   const faqs = [
-    { q: "Como exportar o vídeo?", a: "No editor Pro, selecione o formato (WEBM + Áudio ou HD 1080p) e clique em Salvar. O arquivo será baixado automaticamente." },
-    { q: "Como sincronizar a letra?", a: "Cole a letra no campo de texto (uma frase por linha), dê Play e clique em ⚡ MARCAR AGORA no ritmo de cada frase." },
-    { q: "Como adicionar vídeos?", a: "No editor Pro há a opção 🎬 Vídeos no topo. Adicione vídeos, ajuste posição, tamanho, rotação e áudio na timeline." },
-    { q: "Diferença Free vs Pro?", a: "Free: imagens estáticas (PNG/JPG). Pro: vídeo com áudio, HD 1080p, sincronização de letras, vídeos e sem marca d'água." },
-    { q: "Problemas com pagamento", a: "Pagamentos são processados pelo Stripe. Para problemas, entre em contato pelo e-mail abaixo." },
+    { q: t("chat_faq1_q"), a: t("chat_faq1_a") },
+    { q: t("chat_faq2_q"), a: t("chat_faq2_a") },
+    { q: t("chat_faq3_q"), a: t("chat_faq3_a") },
+    { q: t("chat_faq4_q"), a: t("chat_faq4_a") },
+    { q: t("chat_faq5_q"), a: t("chat_faq5_a") },
   ];
   return (
     <div style={{ position: "fixed", bottom: 88, right: 24, zIndex: 9998, width: 340, borderRadius: 18, background: "#111", border: "1px solid rgba(0,191,255,0.2)", boxShadow: "0 16px 48px rgba(0,0,0,0.6)", overflow: "hidden" }}>
@@ -23,8 +24,8 @@ function SupportChat({ chatTopic, setChatTopic, setChatOpen }) {
           <Bot size={17} color="#fff" />
         </div>
         <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 13, fontWeight: 700, color: "#f0f0f0" }}>Suporte CanvasSync</div>
-          <div style={{ fontSize: 11, color: "#00BFFF" }}>Como podemos ajudar?</div>
+          <div style={{ fontSize: 13, fontWeight: 700, color: "#f0f0f0" }}>{t("chat_title")}</div>
+          <div style={{ fontSize: 11, color: "#00BFFF" }}>{t("chat_subtitle")}</div>
         </div>
         {chatTopic !== null && (
           <button onClick={() => setChatTopic(null)} style={{ background: "none", border: "none", color: "#666", cursor: "pointer", fontSize: 20, lineHeight: 1, padding: "0 4px" }}>←</button>
@@ -34,7 +35,7 @@ function SupportChat({ chatTopic, setChatTopic, setChatOpen }) {
       <div style={{ padding: 14, maxHeight: 360, overflowY: "auto" }}>
         {chatTopic === null ? (
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            <p style={{ fontSize: 12, color: "#555", marginBottom: 4 }}>Selecione um tópico:</p>
+            <p style={{ fontSize: 12, color: "#555", marginBottom: 4 }}>{t("chat_subtitle")}</p>
             {faqs.map((item, i) => (
               <button key={i} onClick={() => setChatTopic(i)}
                 style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 12, padding: "10px 14px", color: "#ccc", fontSize: 13, cursor: "pointer", textAlign: "left", fontFamily: "inherit", width: "100%" }}
@@ -44,7 +45,7 @@ function SupportChat({ chatTopic, setChatTopic, setChatOpen }) {
               </button>
             ))}
             <a href="mailto:canvassynclyrics@gmail.com" style={{ marginTop: 4, background: "rgba(0,191,255,0.08)", border: "1px solid rgba(0,191,255,0.2)", borderRadius: 12, padding: "10px 14px", color: "#00BFFF", fontSize: 13, textAlign: "center", textDecoration: "none", display: "block" }}>
-              ✉️ Enviar e-mail para o suporte
+              ✉️ canvassynclyrics@gmail.com
             </a>
           </div>
         ) : (
@@ -127,6 +128,24 @@ export default function CanvasSyncLanding() {
   const [chatOpen, setChatOpen] = useState(false);
   const [chatTopic, setChatTopic] = useState(null);
 
+  // ── PWA Install ──────────────────────────────────────────────────────────────
+  const [pwaPrompt, setPwaPrompt] = useState(null);
+  const [pwaInstalled, setPwaInstalled] = useState(false);
+  useEffect(() => {
+    const handler = e => { e.preventDefault(); setPwaPrompt(e); };
+    window.addEventListener('beforeinstallprompt', handler);
+    window.addEventListener('appinstalled', () => { setPwaInstalled(true); setPwaPrompt(null); });
+    if (window.matchMedia('(display-mode: standalone)').matches) setPwaInstalled(true);
+    if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
+    return () => window.removeEventListener('beforeinstallprompt', handler);
+  }, []);
+  const handlePwaInstall = async () => {
+    if (!pwaPrompt) return;
+    await pwaPrompt.prompt();
+    const { outcome } = await pwaPrompt.userChoice;
+    if (outcome === 'accepted') { setPwaInstalled(true); setPwaPrompt(null); }
+  };
+
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 40);
     window.addEventListener("scroll", onScroll);
@@ -135,11 +154,14 @@ export default function CanvasSyncLanding() {
 
   const features = [
     { icon: <Music size={22} />,    title: t("feat1_title"), desc: t("feat1_desc") },
-    { icon: <Download size={22} />, title: t("feat2_title"), desc: t("feat2_desc") },
+    { icon: <Film size={22} />,     title: t("feat2_title"), desc: t("feat2_desc") },
     { icon: <Layers size={22} />,   title: t("feat3_title"), desc: t("feat3_desc") },
     { icon: <Zap size={22} />,      title: t("feat4_title"), desc: t("feat4_desc") },
     { icon: <Volume2 size={22} />,  title: t("feat5_title"), desc: t("feat5_desc") },
     { icon: <Sparkles size={22} />, title: t("feat6_title"), desc: t("feat6_desc") },
+    { icon: <Wand2 size={22} />,    title: t("feat7_title"), desc: t("feat7_desc") },
+    { icon: <Sticker size={22} />,  title: t("feat8_title"), desc: t("feat8_desc") },
+    { icon: <Image size={22} />,    title: t("feat9_title"), desc: t("feat9_desc") },
   ];
 
   const freePlan = [
@@ -149,6 +171,7 @@ export default function CanvasSyncLanding() {
   const proPlan = [
     t("pro_feat1"), t("pro_feat2"), t("pro_feat3"), t("pro_feat4"),
     t("pro_feat5"), t("pro_feat6"), t("pro_feat7"), t("pro_feat8"),
+    t("pro_feat9"), t("pro_feat10"), t("pro_feat11"), t("pro_feat12"),
   ];
 
   const testimonials = [
@@ -333,6 +356,14 @@ export default function CanvasSyncLanding() {
             onMouseEnter={e => e.target.style.color = "#fff"}
             onMouseLeave={e => e.target.style.color = "#999"}>{t("nav_plans")}</a>
           <LangToggle />
+          {pwaPrompt && !pwaInstalled && (
+            <button onClick={handlePwaInstall}
+              title="Instalar CanvasSync como aplicativo"
+              style={{ display:'flex', alignItems:'center', gap:4, padding:'6px 12px', borderRadius:8, background:'rgba(0,191,255,0.1)', border:'1px solid rgba(0,191,255,0.35)', cursor:'pointer', color:'#00BFFF', fontSize:12, fontWeight:700, whiteSpace:'nowrap', marginLeft:4 }}
+              onMouseEnter={e => e.currentTarget.style.background='rgba(0,191,255,0.2)'}
+              onMouseLeave={e => e.currentTarget.style.background='rgba(0,191,255,0.1)'}
+            >⬇ Instalar App</button>
+          )}
           <button className="btn-ghost" style={{ marginLeft: 8 }} onClick={() => navigate("/entrar")}>{t("nav_signin")}</button>
           <button className="btn-primary" onClick={() => navigate("/cadastro")}>{t("nav_start")}</button>
         </nav>
@@ -535,10 +566,10 @@ export default function CanvasSyncLanding() {
             }}
           >
             {[
-              { value: 24, suffix: "",   label: "Templates prontos" },
-              { value: 16, suffix: "",   label: "Transições animadas" },
-              { value: 24, suffix: "",   label: "Efeitos sonoros" },
-              { value: 4,  suffix: "",   label: "Formatos de export" },
+              { value: 170, suffix: "",  label: "Trilhas musicais" },
+              { value: 68,  suffix: "",  label: "Efeitos sonoros" },
+              { value: 24,  suffix: "",  label: "Templates prontos" },
+              { value: 4,   suffix: "",  label: "Formatos de export" },
             ].map((stat, i) => (
               <div
                 key={i}
@@ -603,6 +634,114 @@ export default function CanvasSyncLanding() {
         </div>
       </section>
 
+
+      {/* ═══ EFEITOS DE TELA ═════════════════════════════════════════════════ */}
+      <section style={{ padding: "80px 24px", background: "var(--surface)" }}>
+        <div style={{ maxWidth: 700, margin: "0 auto", textAlign: "center" }}>
+          <Reveal>
+            <p style={{ color: "#a78bfa", fontSize: 12, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", marginBottom: 14 }}>
+              {t("fx_section_label")}
+            </p>
+            <h2 className="syne" style={{ fontSize: "clamp(26px, 5vw, 44px)", fontWeight: 800, letterSpacing: "-1px" }}>
+              {t("fx_section_title")}
+            </h2>
+            <p style={{ color: "#666", marginTop: 16, fontSize: 16, lineHeight: 1.7 }}>
+              {t("fx_section_sub")}
+            </p>
+            <p style={{ color: "#555", fontSize: 13, marginTop: 28 }}>{t("fx_section_cta")}</p>
+          </Reveal>
+        </div>
+      </section>
+
+
+      {/* ═══ NOVIDADES PRO ═══════════════════════════════════════════════════ */}
+      <section style={{ padding: "80px 24px", background: "#060606" }}>
+        <div style={{ maxWidth: 1100, margin: "0 auto" }}>
+          <Reveal>
+            <div style={{ textAlign: "center", marginBottom: 56 }}>
+              <p style={{ color: "#a78bfa", fontSize: 12, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", marginBottom: 14 }}>
+                {t("new_features_label")}
+              </p>
+              <h2 className="syne" style={{ fontSize: "clamp(26px, 5vw, 44px)", fontWeight: 800, letterSpacing: "-1px" }}>
+                {t("new_features_title")}
+              </h2>
+              <p style={{ color: "#666", marginTop: 16, fontSize: 16, maxWidth: 520, margin: "16px auto 0" }}>
+                {t("new_features_sub")}
+              </p>
+            </div>
+          </Reveal>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 20 }}>
+
+            {/* Trilhas */}
+            <Reveal delay={0}>
+              <div style={{ background: "linear-gradient(135deg,#0d0a1f,#12083a)", border: "1px solid rgba(167,139,250,0.2)", borderRadius: 20, padding: "28px 28px", display: "flex", gap: 20, alignItems: "flex-start" }}>
+                <div style={{ width: 48, height: 48, borderRadius: 14, background: "rgba(167,139,250,0.15)", border: "1px solid rgba(167,139,250,0.3)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>🎼</div>
+                <div>
+                  <h3 style={{ fontSize: 16, fontWeight: 700, color: "#c4b5fd", marginBottom: 6 }}>{t("new_feat_trilhas_title")}</h3>
+                  <p style={{ fontSize: 14, color: "#666", lineHeight: 1.6 }}>{t("new_feat_trilhas_desc")}</p>
+                </div>
+              </div>
+            </Reveal>
+
+            {/* SFX */}
+            <Reveal delay={80}>
+              <div style={{ background: "linear-gradient(135deg,#0a1a0a,#0d2a0a)", border: "1px solid rgba(16,185,129,0.2)", borderRadius: 20, padding: "28px 28px", display: "flex", gap: 20, alignItems: "flex-start" }}>
+                <div style={{ width: 48, height: 48, borderRadius: 14, background: "rgba(16,185,129,0.12)", border: "1px solid rgba(16,185,129,0.3)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>🔊</div>
+                <div>
+                  <h3 style={{ fontSize: 16, fontWeight: 700, color: "#6ee7b7", marginBottom: 6 }}>{t("new_feat_sfx_title")}</h3>
+                  <p style={{ fontSize: 14, color: "#666", lineHeight: 1.6 }}>{t("new_feat_sfx_desc")}</p>
+                </div>
+              </div>
+            </Reveal>
+
+            {/* Zoom Animado / Keyframes */}
+            <Reveal delay={160}>
+              <div style={{ background: "linear-gradient(135deg,#0a1020,#0d1a35)", border: "1px solid rgba(0,191,255,0.2)", borderRadius: 20, padding: "28px 28px", display: "flex", gap: 20, alignItems: "flex-start" }}>
+                <div style={{ width: 48, height: 48, borderRadius: 14, background: "rgba(0,191,255,0.1)", border: "1px solid rgba(0,191,255,0.25)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>🎬</div>
+                <div>
+                  <h3 style={{ fontSize: 16, fontWeight: 700, color: "#7dd3fc", marginBottom: 6 }}>{t("new_feat_zoom_title")}</h3>
+                  <p style={{ fontSize: 14, color: "#666", lineHeight: 1.6 }}>{t("new_feat_zoom_desc")}</p>
+                </div>
+              </div>
+            </Reveal>
+
+            {/* Cor & Curvas */}
+            <Reveal delay={240}>
+              <div style={{ background: "linear-gradient(135deg,#1a1200,#2a1a00)", border: "1px solid rgba(251,191,36,0.2)", borderRadius: 20, padding: "28px 28px", display: "flex", gap: 20, alignItems: "flex-start" }}>
+                <div style={{ width: 48, height: 48, borderRadius: 14, background: "rgba(251,191,36,0.1)", border: "1px solid rgba(251,191,36,0.25)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>🎨</div>
+                <div>
+                  <h3 style={{ fontSize: 16, fontWeight: 700, color: "#fbbf24", marginBottom: 6 }}>{t("new_feat_color_title")}</h3>
+                  <p style={{ fontSize: 14, color: "#666", lineHeight: 1.6 }}>{t("new_feat_color_desc")}</p>
+                </div>
+              </div>
+            </Reveal>
+
+            {/* Narração TTS */}
+            <Reveal delay={320}>
+              <div style={{ background: "linear-gradient(135deg,#1a0a1a,#2a0a2a)", border: "1px solid rgba(244,114,182,0.2)", borderRadius: 20, padding: "28px 28px", display: "flex", gap: 20, alignItems: "flex-start" }}>
+                <div style={{ width: 48, height: 48, borderRadius: 14, background: "rgba(244,114,182,0.12)", border: "1px solid rgba(244,114,182,0.3)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>🎙️</div>
+                <div>
+                  <h3 style={{ fontSize: 16, fontWeight: 700, color: "#f9a8d4", marginBottom: 6 }}>Narração com IA</h3>
+                  <p style={{ fontSize: 14, color: "#666", lineHeight: 1.6 }}>Gere narração em português ou inglês com vozes realistas diretamente no editor. Áudio cai automaticamente na timeline. Powered by ElevenLabs.</p>
+                </div>
+              </div>
+            </Reveal>
+
+            {/* Sincronização Automática */}
+            <Reveal delay={400}>
+              <div style={{ background: "linear-gradient(135deg,#0a0d1f,#0d1535)", border: "1px solid rgba(139,92,246,0.25)", borderRadius: 20, padding: "28px 28px", display: "flex", gap: 20, alignItems: "flex-start" }}>
+                <div style={{ width: 48, height: 48, borderRadius: 14, background: "rgba(139,92,246,0.12)", border: "1px solid rgba(139,92,246,0.3)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>🤖</div>
+                <div>
+                  <h3 style={{ fontSize: 16, fontWeight: 700, color: "#c4b5fd", marginBottom: 6 }}>Sincronização Automática com IA</h3>
+                  <p style={{ fontSize: 14, color: "#666", lineHeight: 1.6 }}>Cole a letra, carregue a música e deixe a IA sincronizar tudo. O Whisper analisa o áudio e posiciona cada frase no tempo exato. Acabou o trabalho manual. Powered by Groq.</p>
+                </div>
+              </div>
+            </Reveal>
+
+          </div>
+        </div>
+      </section>
+
       {/* ═══ CANVAS FORMATS ══════════════════════════════════════════════════ */}
       <section style={{ padding: "80px 24px", background: "#060606" }}>
         <div style={{ maxWidth: 1100, margin: "0 auto" }}>
@@ -656,54 +795,6 @@ export default function CanvasSyncLanding() {
                   </div>
                   <div style={{ fontSize: 13, fontWeight: 600, color: "#ccc", marginBottom: 4 }}>{f.label}</div>
                   <div style={{ fontSize: 11, color: "#444", fontFamily: "monospace" }}>{f.sub}</div>
-                </div>
-              </Reveal>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ═══ TESTIMONIALS ════════════════════════════════════════════════════ */}
-      <section style={{ padding: "80px 24px" }}>
-        <div style={{ maxWidth: 1000, margin: "0 auto" }}>
-          <Reveal>
-            <p style={{ textAlign: "center", color: "#00BFFF", fontSize: 12, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", marginBottom: 14 }}>
-              {t("testimonials_label")}
-            </p>
-            <h2 className="syne" style={{ textAlign: "center", fontSize: "clamp(26px, 4vw, 42px)", fontWeight: 800, letterSpacing: "-1px", marginBottom: 48 }}>
-              {t("testimonials_title1")} <span className="gradient-text">{t("testimonials_title2")}</span>
-            </h2>
-          </Reveal>
-
-          <div
-            className="testimonials-grid"
-            style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16 }}
-          >
-            {testimonials.map((t, i) => (
-              <Reveal key={i} delay={i * 100}>
-                <div className="card" style={{ height: "100%" }}>
-                  <div style={{ display: "flex", marginBottom: 14 }}>
-                    {Array.from({ length: t.stars }).map((_, j) => (
-                      <Star key={j} size={14} className="star" fill="#FFB800" color="#FFB800" />
-                    ))}
-                  </div>
-                  <p style={{ fontSize: 14, color: "#888", lineHeight: 1.7, marginBottom: 20, fontStyle: "italic" }}>
-                    "{t.text}"
-                  </p>
-                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <div style={{
-                      width: 36, height: 36, borderRadius: "50%",
-                      background: "linear-gradient(135deg, #00BFFF, #0060ff)",
-                      display: "flex", alignItems: "center", justifyContent: "center",
-                      fontSize: 14, fontWeight: 700, color: "#fff",
-                    }}>
-                      {t.name[0]}
-                    </div>
-                    <div>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: "#ddd" }}>{t.name}</div>
-                      <div style={{ fontSize: 11, color: "#555" }}>{t.role}</div>
-                    </div>
-                  </div>
                 </div>
               </Reveal>
             ))}
