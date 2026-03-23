@@ -9127,6 +9127,15 @@ _setDragging(null);
                   <span style={{ fontSize: 10, color: '#fbbf24', fontWeight: 700, minWidth: 36, textAlign: 'right' }}>{Math.round(selImg.height || 100)}px</span>
                 </div>
 
+                {/* Botão Tela Cheia — Imagem */}
+                <button
+                  title="Preencher tela cheia"
+                  onClick={() => setImages(prev => prev.map(i => i.id === selImg.id ? { ...i, width: canvasW, height: canvasH, x: 0, y: 0 } : i))}
+                  style={{ background: 'rgba(251,191,36,0.12)', border: '1px solid rgba(251,191,36,0.4)', borderRadius: 8, color: '#fbbf24', cursor: 'pointer', fontSize: 13, lineHeight: 1, padding: '4px 8px', whiteSpace: 'nowrap', flexShrink: 0 }}
+                  onMouseEnter={e => { e.currentTarget.style.background = 'rgba(251,191,36,0.25)'; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = 'rgba(251,191,36,0.12)'; }}
+                >⛶</button>
+
                 <button
                   onClick={() => setActiveImageId(null)}
                   style={{ background: 'none', border: 'none', color: '#666', cursor: 'pointer', fontSize: 16, lineHeight: 1 }}
@@ -9179,6 +9188,15 @@ _setDragging(null);
                   />
                   <span style={{ fontSize: 10, color: '#a78bfa', fontWeight: 700, minWidth: 36, textAlign: 'right' }}>{Math.round(selVid.height || 100)}px</span>
                 </div>
+
+                {/* Botão Tela Cheia — Vídeo */}
+                <button
+                  title="Preencher tela cheia"
+                  onClick={() => setVideos(prev => prev.map(vv => vv.id === selVid.id ? { ...vv, width: canvasW, height: canvasH, x: 0, y: 0 } : vv))}
+                  style={{ background: 'rgba(167,139,250,0.12)', border: '1px solid rgba(167,139,250,0.4)', borderRadius: 8, color: '#a78bfa', cursor: 'pointer', fontSize: 13, lineHeight: 1, padding: '4px 8px', whiteSpace: 'nowrap', flexShrink: 0 }}
+                  onMouseEnter={e => { e.currentTarget.style.background = 'rgba(167,139,250,0.25)'; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = 'rgba(167,139,250,0.12)'; }}
+                >⛶</button>
 
                 <button
                   onClick={() => setActiveVideoId(null)}
