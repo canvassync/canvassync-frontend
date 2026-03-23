@@ -4406,56 +4406,50 @@ _setDragging(null);
           vis = upperLine.slice(0, rem);
         }
 
-        // ── Karaoke word-highlight ──────────────────────────────────────────
+        // ── Karaoke sliding-bar ─────────────────────────────────────────────
         if (_anim === 'karaoke') {
           const _karColor = activeLine.karaokeColor || '#000000';
           const _karAlpha = activeLine.karaokeAlpha ?? 0.82;
-          const _karPadX  = lFontSize * 0.22;
-          const _karPadY  = lFontSize * 0.14;
-          const words = upperLine.split(' ');
-          let charPos = 0;
-          // conta chars anteriores a esta linha
-          lines.slice(0, li).forEach(prevLine => { charPos += prevLine.toUpperCase().split('').length + 1; });
-          // calcula posição X de cada palavra acumulando larguras
-          const wordWidths = words.map(w2 => ctx.measureText(w2 + ' ').width);
-          const totalLineW = words.reduce((s, w2) => s + ctx.measureText(w2 + ' ').width, 0) - ctx.measureText(' ').width;
-          let wordX = -totalLineW / 2;
-          words.forEach((word, wi) => {
-            const wChars = word.length;
-            const wordStartChar = charPos + words.slice(0, wi).reduce((s, w2) => s + w2.length + 1, 0);
-            const wordEndChar   = wordStartChar + wChars;
-            const isHighlighted = _karCh > wordStartChar;
-            const isPartial     = _karCh > wordStartChar && _karCh < wordEndChar;
-            const ww = ctx.measureText(word).width;
-            const wx = wordX + ww / 2; // centro da palavra relativo ao centro da linha
-            if (isHighlighted) {
-              // Fundo colorido atrás da palavra destacada
-              ctx.save();
-              ctx.shadowBlur = 0; ctx.shadowColor = 'transparent';
-              const partialW = isPartial ? ctx.measureText(word.slice(0, _karCh - wordStartChar)).width : ww;
-              ctx.fillStyle = _karColor;
-              ctx.globalAlpha = _karAlpha;
-              ctx.beginPath();
-              const bx = wordX - _karPadX / 2;
-              const by = lineY - lFontSize / 2 - _karPadY / 2;
-              const bw = (isPartial ? partialW : ww) + _karPadX;
-              const bh = lFontSize + _karPadY;
-              const br = Math.min(lFontSize * 0.18, bw / 2, bh / 2);
-              ctx.moveTo(bx + br, by);
-              ctx.arcTo(bx + bw, by, bx + bw, by + bh, br);
-              ctx.arcTo(bx + bw, by + bh, bx, by + bh, br);
-              ctx.arcTo(bx, by + bh, bx, by, br);
-              ctx.arcTo(bx, by, bx + bw, by, br);
-              ctx.closePath();
-              ctx.fill();
-              ctx.globalAlpha = 1;
-              ctx.restore();
-            }
-            wordX += wordWidths[wi];
-          });
-          // Desenha o texto por cima
+          const _karPadY  = lFontSize * 0.18;
+          const _karPadX  = lFontSize * 0.18;
+          const totalLineW = ctx.measureText(upperLine).width;
+          const startX     = -totalLineW / 2 - _karPadX;
+          const fullW      = totalLineW + _karPadX * 2;
+          const by         = lineY - lFontSize / 2 - _karPadY / 2;
+          const bh         = lFontSize + _karPadY;
+          const br         = Math.min(lFontSize * 0.18, fullW / 2, bh / 2);
+
+          // Progresso: quantos chars já foram "lidos" nesta linha
+          let lineCharOffset = 0;
+          lines.slice(0, li).forEach(pl => { lineCharOffset += pl.length + 1; });
+          const lineTotal = upperLine.length || 1;
+          const charsInLine = Math.max(0, _karCh - lineCharOffset);
+          const progress = Math.min(1, charsInLine / lineTotal);
+          const filledW = fullW * progress;
+
+          if (filledW > 0.5) {
+            ctx.save();
+            ctx.shadowBlur = 0; ctx.shadowColor = 'transparent';
+            ctx.fillStyle = _karColor;
+            ctx.globalAlpha = _karAlpha;
+            // Clip ao rect arredondado completo para o preenchimento não vazar
+            ctx.beginPath();
+            ctx.moveTo(startX + br, by);
+            ctx.arcTo(startX + fullW, by, startX + fullW, by + bh, br);
+            ctx.arcTo(startX + fullW, by + bh, startX, by + bh, br);
+            ctx.arcTo(startX, by + bh, startX, by, br);
+            ctx.arcTo(startX, by, startX + fullW, by, br);
+            ctx.closePath();
+            ctx.save(); ctx.clip();
+            ctx.fillRect(startX, by, filledW, bh);
+            ctx.restore();
+            ctx.globalAlpha = 1;
+            ctx.restore();
+          }
+
+          // Texto por cima
           if (_grOn) {
-            const w2 = ctx.measureText(upperLine).width;
+            const w2 = totalLineW;
             const grad = ctx.createLinearGradient(-w2 / 2, lineY - lFontSize / 2, w2 / 2, lineY + lFontSize / 2);
             grad.addColorStop(0, _gr1); grad.addColorStop(1, _gr2);
             ctx.fillStyle = grad;
@@ -5321,51 +5315,44 @@ _setDragging(null);
           vis = upperLine.slice(0, rem);
         }
 
-        // ── Karaoke word-highlight (export) ────────────────────────────────
+        // ── Karaoke sliding-bar (export) ────────────────────────────────────
         if (_anim === 'karaoke') {
           const _karColor = activeLine.karaokeColor || '#000000';
           const _karAlpha = activeLine.karaokeAlpha ?? 0.82;
-          const _karPadX  = lFontSize * 0.22;
-          const _karPadY  = lFontSize * 0.14;
-          const words = upperLine.split(' ');
-          let charPos = 0;
-          lines.slice(0, li).forEach(prevLine => { charPos += prevLine.toUpperCase().split('').length + 1; });
-          const wordWidths = words.map(w2 => ctx.measureText(w2 + ' ').width);
-          const totalLineW = words.reduce((s, w2) => s + ctx.measureText(w2 + ' ').width, 0) - ctx.measureText(' ').width;
-          let wordX = -totalLineW / 2;
-          words.forEach((word, wi) => {
-            const wChars = word.length;
-            const wordStartChar = charPos + words.slice(0, wi).reduce((s, w2) => s + w2.length + 1, 0);
-            const wordEndChar   = wordStartChar + wChars;
-            const isHighlighted = _karCh > wordStartChar;
-            const isPartial     = _karCh > wordStartChar && _karCh < wordEndChar;
-            const ww = ctx.measureText(word).width;
-            if (isHighlighted) {
-              ctx.save();
-              ctx.shadowBlur = 0; ctx.shadowColor = 'transparent';
-              const partialW = isPartial ? ctx.measureText(word.slice(0, _karCh - wordStartChar)).width : ww;
-              ctx.fillStyle = _karColor;
-              ctx.globalAlpha = _karAlpha;
-              ctx.beginPath();
-              const bx = wordX - _karPadX / 2;
-              const by = lineY - lFontSize / 2 - _karPadY / 2;
-              const bw = (isPartial ? partialW : ww) + _karPadX;
-              const bh = lFontSize + _karPadY;
-              const br = Math.min(lFontSize * 0.18, bw / 2, bh / 2);
-              ctx.moveTo(bx + br, by);
-              ctx.arcTo(bx + bw, by, bx + bw, by + bh, br);
-              ctx.arcTo(bx + bw, by + bh, bx, by + bh, br);
-              ctx.arcTo(bx, by + bh, bx, by, br);
-              ctx.arcTo(bx, by, bx + bw, by, br);
-              ctx.closePath();
-              ctx.fill();
-              ctx.globalAlpha = 1;
-              ctx.restore();
-            }
-            wordX += wordWidths[wi];
-          });
+          const _karPadY  = lFontSize * 0.18;
+          const _karPadX  = lFontSize * 0.18;
+          const totalLineW = ctx.measureText(upperLine).width;
+          const startX     = -totalLineW / 2 - _karPadX;
+          const fullW      = totalLineW + _karPadX * 2;
+          const by         = lineY - lFontSize / 2 - _karPadY / 2;
+          const bh         = lFontSize + _karPadY;
+          const br         = Math.min(lFontSize * 0.18, fullW / 2, bh / 2);
+          let lineCharOffset = 0;
+          lines.slice(0, li).forEach(pl => { lineCharOffset += pl.length + 1; });
+          const lineTotal   = upperLine.length || 1;
+          const charsInLine = Math.max(0, _karCh - lineCharOffset);
+          const progress    = Math.min(1, charsInLine / lineTotal);
+          const filledW     = fullW * progress;
+          if (filledW > 0.5) {
+            ctx.save();
+            ctx.shadowBlur = 0; ctx.shadowColor = 'transparent';
+            ctx.fillStyle = _karColor;
+            ctx.globalAlpha = _karAlpha;
+            ctx.beginPath();
+            ctx.moveTo(startX + br, by);
+            ctx.arcTo(startX + fullW, by, startX + fullW, by + bh, br);
+            ctx.arcTo(startX + fullW, by + bh, startX, by + bh, br);
+            ctx.arcTo(startX, by + bh, startX, by, br);
+            ctx.arcTo(startX, by, startX + fullW, by, br);
+            ctx.closePath();
+            ctx.save(); ctx.clip();
+            ctx.fillRect(startX, by, filledW, bh);
+            ctx.restore();
+            ctx.globalAlpha = 1;
+            ctx.restore();
+          }
           if (_grOn) {
-            const w2 = ctx.measureText(upperLine).width;
+            const w2 = totalLineW;
             const grad = ctx.createLinearGradient(-w2 / 2, lineY - lFontSize / 2, w2 / 2, lineY + lFontSize / 2);
             grad.addColorStop(0, _gr1); grad.addColorStop(1, _gr2);
             ctx.fillStyle = grad;
