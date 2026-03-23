@@ -77,6 +77,12 @@ const LOCKED_SCREEN_EFFECTS = [
   { id: 'smoke',     label: 'Fumaça',    icon: '💨' },
 ];
 
+const FREE_TRACKS = [
+  { id: 'track1', label: 'Lofi Chill Beats', emoji: '🎵', url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3' },
+  { id: 'track2', label: 'Hip Hop Groove',   emoji: '🎶', url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3' },
+  { id: 'track3', label: 'Trap Vibes',        emoji: '🎼', url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-9.mp3' },
+];
+
 function AppFreeV2() {
   const { t, lang } = useLanguage();
 
@@ -114,6 +120,10 @@ function AppFreeV2() {
   const [extraTextColor, setExtraTextColor]     = useState('#ffffff');
   const [extraTextFontFamily, setExtraTextFontFamily] = useState('Poppins');
   const [extraTextFontSize, setExtraTextFontSize]     = useState(28);
+  const [extraTextBold,          setExtraTextBold]          = useState(true);
+  const [extraTextItalic,        setExtraTextItalic]        = useState(false);
+  const [extraTextUnderline,     setExtraTextUnderline]     = useState(false);
+  const [extraTextStrikethrough, setExtraTextStrikethrough] = useState(false);
   const [extraTextShadowEnabled,  setExtraTextShadowEnabled]  = useState(true);
   const [extraTextShadowColor,    setExtraTextShadowColor]    = useState('#000000');
   const [extraTextShadowBlur,     setExtraTextShadowBlur]     = useState(10);
@@ -128,6 +138,8 @@ function AppFreeV2() {
   const [lyricFontSize, setLyricFontSize] = useState(48);
   const [lyricColor, setLyricColor]       = useState('#ffffff');
   const [lyricFontFamily, setLyricFontFamily] = useState('Bebas Neue');
+  const [lyricBold,   setLyricBold]   = useState(true);
+  const [lyricItalic, setLyricItalic] = useState(false);
   const [lyricShadowEnabled, setLyricShadowEnabled] = useState(true);
   const [lyricShadowBlur, setLyricShadowBlur]       = useState(12);
   const [showLyricList, setShowLyricList] = useState(true);
@@ -156,6 +168,14 @@ function AppFreeV2() {
 
   // ── Exportação ───────────────────────────────────────────────────────────────
   const [exportFormat, setExportFormat] = useState('png');
+
+  // ── Audio / Timeline ─────────────────────────────────────────────────────────
+  const [isPlaying,     setIsPlaying]     = useState(false);
+  const [currentTime,   setCurrentTime]   = useState(0);
+  const [audioDuration, setAudioDuration] = useState(0);
+  const [selectedTrack, setSelectedTrack] = useState(null);
+  const audioRef = useRef(null);
+  const clockRef = useRef(null);
 
   // ── Drag ─────────────────────────────────────────────────────────────────────
   const [dragging, setDragging] = useState(null);
@@ -354,6 +374,7 @@ function AppFreeV2() {
     setExtraTexts(prev => [...prev, {
       id, text: newExtraInput.trim(), x: canvasW / 2, y: canvasH * 0.85,
       color: extraTextColor, fontFamily: extraTextFontFamily, fontSize: extraTextFontSize,
+      bold: extraTextBold, italic: extraTextItalic, underline: extraTextUnderline, strikethrough: extraTextStrikethrough,
       shadowEnabled: extraTextShadowEnabled, shadowColor: extraTextShadowColor, shadowBlur: extraTextShadowBlur,
       gradientEnabled: extraTextGradientEnabled, gradientColor1: extraTextGradientColor1, gradientColor2: extraTextGradientColor2,
       rotation: 0,
@@ -369,6 +390,7 @@ function AppFreeV2() {
       id, text: newLyricText.trim(),
       x: canvasW / 2, y: canvasH * 0.72,
       fontSize: lyricFontSize, fontFamily: lyricFontFamily, color: lyricColor,
+      bold: lyricBold, italic: lyricItalic,
       shadowEnabled: lyricShadowEnabled, shadowBlur: lyricShadowBlur,
       rotation: 0,
     }]);
@@ -400,6 +422,34 @@ function AppFreeV2() {
       }
     }
 
+    // Lyrics — hit detection
+    for (let i = lyrics.length - 1; i >= 0; i--) {
+      const lyric = lyrics[i];
+      const lfs = lyric.fontSize || lyricFontSize;
+      const hitW = Math.max(lfs * lyric.text.length * 0.55, lfs * 2);
+      const hitH = lfs * 1.6;
+      if (Math.abs(mx - lyric.x) <= hitW / 2 && Math.abs(my - lyric.y) <= hitH) {
+        setActiveLyricId(lyric.id);
+        activeStickerRef.current = null; setActiveStickerId(null); setActiveImageId(null); setActiveVideoOverlay(false);
+        setDragging({ type: 'lyric', id: lyric.id, ox: mx - lyric.x, oy: my - lyric.y });
+        return;
+      }
+    }
+
+    // Extra texts — hit detection
+    for (let i = extraTexts.length - 1; i >= 0; i--) {
+      const txt = extraTexts[i];
+      const tfs = txt.fontSize || extraTextFontSize;
+      const hitW = Math.max(tfs * txt.text.length * 0.55, tfs * 2);
+      const hitH = tfs * 1.6;
+      if (Math.abs(mx - txt.x) <= hitW / 2 && Math.abs(my - txt.y) <= hitH) {
+        setActiveExtraTextId(txt.id);
+        activeStickerRef.current = null; setActiveStickerId(null); setActiveImageId(null); setActiveVideoOverlay(false);
+        setDragging({ type: 'extraText', id: txt.id, ox: mx - txt.x, oy: my - txt.y });
+        return;
+      }
+    }
+
     // Video overlay
     if (videoOverlay) {
       const v = videoOverlay;
@@ -422,7 +472,7 @@ function AppFreeV2() {
     }
 
     setActiveImageId(null); setActiveExtraTextId(null); activeStickerRef.current = null; setActiveStickerId(null); setActiveVideoOverlay(false);
-  }, [images, videoOverlay, toCanvasCoords]);
+  }, [images, videoOverlay, lyrics, extraTexts, lyricFontSize, extraTextFontSize, toCanvasCoords]);
 
   const handleGlobalMouseMove = useCallback((e) => {
     if (!dragging) return;
@@ -433,6 +483,10 @@ function AppFreeV2() {
       setImages(prev => prev.map(i => i.id === dragging.id ? { ...i, x: mx - dragging.ox, y: my - dragging.oy } : i));
     } else if (dragging.type === 'video') {
       setVideoOverlay(prev => prev ? { ...prev, x: mx - dragging.ox, y: my - dragging.oy } : prev);
+    } else if (dragging.type === 'lyric') {
+      setLyrics(prev => prev.map(l => l.id === dragging.id ? { ...l, x: mx - dragging.ox, y: my - dragging.oy } : l));
+    } else if (dragging.type === 'extraText') {
+      setExtraTexts(prev => prev.map(t => t.id === dragging.id ? { ...t, x: mx - dragging.ox, y: my - dragging.oy } : t));
     }
   }, [dragging, toCanvasCoords]);
 
@@ -515,7 +569,10 @@ function AppFreeV2() {
       const ly = lyric.y ?? canvas.height * 0.72;
       const lFontSize = lyric.fontSize || lyricFontSize;
       const lFontFamily = lyric.fontFamily || lyricFontFamily;
-      ctx.font = `bold ${lFontSize}px "${lFontFamily}"`;
+      const lBold   = lyric.bold   !== undefined ? lyric.bold   : lyricBold;
+      const lItalic = lyric.italic !== undefined ? lyric.italic : lyricItalic;
+      const fontStyle = `${lItalic ? 'italic ' : ''}${lBold ? 'bold ' : ''}${lFontSize}px "${lFontFamily}"`;
+      ctx.font = fontStyle;
       const lines = wrapLyricText(lyric.text, ctx, canvas.width - 40);
       const lineH = lFontSize * 1.3;
       const totalH = lines.length * lineH;
@@ -530,7 +587,7 @@ function AppFreeV2() {
       });
       ctx.shadowBlur = 0;
       if (activeLyricId === lyric.id) {
-        ctx.font = `bold ${lFontSize}px "${lFontFamily}"`;
+        ctx.font = fontStyle;
         const maxW = lines.reduce((m, l) => Math.max(m, ctx.measureText(l.toUpperCase()).width), 0);
         const hw = maxW / 2 + 14, hh = totalH / 2 + 10;
         ctx.strokeStyle = 'rgba(0,191,255,0.85)'; ctx.lineWidth = 1.5; ctx.setLineDash([4, 3]);
@@ -542,10 +599,13 @@ function AppFreeV2() {
     // Textos extras
     extraTexts.forEach(txt => {
       const tColor = txt.color || extraTextColor, tFont = txt.fontFamily || extraTextFontFamily, tSize = txt.fontSize || extraTextFontSize;
+      const tBold   = txt.bold   !== undefined ? txt.bold   : extraTextBold;
+      const tItalic = txt.italic !== undefined ? txt.italic : extraTextItalic;
       const lines = txt.text.split('\n'), lineH = tSize * 1.25;
       const rot = (txt.rotation || 0) * Math.PI / 180;
+      const fontStr = `${tItalic ? 'italic ' : ''}${tBold ? 'bold ' : ''}${tSize}px ${tFont}`;
       ctx.save(); ctx.translate(txt.x, txt.y); ctx.rotate(rot);
-      ctx.font = `bold ${tSize}px ${tFont}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.font = fontStr; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       if (txt.gradientEnabled && txt.gradientColor1 && txt.gradientColor2) {
         const tw = lines.reduce((m,l) => Math.max(m, ctx.measureText(l).width), 0);
         const th = lines.length * lineH;
@@ -555,8 +615,13 @@ function AppFreeV2() {
       } else { ctx.fillStyle = tColor; }
       const totalH = lines.length * lineH;
       lines.forEach((line, li) => {
+        const lineY = -totalH/2 + li*lineH + lineH/2;
         if (txt.shadowEnabled !== false) { ctx.shadowBlur = txt.shadowBlur ?? 10; ctx.shadowColor = txt.shadowColor || 'rgba(0,0,0,0.8)'; }
-        ctx.fillText(line, 0, -totalH/2 + li*lineH + lineH/2);
+        ctx.fillText(line, 0, lineY);
+        ctx.shadowBlur = 0;
+        const lw = ctx.measureText(line).width;
+        if (txt.underline) { ctx.strokeStyle = tColor; ctx.lineWidth = Math.max(1, tSize * 0.06); ctx.beginPath(); ctx.moveTo(-lw/2, lineY + tSize*0.55); ctx.lineTo(lw/2, lineY + tSize*0.55); ctx.stroke(); }
+        if (txt.strikethrough) { ctx.strokeStyle = tColor; ctx.lineWidth = Math.max(1, tSize * 0.06); ctx.beginPath(); ctx.moveTo(-lw/2, lineY); ctx.lineTo(lw/2, lineY); ctx.stroke(); }
       });
       ctx.shadowBlur = 0;
       if (activeExtraTextId === txt.id) {
@@ -586,8 +651,8 @@ function AppFreeV2() {
     ctx.restore();
   }, [image, images, extraTexts, lyrics, stickers, videoOverlay, screenEffect,
       activeImageId, activeExtraTextId, activeLyricId, activeVideoOverlay,
-      extraTextColor, extraTextFontFamily, extraTextFontSize,
-      lyricFontSize, lyricFontFamily, lyricColor,
+      extraTextColor, extraTextFontFamily, extraTextFontSize, extraTextBold, extraTextItalic,
+      lyricFontSize, lyricFontFamily, lyricColor, lyricBold, lyricItalic,
       drawRoundedImage, drawRoundedRect, drawResizeHandles, wrapLyricText, buildFilterString]);
 
   const drawRef = useRef(draw);
@@ -726,7 +791,54 @@ function AppFreeV2() {
     return () => clearTimeout(t);
   }, [images, extraTexts, lyrics, stickers, canvasFormat, imageSrc, screenEffect, extraTextColor, extraTextFontFamily, extraTextFontSize, lyricFontSize, lyricColor, lyricFontFamily]);
 
-  // ── Modal de upgrade ──────────────────────────────────────────────────────────
+  // ── Audio / Timeline logic ────────────────────────────────────────────────────
+  const playTrack = (track) => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      clearInterval(clockRef.current);
+    }
+    setSelectedTrack(track);
+    setCurrentTime(0);
+    setIsPlaying(false);
+    setTimeout(() => {
+      if (audioRef.current) {
+        audioRef.current.src = track.url;
+        audioRef.current.load();
+      }
+    }, 50);
+  };
+
+  const togglePlay = () => {
+    if (!audioRef.current || !selectedTrack) return;
+    if (isPlaying) {
+      audioRef.current.pause();
+      clearInterval(clockRef.current);
+      setIsPlaying(false);
+    } else {
+      audioRef.current.play().then(() => {
+        setIsPlaying(true);
+        clockRef.current = setInterval(() => {
+          if (audioRef.current) setCurrentTime(audioRef.current.currentTime);
+        }, 250);
+      }).catch(() => {});
+    }
+  };
+
+  const seekTo = (t) => {
+    if (!audioRef.current) return;
+    audioRef.current.currentTime = t;
+    setCurrentTime(t);
+  };
+
+  useEffect(() => () => clearInterval(clockRef.current), []);
+
+  const formatTime = (s) => {
+    const m = Math.floor(s / 60);
+    const sec = Math.floor(s % 60);
+    return `${m}:${sec.toString().padStart(2, '0')}`;
+  };
+
+
   const UpgradeModal = () => (
     <div style={{ position:'fixed', inset:0, zIndex:99999, background:'rgba(0,0,0,0.85)', display:'flex', alignItems:'center', justifyContent:'center', backdropFilter:'blur(8px)' }}
       onClick={() => setShowUpgradeModal(false)}>
@@ -820,11 +932,24 @@ function AppFreeV2() {
                   </div>
                 ))}
                 <div style={{height:1,background:'rgba(255,255,255,0.06)',margin:'4px 0'}} />
+                {/* Trilhas disponíveis no Free (sem salvar) */}
+                <div style={{padding:'8px 14px 4px',fontSize:10,color:'#555',fontWeight:700,letterSpacing:'0.8px',textTransform:'uppercase'}}>🎼 Trilhas (prévia)</div>
+                {FREE_TRACKS.map(track=>(
+                  <div key={track.id} onClick={()=>{ playTrack(track); setShowMidiasPanel(false); }}
+                    style={{ display:'flex', alignItems:'center', gap:10, padding:'9px 14px', cursor:'pointer', background: selectedTrack?.id===track.id ? 'rgba(0,191,255,0.08)' : 'transparent', transition:'background 0.1s' }}
+                    onMouseEnter={e=>e.currentTarget.style.background='rgba(255,255,255,0.05)'}
+                    onMouseLeave={e=>e.currentTarget.style.background=selectedTrack?.id===track.id?'rgba(0,191,255,0.08)':'transparent'}>
+                    <span style={{fontSize:16}}>{track.emoji}</span>
+                    <span style={{fontSize:12,color:'#ccc',fontWeight:500,flex:1}}>{track.label}</span>
+                    {selectedTrack?.id===track.id && <span style={{fontSize:10,color:'#00BFFF',fontWeight:700}}>▶ ativa</span>}
+                  </div>
+                ))}
+                <div style={{height:1,background:'rgba(255,255,255,0.06)',margin:'4px 0'}} />
                 {/* Itens bloqueados */}
                 {[
                   { icon:'🎵', label:'Música / Áudio' },
                   { icon:'🎙️', label:'Narração (TTS)' },
-                  { icon:'🎼', label:'Trilhas' },
+                  { icon:'🎼', label:'Trilhas completas' },
                 ].map(item=>(
                   <div key={item.label} onClick={()=>{ setShowMidiasPanel(false); setShowUpgradeModal(true); }} style={{ display:'flex', alignItems:'center', gap:10, padding:'9px 14px', cursor:'pointer', opacity:0.5 }}
                     onMouseEnter={e=>e.currentTarget.style.opacity='0.8'}
@@ -1097,7 +1222,7 @@ function AppFreeV2() {
               <button onClick={()=>setShowLyricList(v=>!v)} style={{ background:'none', border:'none', color:'#555', cursor:'pointer', fontSize:12 }}>{showLyricList?'▲':'▼'}</button>
             </div>
 
-            {/* Controles de estilo */}
+            {/* Controles de estilo — linha 1: cor + fonte + tamanho */}
             <div style={{ display:'flex', alignItems:'center', gap:6, flexWrap:'wrap' }}>
               <input type="color" value={lyricColor} onChange={e=>{ setLyricColor(e.target.value); if(activeLyricId) setLyrics(p=>p.map(l=>l.id===activeLyricId?{...l,color:e.target.value}:l)); }}
                 style={{ width:28, height:28, padding:0, border:'1px solid rgba(0,191,255,0.2)', background:'#111', borderRadius:8, cursor:'pointer' }} title="Cor" />
@@ -1119,6 +1244,20 @@ function AppFreeV2() {
                 style={{ width:70, accentColor:'#00BFFF' }} />
             </div>
 
+            {/* Estilo: Negrito, Itálico */}
+            <div style={{ display:'flex', gap:5, alignItems:'center', flexWrap:'wrap' }}>
+              {[
+                { label:'N', title:'Negrito',  key:'bold',   state: activeLyricId?(lyrics.find(l=>l.id===activeLyricId)?.bold??lyricBold):lyricBold,   setter: setLyricBold },
+                { label:'I', title:'Itálico',  key:'italic', state: activeLyricId?(lyrics.find(l=>l.id===activeLyricId)?.italic??lyricItalic):lyricItalic, setter: setLyricItalic },
+              ].map(({label,title,key,state,setter})=>(
+                <button key={key} title={title} onClick={()=>{ setter(!state); if(activeLyricId) setLyrics(p=>p.map(l=>l.id===activeLyricId?{...l,[key]:!state}:l)); }}
+                  style={{ width:30, height:28, borderRadius:8, border:`1px solid ${state?'rgba(0,191,255,0.5)':'rgba(255,255,255,0.1)'}`, background:state?'rgba(0,191,255,0.15)':'rgba(255,255,255,0.04)', color:state?'#00BFFF':'#666', fontSize:12, fontWeight:900, cursor:'pointer', fontStyle:key==='italic'?'italic':'normal' }}>
+                  {label}
+                </button>
+              ))}
+              <button onClick={()=>fontInputRef.current?.click()} style={{ marginLeft:'auto', background:'rgba(245,158,11,0.08)', border:'1px solid rgba(245,158,11,0.25)', borderRadius:8, padding:'3px 9px', fontSize:10, color:'#f59e0b', cursor:'pointer' }}>+ Fonte TTF</button>
+            </div>
+
             {/* Sombra */}
             <div style={{ display:'flex', alignItems:'center', gap:8, background:'rgba(0,191,255,0.03)', border:'1px solid rgba(0,191,255,0.08)', borderRadius:10, padding:'7px 10px' }}>
               <span style={{ fontSize:10, color:'#64748b', fontWeight:700 }}>Sombra</span>
@@ -1127,7 +1266,6 @@ function AppFreeV2() {
                 <input type="range" min="0" max="30" value={lyricShadowBlur} onChange={e=>setLyricShadowBlur(+e.target.value)} style={{ width:60, accentColor:'#00BFFF' }} />
                 <span style={{ fontSize:10, color:'#64748b' }}>{lyricShadowBlur}px</span>
               </>}
-              <button onClick={()=>fontInputRef.current?.click()} style={{ marginLeft:'auto', background:'rgba(245,158,11,0.08)', border:'1px solid rgba(245,158,11,0.25)', borderRadius:8, padding:'3px 9px', fontSize:10, color:'#f59e0b', cursor:'pointer' }}>+ Fonte TTF</button>
             </div>
 
             {/* Textarea + botão */}
@@ -1179,7 +1317,7 @@ function AppFreeV2() {
           <div style={{ padding:'14px 16px 12px', borderBottom:'1px solid rgba(255,255,255,0.07)', display:'flex', flexDirection:'column', gap:10 }}>
             <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap:6 }}>
               <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-                <label style={{ fontSize:11, color:'#00BFFF', fontWeight:700, letterSpacing:'0.6px' }}>TEXTO EXTRA</label>
+                <label style={{ fontSize:11, color:'#00BFFF', fontWeight:700, letterSpacing:'0.6px' }}>✏️ TEXTOS EXTRAS</label>
                 <span style={{ background:`rgba(0,191,255,${extraTexts.length>=1?'0.2':'0.08'})`, border:`1px solid rgba(0,191,255,${extraTexts.length>=1?'0.5':'0.2'})`, borderRadius:999, padding:'2px 8px', fontSize:10, color:'#00BFFF' }}>{extraTexts.length}/1</span>
               </div>
               <div style={{ display:'flex', alignItems:'center', gap:6 }}>
@@ -1202,6 +1340,28 @@ function AppFreeV2() {
                   onChange={e=>{ const v=+e.target.value; setExtraTextFontSize(v); if(activeExtraTextId) setExtraTexts(p=>p.map(t=>t.id===activeExtraTextId?{...t,fontSize:v}:t)); }}
                   style={{ width:70, accentColor:'#00BFFF' }} />
               </div>
+            </div>
+
+            {/* Estilo: N, I, U, S */}
+            <div style={{ display:'flex', gap:5, alignItems:'center' }}>
+              {[
+                { label:'N', title:'Negrito',     key:'bold',          style:{fontWeight:900} },
+                { label:'I', title:'Itálico',     key:'italic',        style:{fontStyle:'italic'} },
+                { label:'U', title:'Sublinhado',  key:'underline',     style:{textDecoration:'underline'} },
+                { label:'S', title:'Riscado',     key:'strikethrough', style:{textDecoration:'line-through'} },
+              ].map(({label,title,key,style:btnStyle})=>{
+                const sel = extraTexts.find(t=>t.id===activeExtraTextId);
+                const stateMap = { bold: extraTextBold, italic: extraTextItalic, underline: extraTextUnderline, strikethrough: extraTextStrikethrough };
+                const setterMap = { bold: setExtraTextBold, italic: setExtraTextItalic, underline: setExtraTextUnderline, strikethrough: setExtraTextStrikethrough };
+                const isOn = sel ? (sel[key] ?? stateMap[key]) : stateMap[key];
+                return (
+                  <button key={key} title={title}
+                    onClick={()=>{ setterMap[key](!isOn); if(activeExtraTextId) setExtraTexts(p=>p.map(t=>t.id===activeExtraTextId?{...t,[key]:!isOn}:t)); }}
+                    style={{ width:30, height:28, borderRadius:8, border:`1px solid ${isOn?'rgba(0,191,255,0.5)':'rgba(255,255,255,0.1)'}`, background:isOn?'rgba(0,191,255,0.15)':'rgba(255,255,255,0.04)', color:isOn?'#00BFFF':'#666', fontSize:12, cursor:'pointer', ...btnStyle }}>
+                    {label}
+                  </button>
+                );
+              })}
             </div>
 
             {/* Sombra + Gradiente */}
@@ -1454,6 +1614,74 @@ function AppFreeV2() {
           </div>
         </div>
       </div>
+
+      {/* ══ TIMELINE ══════════════════════════════════════════════════════════════ */}
+      <div style={{ height:80, background:'#0a0a0f', borderTop:'1px solid rgba(255,255,255,0.08)', display:'flex', flexDirection:'column', justifyContent:'center', padding:'0 16px', gap:8, flexShrink:0 }}>
+        {/* Trilha ativa / controles */}
+        <div style={{ display:'flex', alignItems:'center', gap:12 }}>
+          {/* Play/Pause */}
+          <button onClick={togglePlay} disabled={!selectedTrack}
+            style={{ width:36, height:36, borderRadius:'50%', background:selectedTrack?'linear-gradient(135deg,#00BFFF,#0070ff)':'rgba(255,255,255,0.06)', border:'none', cursor:selectedTrack?'pointer':'not-allowed', display:'flex', alignItems:'center', justifyContent:'center', fontSize:15, flexShrink:0, color:selectedTrack?'#000':'#333' }}>
+            {isPlaying ? '⏸' : '▶'}
+          </button>
+
+          {/* Info da trilha */}
+          <div style={{ minWidth:120, flexShrink:0 }}>
+            {selectedTrack ? (
+              <div>
+                <div style={{ fontSize:11, color:'#00BFFF', fontWeight:700, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', maxWidth:118 }}>{selectedTrack.emoji} {selectedTrack.label}</div>
+                <div style={{ fontSize:10, color:'#555' }}>{formatTime(currentTime)} / {formatTime(audioDuration)}</div>
+              </div>
+            ) : (
+              <div style={{ fontSize:11, color:'#333' }}>Nenhuma trilha — Mídias → 🎼 Trilhas</div>
+            )}
+          </div>
+
+          {/* Barra de progresso */}
+          <div style={{ flex:1, position:'relative', height:6, background:'rgba(255,255,255,0.07)', borderRadius:3, cursor: selectedTrack?'pointer':'default' }}
+            onClick={e=>{ if(!selectedTrack||!audioDuration) return; const rect=e.currentTarget.getBoundingClientRect(); seekTo(((e.clientX-rect.left)/rect.width)*audioDuration); }}>
+            <div style={{ position:'absolute', left:0, top:0, height:'100%', width:`${audioDuration>0?(currentTime/audioDuration)*100:0}%`, background:'linear-gradient(90deg,#00BFFF,#0070ff)', borderRadius:3, transition:'width 0.25s linear' }} />
+          </div>
+
+          {/* Bloqueado: Sincronizar */}
+          <button onClick={()=>setShowUpgradeModal(true)}
+            style={{ display:'flex', alignItems:'center', gap:5, padding:'5px 10px', borderRadius:8, background:'rgba(139,92,246,0.06)', border:'1px solid rgba(139,92,246,0.2)', cursor:'pointer', fontSize:10, color:'#555', fontWeight:700, whiteSpace:'nowrap', flexShrink:0 }}>
+            ⚡ Sincronizar <span style={{fontSize:11}}>🔒</span>
+          </button>
+
+          {/* Bloqueado: Exportar vídeo */}
+          <button onClick={()=>setShowUpgradeModal(true)}
+            style={{ display:'flex', alignItems:'center', gap:5, padding:'5px 10px', borderRadius:8, background:'rgba(251,191,36,0.05)', border:'1px solid rgba(251,191,36,0.15)', cursor:'pointer', fontSize:10, color:'#555', fontWeight:700, whiteSpace:'nowrap', flexShrink:0 }}>
+            🎬 MP4/WebM <span style={{fontSize:11}}>🔒</span>
+          </button>
+        </div>
+
+        {/* Faixas visuais */}
+        <div style={{ display:'flex', gap:8, alignItems:'center', height:18 }}>
+          <span style={{ fontSize:9, color:'#333', minWidth:60, textAlign:'right' }}>Trilha</span>
+          <div style={{ flex:1, height:10, background:'rgba(255,255,255,0.04)', borderRadius:3, position:'relative', overflow:'hidden' }}>
+            {selectedTrack && audioDuration>0 && (
+              <div style={{ position:'absolute', left:0, top:0, height:'100%', width:'100%', background:'rgba(0,191,255,0.12)', borderRadius:3 }}>
+                <div style={{ position:'absolute', left:0, top:0, height:'100%', width:`${(currentTime/audioDuration)*100}%`, background:'rgba(0,191,255,0.35)', borderRadius:3 }} />
+              </div>
+            )}
+          </div>
+          {lyrics.length>0 && <>
+            <span style={{ fontSize:9, color:'#333', minWidth:60, textAlign:'right' }}>Frases</span>
+            <div style={{ flex:1, height:10, background:'rgba(255,255,255,0.04)', borderRadius:3, position:'relative', overflow:'hidden' }}>
+              {lyrics.map((l,i)=>(
+                <div key={l.id} style={{ position:'absolute', left:`${(i/3)*100}%`, width:`${100/3 - 1}%`, height:'100%', background: activeLyricId===l.id ? 'rgba(0,191,255,0.6)' : 'rgba(0,191,255,0.25)', borderRadius:3, cursor:'pointer' }} onClick={()=>setActiveLyricId(l.id===activeLyricId?null:l.id)} title={l.text} />
+              ))}
+            </div>
+          </>}
+        </div>
+      </div>
+
+      {/* ── Audio element (oculto) ── */}
+      <audio ref={audioRef}
+        onLoadedMetadata={e=>{ setAudioDuration(e.target.duration); }}
+        onEnded={()=>{ setIsPlaying(false); clearInterval(clockRef.current); setCurrentTime(0); }}
+        style={{display:'none'}} />
 
       {/* ══ TELA CHEIA ══ */}
       {isFullscreen&&(
