@@ -1060,14 +1060,23 @@ function App() {
       { name: "Vogue", file: "Vogue.ttf" },
     ];
     const loadAll = async () => {
-      const loaded = [];
-      for (const { name, file } of PROJECT_FONTS) {
-        try {
-          const face = new FontFace(name, `url(/fonts/${encodeURIComponent(file)})`);
+      const results = await Promise.allSettled(
+        PROJECT_FONTS.map(async ({ name, file }) => {
+          // Usa url('...') com aspas internas — mais robusto para nomes com espaço
+          const face = new FontFace(name, `url('/fonts/${file.replace(/ /g, '%20')}')`);
           await face.load();
           document.fonts.add(face);
-          loaded.push({ name, fileName: file });
-        } catch(e) { console.warn('[font]', name, e.message); }
+          return { name, fileName: file };
+        })
+      );
+      const loaded = results
+        .filter(r => r.status === 'fulfilled')
+        .map(r => r.value);
+      if (loaded.length < PROJECT_FONTS.length) {
+        const failed = results
+          .map((r, i) => r.status === 'rejected' ? PROJECT_FONTS[i].name : null)
+          .filter(Boolean);
+        console.warn('[CanvasSync fonts] Falha ao carregar:', failed);
       }
       if (loaded.length) setCustomFonts(prev => {
         const names = new Set(prev.map(f => f.name));
@@ -2911,7 +2920,7 @@ function App() {
     const ff = txt.fontFamily || extraTextFontFamily;
     const lines = txt.text.split('\n');
     const lineH = fs * 1.25;
-    ctx.font = `bold ${fs}px ${ff}`;
+    ctx.font = `bold ${fs}px "${ff}"`;
     const maxW = lines.reduce((m, l) => Math.max(m, ctx.measureText(l).width), 0);
     const totalH = lines.length * lineH;
     return { halfW: maxW / 2 + 10, halfH: totalH / 2 + 8, lineH, lines };
@@ -3029,7 +3038,7 @@ function App() {
     for (const visibleLyric of visibleLyrics) {
       const vFontSize = visibleLyric.fontSize || fontSize;
       const vFontFamily = visibleLyric.fontFamily || fontFamily;
-      ctx.font = `bold ${vFontSize}px ${vFontFamily}`;
+      ctx.font = `bold ${vFontSize}px "${vFontFamily}"`;
       const lines = wrapLyricText(visibleLyric.text, ctx, canvas.width - 40);
       const lineH = vFontSize * 1.3;
       const totalH = lines.length * lineH;
@@ -4207,7 +4216,7 @@ _setDragging(null);
         ctx.save();
         ctx.translate(txt.x, txt.y);
         ctx.rotate(rot);
-        ctx.font = `${(txt.fontBold ?? extraFontBoldRef.current) ? "bold " : ""}${(txt.fontItalic ?? extraFontItalicRef.current) ? "italic " : ""}${tSize}px ${tFont}`;
+        ctx.font = `${(txt.fontBold ?? extraFontBoldRef.current) ? "bold " : ""}${(txt.fontItalic ?? extraFontItalicRef.current) ? "italic " : ""}${tSize}px "${tFont}"`;
         ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
         const _etotalH = lines.length * lineH;
         drawTextBgEffectRef.current?.(ctx, txt.bgEffect, lines, tSize, lineH, _etotalH);
@@ -4218,7 +4227,7 @@ _setDragging(null);
         ctx.save();
         ctx.translate(txt.x, txt.y);
         ctx.rotate(rot);
-        ctx.font = `${(txt.fontBold ?? extraFontBoldRef.current) ? "bold " : ""}${(txt.fontItalic ?? extraFontItalicRef.current) ? "italic " : ""}${tSize}px ${tFont}`;
+        ctx.font = `${(txt.fontBold ?? extraFontBoldRef.current) ? "bold " : ""}${(txt.fontItalic ?? extraFontItalicRef.current) ? "italic " : ""}${tSize}px "${tFont}"`;
         ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
         const _etH = lines.length * lineH;
         drawTextBgEffectRef.current?.(ctx, txt.bgEffect, lines, tSize, lineH, _etH);
@@ -4226,7 +4235,7 @@ _setDragging(null);
       }
       ctx.translate(txt.x, txt.y);
       ctx.rotate(rot);
-      ctx.font = `${(txt.fontBold ?? extraFontBoldRef.current) ? "bold " : ""}${(txt.fontItalic ?? extraFontItalicRef.current) ? "italic " : ""}${tSize}px ${tFont}`;
+      ctx.font = `${(txt.fontBold ?? extraFontBoldRef.current) ? "bold " : ""}${(txt.fontItalic ?? extraFontItalicRef.current) ? "italic " : ""}${tSize}px "${tFont}"`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       if (txt.shadowEnabled ?? true) {
@@ -4256,7 +4265,7 @@ _setDragging(null);
 
       // Indicador de seleção
       if (activeExtraTextId === txt.id) {
-        ctx.font = `${(txt.fontBold ?? extraFontBoldRef.current) ? "bold " : ""}${(txt.fontItalic ?? extraFontItalicRef.current) ? "italic " : ""}${tSize}px ${tFont}`;
+        ctx.font = `${(txt.fontBold ?? extraFontBoldRef.current) ? "bold " : ""}${(txt.fontItalic ?? extraFontItalicRef.current) ? "italic " : ""}${tSize}px "${tFont}"`;
         const maxW = lines.reduce((m, l) => Math.max(m, ctx.measureText(l).width), 0);
         const hw = maxW / 2 + 10;
         const hh = totalH / 2 + 8;
@@ -4294,7 +4303,7 @@ _setDragging(null);
       // ── Usa font/size por-lyric se definido, senão usa global ──────────────
       const lFontSize = activeLine.fontSize || fontSize;
       const lFontFamily = activeLine.fontFamily || fontFamily;
-      ctx.font = `${(activeLine.fontBold ?? fontBoldRef.current) ? "bold " : ""}${(activeLine.fontItalic ?? fontItalicRef.current) ? "italic " : ""}${lFontSize}px ${lFontFamily}`;
+      ctx.font = `${(activeLine.fontBold ?? fontBoldRef.current) ? "bold " : ""}${(activeLine.fontItalic ?? fontItalicRef.current) ? "italic " : ""}${lFontSize}px "${lFontFamily}"`;
       const lines = wrapLyricText(activeLine.text, ctx, canvas.width - 40);
       const lineH = lFontSize * 1.3;
       const totalH = lines.length * lineH;
@@ -4313,7 +4322,7 @@ _setDragging(null);
         if (_anim === 'slide') ctx.translate(0, (1 - _ease) * 48);
         ctx.translate(lx, ly);
         ctx.rotate(lRot);
-        ctx.font = `${(activeLine.fontBold ?? fontBoldRef.current) ? "bold " : ""}${(activeLine.fontItalic ?? fontItalicRef.current) ? "italic " : ""}${lFontSize}px ${lFontFamily}`;
+        ctx.font = `${(activeLine.fontBold ?? fontBoldRef.current) ? "bold " : ""}${(activeLine.fontItalic ?? fontItalicRef.current) ? "italic " : ""}${lFontSize}px "${lFontFamily}"`;
         ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
         drawTextBgEffectRef.current?.(ctx, _bgFx, lines, lFontSize, lineH, totalH);
         ctx.restore();
@@ -4369,7 +4378,7 @@ _setDragging(null);
 
       // Indicador de seleção / arrasto + handle de rotação
       if (activeLyricId === activeLine.id && editingLyricId !== activeLine.id) {
-        ctx.font = `${(activeLine.fontBold ?? fontBoldRef.current) ? "bold " : ""}${(activeLine.fontItalic ?? fontItalicRef.current) ? "italic " : ""}${lFontSize}px ${lFontFamily}`;
+        ctx.font = `${(activeLine.fontBold ?? fontBoldRef.current) ? "bold " : ""}${(activeLine.fontItalic ?? fontItalicRef.current) ? "italic " : ""}${lFontSize}px "${lFontFamily}"`;
         const maxW = lines.reduce((m, l) => Math.max(m, ctx.measureText(l.toUpperCase()).width), 0);
         const hw = maxW / 2 + 14;
         const hh = totalH / 2 + 10;
@@ -5114,7 +5123,7 @@ _setDragging(null);
       ctx.save();
       ctx.translate(txt.x, txt.y);
       ctx.rotate(rot);
-      ctx.font = `${(txt.fontBold ?? extraFontBoldRef.current) ? "bold " : ""}${(txt.fontItalic ?? extraFontItalicRef.current) ? "italic " : ""}${tSize}px ${tFont}`;
+      ctx.font = `${(txt.fontBold ?? extraFontBoldRef.current) ? "bold " : ""}${(txt.fontItalic ?? extraFontItalicRef.current) ? "italic " : ""}${tSize}px "${tFont}"`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       if (txt.shadowEnabled ?? true) {
@@ -5150,7 +5159,7 @@ _setDragging(null);
       const lRot = (activeLine.rotation || 0) * Math.PI / 180;
       const lFontSize = activeLine.fontSize || fontSize;
       const lFontFamily = activeLine.fontFamily || fontFamily;
-      ctx.font = `${(activeLine.fontBold ?? fontBoldRef.current) ? "bold " : ""}${(activeLine.fontItalic ?? fontItalicRef.current) ? "italic " : ""}${lFontSize}px ${lFontFamily}`;
+      ctx.font = `${(activeLine.fontBold ?? fontBoldRef.current) ? "bold " : ""}${(activeLine.fontItalic ?? fontItalicRef.current) ? "italic " : ""}${lFontSize}px "${lFontFamily}"`;
       const lines = wrapLyricText(activeLine.text, ctx, logicalW - 40);
       const lineH = lFontSize * 1.3;
       const totalH = lines.length * lineH;
@@ -5166,7 +5175,7 @@ _setDragging(null);
         if (_anim === 'fade')  ctx.globalAlpha = _ease;
         if (_anim === 'slide') ctx.translate(0, (1 - _ease) * 48);
         ctx.translate(lx, ly); ctx.rotate(lRot);
-        ctx.font = `${(activeLine.fontBold ?? fontBoldRef.current) ? "bold " : ""}${(activeLine.fontItalic ?? fontItalicRef.current) ? "italic " : ""}${lFontSize}px ${lFontFamily}`;
+        ctx.font = `${(activeLine.fontBold ?? fontBoldRef.current) ? "bold " : ""}${(activeLine.fontItalic ?? fontItalicRef.current) ? "italic " : ""}${lFontSize}px "${lFontFamily}"`;
         ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
         drawTextBgEffectRef.current?.(ctx, _bgFxR, lines, lFontSize, lineH, totalH);
         ctx.restore();
@@ -5512,16 +5521,17 @@ _setDragging(null);
     if (!baseCanvas) return;
     const effectiveDuration = (() => {
       // Calcula o fim real do áudio na timeline: offset + duração após trim
-      const _audEnd = duration > 0
+      const _dur = duration > 0 ? duration : (audioRef.current?.duration || 0);
+      const _audEnd = _dur > 0
         ? (audioOffset || 0) + (
             audioTrimEnd !== null
               ? (audioTrimEnd - (audioTrimStart || 0))
-              : (duration - (audioTrimStart || 0))
+              : (_dur - (audioTrimStart || 0))
           )
         : 0;
-      const _lyricEnd = lyrics && lyrics.length ? Math.max(...lyrics.map(l => l.end || 0)) : 0;
-      const _imgEnd   = images && images.length ? Math.max(...images.map(i => i.end || 0)) : 0;
-      const _vidEnd   = videos && videos.length ? Math.max(...videos.map(v => v.end || 0)) : 0;
+      const _lyricEnd = lyricsRef.current.length ? Math.max(...lyricsRef.current.map(l => l.end || 0)) : 0;
+      const _imgEnd   = imagesRef.current.length ? Math.max(...imagesRef.current.map(i => i.end || 0)) : 0;
+      const _vidEnd   = videosRef.current.length ? Math.max(...videosRef.current.map(v => v.end || 0)) : 0;
       return Math.max(_audEnd, _lyricEnd, _imgEnd, _vidEnd) || 3;
     })();
     if (!effectiveDuration || effectiveDuration <= 0) return;
@@ -5560,16 +5570,17 @@ _setDragging(null);
 
     const effectiveDuration = (() => {
       // Calcula o fim real do áudio na timeline: offset + duração após trim
-      const _audEnd = duration > 0
+      const _dur = duration > 0 ? duration : (audioRef.current?.duration || 0);
+      const _audEnd = _dur > 0
         ? (audioOffset || 0) + (
             audioTrimEnd !== null
               ? (audioTrimEnd - (audioTrimStart || 0))
-              : (duration - (audioTrimStart || 0))
+              : (_dur - (audioTrimStart || 0))
           )
         : 0;
-      const _lyricEnd = lyrics && lyrics.length ? Math.max(...lyrics.map(l => l.end || 0)) : 0;
-      const _imgEnd   = images && images.length ? Math.max(...images.map(i => i.end || 0)) : 0;
-      const _vidEnd   = videos && videos.length ? Math.max(...videos.map(v => v.end || 0)) : 0;
+      const _lyricEnd = lyricsRef.current.length ? Math.max(...lyricsRef.current.map(l => l.end || 0)) : 0;
+      const _imgEnd   = imagesRef.current.length ? Math.max(...imagesRef.current.map(i => i.end || 0)) : 0;
+      const _vidEnd   = videosRef.current.length ? Math.max(...videosRef.current.map(v => v.end || 0)) : 0;
       return Math.max(_audEnd, _lyricEnd, _imgEnd, _vidEnd) || 3;
     })();
     if (!effectiveDuration || effectiveDuration <= 0) return;
@@ -6081,16 +6092,17 @@ _setDragging(null);
     if (!baseCanvas) return;
 
     const effectiveDuration = (() => {
-      const _audEnd = duration > 0
+      const _dur = duration > 0 ? duration : (audioRef.current?.duration || 0);
+      const _audEnd = _dur > 0
         ? (audioOffset || 0) + (
             audioTrimEnd !== null
               ? (audioTrimEnd - (audioTrimStart || 0))
-              : (duration - (audioTrimStart || 0))
+              : (_dur - (audioTrimStart || 0))
           )
         : 0;
-      const _lyricEnd = lyrics.length ? Math.max(...lyrics.map(l => l.end || 0)) : 0;
-      const _imgEnd   = images.length ? Math.max(...images.map(i => i.end || 0)) : 0;
-      const _vidEnd   = videos.length ? Math.max(...videos.map(v => v.end || 0)) : 0;
+      const _lyricEnd = lyricsRef.current.length ? Math.max(...lyricsRef.current.map(l => l.end || 0)) : 0;
+      const _imgEnd   = imagesRef.current.length ? Math.max(...imagesRef.current.map(i => i.end || 0)) : 0;
+      const _vidEnd   = videosRef.current.length ? Math.max(...videosRef.current.map(v => v.end || 0)) : 0;
       return Math.max(_audEnd, _lyricEnd, _imgEnd, _vidEnd) || 3;
     })();
     if (!effectiveDuration || effectiveDuration <= 0) return;
@@ -6130,7 +6142,8 @@ _setDragging(null);
       // mp4-muxer usa 'avc' e 'aac'; webm-muxer usa 'V_VP8' e 'A_OPUS'
       const muxVideoCodec = isMP4 ? 'avc' : videoCodec;
       const muxAudioCodec = isMP4 ? 'aac' : audioCodec;
-      const hasAudio = !!(audioFile || audioBase64 || videosRef.current.some(v => !v.muted));
+      const hasAudio = !!(audioFile || audioBase64 || narrFile || narrBase64 || narrSrc ||
+        videosRef.current.some(v => !v.muted && v.audioBuffer));
 
       const muxer = new Muxer({
         target,
@@ -8773,7 +8786,7 @@ _setDragging(null);
                 const rot = (txt.rotation || 0) * Math.PI / 180;
                 const lines = txt.text.split('\n');
                 const lineH = extraTextFontSize * 1.25;
-                ctx.font = `${(txt.fontBold ?? extraFontBold) ? "bold " : ""}${(txt.fontItalic ?? extraFontItalic) ? "italic " : ""}${extraTextFontSize}px ${extraTextFontFamily}`;
+                ctx.font = `${(txt.fontBold ?? extraFontBold) ? "bold " : ""}${(txt.fontItalic ?? extraFontItalic) ? "italic " : ""}${extraTextFontSize}px "${extraTextFontFamily}"`;
                 const maxW = lines.reduce((m, l) => Math.max(m, ctx.measureText(l).width), 0);
                 const halfW = maxW / 2 + 10;
                 const halfH = (lines.length * lineH) / 2 + 8;
