@@ -6290,18 +6290,53 @@ _setDragging(null);
         };
         exportStopRef.current = stop; // permite que Stop pare o export
 
+        // ── Pre-posiciona e inicia vídeos para o export ───────────────────────
+        videosRef.current.forEach(v => {
+          if (!v.videoEl) return;
+          v.videoEl.muted = false;
+          v.videoEl.volume = 0; // silencia speaker; export captura via muxer de áudio
+          v.videoEl.playbackRate = Math.max(0.25, Math.min(4, v.vidSpeed ?? 1));
+          v.videoEl.currentTime = v.trimStart ?? 0;
+        });
+        videosRef.current.forEach(v => {
+          if (!v.videoEl || v.start > 0) return;
+          v.videoEl.play().catch(() => {});
+        });
+
+        // ── syncId: gerencia play/pause dos videoEls SEM seeks ─────────────
+        // NUNCA faz currentTime= em vídeo que já está tocando durante o export:
+        // seek força o browser a pausar o decode pipeline → travada de ~1s no frame.
+        const syncId = setInterval(() => {
+          const vt = virtualTimeRef.current;
+          for (const v of videosRef.current) {
+            if (!v.videoEl) continue;
+            if (vt >= v.start && vt <= v.end) {
+              if (v.videoEl.paused) {
+                // Só posiciona e dá play se estava pausado (entrada na faixa)
+                const trimSt = v.trimStart ?? 0;
+                const expected = trimSt + Math.max(0, vt - v.start) * (v.vidSpeed ?? 1);
+                v.videoEl.currentTime = Math.min(expected, v.videoEl.duration || expected);
+                v.videoEl.playbackRate = Math.max(0.25, Math.min(4, v.vidSpeed ?? 1));
+                v.videoEl.play().catch(() => {});
+              }
+              // Se já está tocando: NÃO faz seek. Deixa o browser decodar naturalmente.
+            } else if (!v.videoEl.paused) {
+              v.videoEl.pause();
+            }
+          }
+        }, 100);
+
+        // ── captureId: captura frames sem interferir no canvas ──────────────
+        // O RAF loop (60fps) já mantém o canvas atualizado com virtualTimeRef.
+        // captureId apenas: (1) avança virtualTimeRef frame-a-frame, (2) captura.
+        // NÃO chama drawRef() aqui — concorrência com RAF corrompe o ctx 2D.
         const captureId = setInterval(() => {
           if (stopped || encoderError) { stop(); return; }
           if (frameCount >= totalFrames) { stop(); return; }
 
-          // Sincroniza virtualTimeRef com o frame exato ANTES de desenhar.
-          // Problema original: syncId atualizava virtualTimeRef só a cada 100ms,
-          // então 3 frames consecutivos mostravam o mesmo conteúdo do canvas
-          // mas com timestamps diferentes → trechos congelados + saltos rápidos.
-          // Solução: forçar virtualTimeRef = posição exata deste frame e redesenhar.
+          // Avança virtualTimeRef para o instante exato deste frame
+          // RAF vai ler isso na próxima volta (~16ms) e desenhar corretamente
           virtualTimeRef.current = frameCount * (1 / FPS) * spd;
-          setCurrentTime(virtualTimeRef.current);
-          try { if (drawRef.current) drawRef.current(); } catch(_) {}
 
           const srcCanvas = offCanvas || baseCanvas;
           if (offCanvas) {
@@ -6311,8 +6346,6 @@ _setDragging(null);
           }
 
           try {
-            // Timestamp monotonicamente crescente baseado no frameCount —
-            // obrigatório para o VideoEncoder não lançar erro.
             const frame = new VideoFrame(srcCanvas, {
               timestamp: Math.round(frameCount * (1e6 / FPS)),
               duration:  Math.round(1e6 / FPS),
@@ -6324,48 +6357,6 @@ _setDragging(null);
           frameCount++;
           if (frameCount % 15 === 0) setExportProgress(Math.min(frameCount / totalFrames, 0.99));
         }, Math.round(1000 / FPS));
-
-        // Pre-posiciona e desmuta vídeos para o export (sem aparecer no editor)
-        videosRef.current.forEach(v => {
-          if (!v.videoEl) return;
-          v.videoEl.muted = false; // precisa de áudio se usar MediaElementSource
-          v.videoEl.volume = 0;    // silencia saída do speaker — export captura via offscreen
-          // Igual ao RT export: virtualTimeRef já embute projectSpeed,
-          // então o videoEl deve tocar em vidSpeed apenas para não acelerar.
-          v.videoEl.playbackRate = Math.max(0.25, Math.min(4, v.vidSpeed ?? 1));
-          v.videoEl.currentTime = v.trimStart ?? 0;
-        });
-        // Inicia vídeos no range t=0
-        videosRef.current.forEach(v => {
-          if (!v.videoEl || v.start > 0) return;
-          v.videoEl.play().catch(() => {});
-        });
-
-        const syncId = setInterval(() => {
-          // virtualTimeRef já está correto (atualizado pelo captureId a cada frame).
-          // syncId só precisa manter os videoEls sincronizados com o tempo atual.
-          const vt = virtualTimeRef.current;
-          for (const v of videosRef.current) {
-            if (!v.videoEl) continue;
-            if (vt >= v.start && vt <= v.end) {
-              const trimSt = v.trimStart ?? 0;
-              const expectedVidTime = trimSt + Math.max(0, vt - v.start) * (v.vidSpeed ?? 1);
-              if (v.videoEl.paused) {
-                v.videoEl.currentTime = Math.min(expectedVidTime, v.videoEl.duration || expectedVidTime);
-                v.videoEl.playbackRate = Math.max(0.25, Math.min(4, v.vidSpeed ?? 1));
-                v.videoEl.play().catch(() => {});
-              } else {
-                // Corrige drift se videoEl desviou mais de 80ms do esperado
-                const drift = Math.abs(v.videoEl.currentTime - expectedVidTime);
-                if (drift > 0.08) {
-                  v.videoEl.currentTime = Math.min(expectedVidTime, v.videoEl.duration || expectedVidTime);
-                }
-              }
-            } else if ((vt < v.start || vt > v.end) && !v.videoEl.paused) {
-              v.videoEl.pause();
-            }
-          }
-        }, 50);
       });
 
       // Para os vídeos do export e restaura volume
