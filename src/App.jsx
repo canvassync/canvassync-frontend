@@ -1031,7 +1031,7 @@ function App() {
       { name: "Cocogoose Pro Block Border", file: "Cocogoose Pro Block Border.ttf" },
       { name: "Cocogoose Pro Block Gradient", file: "Cocogoose Pro Block Gradient.ttf" },
       { name: "Cocogoose Pro Block Innerline", file: "Cocogoose Pro Block Innerline.ttf" },
-      { name: "Cocogoose Pro Block Shadow Black", file: "Cocogoose Pro Block Shadow Black.ttf" },
+      { name: "Cocogoose Pro Block Shadow", file: "Cocogoose Pro Block Shadow.ttf" },
       { name: "Cocogoose Pro Inline", file: "Cocogoose Pro Inline.ttf" },
       { name: "Cocogoose Pro Letterpress", file: "Cocogoose Pro Letterpress.ttf" },
       { name: "Cocogoose Pro Light", file: "Cocogoose Pro Light.ttf" },
