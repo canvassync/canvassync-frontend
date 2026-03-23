@@ -7071,7 +7071,7 @@ _setDragging(null);
             onMouseEnter={e=>{if(!showFramePanel)e.currentTarget.style.background='rgba(255,255,255,0.05)'}}
             onMouseLeave={e=>{if(!showFramePanel)e.currentTarget.style.background=showFramePanel?'rgba(16,185,129,0.18)':'transparent'}}
           >
-            <span style={{fontSize:14}}>🖼</span> {t('frames_btn')} {frames.length>0&&<span style={{background:'#10b981',borderRadius:8,padding:'1px 5px',fontSize:9,color:'#000',fontWeight:900}}>{frames.length}</span>}
+            {t('frames_btn')} {frames.length>0&&<span style={{background:'#10b981',borderRadius:8,padding:'1px 5px',fontSize:9,color:'#000',fontWeight:900}}>{frames.length}</span>}
           </button>
           {showFramePanel && (() => {
             const FRAME_CATALOG = [
@@ -7491,7 +7491,7 @@ _setDragging(null);
                     onMouseLeave={e=>e.currentTarget.style.background='transparent'}
                   >
                     <span style={{fontSize:16}}>{item.icon}</span>
-                    <span style={{fontSize:12,color:item.color,fontWeight:500}}>{item.label}</span>
+                    <span style={{fontSize:12,color:item.color,fontWeight:500}}>{item.label.replace(/^\p{Emoji_Presentation}\s*/u, '')}</span>
                   </div>
                 ))}
               </div>
