@@ -10,7 +10,6 @@ import "./index.css";
 
 import Landing    from "./CanvasSync.jsx";
 import AppFree    from "./AppFree.jsx";
-import AppFreeV2  from "./AppFreeV2.jsx";
 import App        from "./App.jsx";
 import Entrar     from "./pages/Entrar.jsx";
 import Checkout   from "./pages/Checkout.jsx";
@@ -28,7 +27,6 @@ createRoot(document.getElementById("root")).render(
             <Route path="/"              element={<Landing />} />
             <Route path="/entrar"        element={<Entrar />} />
             <Route path="/editor-free"   element={<AppFree />} />
-            <Route path="/editor-free-v2" element={<AppFreeV2 />} />
             <Route path="/cadastro"      element={<Registro />} />
             <Route path="/editor"        element={<App />} />
             <Route path="/planos"        element={<Checkout />} />
