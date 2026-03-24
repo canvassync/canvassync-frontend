@@ -7025,56 +7025,6 @@ _setDragging(null);
           >
             <span style={{fontSize:14}}>🔊</span> {t('ed_sfx')} <span style={{fontSize:9,color:'#a78bfa',background:'rgba(167,139,250,0.15)',border:'1px solid rgba(167,139,250,0.3)',borderRadius:5,padding:'1px 4px',marginLeft:2}}>PRO</span>
           </button>
-            <div data-sfx-portal onClick={e=>e.stopPropagation()} style={{ position:'fixed', top:sfxPanelPos.top, left:sfxPanelPos.left, zIndex:99999, background:'#0f172a', border:'1px solid rgba(16,185,129,0.25)', borderRadius:18, width:400, maxHeight:'82vh', boxShadow:'0 16px 48px rgba(0,0,0,0.8)', display:'flex', flexDirection:'column', overflow:'hidden' }}>
-              <div style={{ padding:'12px 16px 8px', borderBottom:'1px solid rgba(255,255,255,0.06)', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
-                <span style={{ fontWeight:800, fontSize:13, color:'#10b981' }}>{t('sfx_title')} <span style={{fontSize:10,opacity:0.6,fontWeight:400}}>{t('sfx_count')}</span></span>
-                <button onClick={()=>setShowSfxPanel(false)} style={{ background:'none', border:'none', color:'#555', cursor:'pointer', fontSize:16 }}>✕</button>
-              </div>
-              <div style={{ overflowY:'auto', flex:1, padding:'10px 12px' }}>
-                {SFX_CATS.map(cat => (
-                  <div key={cat.cat} style={{ marginBottom:12 }}>
-                    <div style={{ fontSize:10, fontWeight:700, color: cat.color, letterSpacing:'0.6px', marginBottom:6, opacity:0.85 }}>{cat.cat}</div>
-                    <div style={{ display:'grid', gridTemplateColumns:'repeat(5,1fr)', gap:5 }}>
-                      {cat.items.map(sfx => (
-                        <button key={sfx.key}
-                          title={sfx.name}
-                          onClick={()=>{
-                            const t=virtualTimeRef.current;
-                            pushHistory(); setSoundEffects(prev=>[...prev,{id:Date.now()+Math.random(),key:sfx.key,name:sfx.name,emoji:sfx.emoji,startTime:parseFloat(t.toFixed(2)),volume:1}]);
-                          }}
-                          style={{ background:'rgba(255,255,255,0.04)', border:`1px solid rgba(255,255,255,0.08)`, borderRadius:9, padding:'7px 3px', cursor:'pointer', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:2, width:'100%', boxSizing:'border-box', transition:'all 0.12s' }}
-                          onMouseEnter={e=>{ e.currentTarget.style.background=`${cat.color}22`; e.currentTarget.style.borderColor=`${cat.color}55`; }}
-                          onMouseLeave={e=>{ e.currentTarget.style.background='rgba(255,255,255,0.04)'; e.currentTarget.style.borderColor='rgba(255,255,255,0.08)'; }}
-                        >
-                          <span style={{fontSize:18,lineHeight:1}}>{sfx.emoji}</span>
-                          <span style={{fontSize:8,color:'#aaa',fontWeight:600,textAlign:'center',lineHeight:1.2,wordBreak:'break-word',maxWidth:'100%',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',padding:'0 2px'}}>{sfx.name}</span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-              {soundEffects.length>0&&(
-                <div style={{ padding:'8px 12px', borderTop:'1px solid rgba(255,255,255,0.06)', display:'flex', flexDirection:'column', gap:4, maxHeight:140, overflowY:'auto' }}>
-                  {soundEffects.map(sfx=>(
-                    <div key={sfx.id} style={{ display:'flex', alignItems:'center', gap:6, background:'rgba(255,255,255,0.03)', borderRadius:8, padding:'4px 8px' }}>
-                      <span style={{fontSize:16}}>{sfx.emoji||SFX_LIST.find(s=>s.key===sfx.key)?.emoji||'🔊'}</span>
-                      <span style={{fontSize:11,color:'#ccc',fontWeight:600,flex:1}}>{sfx.name||SFX_LIST.find(s=>s.key===sfx.key)?.name||sfx.key}</span>
-                      <span style={{fontSize:10,color:'#10b981',minWidth:36}}>{sfx.startTime?.toFixed(1)}s</span>
-                      <input type="range" min={0.1} max={2} step={0.1} value={sfx.volume} title={`Volume: ${Math.round(sfx.volume*100)}%`}
-                        onChange={e=>setSoundEffects(prev=>prev.map(s=>s.id===sfx.id?{...s,volume:Number(e.target.value)}:s))}
-                        style={{width:60,accentColor:'#10b981',cursor:'pointer'}} />
-                      <span style={{fontSize:9,color:'#555',minWidth:28}}>{Math.round(sfx.volume*100)}%</span>
-                      <button onClick={()=>setSoundEffects(prev=>prev.filter(s=>s.id!==sfx.id))} style={{ background:'rgba(239,68,68,0.1)', border:'1px solid rgba(239,68,68,0.3)', borderRadius:6, padding:'2px 7px', fontSize:11, color:'#f87171', cursor:'pointer' }}>✕</button>
-                    </div>
-                  ))}
-                  <button onClick={()=>{ pushHistory(); setSoundEffects([]); }} style={{ marginTop:4, background:'rgba(239,68,68,0.08)', border:'1px solid rgba(239,68,68,0.2)', borderRadius:8, padding:'4px 12px', fontSize:10, color:'#f87171', fontWeight:700, cursor:'pointer', width:'100%' }}>{t('sfx_remove_all')}</button>
-                </div>
-              )}
-              {soundEffects.length===0&&<div style={{padding:'10px 16px 14px',fontSize:11,color:'#444',textAlign:'center'}}>{t('sfx_empty')}</div>}
-            </div>,
-            document.body
-          )}
         </div>
 
         {/* ── Molduras — BLOQUEADO no Free ── */}
