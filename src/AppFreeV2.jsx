@@ -6729,15 +6729,9 @@ _setDragging(null);
   );
 
   if (!isLoggedIn) {
-    window.location.href = '/entrar?redirect=/editor';
+    window.location.href = '/entrar?redirect=/editor-free-v2';
     return null;
   }
-
-  if (!isPro) {
-    window.location.href = '/planos';
-    return null;
-  }
-
 
   // ── applyTemplate ──────────────────────────────────────────────────────────
   const applyTemplate = (tpl) => {
