@@ -6839,22 +6839,22 @@ _setDragging(null);
                 <div style={{padding:'8px 14px 4px',fontSize:10,color:'#555',fontWeight:700,letterSpacing:'0.8px',textTransform:'uppercase'}}>Importar Mídia</div>
                 {[
                   { icon:'🖼️', label:'Fundo / Imagem de fundo', color:'#00BFFF',  locked:false, action:()=>{ bgInputRef.current?.click(); setShowMidiasPanel(false); } },
-                  { icon:'🎨', label:'Fundos & Gradientes',       color:'#555',     locked:true,  action:()=>{ setShowMidiasPanel(false); setShowProModal(true); } },
+                  { icon:'🎨', label:'Fundos & Gradientes',       color:'#00BFFF',  locked:true,  action:()=>{ setShowMidiasPanel(false); setShowProModal(true); } },
                   { icon:'✕',  label:'Remover fundo',             color:'#f87171',  locked:false, action:()=>{ setImageSrc(null); setImage(null); if(bgInputRef.current)bgInputRef.current.value=''; setShowMidiasPanel(false); } },
                   { icon:'🏞️', label:'Imagens overlay',         color:'#00BFFF',  locked:false, action:()=>{ imagesInputRef.current?.click(); setShowMidiasPanel(false); } },
-                  { icon:'🎬', label:'Vídeo' + (videos.length>=1?' (limite atingido)':''), color: videos.length>=1?'#555':'#a78bfa', locked: videos.length>=1, action:()=>{ if(videos.length>=1){setShowMidiasPanel(false);setShowProModal(true);}else{videoInputRef.current?.click();setShowMidiasPanel(false);} } },
-                  { icon:'🎵', label:'Música / Áudio',           color:'#555',     locked:true,  action:()=>{ setShowMidiasPanel(false); setShowProModal(true); } },
+                  { icon:'🎬', label:'Vídeo' + (videos.length>=1?' (limite atingido)':''), color: videos.length>=1?'#a78bfa':'#a78bfa', locked: videos.length>=1, action:()=>{ if(videos.length>=1){setShowMidiasPanel(false);setShowProModal(true);}else{videoInputRef.current?.click();setShowMidiasPanel(false);} } },
+                  { icon:'🎵', label:'Música / Áudio',           color:'#10b981',  locked:true,  action:()=>{ setShowMidiasPanel(false); setShowProModal(true); } },
                   { icon:'🎼', label:'Trilhas',                        color:'#a78bfa',  locked:false, action:()=>{ setShowMidiasPanel(false); setShowTrilhasPanel(v=>!v); } },
-                  { icon:'🎙️', label:'Narração (TTS)',                 color:'#555',     locked:true,  action:()=>{ setShowMidiasPanel(false); setShowProModal(true); } },
+                  { icon:'🎙️', label:'Narração (TTS)',                 color:'#f472b6',  locked:true,  action:()=>{ setShowMidiasPanel(false); setShowProModal(true); } },
                 ].map(item=>(
                   <div key={item.label} onClick={item.action}
-                    style={{ display:'flex', alignItems:'center', gap:10, padding:'9px 14px', cursor: item.locked ? 'default' : 'pointer', transition:'background 0.1s', opacity: item.locked ? 0.5 : 1 }}
-                    onMouseEnter={e=>{ if(!item.locked) e.currentTarget.style.background='rgba(255,255,255,0.05)'; }}
+                    style={{ display:'flex', alignItems:'center', gap:10, padding:'9px 14px', cursor:'pointer', transition:'background 0.1s' }}
+                    onMouseEnter={e=>e.currentTarget.style.background='rgba(255,255,255,0.06)'}
                     onMouseLeave={e=>e.currentTarget.style.background='transparent'}
                   >
-                    <span style={{fontSize:16, filter: item.locked ? 'grayscale(1)':'' }}>{item.icon}</span>
+                    <span style={{fontSize:16}}>{item.icon}</span>
                     <span style={{fontSize:12,color:item.color,fontWeight:500,flex:1}}>{item.label}</span>
-                    {item.locked && <span style={{fontSize:9,color:'#fff',background:'linear-gradient(135deg,#7c3aed,#a78bfa)',borderRadius:6,padding:'2px 7px',fontWeight:800,letterSpacing:'0.3px',boxShadow:'0 2px 8px rgba(124,58,237,0.4)'}}>PRO</span>}
+                    {item.locked && <span style={{fontSize:9,color:'#fff',background:'linear-gradient(135deg,#7c3aed,#a78bfa)',borderRadius:6,padding:'2px 7px',fontWeight:800,letterSpacing:'0.3px',boxShadow:'0 2px 8px rgba(124,58,237,0.4)',flexShrink:0}}>PRO</span>}
                   </div>
                 ))}
 <div style={{height:1,background:'rgba(255,255,255,0.06)',margin:'4px 0'}} />
@@ -7020,8 +7020,8 @@ _setDragging(null);
             onClick={()=>setShowProModal(true)}
             style={{ display:'flex', alignItems:'center', gap:4, padding:'5px 8px', borderRadius:7,
               background:'transparent', border:'1px solid transparent',
-              cursor:'pointer', color:'#555', fontSize:11, fontWeight:600, whiteSpace:'nowrap', transition:'all 0.15s', opacity:0.6 }}
-            onMouseEnter={e=>{e.currentTarget.style.background='rgba(255,255,255,0.04)'}}
+              cursor:'pointer', color:'#ccc', fontSize:11, fontWeight:600, whiteSpace:'nowrap', transition:'all 0.15s' }}
+            onMouseEnter={e=>{e.currentTarget.style.background='rgba(255,255,255,0.05)'}}
             onMouseLeave={e=>{e.currentTarget.style.background='transparent'}}
           >
             {t('frames_btn')} <span style={{fontSize:9,color:'#fff',background:'linear-gradient(135deg,#7c3aed,#a78bfa)',borderRadius:5,padding:'2px 7px',fontWeight:800,marginLeft:4,boxShadow:'0 2px 8px rgba(124,58,237,0.4)'}}>PRO</span>
