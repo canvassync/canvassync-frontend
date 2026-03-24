@@ -123,7 +123,7 @@ function ProModal({ onClose }) {
         <div style={{ fontSize:20, fontWeight:900, color:'#fff', lineHeight:1.2 }}>Função exclusiva do <span style={{ background:'linear-gradient(90deg,#a78bfa,#7c3aed)', WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent' }}>Pro</span></div>
         <p style={{ fontSize:13, color:'#888', lineHeight:1.6, margin:0 }}>Faça upgrade para o plano Pro e desbloqueie todas as funções: exportação em vídeo HD, transições, efeitos avançados, trilhas, narração por IA e muito mais.</p>
         <div style={{ display:'flex', flexDirection:'column', gap:8, width:'100%' }}>
-          <a href="/pricing" style={{ display:'block', padding:'12px 0', background:'linear-gradient(135deg,#7c3aed,#a78bfa)', border:'none', borderRadius:12, color:'#fff', fontWeight:800, fontSize:14, textDecoration:'none', cursor:'pointer', boxShadow:'0 6px 20px rgba(124,58,237,0.45)' }}>
+          <a href="https://canvassync.com.br/planos" style={{ display:'block', padding:'12px 0', background:'linear-gradient(135deg,#7c3aed,#a78bfa)', border:'none', borderRadius:12, color:'#fff', fontWeight:800, fontSize:14, textDecoration:'none', cursor:'pointer', boxShadow:'0 6px 20px rgba(124,58,237,0.45)' }}>
             🚀 Ativar Pro agora
           </a>
           <button onClick={onClose} style={{ padding:'9px 0', background:'transparent', border:'1px solid rgba(255,255,255,0.1)', borderRadius:12, color:'#555', fontSize:12, cursor:'pointer', fontWeight:600 }}>
@@ -6854,7 +6854,7 @@ _setDragging(null);
                   >
                     <span style={{fontSize:16, filter: item.locked ? 'grayscale(1)':'' }}>{item.icon}</span>
                     <span style={{fontSize:12,color:item.color,fontWeight:500,flex:1}}>{item.label}</span>
-                    {item.locked && <span style={{fontSize:9,color:'#a78bfa',background:'rgba(167,139,250,0.15)',border:'1px solid rgba(167,139,250,0.3)',borderRadius:6,padding:'1px 5px',fontWeight:700}}>PRO</span>}
+                    {item.locked && <span style={{fontSize:9,color:'#fff',background:'linear-gradient(135deg,#7c3aed,#a78bfa)',borderRadius:6,padding:'2px 7px',fontWeight:800,letterSpacing:'0.3px',boxShadow:'0 2px 8px rgba(124,58,237,0.4)'}}>PRO</span>}
                   </div>
                 ))}
 <div style={{height:1,background:'rgba(255,255,255,0.06)',margin:'4px 0'}} />
@@ -7006,11 +7006,11 @@ _setDragging(null);
         <div style={{ position:'relative', flexShrink:0 }}>
           <button ref={sfxBtnRef}
             onClick={()=>setShowProModal(true)}
-            style={{ display:'flex', alignItems:'center', gap:4, padding:'5px 8px', borderRadius:7, background:'transparent', border:'1px solid transparent', cursor:'pointer', color:'#555', fontSize:11, fontWeight:600, whiteSpace:'nowrap', transition:'all 0.15s', opacity:0.6 }}
-            onMouseEnter={e=>{e.currentTarget.style.background='rgba(255,255,255,0.04)'}}
-            onMouseLeave={e=>{e.currentTarget.style.background='transparent'}}
+            style={{ display:'flex', alignItems:'center', gap:4, padding:'5px 8px', borderRadius:7, background:'transparent', border:'1px solid rgba(167,139,250,0.2)', cursor:'pointer', color:'#ccc', fontSize:11, fontWeight:600, whiteSpace:'nowrap', transition:'all 0.15s' }}
+            onMouseEnter={e=>{e.currentTarget.style.background='rgba(167,139,250,0.1)';e.currentTarget.style.borderColor='rgba(167,139,250,0.5)'}}
+            onMouseLeave={e=>{e.currentTarget.style.background='transparent';e.currentTarget.style.borderColor='rgba(167,139,250,0.2)'}}
           >
-            <span style={{fontSize:14}}>🔊</span> {t('ed_sfx')} <span style={{fontSize:9,color:'#a78bfa',background:'rgba(167,139,250,0.15)',border:'1px solid rgba(167,139,250,0.3)',borderRadius:5,padding:'1px 4px',marginLeft:2}}>PRO</span>
+            <span style={{fontSize:14}}>🔊</span> {t('ed_sfx')} <span style={{fontSize:9,color:'#fff',background:'linear-gradient(135deg,#7c3aed,#a78bfa)',borderRadius:5,padding:'2px 7px',fontWeight:800,marginLeft:4,boxShadow:'0 2px 8px rgba(124,58,237,0.4)'}}>PRO</span>
           </button>
         </div>
 
@@ -7024,7 +7024,7 @@ _setDragging(null);
             onMouseEnter={e=>{e.currentTarget.style.background='rgba(255,255,255,0.04)'}}
             onMouseLeave={e=>{e.currentTarget.style.background='transparent'}}
           >
-            {t('frames_btn')} <span style={{fontSize:9,color:'#a78bfa',background:'rgba(167,139,250,0.15)',border:'1px solid rgba(167,139,250,0.3)',borderRadius:5,padding:'1px 4px',marginLeft:2}}>PRO</span>
+            {t('frames_btn')} <span style={{fontSize:9,color:'#fff',background:'linear-gradient(135deg,#7c3aed,#a78bfa)',borderRadius:5,padding:'2px 7px',fontWeight:800,marginLeft:4,boxShadow:'0 2px 8px rgba(124,58,237,0.4)'}}>PRO</span>
           </button>
           {showFramePanel && (() => {
             const FRAME_CATALOG = [
@@ -7267,7 +7267,7 @@ _setDragging(null);
                       <div style={{ fontSize: 11, color: '#888', textTransform: 'uppercase', letterSpacing: 1 }}>
                         🎞️ Texturas & Overlays
                       </div>
-                      <span style={{fontSize:9,color:'#a78bfa',background:'rgba(167,139,250,0.15)',border:'1px solid rgba(167,139,250,0.3)',borderRadius:5,padding:'1px 5px',fontWeight:700}}>PRO</span>
+                      <span style={{fontSize:9,color:'#fff',background:'linear-gradient(135deg,#7c3aed,#a78bfa)',borderRadius:5,padding:'2px 7px',fontWeight:800,boxShadow:'0 2px 8px rgba(124,58,237,0.4)'}}>PRO</span>
                     </div>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8, opacity:0.4, pointerEvents:'none' }}>
                       <button style={{ fontSize: 11, padding: '4px 10px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.12)', background:'rgba(255,255,255,0.04)', color:'#888', cursor:'not-allowed' }}>Nenhum</button>
@@ -7287,7 +7287,7 @@ _setDragging(null);
                     <div key={cat.cat} style={{ marginBottom:16 }}>
                       <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:8, paddingLeft:2 }}>
                         <div style={{ fontSize:10, fontWeight:700, color: isPopular?'#a78bfa':'#555', letterSpacing:'0.8px', textTransform:'uppercase' }}>{cat.cat}</div>
-                        {!isPopular && <span style={{fontSize:9,color:'#a78bfa',background:'rgba(167,139,250,0.15)',border:'1px solid rgba(167,139,250,0.3)',borderRadius:5,padding:'1px 5px',fontWeight:700}}>PRO</span>}
+                        {!isPopular && <span style={{fontSize:9,color:'#fff',background:'linear-gradient(135deg,#7c3aed,#a78bfa)',borderRadius:5,padding:'2px 7px',fontWeight:800,boxShadow:'0 2px 8px rgba(124,58,237,0.4)'}}>PRO</span>}
                       </div>
                       <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:7 }}>
                         {cat.items.map(fx => {
@@ -7333,11 +7333,11 @@ _setDragging(null);
         {/* ── Cor & Curvas — BLOQUEADO no Free ── */}
         <div style={{ position:'relative', flexShrink:0 }}>
           <button onClick={()=>setShowProModal(true)}
-            style={{ display:'flex', alignItems:'center', gap:4, padding:'5px 8px', borderRadius:7, background:'transparent', border:'1px solid transparent', cursor:'pointer', color:'#555', fontSize:11, fontWeight:600, whiteSpace:'nowrap', transition:'all 0.15s', opacity:0.6 }}
-            onMouseEnter={e=>{e.currentTarget.style.background='rgba(255,255,255,0.04)'}}
-            onMouseLeave={e=>{e.currentTarget.style.background='transparent'}}
+            style={{ display:'flex', alignItems:'center', gap:4, padding:'5px 8px', borderRadius:7, background:'transparent', border:'1px solid rgba(167,139,250,0.2)', cursor:'pointer', color:'#ccc', fontSize:11, fontWeight:600, whiteSpace:'nowrap', transition:'all 0.15s' }}
+            onMouseEnter={e=>{e.currentTarget.style.background='rgba(167,139,250,0.1)';e.currentTarget.style.borderColor='rgba(167,139,250,0.5)'}}
+            onMouseLeave={e=>{e.currentTarget.style.background='transparent';e.currentTarget.style.borderColor='rgba(167,139,250,0.2)'}}
           >
-            <span style={{fontSize:13}}>🎨</span> {t('cc_btn')} <span style={{fontSize:9,color:'#a78bfa',background:'rgba(167,139,250,0.15)',border:'1px solid rgba(167,139,250,0.3)',borderRadius:5,padding:'1px 4px',marginLeft:2}}>PRO</span>
+            <span style={{fontSize:13}}>🎨</span> {t('cc_btn')} <span style={{fontSize:9,color:'#fff',background:'linear-gradient(135deg,#7c3aed,#a78bfa)',borderRadius:5,padding:'2px 7px',fontWeight:800,marginLeft:4,boxShadow:'0 2px 8px rgba(124,58,237,0.4)'}}>PRO</span>
           </button>
           {showKeyframePanel && (() => {
             const r2 = fxBtnRef.current?.getBoundingClientRect();
@@ -7488,7 +7488,7 @@ _setDragging(null);
                       <span style={{fontSize:12,color: fmt.locked?'#555': exportFormat===fmt.value?'#00BFFF':'#ccc',fontWeight:exportFormat===fmt.value?700:400}}>{fmt.label}</span>
                       <div style={{display:'flex',alignItems:'center',gap:5}}>
                         {fmt.desc&&<span style={{fontSize:9,color:'#555',background:'rgba(255,255,255,0.05)',padding:'1px 5px',borderRadius:4}}>{fmt.desc}</span>}
-                        {fmt.locked&&<span style={{fontSize:9,color:'#a78bfa',background:'rgba(167,139,250,0.15)',border:'1px solid rgba(167,139,250,0.3)',borderRadius:5,padding:'1px 5px',fontWeight:700}}>PRO</span>}
+                        {fmt.locked&&<span style={{fontSize:9,color:'#fff',background:'linear-gradient(135deg,#7c3aed,#a78bfa)',borderRadius:5,padding:'2px 7px',fontWeight:800,boxShadow:'0 2px 8px rgba(124,58,237,0.4)'}}>PRO</span>}
                       </div>
                     </div>
                   ))}
@@ -7975,7 +7975,7 @@ _setDragging(null);
                             background: isPlaying ? 'rgba(167,139,250,0.35)' : 'rgba(255,255,255,0.07)',
                             border:`1px solid ${isPlaying ? 'rgba(167,139,250,0.6)' : 'rgba(255,255,255,0.12)'}`,
                             cursor: isLocked?'default':'pointer', display:'flex', alignItems:'center', justifyContent:'center',
-                            fontSize:13, color: isLaying ? '#c4b5fd' : '#888', transition:'all 0.15s'
+                            fontSize:13, color: isPlaying ? '#c4b5fd' : '#888', transition:'all 0.15s'
                           }}>
                           {isLocked ? '🔒' : isPlaying ? '⏸' : '▶'}
                         </button>
@@ -8173,12 +8173,12 @@ _setDragging(null);
                   const accent = isVid ? '#a78bfa' : '#fbbf24';
                   const accentBg = isVid ? 'rgba(167,139,250,' : 'rgba(251,191,36,';
                   return (
-                    <div style={{ position:'relative', display:'flex', flexDirection:'column', gap:8, background:`${accentBg}0.04)`, border:`1px solid ${accentBg}0.18)`, borderRadius:12, padding:'10px 12px', overflow:'hidden' }}>
+                    <div style={{ position:'relative', display:'flex', flexDirection:'column', gap:8, background:`${accentBg}0.04)`, border:`1px solid ${accentBg}0.18)`, borderRadius:12, padding:'10px 12px', minHeight:110, overflow:'hidden' }}>
                       {/* Overlay de bloqueio */}
-                      <div onClick={()=>setShowProModal(true)} style={{ position:'absolute', inset:0, zIndex:10, background:'rgba(10,12,28,0.7)', borderRadius:12, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:8, cursor:'pointer', backdropFilter:'blur(2px)' }}>
-                        <span style={{fontSize:22}}>🔒</span>
+                      <div onClick={()=>setShowProModal(true)} style={{ position:'absolute', inset:0, zIndex:10, background:'rgba(10,12,28,0.82)', borderRadius:12, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:8, cursor:'pointer', backdropFilter:'blur(2px)' }}>
+                        <span style={{fontSize:20}}>🔒</span>
                         <span style={{fontSize:11,color:'#a78bfa',fontWeight:700}}>Transições — Exclusivo Pro</span>
-                        <span style={{fontSize:10,color:'rgba(167,139,250,0.7)',padding:'4px 12px',background:'rgba(167,139,250,0.15)',border:'1px solid rgba(167,139,250,0.35)',borderRadius:8}}>Ativar Pro</span>
+                        <span style={{fontSize:11,color:'#fff',fontWeight:800,padding:'6px 18px',background:'linear-gradient(135deg,#7c3aed,#a78bfa)',borderRadius:20,boxShadow:'0 4px 14px rgba(124,58,237,0.5)'}}>⚡ Ativar Pro</span>
                       </div>
                       {/* Preview desfocado */}
                       <span style={{ fontSize:11, color: accent, fontWeight:700, letterSpacing:'0.5px', filter:'blur(1px)' }}>✨ {t('ed_transitions')}</span>
@@ -8190,7 +8190,6 @@ _setDragging(null);
                     </div>
                   );
                 })()}
-                  const accent   = isVid ? '#a78bfa' : '#fbbf24';
               </div>
             );
           })()}
@@ -8207,10 +8206,10 @@ _setDragging(null);
             return (
               <div style={{ padding: '12px 18px', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
                 <div onClick={()=>setShowProModal(true)} style={{ position:'relative', borderRadius:12, border:`1px solid ${accentBg}0.18)`, background:`${accentBg}0.03)`, padding:'14px 16px', cursor:'pointer', display:'flex', flexDirection:'column', gap:8, overflow:'hidden' }}>
-                  <div style={{ position:'absolute', inset:0, background:'rgba(10,12,28,0.65)', borderRadius:12, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:8, backdropFilter:'blur(2px)', zIndex:5 }}>
+                  <div style={{ position:'absolute', inset:0, background:'rgba(10,12,28,0.82)', borderRadius:12, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:8, backdropFilter:'blur(2px)', zIndex:5 }}>
                     <span style={{fontSize:20}}>🔒</span>
                     <span style={{fontSize:11,color:accent,fontWeight:700}}>Máscara · Aberração · Zoom Animado</span>
-                    <span style={{fontSize:10,color:'rgba(167,139,250,0.75)',padding:'3px 12px',background:'rgba(167,139,250,0.12)',border:'1px solid rgba(167,139,250,0.3)',borderRadius:8}}>Exclusivo Pro — Clique para ativar</span>
+                    <span onClick={()=>setShowProModal(true)} style={{fontSize:11,color:'#fff',fontWeight:800,padding:'6px 18px',background:'linear-gradient(135deg,#7c3aed,#a78bfa)',borderRadius:20,cursor:'pointer',boxShadow:'0 4px 14px rgba(124,58,237,0.5)'}}>⚡ Ativar Pro</span>
                   </div>
                   {/* Preview desfocado */}
                   <span style={{ fontSize:11, color: accent, fontWeight:700, filter:'blur(1px)' }}>🎭 Máscara de Forma</span>
@@ -8699,9 +8698,9 @@ _setDragging(null);
             <button
               ref={syncBtnRef}
               onClick={() => setShowProModal(true)}
-              style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:6, padding:'8px 0', borderRadius:12, background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.08)', cursor:'pointer', color:'#555', fontSize:11, fontWeight:700, transition:'all 0.15s', opacity:0.6 }}
+              style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:6, padding:'8px 0', borderRadius:12, background:'rgba(124,58,237,0.08)', border:'1px solid rgba(167,139,250,0.3)', cursor:'pointer', color:'#a78bfa', fontSize:11, fontWeight:700, transition:'all 0.15s' }}
             >
-              🤖 Sincronizar Letra com IA <span style={{fontSize:9,color:'#a78bfa',background:'rgba(167,139,250,0.15)',border:'1px solid rgba(167,139,250,0.3)',borderRadius:5,padding:'1px 4px',marginLeft:2}}>PRO</span>
+              🤖 Sincronizar Letra com IA <span style={{fontSize:9,color:'#fff',background:'linear-gradient(135deg,#7c3aed,#a78bfa)',borderRadius:5,padding:'2px 7px',fontWeight:800,marginLeft:4,boxShadow:'0 2px 8px rgba(124,58,237,0.4)'}}>PRO</span>
             </button>
           </div>
         </div>
