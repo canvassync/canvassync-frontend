@@ -1199,6 +1199,126 @@ function App() {
     document.head.appendChild(link);
   }, []);
 
+  // ── Proteção anti-download de vídeo ──────────────────────────────────────────
+  // Bloqueia ferramentas como CoCoCut, Video DownloadHelper, etc.
+  useEffect(() => {
+    // 1. Rastreia todos os blob URLs criados — revoga depois de usados
+    const _blobRegistry = new WeakMap();
+    const _origCreateObjectURL = URL.createObjectURL.bind(URL);
+    const _origRevokeObjectURL = URL.revokeObjectURL.bind(URL);
+    const _pendingRevoke = new Set();
+
+    URL.createObjectURL = function(obj) {
+      const url = _origCreateObjectURL(obj);
+      if (obj instanceof MediaSource || obj instanceof Blob || obj instanceof File) {
+        _pendingRevoke.add(url);
+      }
+      return url;
+    };
+
+    // 2. Blinda qualquer <video> que entrar no DOM via extensão
+    const _sealVideoElement = (el) => {
+      if (!(el instanceof HTMLVideoElement)) return;
+      // nodownload + noremoteplayback elimina os botões nativos do browser
+      el.setAttribute('controlsList', 'nodownload nofullscreen noremoteplayback');
+      el.setAttribute('disablePictureInPicture', '');
+      // Sobrescreve o getter de .src para retornar '' quando lido por extensões
+      try {
+        const _realSrc = el.src;
+        Object.defineProperty(el, 'src', {
+          get() { return ''; },          // extensões lêem '' — nada para baixar
+          set(v) {
+            // permite que o app interno continue funcionando
+            Object.defineProperty(el, 'src', { value: v, writable: true, configurable: true });
+            HTMLVideoElement.prototype.setAttribute.call(el, 'src', '');
+          },
+          configurable: true,
+        });
+        // Apaga o atributo visível no DOM
+        HTMLVideoElement.prototype.removeAttribute.call(el, 'src');
+      } catch {}
+      // Bloqueia currentSrc também
+      try {
+        Object.defineProperty(el, 'currentSrc', {
+          get() { return ''; },
+          configurable: true,
+        });
+      } catch {}
+    };
+
+    // 3. MutationObserver — varre todos os <video> que aparecerem no DOM
+    const _mo = new MutationObserver((mutations) => {
+      mutations.forEach(m => {
+        m.addedNodes.forEach(node => {
+          if (node.nodeType !== 1) return;
+          if (node.tagName === 'VIDEO') _sealVideoElement(node);
+          node.querySelectorAll?.('video').forEach(_sealVideoElement);
+        });
+        // Se uma extensão tentar setar o atributo src, apaga imediatamente
+        if (m.type === 'attributes' && m.attributeName === 'src' && m.target instanceof HTMLVideoElement) {
+          try { m.target.removeAttribute('src'); } catch {}
+        }
+      });
+    });
+    _mo.observe(document.documentElement, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ['src'],
+    });
+
+    // 4. Sela os <video> já existentes no DOM no momento da montagem
+    document.querySelectorAll('video').forEach(_sealVideoElement);
+
+    // 5. Revoga blob URLs ociosos periodicamente (20s após criação)
+    const _revokeTimer = setInterval(() => {
+      _pendingRevoke.forEach(url => {
+        try { _origRevokeObjectURL(url); } catch {}
+        _pendingRevoke.delete(url);
+      });
+    }, 20_000);
+
+    // 6. Bloqueia requestAnimationFrame + fetch de blob: por extensões injetadas
+    const _origFetch = window.fetch;
+    window.fetch = function(...args) {
+      const url = typeof args[0] === 'string' ? args[0] : args[0]?.url || '';
+      if (typeof url === 'string' && url.startsWith('blob:')) {
+        // Permite apenas fetches originados pelo próprio app (mesmo origin)
+        const stack = new Error().stack || '';
+        if (!stack.includes('canvassync') && !stack.includes('AppFree')) {
+          return Promise.reject(new TypeError('Network request blocked'));
+        }
+      }
+      return _origFetch.apply(this, args);
+    };
+
+    // 7. Bloqueia XMLHttpRequest para blob: URLs
+    const _origXHROpen = XMLHttpRequest.prototype.open;
+    XMLHttpRequest.prototype.open = function(method, url, ...rest) {
+      if (typeof url === 'string' && url.startsWith('blob:')) {
+        // Silencia a requisição de extensões
+        this._blocked = true;
+        return;
+      }
+      return _origXHROpen.apply(this, [method, url, ...rest]);
+    };
+    const _origXHRSend = XMLHttpRequest.prototype.send;
+    XMLHttpRequest.prototype.send = function(...args) {
+      if (this._blocked) return;
+      return _origXHRSend.apply(this, args);
+    };
+
+    return () => {
+      // Cleanup ao desmontar
+      _mo.disconnect();
+      clearInterval(_revokeTimer);
+      URL.createObjectURL = _origCreateObjectURL;
+      window.fetch = _origFetch;
+      XMLHttpRequest.prototype.open = _origXHROpen;
+      XMLHttpRequest.prototype.send = _origXHRSend;
+    };
+  }, []);
+
   // Fecha tela cheia com ESC; fecha painel sticker com ESC ou clique fora
   useEffect(() => {
     const onKey = (e) => {
@@ -1616,6 +1736,8 @@ function App() {
       videoEl.loop = false;
       videoEl.playsInline = true;
       videoEl.preload = 'auto';
+      videoEl.setAttribute('controlsList', 'nodownload nofullscreen noremoteplayback');
+      videoEl.setAttribute('disablePictureInPicture', '');
       videoEl.style.cssText = 'position:fixed;width:1px;height:1px;visibility:hidden;pointer-events:none;top:-9999px;left:-9999px';
       document.body.appendChild(videoEl);
       const id = Date.now() + index;
@@ -1737,6 +1859,11 @@ function App() {
         tryMediaSource(mimeType).catch(() => src),
       ]).then(([dur, fullSrc]) => {
         addVideo(fullSrc, dur);
+        // Revoga o blob URL original imediatamente após uso —
+        // extensões que tentarem buscá-lo depois receberão erro 404
+        setTimeout(() => {
+          try { URL.revokeObjectURL(src); } catch {}
+        }, 3000);
       });
       videoEl.onerror = () => console.warn('Erro ao carregar vídeo:', file.name, file.type);
       videoEl.load();
