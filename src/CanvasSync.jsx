@@ -166,6 +166,8 @@ export default function CanvasSyncLanding() {
 
   const freePlan = [
     t("free_feat1"), t("free_feat2"), t("free_feat3"), t("free_feat4"), t("free_feat5"),
+    t("free_feat6"), t("free_feat7"), t("free_feat8"), t("free_feat9"), t("free_feat10"),
+    t("free_feat11"), t("free_feat12"),
   ];
 
   const proPlan = [
