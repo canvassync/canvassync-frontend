@@ -1219,6 +1219,8 @@ function App() {
     // 2. Blinda qualquer <video> que entrar no DOM via extensão
     const _sealVideoElement = (el) => {
       if (!(el instanceof HTMLVideoElement)) return;
+      // Elementos internos do CanvasSync são marcados com data-cs-internal="1" — nunca selar
+      if (el.dataset.csInternal === '1') return;
       // nodownload + noremoteplayback elimina os botões nativos do browser
       el.setAttribute('controlsList', 'nodownload nofullscreen noremoteplayback');
       el.setAttribute('disablePictureInPicture', '');
@@ -1255,7 +1257,9 @@ function App() {
           node.querySelectorAll?.('video').forEach(_sealVideoElement);
         });
         // Se uma extensão tentar setar o atributo src, apaga imediatamente
+        // (elementos internos do app ficam isentos)
         if (m.type === 'attributes' && m.attributeName === 'src' && m.target instanceof HTMLVideoElement) {
+          if (m.target.dataset.csInternal === '1') return;
           try { m.target.removeAttribute('src'); } catch {}
         }
       });
@@ -1729,9 +1733,16 @@ function App() {
   const handleVideoUpload = async (e) => {
     const files = Array.from(e.target.files || []);
     if (!files.length) return;
+    // Free tier: máximo 1 vídeo — bloqueia na origem mesmo que o input seja acionado diretamente
+    if (videos.length >= 1) { setShowProModal(true); e.target.value = ''; return; }
     pushHistory();
-    files.forEach((file, index) => {
+    // Pega apenas o primeiro arquivo (plano Free permite somente 1 vídeo)
+    const filesToAdd = files.slice(0, 1);
+    filesToAdd.forEach((file, index) => {
       const videoEl = document.createElement('video');
+      // Marcação obrigatória ANTES de appendar ao DOM para que o MutationObserver
+      // de proteção anti-download não sele este elemento interno do app.
+      videoEl.dataset.csInternal = '1';
       videoEl.muted = false;
       videoEl.loop = false;
       videoEl.playsInline = true;
@@ -1783,6 +1794,7 @@ function App() {
       // nunca recebe MediaSource, garantindo que a duration seja lida corretamente.
       const readDurationFromFile = () => new Promise(resolve => {
         const probe = document.createElement('video');
+        probe.dataset.csInternal = '1'; // isento da proteção anti-download
         probe.preload = 'metadata';
         probe.muted = true;
         probe.style.cssText = 'position:fixed;width:1px;height:1px;top:-9999px;left:-9999px;visibility:hidden';
