@@ -1,6 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { useAuth } from './hooks/useAuth.jsx';
 import { useLanguage, LangToggle } from './hooks/useLanguage.jsx';
 
 // ── Chat de Suporte IA — Editor Pro ──────────────────────────────────────────
@@ -646,7 +645,6 @@ const OVERLAY_EFFECTS = [
 ];
 
 function App() {
-  const { user, isLoggedIn, isPro, loading: authLoading } = useAuth();
   const { t, lang } = useLanguage();
   const [image, setImage] = useState(null);
   const [audioSrc, setAudioSrc] = useState(null);
@@ -6722,17 +6720,6 @@ _setDragging(null);
 
 
   // ── Proteção de rota ─────────────────────────────────────────────────────────
-  if (authLoading) return (
-    <div style={{ minHeight:'100vh', background:'#080808', display:'flex', alignItems:'center', justifyContent:'center', color:'#555', fontFamily:'DM Sans,sans-serif', fontSize:14 }}>
-      Carregando...
-    </div>
-  );
-
-  if (!isLoggedIn) {
-    window.location.href = '/entrar?redirect=/editor-free-v2';
-    return null;
-  }
-
   // ── applyTemplate ──────────────────────────────────────────────────────────
   const applyTemplate = (tpl) => {
     const fmt = CANVAS_FORMATS[tpl.format] || CANVAS_FORMATS['16:9'];
