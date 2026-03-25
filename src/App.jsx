@@ -1561,8 +1561,12 @@ function App() {
         return newItems;
       }
 
-      // Sem áudio: comportamento anterior (3s cada)
-      const baseStart = Math.max(currentTime, prev.reduce((max, item) => Math.max(max, item.end || 0), 0));
+      // Sem áudio OU já havia imagens: coloca após a última imagem existente
+      // NÃO usa currentTime (pode estar stale na closure); usa sempre o end máximo das imagens
+      const lastEnd = prev.length > 0
+        ? prev.reduce((max, item) => Math.max(max, item.end || 0), 0)
+        : (audioRef.current?.currentTime || 0);
+      const baseStart = Math.max(0, lastEnd);
       const newItems = results.map((src, index) => {
         const start = baseStart + (index * 3);
         const end = start + 3;
@@ -3129,6 +3133,34 @@ function App() {
     const hs = 10;
 
     // ── Imagens verificadas PRIMEIRO (ficam visualmente acima dos vídeos) ────
+    // ── Prioridade de clique: se vídeo ativo está sob o cursor, mantém seleção ──
+    // Evita que imagem "roube" o clique de um vídeo que já está selecionado e sobreposto
+    const s14 = 14;
+    const activeVidObj = activeVideoId ? videos.find(v => v.id === activeVideoId) : null;
+    if (activeVidObj) {
+      const isOverActiveVid = time >= activeVidObj.start && time <= activeVidObj.end &&
+        mouseX >= activeVidObj.x - s14 && mouseX <= activeVidObj.x + activeVidObj.width + s14 &&
+        mouseY >= activeVidObj.y - s14 && mouseY <= activeVidObj.y + activeVidObj.height + s14;
+      if (isOverActiveVid) {
+        // Mantém o vídeo ativo selecionado — inicia drag
+        const nL = Math.abs(mouseX - activeVidObj.x) <= s14;
+        const nR = Math.abs(mouseX - (activeVidObj.x + activeVidObj.width)) <= s14;
+        const nT = Math.abs(mouseY - activeVidObj.y) <= s14;
+        const nB = Math.abs(mouseY - (activeVidObj.y + activeVidObj.height)) <= s14;
+        const corner = `${nT?'n':''}${nB?'s':''}${nL?'w':''}${nR?'e':''}`;
+        if (corner.length >= 2) {
+          _setDragging({ itemKind: 'canvas-video', type: 'resize', id: activeVidObj.id, corner,
+            startX: mouseX, startY: mouseY,
+            startWidth: activeVidObj.width, startHeight: activeVidObj.height,
+            startXPos: activeVidObj.x, startYPos: activeVidObj.y });
+        } else {
+          _setDragging({ itemKind: 'canvas-video', type: 'move', id: activeVidObj.id,
+            offsetX: mouseX - activeVidObj.x, offsetY: mouseY - activeVidObj.y });
+        }
+        return;
+      }
+    }
+
     const clickedItem = images.slice().reverse().find((item) => {
       if (!item || !item.img) return false;
       return time >= item.start && time <= item.end &&
@@ -4195,18 +4227,9 @@ _setDragging(null);
       const drawVid = (tCtx) => drawRotatedElement(tCtx || ctx, () => drawRoundedImage(tCtx || ctx, v.videoEl, vx, vy, vw, vh, v.radius ?? 12), vx, vy, vw, vh, kfState ? kfState.rotation : v.rotation);
       applyElementChromatic(ctx, vProxy, drawVid);
       ctx.filter = 'none'; ctx.globalAlpha = 1; ctx.restore();
-      if (activeVideoId === v.id) {
-        const cx = vx + vw / 2, cy = vy + vh / 2;
-        ctx.save();
-        ctx.translate(cx, cy); ctx.rotate(vRot); ctx.translate(-cx, -cy);
-        ctx.strokeStyle = 'rgba(167,139,250,0.9)';
-        ctx.lineWidth = 2;
-        drawRoundedRect(ctx, vx, vy, vw, vh, (v.radius ?? 12) + 2);
-        ctx.stroke();
-        drawResizeHandles(ctx, vx, vy, vw, vh);
-        ctx.restore();
-      }
     });
+    // ── Guarda o vídeo ativo para desenhar o outline APÓS as imagens ─────────
+    const activeVidForOutline = getVideosForTime(time).find(v => v.id === activeVideoId);
 
     // Desenha TODAS as imagens ativas no instante (camadas simultâneas)
     const overlayImages = getImagesForTime(time);
@@ -4239,6 +4262,27 @@ _setDragging(null);
         ctx.restore();
       }
     });
+
+    // ── Desenha outline/handles do vídeo ativo APÓS as imagens ───────────────
+    // Garante que o seletor do vídeo fique sempre visível mesmo sob imagens
+    if (activeVidForOutline) {
+      const v = activeVidForOutline;
+      const kfS = getKfState(v, time);
+      const vx2 = kfS ? kfS.x : v.x;
+      const vy2 = kfS ? kfS.y : v.y;
+      const vw2 = kfS ? kfS.w : v.width;
+      const vh2 = kfS ? kfS.h : v.height;
+      const vRot2 = (kfS ? kfS.rotation : (v.rotation || 0)) * Math.PI / 180;
+      const cx2 = vx2 + vw2 / 2, cy2 = vy2 + vh2 / 2;
+      ctx.save();
+      ctx.translate(cx2, cy2); ctx.rotate(vRot2); ctx.translate(-cx2, -cy2);
+      ctx.strokeStyle = 'rgba(167,139,250,0.9)';
+      ctx.lineWidth = 2;
+      drawRoundedRect(ctx, vx2, vy2, vw2, vh2, (v.radius ?? 12) + 2);
+      ctx.stroke();
+      drawResizeHandles(ctx, vx2, vy2, vw2, vh2);
+      ctx.restore();
+    }
 
     ctx.fillStyle = textColor;
     ctx.textAlign = 'center';
