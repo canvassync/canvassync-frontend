@@ -6821,21 +6821,7 @@ _setDragging(null);
 
 
   // ── Proteção de rota ─────────────────────────────────────────────────────────
-  if (authLoading) return (
-    <div style={{ minHeight:'100vh', background:'#080808', display:'flex', alignItems:'center', justifyContent:'center', color:'#555', fontFamily:'DM Sans,sans-serif', fontSize:14 }}>
-      Carregando...
-    </div>
-  );
-
-  if (!isLoggedIn) {
-    window.location.href = '/entrar?redirect=/editor';
-    return null;
-  }
-
-  if (!isPro) {
-    window.location.href = '/planos';
-    return null;
-  }
+  // ── AppV2: sem verificação de auth — acesso direto para testes ──────────────
 
 
   // ── applyTemplate ──────────────────────────────────────────────────────────
