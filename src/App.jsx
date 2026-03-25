@@ -4205,84 +4205,79 @@ _setDragging(null);
       ctx.fillRect(0, 0, canvas.width, canvas.height);
     }
 
-    // Desenha TODOS os vídeos ativos (abaixo das imagens)
-    getVideosForTime(time).forEach(v => {
-      if (!v.videoEl || v.videoEl.readyState < 1 || v.videoEl.videoWidth === 0) return;
-      // Aplica keyframes de zoom animado se existirem
-      const kfState = getKfState(v, time);
-      const vx = kfState ? kfState.x : v.x;
-      const vy = kfState ? kfState.y : v.y;
-      const vw = kfState ? kfState.w : v.width;
-      const vh = kfState ? kfState.h : v.height;
-      const vRot = kfState ? kfState.rotation * Math.PI / 180 : (v.rotation || 0) * Math.PI / 180;
-      const vOp  = kfState ? kfState.opacity : 1;
-      const _vf  = buildFilterString(v.filters);
-      const _vtr = getTransitionTransform(v, time);
-      const vProxy = { ...v, x: vx, y: vy, width: vw, height: vh };
-      ctx.save();
-      if (kfState) ctx.globalAlpha = Math.max(0, Math.min(1, vOp));
-      if (_vtr) { _applyTr(ctx, _vtr, _vf, vProxy); }
-      else if (_vf !== 'none') { ctx.filter = _vf; }
-      applyElementMask(ctx, vProxy);
-      const drawVid = (tCtx) => drawRotatedElement(tCtx || ctx, () => drawRoundedImage(tCtx || ctx, v.videoEl, vx, vy, vw, vh, v.radius ?? 12), vx, vy, vw, vh, kfState ? kfState.rotation : v.rotation);
-      applyElementChromatic(ctx, vProxy, drawVid);
-      ctx.filter = 'none'; ctx.globalAlpha = 1; ctx.restore();
-    });
-    // ── Guarda o vídeo ativo para desenhar o outline APÓS as imagens ─────────
-    const activeVidForOutline = getVideosForTime(time).find(v => v.id === activeVideoId);
+    // ── Camadas unificadas: imagens + vídeos ordenados por ID (timestamp de inserção) ──
+    // O elemento adicionado por último (maior id) fica no topo — comportamento natural de editor.
+    const activeVidsNow   = getVideosForTime(time);
+    const activeImgsNow   = getImagesForTime(time);
+    const unifiedLayers   = [
+      ...activeVidsNow.map(v => ({ kind: 'video', item: v })),
+      ...activeImgsNow.map(i => ({ kind: 'image', item: i })),
+    ].sort((a, b) => a.item.id - b.item.id); // ordem crescente = mais antigo embaixo
 
-    // Desenha TODAS as imagens ativas no instante (camadas simultâneas)
-    const overlayImages = getImagesForTime(time);
-    overlayImages.forEach(overlayImage => {
-      const kfStateI = getKfState(overlayImage, time);
-      const ix = kfStateI ? kfStateI.x : overlayImage.x;
-      const iy = kfStateI ? kfStateI.y : overlayImage.y;
-      const iw = kfStateI ? kfStateI.w : overlayImage.width;
-      const ih = kfStateI ? kfStateI.h : overlayImage.height;
-      const iRot = kfStateI ? kfStateI.rotation * Math.PI / 180 : (overlayImage.rotation || 0) * Math.PI / 180;
-      const iOp  = kfStateI ? kfStateI.opacity : 1;
-      const _if  = buildFilterString(overlayImage.filters);
-      const _itr = getTransitionTransform(overlayImage, time);
-      const iProxy = { ...overlayImage, x: ix, y: iy, width: iw, height: ih };
-      ctx.save();
-      if (kfStateI) ctx.globalAlpha = Math.max(0, Math.min(1, iOp));
-      if (_itr) { _applyTr(ctx, _itr, _if, iProxy); }
-      else if (_if !== 'none') { ctx.filter = _if; }
-      drawRotatedElement(ctx, () => drawRoundedImage(ctx, overlayImage.img, ix, iy, iw, ih, overlayImage.radius ?? 18), ix, iy, iw, ih, kfStateI ? kfStateI.rotation : overlayImage.rotation);
-      ctx.filter = 'none'; ctx.globalAlpha = 1; ctx.restore();
-      if (activeImageId === overlayImage.id) {
-        const cx = ix + iw / 2, cy = iy + ih / 2;
+    unifiedLayers.forEach(({ kind, item }) => {
+      if (kind === 'video') {
+        const v = item;
+        if (!v.videoEl || v.videoEl.readyState < 1 || v.videoEl.videoWidth === 0) return;
+        const kfState = getKfState(v, time);
+        const vx = kfState ? kfState.x : v.x;
+        const vy = kfState ? kfState.y : v.y;
+        const vw = kfState ? kfState.w : v.width;
+        const vh = kfState ? kfState.h : v.height;
+        const vOp = kfState ? kfState.opacity : 1;
+        const _vf  = buildFilterString(v.filters);
+        const _vtr = getTransitionTransform(v, time);
+        const vProxy = { ...v, x: vx, y: vy, width: vw, height: vh };
         ctx.save();
-        ctx.translate(cx, cy); ctx.rotate(iRot); ctx.translate(-cx, -cy);
-        ctx.strokeStyle = 'rgba(248, 250, 252, 0.9)';
-        ctx.lineWidth = 2;
-        drawRoundedRect(ctx, ix, iy, iw, ih, (overlayImage.radius ?? 18) + 2);
-        ctx.stroke();
-        drawResizeHandles(ctx, ix, iy, iw, ih);
-        ctx.restore();
+        if (kfState) ctx.globalAlpha = Math.max(0, Math.min(1, vOp));
+        if (_vtr) { _applyTr(ctx, _vtr, _vf, vProxy); }
+        else if (_vf !== 'none') { ctx.filter = _vf; }
+        applyElementMask(ctx, vProxy);
+        const drawVid = (tCtx) => drawRotatedElement(tCtx || ctx, () => drawRoundedImage(tCtx || ctx, v.videoEl, vx, vy, vw, vh, v.radius ?? 12), vx, vy, vw, vh, kfState ? kfState.rotation : v.rotation);
+        applyElementChromatic(ctx, vProxy, drawVid);
+        ctx.filter = 'none'; ctx.globalAlpha = 1; ctx.restore();
+        // Outline do vídeo ativo
+        if (v.id === activeVideoId) {
+          const kfS2 = getKfState(v, time);
+          const vx2 = kfS2 ? kfS2.x : v.x, vy2 = kfS2 ? kfS2.y : v.y;
+          const vw2 = kfS2 ? kfS2.w : v.width, vh2 = kfS2 ? kfS2.h : v.height;
+          const vRot2 = (kfS2 ? kfS2.rotation : (v.rotation || 0)) * Math.PI / 180;
+          const cx2 = vx2 + vw2 / 2, cy2 = vy2 + vh2 / 2;
+          ctx.save();
+          ctx.translate(cx2, cy2); ctx.rotate(vRot2); ctx.translate(-cx2, -cy2);
+          ctx.strokeStyle = 'rgba(167,139,250,0.9)'; ctx.lineWidth = 2;
+          drawRoundedRect(ctx, vx2, vy2, vw2, vh2, (v.radius ?? 12) + 2); ctx.stroke();
+          drawResizeHandles(ctx, vx2, vy2, vw2, vh2);
+          ctx.restore();
+        }
+      } else {
+        const overlayImage = item;
+        const kfStateI = getKfState(overlayImage, time);
+        const ix = kfStateI ? kfStateI.x : overlayImage.x;
+        const iy = kfStateI ? kfStateI.y : overlayImage.y;
+        const iw = kfStateI ? kfStateI.w : overlayImage.width;
+        const ih = kfStateI ? kfStateI.h : overlayImage.height;
+        const iRot = kfStateI ? kfStateI.rotation * Math.PI / 180 : (overlayImage.rotation || 0) * Math.PI / 180;
+        const iOp  = kfStateI ? kfStateI.opacity : 1;
+        const _if  = buildFilterString(overlayImage.filters);
+        const _itr = getTransitionTransform(overlayImage, time);
+        const iProxy = { ...overlayImage, x: ix, y: iy, width: iw, height: ih };
+        ctx.save();
+        if (kfStateI) ctx.globalAlpha = Math.max(0, Math.min(1, iOp));
+        if (_itr) { _applyTr(ctx, _itr, _if, iProxy); }
+        else if (_if !== 'none') { ctx.filter = _if; }
+        drawRotatedElement(ctx, () => drawRoundedImage(ctx, overlayImage.img, ix, iy, iw, ih, overlayImage.radius ?? 18), ix, iy, iw, ih, kfStateI ? kfStateI.rotation : overlayImage.rotation);
+        ctx.filter = 'none'; ctx.globalAlpha = 1; ctx.restore();
+        if (activeImageId === overlayImage.id) {
+          const cx = ix + iw / 2, cy = iy + ih / 2;
+          ctx.save();
+          ctx.translate(cx, cy); ctx.rotate(iRot); ctx.translate(-cx, -cy);
+          ctx.strokeStyle = 'rgba(248, 250, 252, 0.9)'; ctx.lineWidth = 2;
+          drawRoundedRect(ctx, ix, iy, iw, ih, (overlayImage.radius ?? 18) + 2); ctx.stroke();
+          drawResizeHandles(ctx, ix, iy, iw, ih);
+          ctx.restore();
+        }
       }
     });
-
-    // ── Desenha outline/handles do vídeo ativo APÓS as imagens ───────────────
-    // Garante que o seletor do vídeo fique sempre visível mesmo sob imagens
-    if (activeVidForOutline) {
-      const v = activeVidForOutline;
-      const kfS = getKfState(v, time);
-      const vx2 = kfS ? kfS.x : v.x;
-      const vy2 = kfS ? kfS.y : v.y;
-      const vw2 = kfS ? kfS.w : v.width;
-      const vh2 = kfS ? kfS.h : v.height;
-      const vRot2 = (kfS ? kfS.rotation : (v.rotation || 0)) * Math.PI / 180;
-      const cx2 = vx2 + vw2 / 2, cy2 = vy2 + vh2 / 2;
-      ctx.save();
-      ctx.translate(cx2, cy2); ctx.rotate(vRot2); ctx.translate(-cx2, -cy2);
-      ctx.strokeStyle = 'rgba(167,139,250,0.9)';
-      ctx.lineWidth = 2;
-      drawRoundedRect(ctx, vx2, vy2, vw2, vh2, (v.radius ?? 12) + 2);
-      ctx.stroke();
-      drawResizeHandles(ctx, vx2, vy2, vw2, vh2);
-      ctx.restore();
-    }
 
     ctx.fillStyle = textColor;
     ctx.textAlign = 'center';
