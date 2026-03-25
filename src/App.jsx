@@ -3131,90 +3131,75 @@ function App() {
 
     setActiveLyricId(null);
     const hs = 10;
-
-    // ── Imagens verificadas PRIMEIRO (ficam visualmente acima dos vídeos) ────
-    // ── Prioridade de clique: se vídeo ativo está sob o cursor, mantém seleção ──
-    // Evita que imagem "roube" o clique de um vídeo que já está selecionado e sobreposto
     const s14 = 14;
-    const activeVidObj = activeVideoId ? videos.find(v => v.id === activeVideoId) : null;
-    if (activeVidObj) {
-      const isOverActiveVid = time >= activeVidObj.start && time <= activeVidObj.end &&
-        mouseX >= activeVidObj.x - s14 && mouseX <= activeVidObj.x + activeVidObj.width + s14 &&
-        mouseY >= activeVidObj.y - s14 && mouseY <= activeVidObj.y + activeVidObj.height + s14;
-      if (isOverActiveVid) {
-        // Mantém o vídeo ativo selecionado — inicia drag
-        const nL = Math.abs(mouseX - activeVidObj.x) <= s14;
-        const nR = Math.abs(mouseX - (activeVidObj.x + activeVidObj.width)) <= s14;
-        const nT = Math.abs(mouseY - activeVidObj.y) <= s14;
-        const nB = Math.abs(mouseY - (activeVidObj.y + activeVidObj.height)) <= s14;
+
+    // ── Hit-test unificado — respeita o mesmo z-order do draw ───────────────
+    // Imagens e vídeos são fundidos e ordenados por id (timestamp de inserção).
+    // O elemento no topo (maior id) é testado primeiro, como num editor real.
+    const activeMediaItems = [
+      ...images
+        .filter(item => item?.img && time >= item.start && time <= item.end)
+        .map(item => ({ kind: 'image', item })),
+      ...videos
+        .filter(v => v.videoEl && time >= v.start && time <= v.end)
+        .map(v => ({ kind: 'video', item: v })),
+    ].sort((a, b) => b.item.id - a.item.id); // maior id = topo = testado primeiro
+
+    let hitMedia = null;
+    for (const { kind, item } of activeMediaItems) {
+      const pad = kind === 'video' ? s14 : hs;
+      if (
+        mouseX >= item.x - pad && mouseX <= item.x + item.width  + pad &&
+        mouseY >= item.y - pad && mouseY <= item.y + item.height + pad
+      ) {
+        hitMedia = { kind, item };
+        break;
+      }
+    }
+
+    if (hitMedia) {
+      const { kind, item } = hitMedia;
+      if (kind === 'image') {
+        setActiveImageId(item.id);
+        setActiveVideoId(null);
+        const nh = 12;
+        const nearLeft   = Math.abs(mouseX - item.x) <= nh;
+        const nearRight  = Math.abs(mouseX - (item.x + item.width))  <= nh;
+        const nearTop    = Math.abs(mouseY - item.y) <= nh;
+        const nearBottom = Math.abs(mouseY - (item.y + item.height)) <= nh;
+        const corner = `${nearTop?'n':''}${nearBottom?'s':''}${nearLeft?'w':''}${nearRight?'e':''}`;
+        if (corner.length >= 2) {
+          _setDragging({ itemKind: 'canvas-image', type: 'resize', id: item.id, corner,
+            startX: mouseX, startY: mouseY,
+            startWidth: item.width, startHeight: item.height,
+            startXPos: item.x, startYPos: item.y });
+        } else {
+          _setDragging({ itemKind: 'canvas-image', type: 'move', id: item.id,
+            offsetX: mouseX - item.x, offsetY: mouseY - item.y });
+        }
+      } else {
+        setActiveVideoId(item.id);
+        setActiveImageId(null);
+        const nL = Math.abs(mouseX - item.x) <= s14;
+        const nR = Math.abs(mouseX - (item.x + item.width))  <= s14;
+        const nT = Math.abs(mouseY - item.y) <= s14;
+        const nB = Math.abs(mouseY - (item.y + item.height)) <= s14;
         const corner = `${nT?'n':''}${nB?'s':''}${nL?'w':''}${nR?'e':''}`;
         if (corner.length >= 2) {
-          _setDragging({ itemKind: 'canvas-video', type: 'resize', id: activeVidObj.id, corner,
+          _setDragging({ itemKind: 'canvas-video', type: 'resize', id: item.id, corner,
             startX: mouseX, startY: mouseY,
-            startWidth: activeVidObj.width, startHeight: activeVidObj.height,
-            startXPos: activeVidObj.x, startYPos: activeVidObj.y });
+            startWidth: item.width, startHeight: item.height,
+            startXPos: item.x, startYPos: item.y });
         } else {
-          _setDragging({ itemKind: 'canvas-video', type: 'move', id: activeVidObj.id,
-            offsetX: mouseX - activeVidObj.x, offsetY: mouseY - activeVidObj.y });
+          _setDragging({ itemKind: 'canvas-video', type: 'move', id: item.id,
+            offsetX: mouseX - item.x, offsetY: mouseY - item.y });
         }
-        return;
-      }
-    }
-
-    const clickedItem = images.slice().reverse().find((item) => {
-      if (!item || !item.img) return false;
-      return time >= item.start && time <= item.end &&
-        mouseX >= item.x - hs && mouseX <= item.x + item.width + hs &&
-        mouseY >= item.y - hs && mouseY <= item.y + item.height + hs;
-    });
-    if (clickedItem) {
-      setActiveImageId(clickedItem.id);
-      setActiveVideoId(null);
-      const handleSize = 12;
-      const nearLeft   = Math.abs(mouseX - clickedItem.x) <= handleSize;
-      const nearRight  = Math.abs(mouseX - (clickedItem.x + clickedItem.width)) <= handleSize;
-      const nearTop    = Math.abs(mouseY - clickedItem.y) <= handleSize;
-      const nearBottom = Math.abs(mouseY - (clickedItem.y + clickedItem.height)) <= handleSize;
-      const corner = `${nearTop?'n':''}${nearBottom?'s':''}${nearLeft?'w':''}${nearRight?'e':''}`;
-      if (corner.length >= 2) {
-        _setDragging({ itemKind: 'canvas-image', type: 'resize', id: clickedItem.id, corner,
-          startX: mouseX, startY: mouseY,
-          startWidth: clickedItem.width, startHeight: clickedItem.height,
-          startXPos: clickedItem.x, startYPos: clickedItem.y });
-      } else {
-        _setDragging({ itemKind: 'canvas-image', type: 'move', id: clickedItem.id,
-          offsetX: mouseX - clickedItem.x, offsetY: mouseY - clickedItem.y });
       }
       return;
     }
+
+    // Nada foi clicado — limpa seleção
     setActiveImageId(null);
-
-    // ── Vídeos verificados após imagens ──────────────────────────────────────
-    const s = 14;
-    const clickedVideo = videos.slice().reverse().find(v => {
-      if (!v.videoEl) return false;
-      return time >= v.start && time <= v.end &&
-        mouseX >= v.x - s && mouseX <= v.x + v.width + s &&
-        mouseY >= v.y - s && mouseY <= v.y + v.height + s;
-    });
-    if (clickedVideo) {
-      setActiveVideoId(clickedVideo.id);
-      const nL = Math.abs(mouseX - clickedVideo.x) <= s;
-      const nR = Math.abs(mouseX - (clickedVideo.x + clickedVideo.width)) <= s;
-      const nT = Math.abs(mouseY - clickedVideo.y) <= s;
-      const nB = Math.abs(mouseY - (clickedVideo.y + clickedVideo.height)) <= s;
-      const corner = `${nT?'n':''}${nB?'s':''}${nL?'w':''}${nR?'e':''}`;
-      if (corner.length >= 2) {
-        _setDragging({ itemKind: 'canvas-video', type: 'resize', id: clickedVideo.id, corner,
-          startX: mouseX, startY: mouseY,
-          startWidth: clickedVideo.width, startHeight: clickedVideo.height,
-          startXPos: clickedVideo.x, startYPos: clickedVideo.y });
-      } else {
-        _setDragging({ itemKind: 'canvas-video', type: 'move', id: clickedVideo.id,
-          offsetX: mouseX - clickedVideo.x, offsetY: mouseY - clickedVideo.y });
-      }
-      return;
-    }
     setActiveVideoId(null);
   };
 
@@ -8128,8 +8113,9 @@ _setDragging(null);
           {(activeImageId || activeVideoId) && (() => {
             const selImg  = activeImageId ? images.find(i => i.id === activeImageId) : null;
             const selVid  = activeVideoId ? videos.find(v => v.id === activeVideoId) : null;
-            const sel     = selImg || selVid;
-            const isVid   = !!selVid;
+            // Prioridade: o que foi selecionado por último (maior id)
+            const isVid   = selVid && (!selImg || selVid.id > selImg.id);
+            const sel     = isVid ? selVid : (selImg || selVid);
             if (!sel) return null;
             const rot     = sel.rotation ?? 0;
             const setRot  = (deg) => {
@@ -8345,8 +8331,8 @@ _setDragging(null);
           {(activeImageId || activeVideoId) && (() => {
             const selImg = activeImageId ? images.find(i => i.id === activeImageId) : null;
             const selVid = activeVideoId ? videos.find(v => v.id === activeVideoId) : null;
-            const sel    = selImg || selVid;
-            const isVid  = !!selVid;
+            const isVid  = selVid && (!selImg || selVid.id > selImg.id);
+            const sel    = isVid ? selVid : (selImg || selVid);
             if (!sel) return null;
             const accent   = isVid ? '#a78bfa' : '#fbbf24';
             const accentBg = isVid ? 'rgba(167,139,250,' : 'rgba(251,191,36,';
