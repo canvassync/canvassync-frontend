@@ -8420,8 +8420,6 @@ _setDragging(null);
                   );
                 })()}
 
-              </div>
-
                 {/* ── Gerar Legendas com IA — somente para vídeo ── */}
                 {isVid && (
                   <button
@@ -8444,6 +8442,7 @@ _setDragging(null);
                   </button>
                 )}
 
+              </div>
             );
           })()}
 
