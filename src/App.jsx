@@ -2096,13 +2096,6 @@ function App() {
       }
       if (blob.size > 25 * 1024 * 1024) throw new Error('Áudio muito grande (máx 25MB). Use um arquivo menor.');
 
-      // ── Chamada ao Groq Whisper ───────────────────────────────────────────────
-      // Estratégia: tenta backend Railway primeiro (evita CORS em alguns browsers).
-      // Se o backend retornar 404 (rota ausente/endpoint alterado), faz a chamada
-      // diretamente à API do Groq — que suporta CORS de browsers modernos.
-
-      let data;
-
       const buildFormData = (includeKey) => {
         const fd = new FormData();
         fd.append('file', blob, 'audio.mp3');
@@ -2114,7 +2107,8 @@ function App() {
         return fd;
       };
 
-      // Tentativa 1: backend Railway
+      // ── Chamada: backend Railway primeiro, fallback direto ao Groq ─────────
+      let data;
       const backendUrl = import.meta.env.VITE_API_URL || 'https://canvassync-backend-production.up.railway.app';
       let usedDirect = false;
       try {
@@ -2123,7 +2117,6 @@ function App() {
           body: buildFormData(true),
         });
         if (resp.status === 404 || resp.status === 502 || resp.status === 503) {
-          // Backend indisponível — vai para fallback direto
           usedDirect = true;
         } else if (resp.status === 401) {
           throw new Error('API key inválida. Verifique no Groq.');
@@ -2132,12 +2125,10 @@ function App() {
         } else {
           data = await resp.json();
         }
-      } catch (networkErr) {
-        // Falha de rede (CORS, backend fora do ar) — tenta direto
-        if (!usedDirect) usedDirect = true;
+      } catch {
+        usedDirect = true;
       }
 
-      // Tentativa 2: Groq API diretamente (fallback)
       if (usedDirect) {
         const directResp = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {
           method: 'POST',
@@ -2145,7 +2136,7 @@ function App() {
           body: buildFormData(false),
         });
         if (directResp.status === 401) throw new Error('API key inválida. Verifique no Groq (console.groq.com).');
-        if (directResp.status === 413) throw new Error('Áudio muito grande para o Groq. Use um arquivo menor que 25MB.');
+        if (directResp.status === 413) throw new Error('Áudio muito grande. Use um arquivo menor que 25MB.');
         if (!directResp.ok) {
           const errJson = await directResp.json().catch(() => ({}));
           throw new Error(errJson?.error?.message || `Erro ${directResp.status} — tente novamente.`);
@@ -2153,100 +2144,109 @@ function App() {
         data = await directResp.json();
       }
 
-      const words = data.words || [];
+      const words    = data.words    || [];
       const segments = data.segments || [];
 
-      // Ajuste de trim e offset: os timestamps do Whisper são relativos ao arquivo original.
-      // Se o usuário cortou o início (trimStart) e/ou moveu o áudio na timeline (audioOffset),
-      // precisamos subtrair trimStart e somar audioOffset para alinhar com a timeline.
-      const trimStart = audioTrimStart || 0;
-      const trimEnd   = audioTrimEnd !== null ? audioTrimEnd : (duration || 999);
-      const offset    = audioOffset || 0;
+      const trimStart  = audioTrimStart || 0;
+      const trimEnd    = audioTrimEnd !== null ? audioTrimEnd : (duration || 999);
+      const offset     = audioOffset   || 0;
+      const adjustTime = t => Math.max(0, Math.round((t - trimStart + offset) * 100) / 100);
 
-      // Filtra palavras e segmentos que estão dentro do trecho não cortado
-      const adjustTime = t => Math.round((t - trimStart + offset) * 100) / 100;
       const filteredWords    = words.filter(w => w.start >= trimStart && w.end <= trimEnd + 0.5);
       const filteredSegments = segments.filter(s => s.start >= trimStart && s.end <= trimEnd + 0.5);
 
+      if (filteredSegments.length === 0 && filteredWords.length === 0) {
+        throw new Error('Nenhum conteúdo detectado no trecho de áudio selecionado.');
+      }
 
-
-      let newLyrics = [];
-
-      // ── NOVA ESTRATÉGIA: distribuição por tempo de segmentos ─────────────────
+      // ──────────────────────────────────────────────────────────────────────
+      // DETECÇÃO ROBUSTA DO INÍCIO VOCAL — 3 estratégias em cascata
       //
-      // Por que text-matching falhava:
-      //   • Whisper transcreve português com pronúncia diferente do texto escrito
-      //   • Músicas com refrão repetido criam ambiguidade (mesma frase em N posições)
-      //   • Funciona em músicas sem intro porque acerta na 1ª tentativa;
-      //     com intro empilha tudo no início ao falhar
+      // Problema: com intro instrumental longa (ex: 18s), o Whisper gera
+      // segmentos instrumentais com no_speech_prob < 0.4 (ruído ambiente
+      // detectado como "fala"). O código anterior usava o 1º segmento que
+      // passasse o filtro → colocava tudo na intro antes dos vocais reais.
       //
-      // Nova abordagem: IGNORAR o texto transcrito, usar apenas os TIMESTAMPS
-      // dos segmentos como âncoras de tempo. O Whisper é preciso em QUANDO está
-      // cantando mesmo quando a transcrição não corresponde à letra.
+      // Estratégia 1 (mais confiável): CLUSTER DE PALAVRAS
+      //   Word timestamps são gerados SOMENTE onde há fala real.
+      //   Procura o 1º grupo denso de ≥3 palavras em janela de 6s.
       //
-      // Passos:
-      //   1. Filtrar segmentos com conteúdo real (descartar silêncio/intro instrumental)
-      //   2. Construir "timeline vocal" com a lista de (start, end) de cada segmento
-      //   3. Distribuir as linhas da letra proporcionalmente sobre essa timeline
-      //   4. Refinamento opcional: usar word timestamps para ajuste fino quando disponíveis
+      // Estratégia 2: SEGMENTOS CONSECUTIVOS
+      //   Intros instrumentais não geram segmentos consecutivos de "fala".
+      //   Procura o 1º par de segmentos com gap < 3s entre eles.
+      //
+      // Estratégia 3 (fallback): threshold mais estrito (no_speech_prob ≤ 0.25)
+      // ──────────────────────────────────────────────────────────────────────
 
-      // ── Passo 1: segmentos com conteúdo vocal real ────────────────────────────
-      // Usa no_speech_prob (campo nativo do Whisper) como critério principal.
-      // Valores acima de 0.4 indicam ausência de voz (silêncio, instrumental).
-      // O filtro de texto serve como fallback quando no_speech_prob não vem.
-      const isVocalSegment = (seg) => {
-        // Critério 1: no_speech_prob — mais confiável que análise de texto
-        if (typeof seg.no_speech_prob === 'number' && seg.no_speech_prob > 0.4) return false;
-        // Critério 2: duração mínima real (segmentos muito curtos = ruído)
-        if ((seg.end - seg.start) < 0.5) return false;
-        // Critério 3: tem conteúdo textual real (não só "[música]", pontuação etc)
-        const txt = (seg.text || '').trim();
-        const stripped = txt.replace(/\[.*?\]/g, '').replace(/[^a-zA-ZÀ-ú0-9]/g, '').trim();
+      const hasRealText = (seg) => {
+        const stripped = (seg.text || '').trim()
+          .replace(/\[.*?\]/g, '').replace(/[^a-zA-ZÀ-ú0-9]/g, '').trim();
         return stripped.length >= 3;
       };
 
-      // Segmentos de voz confirmada
-      let vocalSegs = filteredSegments.filter(isVocalSegment);
+      let vsRaw = null;
+      let veRaw = null;
 
-      // Fallback progressivo: se o filtro estrito não encontrou nada,
-      // afrouxa apenas o no_speech_prob (mantém os outros critérios)
-      if (vocalSegs.length === 0) {
-        vocalSegs = filteredSegments.filter(seg => {
-          if ((seg.end - seg.start) < 0.3) return false;
-          const txt = (seg.text || '').trim();
-          const stripped = txt.replace(/\[.*?\]/g, '').replace(/[^a-zA-ZÀ-ú0-9]/g, '').trim();
-          return stripped.length >= 2;
-        });
+      // Estratégia 1: cluster de palavras
+      if (filteredWords.length >= 3) {
+        for (let i = 0; i <= filteredWords.length - 3; i++) {
+          const windowEnd = filteredWords[i].start + 6;
+          const inWindow  = filteredWords.filter(
+            w => w.start >= filteredWords[i].start && w.start <= windowEnd
+          );
+          if (inWindow.length >= 3) { vsRaw = filteredWords[i].start; break; }
+        }
+        if (vsRaw !== null) veRaw = filteredWords[filteredWords.length - 1].end;
       }
 
-      const hasSufficientData = vocalSegs.length > 0 || filteredWords.length > 0;
-      if (!hasSufficientData) throw new Error('Nenhum vocal detectado no áudio. Verifique se o arquivo tem voz.');
+      // Estratégia 2: segmentos vocais consecutivos
+      const vocalCandidates = filteredSegments.filter(seg =>
+        (typeof seg.no_speech_prob !== 'number' || seg.no_speech_prob <= 0.5) &&
+        (seg.end - seg.start) >= 0.4 &&
+        hasRealText(seg)
+      );
 
-      // ── Passo 2: âncoras de tempo ─────────────────────────────────────────────
-      // vsRaw = início REAL do canto (nunca antes do 1º segmento vocal confirmado)
-      // veRaw = fim do último segmento vocal
-      const vsRaw = vocalSegs.length > 0
-        ? vocalSegs[0].start
-        : (filteredWords.length > 0 ? filteredWords[0].start : (trimStart + 0.1));
-      const veRaw = vocalSegs.length > 0
-        ? vocalSegs[vocalSegs.length - 1].end
-        : (filteredWords.length > 0 ? filteredWords[filteredWords.length - 1].end : (trimStart + (duration || 30)));
+      if (vsRaw === null && vocalCandidates.length >= 2) {
+        for (let i = 0; i < vocalCandidates.length - 1; i++) {
+          const gap = vocalCandidates[i + 1].start - vocalCandidates[i].end;
+          if (gap < 3.0) {
+            vsRaw = vocalCandidates[i].start;
+            veRaw = vocalCandidates[vocalCandidates.length - 1].end;
+            break;
+          }
+        }
+      }
 
-      // ── Passo 3: construir timeline vocal como série de timestamps ────────────
-      // Cada segmento vocal contribui com um "slot" de tempo.
-      // As linhas são distribuídas proporcionalmente sobre esses slots.
-      //
-      // Ex: 20 linhas, 8 segmentos → 2-3 linhas por segmento, distribuídas dentro
-      // do intervalo (start, end) de cada segmento.
+      // Estratégia 3: threshold estrito
+      if (vsRaw === null) {
+        const strictSeg = filteredSegments.find(seg =>
+          (typeof seg.no_speech_prob === 'number' ? seg.no_speech_prob <= 0.25 : true) &&
+          (seg.end - seg.start) >= 0.5 && hasRealText(seg)
+        );
+        vsRaw = strictSeg?.start ?? (filteredSegments[0]?.start ?? trimStart + 0.5);
+        veRaw = filteredSegments[filteredSegments.length - 1]?.end
+             ?? (trimStart + (duration || 30));
+      }
+
+      if (!veRaw || veRaw <= vsRaw) veRaw = vsRaw + Math.max(lines.length * 3, 10);
+
+      // Segmentos vocais confirmados somente APÓS o início real dos vocais
+      const vocalSegs = vocalCandidates.filter(seg => seg.start >= vsRaw - 0.5);
+
+      if (vocalSegs.length === 0 && filteredWords.length === 0) {
+        throw new Error('Nenhum vocal detectado no áudio. Verifique se o arquivo tem voz.');
+      }
+
+      // ── Canvas helpers ────────────────────────────────────────────────────
       const canvas = canvasRef.current;
-      const cx = canvas ? canvas.width / 2 : 360;
+      const cx = canvas ? canvas.width  / 2 : 360;
       const cy = canvas ? Math.round(canvas.height * 0.75) : 960;
 
       const makeLyric = (text, idx, rawStart, rawEnd) => ({
-        id: Date.now() + idx,
+        id:         Date.now() + idx,
         text,
-        start: Math.round(adjustTime(rawStart) * 100) / 100,
-        end:   Math.round(Math.max(adjustTime(rawEnd), adjustTime(rawStart) + 1.0) * 100) / 100,
+        start:      adjustTime(rawStart),
+        end:        Math.max(adjustTime(rawEnd), adjustTime(rawStart) + 1.0),
         x: cx, y: cy, rotation: 0,
         fontSize:   fontSizeRef.current,
         fontFamily: fontFamilyRef.current,
@@ -2254,75 +2254,68 @@ function App() {
         twSpeed:    twSpeedRef.current,
       });
 
-      if (vocalSegs.length >= 2) {
-        // ── Distribuição por segmentos ──────────────────────────────────────────
-        // Calcula a duração total dos segmentos vocais
-        const totalVocalDur = vocalSegs.reduce((s, seg) => s + (seg.end - seg.start), 0);
-        // Para cada linha, calcula sua posição proporcional (0→1) na letra
-        // e mapeia para um ponto absoluto na timeline vocal
-        newLyrics = lines.map((text, idx) => {
-          // Posição proporcional desta linha dentro da letra (0 = início, 1 = fim)
-          const ratio = lines.length > 1 ? idx / (lines.length - 1) : 0;
-          // Ponto absoluto na duração vocal total
-          const targetDur = ratio * totalVocalDur;
+      let newLyrics = [];
 
-          // Percorre os segmentos para encontrar onde esse ponto cai
-          let accumulated = 0;
-          let rawStart = vsRaw;
-          let rawEnd   = vsRaw + 2;
+      if (vocalSegs.length >= 2) {
+        // Distribui linhas proporcionalmente pela duração dos segmentos vocais
+        const totalVocalDur = vocalSegs.reduce((s, seg) => s + (seg.end - seg.start), 0);
+        newLyrics = lines.map((text, idx) => {
+          const ratio     = lines.length > 1 ? idx / (lines.length - 1) : 0;
+          const targetDur = ratio * totalVocalDur;
+          let accumulated = 0, rawStart = vsRaw, rawEnd = vsRaw + 2;
           for (let si = 0; si < vocalSegs.length; si++) {
-            const seg = vocalSegs[si];
-            const segDur = seg.end - seg.start;
+            const seg = vocalSegs[si], segDur = seg.end - seg.start;
             if (accumulated + segDur >= targetDur || si === vocalSegs.length - 1) {
-              // Este é o segmento onde esta linha cai
-              const posInSeg = targetDur - accumulated;
-              const fracInSeg = segDur > 0 ? Math.min(posInSeg / segDur, 1) : 0;
-              rawStart = seg.start + fracInSeg * segDur;
-              // End: até o próximo segmento ou até 85% do espaço restante neste seg
-              const nextSeg = vocalSegs[si + 1];
-              const nextLineRatio = lines.length > 1 ? (idx + 1) / (lines.length - 1) : 1;
-              const nextTargetDur = Math.min(nextLineRatio * totalVocalDur, totalVocalDur);
-              let nextAcc = 0;
-              let nextRawStart = veRaw;
+              const frac = segDur > 0 ? Math.min((targetDur - accumulated) / segDur, 1) : 0;
+              rawStart = seg.start + frac * segDur;
+              const nextRatio    = lines.length > 1 ? (idx + 1) / (lines.length - 1) : 1;
+              const nextTargetDur = Math.min(nextRatio * totalVocalDur, totalVocalDur);
+              let nextAcc = 0, nextRawStart = veRaw;
               for (let sj = 0; sj < vocalSegs.length; sj++) {
-                const segJ = vocalSegs[sj];
-                const segDurJ = segJ.end - segJ.start;
-                if (nextAcc + segDurJ >= nextTargetDur || sj === vocalSegs.length - 1) {
-                  const posJ = nextTargetDur - nextAcc;
-                  const fracJ = segDurJ > 0 ? Math.min(posJ / segDurJ, 1) : 0;
-                  nextRawStart = segJ.start + fracJ * segDurJ;
-                  break;
+                const sJ = vocalSegs[sj], sDurJ = sJ.end - sJ.start;
+                if (nextAcc + sDurJ >= nextTargetDur || sj === vocalSegs.length - 1) {
+                  const fJ = sDurJ > 0 ? Math.min((nextTargetDur - nextAcc) / sDurJ, 1) : 0;
+                  nextRawStart = sJ.start + fJ * sDurJ; break;
                 }
-                nextAcc += segDurJ;
+                nextAcc += sDurJ;
               }
               rawEnd = idx < lines.length - 1
-                ? rawStart + (nextRawStart - rawStart) * 0.88
-                : veRaw;
+                ? rawStart + (nextRawStart - rawStart) * 0.88 : veRaw;
               break;
             }
             accumulated += segDur;
           }
-          rawEnd = Math.max(rawEnd, rawStart + 1.0);
+          return makeLyric(text, idx, rawStart, Math.max(rawEnd, rawStart + 1.0));
+        });
+
+      } else if (filteredWords.length >= lines.length) {
+        // Fallback word-level: distribui sobre as palavras detectadas após vsRaw
+        const wordsAfter = filteredWords.filter(w => w.start >= vsRaw - 0.5);
+        const step = Math.max(1, Math.floor(wordsAfter.length / lines.length));
+        newLyrics = lines.map((text, idx) => {
+          const wIdx     = Math.min(idx * step, wordsAfter.length - 1);
+          const rawStart = wordsAfter[wIdx]?.start ?? vsRaw;
+          const nextW    = wordsAfter[Math.min((idx + 1) * step, wordsAfter.length - 1)];
+          const rawEnd   = idx < lines.length - 1 && nextW
+            ? rawStart + (nextW.start - rawStart) * 0.88 : veRaw;
           return makeLyric(text, idx, rawStart, rawEnd);
         });
 
       } else {
-        // ── Fallback: distribuição linear entre vocalStart e vocalEnd ─────────
-        // Usado quando há poucos segmentos (ex: música falada inteira como 1 bloco)
+        // Fallback linear
         const span = Math.max(veRaw - vsRaw, lines.length * 2);
         newLyrics = lines.map((text, idx) => {
           const ratio    = lines.length > 1 ? idx / (lines.length - 1) : 0;
           const rawStart = vsRaw + ratio * span;
-          const nextRatio = lines.length > 1 ? (idx + 1) / (lines.length - 1) : 1;
-          const nextStart = vsRaw + Math.min(nextRatio, 1) * span;
-          const rawEnd    = idx < lines.length - 1
-            ? rawStart + (nextStart - rawStart) * 0.88
-            : rawStart + (span / lines.length);
+          const nRatio   = lines.length > 1 ? (idx + 1) / (lines.length - 1) : 1;
+          const rawEnd   = idx < lines.length - 1
+            ? rawStart + (vsRaw + Math.min(nRatio, 1) * span - rawStart) * 0.88
+            : rawStart + span / lines.length;
           return makeLyric(text, idx, rawStart, rawEnd);
         });
       }
 
-      // Garantia final: ordenar e eliminar qualquer sobreposição residual
+      // Ordenar e eliminar sobreposições
       newLyrics.sort((a, b) => a.start - b.start);
       for (let i = 0; i < newLyrics.length - 1; i++) {
         if (newLyrics[i].end > newLyrics[i + 1].start - 0.05) {
