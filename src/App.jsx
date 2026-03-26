@@ -2360,6 +2360,10 @@ function App() {
               radius: item.radius ?? 18,
               rotation: item.rotation ?? 0,
               filters: item.filters || {},
+              mask: item.mask || 'none',
+              maskFeather: item.maskFeather ?? 0,
+              chromaticAberration: item.chromaticAberration ?? 0,
+              keyframes: item.keyframes || [],
               transitionIn:     item.transitionIn     || 'none',
               transitionOut:    item.transitionOut    || 'none',
               transitionInDur:  item.transitionInDur  ?? 0.35,
@@ -4268,7 +4272,9 @@ _setDragging(null);
         if (kfStateI) ctx.globalAlpha = Math.max(0, Math.min(1, iOp));
         if (_itr) { _applyTr(ctx, _itr, _if, iProxy); }
         else if (_if !== 'none') { ctx.filter = _if; }
-        drawRotatedElement(ctx, () => drawRoundedImage(ctx, overlayImage.img, ix, iy, iw, ih, overlayImage.radius ?? 18), ix, iy, iw, ih, kfStateI ? kfStateI.rotation : overlayImage.rotation);
+        applyElementMask(ctx, iProxy);
+        const drawImg = (tCtx) => drawRotatedElement(tCtx || ctx, () => drawRoundedImage(tCtx || ctx, overlayImage.img, ix, iy, iw, ih, overlayImage.radius ?? 18), ix, iy, iw, ih, kfStateI ? kfStateI.rotation : overlayImage.rotation);
+        applyElementChromatic(ctx, iProxy, drawImg);
         ctx.filter = 'none'; ctx.globalAlpha = 1; ctx.restore();
         if (activeImageId === overlayImage.id) {
           const cx = ix + iw / 2, cy = iy + ih / 2;
@@ -5231,37 +5237,46 @@ _setDragging(null);
       })));
     }
 
-    // readyState >= 2 = frame atual disponível para drawImage
-    activeVids.forEach(v => {
-      if (!v.videoEl || v.videoEl.readyState < 2 || v.videoEl.videoWidth === 0) return;
-      const kfEV = getKfState(v, t);
-      const evx = kfEV ? kfEV.x : v.x, evy = kfEV ? kfEV.y : v.y;
-      const evw = kfEV ? kfEV.w : v.width, evh = kfEV ? kfEV.h : v.height;
-      const evProxy = { ...v, x: evx, y: evy, width: evw, height: evh };
-      const _evf = buildFilterString(v.filters);
-      const _etr = getTransitionTransform(evProxy, t);
-      ctx.save();
-      if (kfEV) ctx.globalAlpha = Math.max(0, Math.min(1, kfEV.opacity));
-      if (_etr) { _applyTr(ctx, _etr, _evf, evProxy); } else if(_evf!=='none'){ctx.filter=_evf;}
-      applyElementMask(ctx, evProxy);
-      const drawVidE = (tCtx) => drawRotatedElement(tCtx || ctx, () => drawRoundedImage(tCtx || ctx, v.videoEl, evx, evy, evw, evh, v.radius ?? 12), evx, evy, evw, evh, kfEV ? kfEV.rotation : v.rotation);
-      applyElementChromatic(ctx, evProxy, drawVidE);
-      ctx.filter='none'; ctx.globalAlpha=1; ctx.restore();
-    });
-    // Renderiza TODAS as imagens ativas no instante t (usa ref para evitar closure stale)
-    const activeImgs = (imagesRef.current || []).filter(item => item?.img && t >= item.start && t <= item.end);
-    activeImgs.forEach(overlayImage => {
-      const kfEI = getKfState(overlayImage, t);
-      const eix = kfEI ? kfEI.x : overlayImage.x, eiy = kfEI ? kfEI.y : overlayImage.y;
-      const eiw = kfEI ? kfEI.w : overlayImage.width, eih = kfEI ? kfEI.h : overlayImage.height;
-      const eiProxy = { ...overlayImage, x: eix, y: eiy, width: eiw, height: eih };
-      const _eif = buildFilterString(overlayImage.filters);
-      const _eit = getTransitionTransform(eiProxy, t);
-      ctx.save();
-      if (kfEI) ctx.globalAlpha = Math.max(0, Math.min(1, kfEI.opacity));
-      if (_eit) { _applyTr(ctx, _eit, _eif, eiProxy); } else if(_eif!=='none'){ctx.filter=_eif;}
-      drawRotatedElement(ctx, () => drawRoundedImage(ctx, overlayImage.img, eix, eiy, eiw, eih, overlayImage.radius ?? 18), eix, eiy, eiw, eih, kfEI ? kfEI.rotation : overlayImage.rotation);
-      ctx.filter='none'; ctx.globalAlpha=1; ctx.restore();
+    // Renderiza imagens e vídeos em z-order unificado (mesmo critério do draw principal)
+    const activeVidsExport = (videosRef.current || []).filter(v => v.videoEl && t >= v.start && t <= v.end);
+    const activeImgsExport = (imagesRef.current || []).filter(item => item?.img && t >= item.start && t <= item.end);
+    const unifiedExport = [
+      ...activeVidsExport.map(v  => ({ kind: 'video', item: v })),
+      ...activeImgsExport.map(i  => ({ kind: 'image', item: i })),
+    ].sort((a, b) => a.item.id - b.item.id);
+
+    unifiedExport.forEach(({ kind, item }) => {
+      if (kind === 'video') {
+        const v = item;
+        const kfEV = getKfState(v, t);
+        const evx = kfEV ? kfEV.x : v.x, evy = kfEV ? kfEV.y : v.y;
+        const evw = kfEV ? kfEV.w : v.width, evh = kfEV ? kfEV.h : v.height;
+        const evProxy = { ...v, x: evx, y: evy, width: evw, height: evh };
+        const _evf = buildFilterString(v.filters);
+        const _etr = getTransitionTransform(evProxy, t);
+        ctx.save();
+        if (kfEV) ctx.globalAlpha = Math.max(0, Math.min(1, kfEV.opacity));
+        if (_etr) { _applyTr(ctx, _etr, _evf, evProxy); } else if(_evf!=='none'){ctx.filter=_evf;}
+        applyElementMask(ctx, evProxy);
+        const drawVidE = (tCtx) => drawRotatedElement(tCtx || ctx, () => drawRoundedImage(tCtx || ctx, v.videoEl, evx, evy, evw, evh, v.radius ?? 12), evx, evy, evw, evh, kfEV ? kfEV.rotation : v.rotation);
+        applyElementChromatic(ctx, evProxy, drawVidE);
+        ctx.filter='none'; ctx.globalAlpha=1; ctx.restore();
+      } else {
+        const overlayImage = item;
+        const kfEI = getKfState(overlayImage, t);
+        const eix = kfEI ? kfEI.x : overlayImage.x, eiy = kfEI ? kfEI.y : overlayImage.y;
+        const eiw = kfEI ? kfEI.w : overlayImage.width, eih = kfEI ? kfEI.h : overlayImage.height;
+        const eiProxy = { ...overlayImage, x: eix, y: eiy, width: eiw, height: eih };
+        const _eif = buildFilterString(overlayImage.filters);
+        const _eit = getTransitionTransform(eiProxy, t);
+        ctx.save();
+        if (kfEI) ctx.globalAlpha = Math.max(0, Math.min(1, kfEI.opacity));
+        if (_eit) { _applyTr(ctx, _eit, _eif, eiProxy); } else if(_eif!=='none'){ctx.filter=_eif;}
+        applyElementMask(ctx, eiProxy);
+        const drawImgE = (tCtx) => drawRotatedElement(tCtx || ctx, () => drawRoundedImage(tCtx || ctx, overlayImage.img, eix, eiy, eiw, eih, overlayImage.radius ?? 18), eix, eiy, eiw, eih, kfEI ? kfEI.rotation : overlayImage.rotation);
+        applyElementChromatic(ctx, eiProxy, drawImgE);
+        ctx.filter='none'; ctx.globalAlpha=1; ctx.restore();
+      }
     });
     ctx.fillStyle = textColor;
     ctx.textAlign = 'center';
@@ -6116,6 +6131,10 @@ _setDragging(null);
       radius: item.radius,
       rotation: item.rotation ?? 0,
       filters: item.filters || {},
+      mask: item.mask || 'none',
+      maskFeather: item.maskFeather ?? 0,
+      chromaticAberration: item.chromaticAberration ?? 0,
+      keyframes: item.keyframes || [],
       transitionIn:     item.transitionIn     || 'none',
       transitionOut:    item.transitionOut    || 'none',
       transitionInDur:  item.transitionInDur  ?? 0.35,
@@ -6163,6 +6182,10 @@ _setDragging(null);
           videoBase64: b64result?.data || null,
           videoMime: b64result?.mime || 'video/mp4',
           filters: v.filters || {},
+          mask: v.mask || 'none',
+          maskFeather: v.maskFeather ?? 0,
+          chromaticAberration: v.chromaticAberration ?? 0,
+          keyframes: v.keyframes || [],
           transitionIn:     v.transitionIn     || 'none',
           transitionOut:    v.transitionOut    || 'none',
           transitionInDur:  v.transitionInDur  ?? 0.35,
@@ -6205,6 +6228,10 @@ _setDragging(null);
               radius: item.radius ?? 18,
               rotation: item.rotation ?? 0,
               filters: item.filters || {},
+              mask: item.mask || 'none',
+              maskFeather: item.maskFeather ?? 0,
+              chromaticAberration: item.chromaticAberration ?? 0,
+              keyframes: item.keyframes || [],
               transitionIn:     item.transitionIn     || 'none',
               transitionOut:    item.transitionOut    || 'none',
               transitionInDur:  item.transitionInDur  ?? 0.35,
@@ -6273,6 +6300,11 @@ _setDragging(null);
                 vidSpeed: vData.vidSpeed ?? 1,
                 rawDuration: vData.rawDuration ?? (vData.end - vData.start),
                 trimStart: vData.trimStart ?? 0,
+                filters: vData.filters || {},
+                mask: vData.mask || 'none',
+                maskFeather: vData.maskFeather ?? 0,
+                chromaticAberration: vData.chromaticAberration ?? 0,
+                keyframes: vData.keyframes || [],
                 transitionIn:     vData.transitionIn     || 'none',
                 transitionOut:    vData.transitionOut    || 'none',
                 transitionInDur:  vData.transitionInDur  ?? 0.35,
