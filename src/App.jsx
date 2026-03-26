@@ -2153,96 +2153,143 @@ function App() {
 
       let newLyrics = [];
 
-      if (filteredWords.length >= Math.ceil(lines.length * 0.5)) {
-        // ── Estratégia 1: word-level matching ────────────────────────────────
+      // ── Estratégia GLOBAL: sem cursor deslizante ──────────────────────────
+      // Problema com cursor: quando match falha, cursor avança e as palavras
+      // "puladas" ficam inacessíveis para linhas seguintes → frases puladas.
+      // Solução: cada linha busca em TODA a array de palavras (matching global),
+      // depois ordena e resolve conflitos para garantir ordem monotônica.
+
+      if (filteredWords.length > 0) {
         const normWords = filteredWords.map(w => normalize(w.word));
-        let wordCursor = 0;
 
-        // Média de palavras por linha — usada para estimar avanço quando match falha
-        const avgWordsPerLine = Math.max(1, Math.ceil(normWords.length / lines.length));
-
-        const lineTimestamps = lines.map((line, lineIdx) => {
-          const lineTokens = normalize(line).split(' ').filter(Boolean);
-          if (lineTokens.length === 0) return null;
-
-          let bestMatchStart = -1;
-          let bestScore = -1;
-
-          // Janela ampla: até 10× a média para absorver intros longas e silêncios
-          // Fix bug 2: janela grande o suficiente mesmo quando há poucas palavras vs linhas
-          const searchWindow = Math.max(avgWordsPerLine * 10, lineTokens.length * 4, 20);
-          const maxStart = Math.min(wordCursor + searchWindow, normWords.length - lineTokens.length + 1);
-
-          for (let wi = wordCursor; wi < maxStart; wi++) {
+        // ── Passo 1: score global — cada linha busca em toda a array ──────────
+        // candidates[lineIdx] = { wordStart, score, rawStart, rawEnd }
+        const candidates = lines.map((line) => {
+          const tokens = normalize(line).split(' ').filter(Boolean);
+          if (tokens.length === 0) return null;
+          let bestStart = -1, bestScore = -1;
+          // Busca em TODAS as posições (sem janela limitante)
+          for (let wi = 0; wi <= normWords.length - 1; wi++) {
             let score = 0;
-            for (let ti = 0; ti < lineTokens.length && wi + ti < normWords.length; ti++) {
-              if (normWords[wi + ti] === lineTokens[ti]) score += 2;
-              else if (normWords[wi + ti]?.includes(lineTokens[ti]) || lineTokens[ti]?.includes(normWords[wi + ti])) score += 1;
+            for (let ti = 0; ti < tokens.length && wi + ti < normWords.length; ti++) {
+              if (normWords[wi + ti] === tokens[ti]) score += 2;
+              else if (
+                normWords[wi + ti]?.includes(tokens[ti]) ||
+                tokens[ti]?.includes(normWords[wi + ti])
+              ) score += 1;
             }
-            if (score > bestScore) { bestScore = score; bestMatchStart = wi; }
+            if (score > bestScore) { bestScore = score; bestStart = wi; }
           }
-
-          // Threshold: aceita 30% de match
-          if (bestScore >= lineTokens.length * 0.30 && bestMatchStart >= 0) {
-            const matchEnd = Math.min(bestMatchStart + lineTokens.length - 1, filteredWords.length - 1);
-            wordCursor = matchEnd + 1;
+          // Threshold: mínimo de 25% das tokens com match
+          const threshold = tokens.length * 0.25;
+          if (bestScore >= threshold && bestStart >= 0) {
+            const endIdx = Math.min(bestStart + tokens.length - 1, filteredWords.length - 1);
             return {
-              start: adjustTime(filteredWords[bestMatchStart].start),
-              end:   adjustTime(filteredWords[matchEnd].end),
-              matched: true,
+              wordStart: bestStart,
+              score: bestScore,
+              rawStart: filteredWords[bestStart].start,
+              rawEnd:   filteredWords[endIdx].end,
+              matched:  true,
             };
           }
-
-          // Fix bug 1: quando match falha, avança o cursor proporcionalmente
-          // para que a próxima linha não busque na mesma janela → evita acúmulo no início
-          wordCursor = Math.min(wordCursor + avgWordsPerLine, normWords.length);
-
-          // Fallback proporcional dentro do intervalo real dos vocais
-          // vocalStart garante que não caia na introdução instrumental
-          const ratio = lineIdx / Math.max(1, lines.length - 1);
-          const fallbackRaw = vocalStart + ratio * (vocalEnd - vocalStart);
-          return { start: adjustTime(fallbackRaw), end: null, matched: false };
+          return { wordStart: -1, score: 0, rawStart: -1, rawEnd: -1, matched: false };
         });
 
-        newLyrics = lines.map((text, idx) => {
-          const ts = lineTimestamps[idx];
-          // Fix bug 3: procura o próximo timestamp MATCHED para calcular end corretamente
-          const nextMatchedTs = lineTimestamps.find((t, i) => i > idx && t && t.start > (ts?.start ?? 0));
-          const start = ts?.start ?? adjustTime(vocalStart + (idx / Math.max(1, lines.length - 1)) * (vocalEnd - vocalStart));
-
-          let end;
-          if (ts?.end && ts.matched) {
-            // Match exato: usa o end da última palavra + margem
-            end = Math.max(ts.end + 0.15, start + 1.2);
-          } else if (nextMatchedTs) {
-            // Sem end exato: ocupa até 90% do espaço antes da próxima marcação
-            end = start + (nextMatchedTs.start - start) * 0.9;
+        // ── Passo 2: resolver conflitos — dois lines no mesmo wordStart ───────
+        // Mantém o de maior score; o outro vira unmatched
+        const usedWordStarts = new Map(); // wordStart → lineIdx com maior score
+        candidates.forEach((c, i) => {
+          if (!c?.matched) return;
+          const existing = usedWordStarts.get(c.wordStart);
+          if (existing === undefined) {
+            usedWordStarts.set(c.wordStart, i);
           } else {
-            // Última linha ou sem referência: 3s padrão
+            // Conflito: mantém maior score
+            const prevScore = candidates[existing].score;
+            if (c.score > prevScore) {
+              candidates[existing] = { ...candidates[existing], matched: false };
+              usedWordStarts.set(c.wordStart, i);
+            } else {
+              candidates[i] = { ...c, matched: false };
+            }
+          }
+        });
+
+        // ── Passo 3: garantir ordem monotônica ────────────────────────────────
+        // Se linha[i] matched em posição wordStart[i] > wordStart[i+1], há inversão.
+        // Desmatcha o de menor score entre os dois.
+        for (let i = 0; i < candidates.length - 1; i++) {
+          const a = candidates[i], b = candidates[i + 1];
+          if (a?.matched && b?.matched && a.wordStart >= b.wordStart) {
+            if (a.score >= b.score) candidates[i + 1] = { ...b, matched: false };
+            else                    candidates[i]     = { ...a, matched: false };
+          }
+        }
+
+        // ── Passo 4: interpolar linhas não-matchadas entre vizinhos ──────────
+        // Coleta âncoras (linhas com match) e distribui as não-matchadas
+        // proporcionalmente no espaço entre elas.
+        // Se não há nenhum match anterior → usa vocalStart.
+        // Se não há nenhum match posterior → usa vocalEnd.
+        const anchors = candidates.map((c, i) => c?.matched ? { idx: i, t: c.rawStart } : null).filter(Boolean);
+
+        const getAnchorBefore = (idx) => {
+          for (let k = anchors.length - 1; k >= 0; k--) if (anchors[k].idx < idx) return anchors[k];
+          return { idx: -1, t: vocalStart };
+        };
+        const getAnchorAfter = (idx) => {
+          for (let k = 0; k < anchors.length; k++) if (anchors[k].idx > idx) return anchors[k];
+          return { idx: lines.length, t: vocalEnd };
+        };
+
+        candidates.forEach((c, i) => {
+          if (c?.matched) return;
+          const prev = getAnchorBefore(i);
+          const next = getAnchorAfter(i);
+          // Quantas linhas não-matchadas neste intervalo?
+          const gapLines = next.idx - prev.idx - 1;
+          const posInGap = i - prev.idx;
+          const ratio = gapLines > 0 ? posInGap / (gapLines + 1) : 0.5;
+          const interpolated = prev.t + ratio * (next.t - prev.t);
+          candidates[i] = { wordStart: -1, score: 0, rawStart: interpolated, rawEnd: -1, matched: false };
+        });
+
+        // ── Passo 5: montar newLyrics com starts e ends ───────────────────────
+        newLyrics = lines.map((text, idx) => {
+          const c = candidates[idx];
+          const start = adjustTime(c?.rawStart ?? vocalStart);
+          const next  = candidates[idx + 1];
+          let end;
+          if (c?.matched && c.rawEnd > 0) {
+            end = adjustTime(c.rawEnd + 0.15); // end real da última palavra + margem
+          } else if (next) {
+            // Sem match exato: ocupa até 85% do gap até a próxima linha
+            const nextStart = adjustTime(next.rawStart ?? vocalEnd);
+            end = start + (nextStart - start) * 0.85;
+          } else {
             end = start + 3.0;
           }
-
-          // Garante mínimo de 1s e não ultrapassa o início da próxima
-          end = Math.max(end, start + 1.0);
-          if (nextMatchedTs && end > nextMatchedTs.start - 0.1) {
-            end = Math.max(nextMatchedTs.start - 0.1, start + 1.0);
+          end = Math.max(end, start + 1.0); // mínimo 1s
+          // Não ultrapassa o início da próxima
+          if (next) {
+            const nextStart = adjustTime(next.rawStart ?? vocalEnd);
+            if (end > nextStart - 0.1) end = Math.max(nextStart - 0.1, start + 1.0);
           }
-
           return {
             id: Date.now() + idx,
             text,
             start: Math.round(start * 100) / 100,
             end:   Math.round(end   * 100) / 100,
             x: cx, y: cy, rotation: 0,
-            fontSize: fontSizeRef.current,
+            fontSize:   fontSizeRef.current,
             fontFamily: fontFamilyRef.current,
-            animType: animTypeRef.current,
-            twSpeed: twSpeedRef.current,
+            animType:   animTypeRef.current,
+            twSpeed:    twSpeedRef.current,
           };
         });
 
       } else if (filteredSegments.length > 0) {
-        // ── Estratégia 2: segment-level ───────────────────────────────────────
+        // ── Fallback: segment-level quando não há words ───────────────────────
         const linesPerSeg = lines.length / filteredSegments.length;
         newLyrics = lines.map((text, idx) => {
           const segIdx = Math.min(Math.floor(idx / linesPerSeg), filteredSegments.length - 1);
@@ -2253,17 +2300,16 @@ function App() {
           const slotSize = segDur / linesInThisSeg;
           const rawStart = seg.start + posInSeg * slotSize;
           const rawEnd   = rawStart + slotSize - 0.1;
-
           return {
             id: Date.now() + idx,
             text,
             start: Math.round(adjustTime(rawStart) * 100) / 100,
             end:   Math.round(Math.max(adjustTime(rawEnd), adjustTime(rawStart) + 1.0) * 100) / 100,
             x: cx, y: cy, rotation: 0,
-            fontSize: fontSizeRef.current,
+            fontSize:   fontSizeRef.current,
             fontFamily: fontFamilyRef.current,
-            animType: animTypeRef.current,
-            twSpeed: twSpeedRef.current,
+            animType:   animTypeRef.current,
+            twSpeed:    twSpeedRef.current,
           };
         });
 
