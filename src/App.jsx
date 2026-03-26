@@ -2096,226 +2096,144 @@ function App() {
       }
       if (blob.size > 25 * 1024 * 1024) throw new Error('Áudio muito grande (máx 25MB). Use um arquivo menor.');
 
-      const buildFormData = (includeKey) => {
-        const fd = new FormData();
-        fd.append('file', blob, 'audio.mp3');
-        fd.append('model', 'whisper-large-v3-turbo');
-        fd.append('response_format', 'verbose_json');
-        fd.append('timestamp_granularities[]', 'word');
-        fd.append('timestamp_granularities[]', 'segment');
-        if (includeKey) fd.append('groq_api_key', syncApiKey.trim());
-        return fd;
-      };
+      const formData = new FormData();
+      formData.append('file', blob, 'audio.mp3');
+      formData.append('model', 'whisper-large-v3-turbo');
+      formData.append('response_format', 'verbose_json');
+      formData.append('timestamp_granularities[]', 'word');
+      formData.append('timestamp_granularities[]', 'segment');
 
-      // ── Chamada: backend Railway primeiro, fallback direto ao Groq ─────────
-      let data;
-      const backendUrl = import.meta.env.VITE_API_URL || 'https://canvassync-backend-production.up.railway.app';
-      let usedDirect = false;
-      try {
-        const resp = await fetch(`${backendUrl}/api/groq-whisper`, {
-          method: 'POST',
-          body: buildFormData(true),
-        });
-        if (resp.status === 404 || resp.status === 502 || resp.status === 503) {
-          usedDirect = true;
-        } else if (resp.status === 401) {
-          throw new Error('API key inválida. Verifique no Groq.');
-        } else if (!resp.ok) {
-          throw new Error(`Erro ${resp.status} — tente novamente.`);
-        } else {
-          data = await resp.json();
-        }
-      } catch {
-        usedDirect = true;
-      }
+      const resp = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${syncApiKey.trim()}` },
+        body: formData,
+      });
+      if (resp.status === 401) throw new Error('API key inválida. Verifique no Groq.');
+      if (!resp.ok) throw new Error(`Erro ${resp.status} — tente novamente.`);
+      const data = await resp.json();
 
-      if (usedDirect) {
-        const directResp = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {
-          method: 'POST',
-          headers: { 'Authorization': `Bearer ${syncApiKey.trim()}` },
-          body: buildFormData(false),
-        });
-        if (directResp.status === 401) throw new Error('API key inválida. Verifique no Groq (console.groq.com).');
-        if (directResp.status === 413) throw new Error('Áudio muito grande. Use um arquivo menor que 25MB.');
-        if (!directResp.ok) {
-          const errJson = await directResp.json().catch(() => ({}));
-          throw new Error(errJson?.error?.message || `Erro ${directResp.status} — tente novamente.`);
-        }
-        data = await directResp.json();
-      }
-
-      const words    = data.words    || [];
+      const words = data.words || [];
       const segments = data.segments || [];
 
-      const trimStart  = audioTrimStart || 0;
-      const trimEnd    = audioTrimEnd !== null ? audioTrimEnd : (duration || 999);
-      const offset     = audioOffset   || 0;
-      const adjustTime = t => Math.max(0, Math.round((t - trimStart + offset) * 100) / 100);
+      // Ajuste de trim e offset: os timestamps do Whisper são relativos ao arquivo original.
+      // Se o usuário cortou o início (trimStart) e/ou moveu o áudio na timeline (audioOffset),
+      // precisamos subtrair trimStart e somar audioOffset para alinhar com a timeline.
+      const trimStart = audioTrimStart || 0;
+      const trimEnd   = audioTrimEnd !== null ? audioTrimEnd : (duration || 999);
+      const offset    = audioOffset || 0;
 
+      // Filtra palavras e segmentos que estão dentro do trecho não cortado
+      const adjustTime = t => Math.round((t - trimStart + offset) * 100) / 100;
       const filteredWords    = words.filter(w => w.start >= trimStart && w.end <= trimEnd + 0.5);
       const filteredSegments = segments.filter(s => s.start >= trimStart && s.end <= trimEnd + 0.5);
 
-      if (filteredSegments.length === 0 && filteredWords.length === 0) {
-        throw new Error('Nenhum conteúdo detectado no trecho de áudio selecionado.');
-      }
+      const totalDur = filteredSegments.length > 0
+        ? adjustTime(filteredSegments[filteredSegments.length - 1].end)
+        : (duration || 30);
 
-      // ──────────────────────────────────────────────────────────────────────
-      // DETECÇÃO ROBUSTA DO INÍCIO VOCAL — 3 estratégias em cascata
-      //
-      // Problema: com intro instrumental longa (ex: 18s), o Whisper gera
-      // segmentos instrumentais com no_speech_prob < 0.4 (ruído ambiente
-      // detectado como "fala"). O código anterior usava o 1º segmento que
-      // passasse o filtro → colocava tudo na intro antes dos vocais reais.
-      //
-      // Estratégia 1 (mais confiável): CLUSTER DE PALAVRAS
-      //   Word timestamps são gerados SOMENTE onde há fala real.
-      //   Procura o 1º grupo denso de ≥3 palavras em janela de 6s.
-      //
-      // Estratégia 2: SEGMENTOS CONSECUTIVOS
-      //   Intros instrumentais não geram segmentos consecutivos de "fala".
-      //   Procura o 1º par de segmentos com gap < 3s entre eles.
-      //
-      // Estratégia 3 (fallback): threshold mais estrito (no_speech_prob ≤ 0.25)
-      // ──────────────────────────────────────────────────────────────────────
-
-      const hasRealText = (seg) => {
-        const stripped = (seg.text || '').trim()
-          .replace(/\[.*?\]/g, '').replace(/[^a-zA-ZÀ-ú0-9]/g, '').trim();
-        return stripped.length >= 3;
-      };
-
-      let vsRaw = null;
-      let veRaw = null;
-
-      // Estratégia 1: cluster de palavras
-      if (filteredWords.length >= 3) {
-        for (let i = 0; i <= filteredWords.length - 3; i++) {
-          const windowEnd = filteredWords[i].start + 6;
-          const inWindow  = filteredWords.filter(
-            w => w.start >= filteredWords[i].start && w.start <= windowEnd
-          );
-          if (inWindow.length >= 3) { vsRaw = filteredWords[i].start; break; }
-        }
-        if (vsRaw !== null) veRaw = filteredWords[filteredWords.length - 1].end;
-      }
-
-      // Estratégia 2: segmentos vocais consecutivos
-      const vocalCandidates = filteredSegments.filter(seg =>
-        (typeof seg.no_speech_prob !== 'number' || seg.no_speech_prob <= 0.5) &&
-        (seg.end - seg.start) >= 0.4 &&
-        hasRealText(seg)
-      );
-
-      if (vsRaw === null && vocalCandidates.length >= 2) {
-        for (let i = 0; i < vocalCandidates.length - 1; i++) {
-          const gap = vocalCandidates[i + 1].start - vocalCandidates[i].end;
-          if (gap < 3.0) {
-            vsRaw = vocalCandidates[i].start;
-            veRaw = vocalCandidates[vocalCandidates.length - 1].end;
-            break;
-          }
-        }
-      }
-
-      // Estratégia 3: threshold estrito
-      if (vsRaw === null) {
-        const strictSeg = filteredSegments.find(seg =>
-          (typeof seg.no_speech_prob === 'number' ? seg.no_speech_prob <= 0.25 : true) &&
-          (seg.end - seg.start) >= 0.5 && hasRealText(seg)
-        );
-        vsRaw = strictSeg?.start ?? (filteredSegments[0]?.start ?? trimStart + 0.5);
-        veRaw = filteredSegments[filteredSegments.length - 1]?.end
-             ?? (trimStart + (duration || 30));
-      }
-
-      if (!veRaw || veRaw <= vsRaw) veRaw = vsRaw + Math.max(lines.length * 3, 10);
-
-      // Segmentos vocais confirmados somente APÓS o início real dos vocais
-      const vocalSegs = vocalCandidates.filter(seg => seg.start >= vsRaw - 0.5);
-
-      if (vocalSegs.length === 0 && filteredWords.length === 0) {
-        throw new Error('Nenhum vocal detectado no áudio. Verifique se o arquivo tem voz.');
-      }
-
-      // ── Canvas helpers ────────────────────────────────────────────────────
       const canvas = canvasRef.current;
-      const cx = canvas ? canvas.width  / 2 : 360;
+      const cx = canvas ? canvas.width / 2 : 360;
       const cy = canvas ? Math.round(canvas.height * 0.75) : 960;
 
-      const makeLyric = (text, idx, rawStart, rawEnd) => ({
-        id:         Date.now() + idx,
-        text,
-        start:      adjustTime(rawStart),
-        end:        Math.max(adjustTime(rawEnd), adjustTime(rawStart) + 1.0),
-        x: cx, y: cy, rotation: 0,
-        fontSize:   fontSizeRef.current,
-        fontFamily: fontFamilyRef.current,
-        animType:   animTypeRef.current,
-        twSpeed:    twSpeedRef.current,
-      });
+      // Normaliza string: minúsculo, sem pontuação, sem acentos
+      const normalize = str => str
+        .toLowerCase()
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z0-9\s]/g, '')
+        .replace(/\s+/g, ' ')
+        .trim();
 
       let newLyrics = [];
 
-      if (vocalSegs.length >= 2) {
-        // Distribui linhas proporcionalmente pela duração dos segmentos vocais
-        const totalVocalDur = vocalSegs.reduce((s, seg) => s + (seg.end - seg.start), 0);
-        newLyrics = lines.map((text, idx) => {
-          const ratio     = lines.length > 1 ? idx / (lines.length - 1) : 0;
-          const targetDur = ratio * totalVocalDur;
-          let accumulated = 0, rawStart = vsRaw, rawEnd = vsRaw + 2;
-          for (let si = 0; si < vocalSegs.length; si++) {
-            const seg = vocalSegs[si], segDur = seg.end - seg.start;
-            if (accumulated + segDur >= targetDur || si === vocalSegs.length - 1) {
-              const frac = segDur > 0 ? Math.min((targetDur - accumulated) / segDur, 1) : 0;
-              rawStart = seg.start + frac * segDur;
-              const nextRatio    = lines.length > 1 ? (idx + 1) / (lines.length - 1) : 1;
-              const nextTargetDur = Math.min(nextRatio * totalVocalDur, totalVocalDur);
-              let nextAcc = 0, nextRawStart = veRaw;
-              for (let sj = 0; sj < vocalSegs.length; sj++) {
-                const sJ = vocalSegs[sj], sDurJ = sJ.end - sJ.start;
-                if (nextAcc + sDurJ >= nextTargetDur || sj === vocalSegs.length - 1) {
-                  const fJ = sDurJ > 0 ? Math.min((nextTargetDur - nextAcc) / sDurJ, 1) : 0;
-                  nextRawStart = sJ.start + fJ * sDurJ; break;
-                }
-                nextAcc += sDurJ;
-              }
-              rawEnd = idx < lines.length - 1
-                ? rawStart + (nextRawStart - rawStart) * 0.88 : veRaw;
-              break;
+      if (filteredWords.length >= lines.length) {
+        // ── Estratégia 1: word-level matching ────────────────────────────────
+        const normWords = filteredWords.map(w => normalize(w.word));
+        let wordCursor = 0;
+
+        const lineTimestamps = lines.map((line, lineIdx) => {
+          const lineTokens = normalize(line).split(' ').filter(Boolean);
+          if (lineTokens.length === 0) return null;
+
+          let bestMatchStart = -1;
+          let bestScore = -1;
+
+          const maxStart = Math.min(wordCursor + Math.ceil(normWords.length / lines.length) * 3, normWords.length - lineTokens.length + 1);
+          for (let wi = wordCursor; wi < maxStart; wi++) {
+            let score = 0;
+            for (let ti = 0; ti < lineTokens.length && wi + ti < normWords.length; ti++) {
+              if (normWords[wi + ti] === lineTokens[ti]) score += 2;
+              else if (normWords[wi + ti]?.includes(lineTokens[ti]) || lineTokens[ti]?.includes(normWords[wi + ti])) score += 1;
             }
-            accumulated += segDur;
+            if (score > bestScore) { bestScore = score; bestMatchStart = wi; }
           }
-          return makeLyric(text, idx, rawStart, Math.max(rawEnd, rawStart + 1.0));
+
+          if (bestScore >= lineTokens.length * 0.5 && bestMatchStart >= 0) {
+            const matchEnd = Math.min(bestMatchStart + lineTokens.length - 1, filteredWords.length - 1);
+            wordCursor = matchEnd + 1;
+            return {
+              start: adjustTime(filteredWords[bestMatchStart].start),
+              end:   adjustTime(filteredWords[matchEnd].end),
+            };
+          }
+
+          const ratio = lineIdx / lines.length;
+          return { start: offset + ratio * (totalDur - offset), end: null };
         });
 
-      } else if (filteredWords.length >= lines.length) {
-        // Fallback word-level: distribui sobre as palavras detectadas após vsRaw
-        const wordsAfter = filteredWords.filter(w => w.start >= vsRaw - 0.5);
-        const step = Math.max(1, Math.floor(wordsAfter.length / lines.length));
         newLyrics = lines.map((text, idx) => {
-          const wIdx     = Math.min(idx * step, wordsAfter.length - 1);
-          const rawStart = wordsAfter[wIdx]?.start ?? vsRaw;
-          const nextW    = wordsAfter[Math.min((idx + 1) * step, wordsAfter.length - 1)];
-          const rawEnd   = idx < lines.length - 1 && nextW
-            ? rawStart + (nextW.start - rawStart) * 0.88 : veRaw;
-          return makeLyric(text, idx, rawStart, rawEnd);
+          const ts = lineTimestamps[idx];
+          const nextTs = lineTimestamps.find((t, i) => i > idx && t && t.start > (ts?.start ?? 0));
+          const start = ts?.start ?? (offset + (idx / lines.length) * totalDur);
+          let end = ts?.end
+            ? Math.max(ts.end, start + 1.0)
+            : (nextTs ? Math.max(nextTs.start - 0.1, start + 1.5) : start + 3);
+          if (nextTs && end > nextTs.start - 0.05) end = nextTs.start - 0.05;
+          end = Math.max(end, start + 1.0);
+
+          return {
+            id: Date.now() + idx,
+            text,
+            start: Math.round(start * 100) / 100,
+            end:   Math.round(end   * 100) / 100,
+            x: cx, y: cy, rotation: 0,
+            fontSize: fontSizeRef.current,
+            fontFamily: fontFamilyRef.current,
+            animType: animTypeRef.current,
+            twSpeed: twSpeedRef.current,
+          };
+        });
+
+      } else if (filteredSegments.length > 0) {
+        // ── Estratégia 2: segment-level ───────────────────────────────────────
+        const linesPerSeg = lines.length / filteredSegments.length;
+        newLyrics = lines.map((text, idx) => {
+          const segIdx = Math.min(Math.floor(idx / linesPerSeg), filteredSegments.length - 1);
+          const seg = filteredSegments[segIdx];
+          const linesInThisSeg = Math.round(linesPerSeg) || 1;
+          const posInSeg = idx - Math.floor(segIdx * linesPerSeg);
+          const segDur = seg.end - seg.start;
+          const slotSize = segDur / linesInThisSeg;
+          const rawStart = seg.start + posInSeg * slotSize;
+          const rawEnd   = rawStart + slotSize - 0.1;
+
+          return {
+            id: Date.now() + idx,
+            text,
+            start: Math.round(adjustTime(rawStart) * 100) / 100,
+            end:   Math.round(Math.max(adjustTime(rawEnd), adjustTime(rawStart) + 1.0) * 100) / 100,
+            x: cx, y: cy, rotation: 0,
+            fontSize: fontSizeRef.current,
+            fontFamily: fontFamilyRef.current,
+            animType: animTypeRef.current,
+            twSpeed: twSpeedRef.current,
+          };
         });
 
       } else {
-        // Fallback linear
-        const span = Math.max(veRaw - vsRaw, lines.length * 2);
-        newLyrics = lines.map((text, idx) => {
-          const ratio    = lines.length > 1 ? idx / (lines.length - 1) : 0;
-          const rawStart = vsRaw + ratio * span;
-          const nRatio   = lines.length > 1 ? (idx + 1) / (lines.length - 1) : 1;
-          const rawEnd   = idx < lines.length - 1
-            ? rawStart + (vsRaw + Math.min(nRatio, 1) * span - rawStart) * 0.88
-            : rawStart + span / lines.length;
-          return makeLyric(text, idx, rawStart, rawEnd);
-        });
+        throw new Error('Nenhum segmento detectado no áudio.');
       }
 
-      // Ordenar e eliminar sobreposições
+      // Garantia final: ordenar e eliminar qualquer sobreposição residual
       newLyrics.sort((a, b) => a.start - b.start);
       for (let i = 0; i < newLyrics.length - 1; i++) {
         if (newLyrics[i].end > newLyrics[i + 1].start - 0.05) {
