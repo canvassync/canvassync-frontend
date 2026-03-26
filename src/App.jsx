@@ -2127,9 +2127,17 @@ function App() {
       const filteredWords    = words.filter(w => w.start >= trimStart && w.end <= trimEnd + 0.5);
       const filteredSegments = segments.filter(s => s.start >= trimStart && s.end <= trimEnd + 0.5);
 
-      const totalDur = filteredSegments.length > 0
-        ? adjustTime(filteredSegments[filteredSegments.length - 1].end)
-        : (duration || 30);
+      // ── Âncoras reais do vocal detectado pelo Whisper ───────────────────────
+      // Usa os timestamps reais das palavras/segmentos como limites de distribuição.
+      // Isso garante que linhas NÃO caiam na introdução instrumental.
+      const vocalStart = filteredWords.length > 0
+        ? filteredWords[0].start
+        : (filteredSegments.length > 0 ? filteredSegments[0].start : trimStart);
+      const vocalEnd = filteredWords.length > 0
+        ? filteredWords[filteredWords.length - 1].end
+        : (filteredSegments.length > 0 ? filteredSegments[filteredSegments.length - 1].end : (trimStart + (duration || 30)));
+
+      const totalDur = adjustTime(vocalEnd);
 
       const canvas = canvasRef.current;
       const cx = canvas ? canvas.width / 2 : 360;
@@ -2145,10 +2153,13 @@ function App() {
 
       let newLyrics = [];
 
-      if (filteredWords.length >= lines.length) {
+      if (filteredWords.length >= Math.ceil(lines.length * 0.5)) {
         // ── Estratégia 1: word-level matching ────────────────────────────────
         const normWords = filteredWords.map(w => normalize(w.word));
         let wordCursor = 0;
+
+        // Calcula média de palavras por linha para dimensionar a janela de busca
+        const avgWordsPerLine = Math.max(1, Math.ceil(normWords.length / lines.length));
 
         const lineTimestamps = lines.map((line, lineIdx) => {
           const lineTokens = normalize(line).split(' ').filter(Boolean);
@@ -2157,7 +2168,10 @@ function App() {
           let bestMatchStart = -1;
           let bestScore = -1;
 
-          const maxStart = Math.min(wordCursor + Math.ceil(normWords.length / lines.length) * 3, normWords.length - lineTokens.length + 1);
+          // Janela ampla: avança até 6× a média por linha para absorver frases longas/silêncios
+          const searchWindow = avgWordsPerLine * 6;
+          const maxStart = Math.min(wordCursor + searchWindow, normWords.length - lineTokens.length + 1);
+
           for (let wi = wordCursor; wi < maxStart; wi++) {
             let score = 0;
             for (let ti = 0; ti < lineTokens.length && wi + ti < normWords.length; ti++) {
@@ -2167,7 +2181,8 @@ function App() {
             if (score > bestScore) { bestScore = score; bestMatchStart = wi; }
           }
 
-          if (bestScore >= lineTokens.length * 0.5 && bestMatchStart >= 0) {
+          // Threshold reduzido: aceita 35% de match (antes era 50%)
+          if (bestScore >= lineTokens.length * 0.35 && bestMatchStart >= 0) {
             const matchEnd = Math.min(bestMatchStart + lineTokens.length - 1, filteredWords.length - 1);
             wordCursor = matchEnd + 1;
             return {
@@ -2176,14 +2191,17 @@ function App() {
             };
           }
 
+          // Fallback: distribui DENTRO do intervalo real dos vocais detectados
+          // (não de 0, mas de vocalStart — onde o Whisper detectou a primeira palavra)
           const ratio = lineIdx / lines.length;
-          return { start: offset + ratio * (totalDur - offset), end: null };
+          const fallbackRaw = vocalStart + ratio * (vocalEnd - vocalStart);
+          return { start: adjustTime(fallbackRaw), end: null };
         });
 
         newLyrics = lines.map((text, idx) => {
           const ts = lineTimestamps[idx];
           const nextTs = lineTimestamps.find((t, i) => i > idx && t && t.start > (ts?.start ?? 0));
-          const start = ts?.start ?? (offset + (idx / lines.length) * totalDur);
+          const start = ts?.start ?? adjustTime(vocalStart + (idx / lines.length) * (vocalEnd - vocalStart));
           let end = ts?.end
             ? Math.max(ts.end, start + 1.0)
             : (nextTs ? Math.max(nextTs.start - 0.1, start + 1.5) : start + 3);
