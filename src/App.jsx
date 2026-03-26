@@ -2103,9 +2103,11 @@ function App() {
       formData.append('timestamp_granularities[]', 'word');
       formData.append('timestamp_granularities[]', 'segment');
 
-      const resp = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {
+      // Chamada via backend Railway para evitar bloqueio de CORS
+      const backendUrl = import.meta.env.VITE_API_URL || 'https://canvassync-backend-production.up.railway.app';
+      formData.append('groq_api_key', syncApiKey.trim());
+      const resp = await fetch(`${backendUrl}/api/groq-whisper`, {
         method: 'POST',
-        headers: { 'Authorization': `Bearer ${syncApiKey.trim()}` },
         body: formData,
       });
       if (resp.status === 401) throw new Error('API key inválida. Verifique no Groq.');
@@ -2150,22 +2152,40 @@ function App() {
       //   4. Refinamento opcional: usar word timestamps para ajuste fino quando disponíveis
 
       // ── Passo 1: segmentos com conteúdo vocal real ────────────────────────────
-      // Descarta segmentos silenciosos, de música instrumental, ou muito curtos.
+      // Usa no_speech_prob (campo nativo do Whisper) como critério principal.
+      // Valores acima de 0.4 indicam ausência de voz (silêncio, instrumental).
+      // O filtro de texto serve como fallback quando no_speech_prob não vem.
       const isVocalSegment = (seg) => {
+        // Critério 1: no_speech_prob — mais confiável que análise de texto
+        if (typeof seg.no_speech_prob === 'number' && seg.no_speech_prob > 0.4) return false;
+        // Critério 2: duração mínima real (segmentos muito curtos = ruído)
+        if ((seg.end - seg.start) < 0.5) return false;
+        // Critério 3: tem conteúdo textual real (não só "[música]", pontuação etc)
         const txt = (seg.text || '').trim();
-        // Segmento deve ter ao menos 2 chars reais (não só pontuação ou "[...]")
         const stripped = txt.replace(/\[.*?\]/g, '').replace(/[^a-zA-ZÀ-ú0-9]/g, '').trim();
-        return stripped.length >= 2 && (seg.end - seg.start) >= 0.3;
+        return stripped.length >= 3;
       };
-      const vocalSegs = filteredSegments.filter(isVocalSegment);
 
-      // Se Whisper não retornou segmentos vocais úteis, tenta com words
+      // Segmentos de voz confirmada
+      let vocalSegs = filteredSegments.filter(isVocalSegment);
+
+      // Fallback progressivo: se o filtro estrito não encontrou nada,
+      // afrouxa apenas o no_speech_prob (mantém os outros critérios)
+      if (vocalSegs.length === 0) {
+        vocalSegs = filteredSegments.filter(seg => {
+          if ((seg.end - seg.start) < 0.3) return false;
+          const txt = (seg.text || '').trim();
+          const stripped = txt.replace(/\[.*?\]/g, '').replace(/[^a-zA-ZÀ-ú0-9]/g, '').trim();
+          return stripped.length >= 2;
+        });
+      }
+
       const hasSufficientData = vocalSegs.length > 0 || filteredWords.length > 0;
       if (!hasSufficientData) throw new Error('Nenhum vocal detectado no áudio. Verifique se o arquivo tem voz.');
 
       // ── Passo 2: âncoras de tempo ─────────────────────────────────────────────
-      // vocalStart/vocalEnd são o início e fim real do canto detectado pelo Whisper.
-      // Isso garante que NENHUMA linha caia na introdução instrumental.
+      // vsRaw = início REAL do canto (nunca antes do 1º segmento vocal confirmado)
+      // veRaw = fim do último segmento vocal
       const vsRaw = vocalSegs.length > 0
         ? vocalSegs[0].start
         : (filteredWords.length > 0 ? filteredWords[0].start : (trimStart + 0.1));
