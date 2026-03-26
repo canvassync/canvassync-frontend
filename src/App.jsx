@@ -2158,7 +2158,7 @@ function App() {
         const normWords = filteredWords.map(w => normalize(w.word));
         let wordCursor = 0;
 
-        // Calcula média de palavras por linha para dimensionar a janela de busca
+        // Média de palavras por linha — usada para estimar avanço quando match falha
         const avgWordsPerLine = Math.max(1, Math.ceil(normWords.length / lines.length));
 
         const lineTimestamps = lines.map((line, lineIdx) => {
@@ -2168,8 +2168,9 @@ function App() {
           let bestMatchStart = -1;
           let bestScore = -1;
 
-          // Janela ampla: avança até 6× a média por linha para absorver frases longas/silêncios
-          const searchWindow = avgWordsPerLine * 6;
+          // Janela ampla: até 10× a média para absorver intros longas e silêncios
+          // Fix bug 2: janela grande o suficiente mesmo quando há poucas palavras vs linhas
+          const searchWindow = Math.max(avgWordsPerLine * 10, lineTokens.length * 4, 20);
           const maxStart = Math.min(wordCursor + searchWindow, normWords.length - lineTokens.length + 1);
 
           for (let wi = wordCursor; wi < maxStart; wi++) {
@@ -2181,32 +2182,51 @@ function App() {
             if (score > bestScore) { bestScore = score; bestMatchStart = wi; }
           }
 
-          // Threshold reduzido: aceita 35% de match (antes era 50%)
-          if (bestScore >= lineTokens.length * 0.35 && bestMatchStart >= 0) {
+          // Threshold: aceita 30% de match
+          if (bestScore >= lineTokens.length * 0.30 && bestMatchStart >= 0) {
             const matchEnd = Math.min(bestMatchStart + lineTokens.length - 1, filteredWords.length - 1);
             wordCursor = matchEnd + 1;
             return {
               start: adjustTime(filteredWords[bestMatchStart].start),
               end:   adjustTime(filteredWords[matchEnd].end),
+              matched: true,
             };
           }
 
-          // Fallback: distribui DENTRO do intervalo real dos vocais detectados
-          // (não de 0, mas de vocalStart — onde o Whisper detectou a primeira palavra)
-          const ratio = lineIdx / lines.length;
+          // Fix bug 1: quando match falha, avança o cursor proporcionalmente
+          // para que a próxima linha não busque na mesma janela → evita acúmulo no início
+          wordCursor = Math.min(wordCursor + avgWordsPerLine, normWords.length);
+
+          // Fallback proporcional dentro do intervalo real dos vocais
+          // vocalStart garante que não caia na introdução instrumental
+          const ratio = lineIdx / Math.max(1, lines.length - 1);
           const fallbackRaw = vocalStart + ratio * (vocalEnd - vocalStart);
-          return { start: adjustTime(fallbackRaw), end: null };
+          return { start: adjustTime(fallbackRaw), end: null, matched: false };
         });
 
         newLyrics = lines.map((text, idx) => {
           const ts = lineTimestamps[idx];
-          const nextTs = lineTimestamps.find((t, i) => i > idx && t && t.start > (ts?.start ?? 0));
-          const start = ts?.start ?? adjustTime(vocalStart + (idx / lines.length) * (vocalEnd - vocalStart));
-          let end = ts?.end
-            ? Math.max(ts.end, start + 1.0)
-            : (nextTs ? Math.max(nextTs.start - 0.1, start + 1.5) : start + 3);
-          if (nextTs && end > nextTs.start - 0.05) end = nextTs.start - 0.05;
+          // Fix bug 3: procura o próximo timestamp MATCHED para calcular end corretamente
+          const nextMatchedTs = lineTimestamps.find((t, i) => i > idx && t && t.start > (ts?.start ?? 0));
+          const start = ts?.start ?? adjustTime(vocalStart + (idx / Math.max(1, lines.length - 1)) * (vocalEnd - vocalStart));
+
+          let end;
+          if (ts?.end && ts.matched) {
+            // Match exato: usa o end da última palavra + margem
+            end = Math.max(ts.end + 0.15, start + 1.2);
+          } else if (nextMatchedTs) {
+            // Sem end exato: ocupa até 90% do espaço antes da próxima marcação
+            end = start + (nextMatchedTs.start - start) * 0.9;
+          } else {
+            // Última linha ou sem referência: 3s padrão
+            end = start + 3.0;
+          }
+
+          // Garante mínimo de 1s e não ultrapassa o início da próxima
           end = Math.max(end, start + 1.0);
+          if (nextMatchedTs && end > nextMatchedTs.start - 0.1) {
+            end = Math.max(nextMatchedTs.start - 0.1, start + 1.0);
+          }
 
           return {
             id: Date.now() + idx,
