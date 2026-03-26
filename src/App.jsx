@@ -2103,9 +2103,11 @@ function App() {
       formData.append('timestamp_granularities[]', 'word');
       formData.append('timestamp_granularities[]', 'segment');
 
-      const resp = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {
+      // Chamada via backend Railway para evitar bloqueio de CORS
+      const backendUrl = import.meta.env.VITE_API_URL || 'https://canvassync-backend-production.up.railway.app';
+      formData.append('groq_api_key', syncApiKey.trim());
+      const resp = await fetch(`${backendUrl}/api/groq-whisper`, {
         method: 'POST',
-        headers: { 'Authorization': `Bearer ${syncApiKey.trim()}` },
         body: formData,
       });
       if (resp.status === 401) throw new Error('API key inválida. Verifique no Groq.');
