@@ -2096,23 +2096,62 @@ function App() {
       }
       if (blob.size > 25 * 1024 * 1024) throw new Error('Áudio muito grande (máx 25MB). Use um arquivo menor.');
 
-      const formData = new FormData();
-      formData.append('file', blob, 'audio.mp3');
-      formData.append('model', 'whisper-large-v3-turbo');
-      formData.append('response_format', 'verbose_json');
-      formData.append('timestamp_granularities[]', 'word');
-      formData.append('timestamp_granularities[]', 'segment');
+      // ── Chamada ao Groq Whisper ───────────────────────────────────────────────
+      // Estratégia: tenta backend Railway primeiro (evita CORS em alguns browsers).
+      // Se o backend retornar 404 (rota ausente/endpoint alterado), faz a chamada
+      // diretamente à API do Groq — que suporta CORS de browsers modernos.
 
-      // Chamada via backend Railway para evitar bloqueio de CORS
+      let data;
+
+      const buildFormData = (includeKey) => {
+        const fd = new FormData();
+        fd.append('file', blob, 'audio.mp3');
+        fd.append('model', 'whisper-large-v3-turbo');
+        fd.append('response_format', 'verbose_json');
+        fd.append('timestamp_granularities[]', 'word');
+        fd.append('timestamp_granularities[]', 'segment');
+        if (includeKey) fd.append('groq_api_key', syncApiKey.trim());
+        return fd;
+      };
+
+      // Tentativa 1: backend Railway
       const backendUrl = import.meta.env.VITE_API_URL || 'https://canvassync-backend-production.up.railway.app';
-      formData.append('groq_api_key', syncApiKey.trim());
-      const resp = await fetch(`${backendUrl}/api/groq-whisper`, {
-        method: 'POST',
-        body: formData,
-      });
-      if (resp.status === 401) throw new Error('API key inválida. Verifique no Groq.');
-      if (!resp.ok) throw new Error(`Erro ${resp.status} — tente novamente.`);
-      const data = await resp.json();
+      let usedDirect = false;
+      try {
+        const resp = await fetch(`${backendUrl}/api/groq-whisper`, {
+          method: 'POST',
+          body: buildFormData(true),
+        });
+        if (resp.status === 404 || resp.status === 502 || resp.status === 503) {
+          // Backend indisponível — vai para fallback direto
+          usedDirect = true;
+        } else if (resp.status === 401) {
+          throw new Error('API key inválida. Verifique no Groq.');
+        } else if (!resp.ok) {
+          throw new Error(`Erro ${resp.status} — tente novamente.`);
+        } else {
+          data = await resp.json();
+        }
+      } catch (networkErr) {
+        // Falha de rede (CORS, backend fora do ar) — tenta direto
+        if (!usedDirect) usedDirect = true;
+      }
+
+      // Tentativa 2: Groq API diretamente (fallback)
+      if (usedDirect) {
+        const directResp = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${syncApiKey.trim()}` },
+          body: buildFormData(false),
+        });
+        if (directResp.status === 401) throw new Error('API key inválida. Verifique no Groq (console.groq.com).');
+        if (directResp.status === 413) throw new Error('Áudio muito grande para o Groq. Use um arquivo menor que 25MB.');
+        if (!directResp.ok) {
+          const errJson = await directResp.json().catch(() => ({}));
+          throw new Error(errJson?.error?.message || `Erro ${directResp.status} — tente novamente.`);
+        }
+        data = await directResp.json();
+      }
 
       const words = data.words || [];
       const segments = data.segments || [];
