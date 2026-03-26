@@ -2127,194 +2127,140 @@ function App() {
       const filteredWords    = words.filter(w => w.start >= trimStart && w.end <= trimEnd + 0.5);
       const filteredSegments = segments.filter(s => s.start >= trimStart && s.end <= trimEnd + 0.5);
 
-      // ── Âncoras reais do vocal detectado pelo Whisper ───────────────────────
-      // Usa os timestamps reais das palavras/segmentos como limites de distribuição.
-      // Isso garante que linhas NÃO caiam na introdução instrumental.
-      const vocalStart = filteredWords.length > 0
-        ? filteredWords[0].start
-        : (filteredSegments.length > 0 ? filteredSegments[0].start : trimStart);
-      const vocalEnd = filteredWords.length > 0
-        ? filteredWords[filteredWords.length - 1].end
-        : (filteredSegments.length > 0 ? filteredSegments[filteredSegments.length - 1].end : (trimStart + (duration || 30)));
 
-      const totalDur = adjustTime(vocalEnd);
 
+      let newLyrics = [];
+
+      // ── NOVA ESTRATÉGIA: distribuição por tempo de segmentos ─────────────────
+      //
+      // Por que text-matching falhava:
+      //   • Whisper transcreve português com pronúncia diferente do texto escrito
+      //   • Músicas com refrão repetido criam ambiguidade (mesma frase em N posições)
+      //   • Funciona em músicas sem intro porque acerta na 1ª tentativa;
+      //     com intro empilha tudo no início ao falhar
+      //
+      // Nova abordagem: IGNORAR o texto transcrito, usar apenas os TIMESTAMPS
+      // dos segmentos como âncoras de tempo. O Whisper é preciso em QUANDO está
+      // cantando mesmo quando a transcrição não corresponde à letra.
+      //
+      // Passos:
+      //   1. Filtrar segmentos com conteúdo real (descartar silêncio/intro instrumental)
+      //   2. Construir "timeline vocal" com a lista de (start, end) de cada segmento
+      //   3. Distribuir as linhas da letra proporcionalmente sobre essa timeline
+      //   4. Refinamento opcional: usar word timestamps para ajuste fino quando disponíveis
+
+      // ── Passo 1: segmentos com conteúdo vocal real ────────────────────────────
+      // Descarta segmentos silenciosos, de música instrumental, ou muito curtos.
+      const isVocalSegment = (seg) => {
+        const txt = (seg.text || '').trim();
+        // Segmento deve ter ao menos 2 chars reais (não só pontuação ou "[...]")
+        const stripped = txt.replace(/\[.*?\]/g, '').replace(/[^a-zA-ZÀ-ú0-9]/g, '').trim();
+        return stripped.length >= 2 && (seg.end - seg.start) >= 0.3;
+      };
+      const vocalSegs = filteredSegments.filter(isVocalSegment);
+
+      // Se Whisper não retornou segmentos vocais úteis, tenta com words
+      const hasSufficientData = vocalSegs.length > 0 || filteredWords.length > 0;
+      if (!hasSufficientData) throw new Error('Nenhum vocal detectado no áudio. Verifique se o arquivo tem voz.');
+
+      // ── Passo 2: âncoras de tempo ─────────────────────────────────────────────
+      // vocalStart/vocalEnd são o início e fim real do canto detectado pelo Whisper.
+      // Isso garante que NENHUMA linha caia na introdução instrumental.
+      const vsRaw = vocalSegs.length > 0
+        ? vocalSegs[0].start
+        : (filteredWords.length > 0 ? filteredWords[0].start : (trimStart + 0.1));
+      const veRaw = vocalSegs.length > 0
+        ? vocalSegs[vocalSegs.length - 1].end
+        : (filteredWords.length > 0 ? filteredWords[filteredWords.length - 1].end : (trimStart + (duration || 30)));
+
+      // ── Passo 3: construir timeline vocal como série de timestamps ────────────
+      // Cada segmento vocal contribui com um "slot" de tempo.
+      // As linhas são distribuídas proporcionalmente sobre esses slots.
+      //
+      // Ex: 20 linhas, 8 segmentos → 2-3 linhas por segmento, distribuídas dentro
+      // do intervalo (start, end) de cada segmento.
       const canvas = canvasRef.current;
       const cx = canvas ? canvas.width / 2 : 360;
       const cy = canvas ? Math.round(canvas.height * 0.75) : 960;
 
-      // Normaliza string: minúsculo, sem pontuação, sem acentos
-      const normalize = str => str
-        .toLowerCase()
-        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-        .replace(/[^a-z0-9\s]/g, '')
-        .replace(/\s+/g, ' ')
-        .trim();
+      const makeLyric = (text, idx, rawStart, rawEnd) => ({
+        id: Date.now() + idx,
+        text,
+        start: Math.round(adjustTime(rawStart) * 100) / 100,
+        end:   Math.round(Math.max(adjustTime(rawEnd), adjustTime(rawStart) + 1.0) * 100) / 100,
+        x: cx, y: cy, rotation: 0,
+        fontSize:   fontSizeRef.current,
+        fontFamily: fontFamilyRef.current,
+        animType:   animTypeRef.current,
+        twSpeed:    twSpeedRef.current,
+      });
 
-      let newLyrics = [];
-
-      // ── Estratégia GLOBAL: sem cursor deslizante ──────────────────────────
-      // Problema com cursor: quando match falha, cursor avança e as palavras
-      // "puladas" ficam inacessíveis para linhas seguintes → frases puladas.
-      // Solução: cada linha busca em TODA a array de palavras (matching global),
-      // depois ordena e resolve conflitos para garantir ordem monotônica.
-
-      if (filteredWords.length > 0) {
-        const normWords = filteredWords.map(w => normalize(w.word));
-
-        // ── Passo 1: score global — cada linha busca em toda a array ──────────
-        // candidates[lineIdx] = { wordStart, score, rawStart, rawEnd }
-        const candidates = lines.map((line) => {
-          const tokens = normalize(line).split(' ').filter(Boolean);
-          if (tokens.length === 0) return null;
-          let bestStart = -1, bestScore = -1;
-          // Busca em TODAS as posições (sem janela limitante)
-          for (let wi = 0; wi <= normWords.length - 1; wi++) {
-            let score = 0;
-            for (let ti = 0; ti < tokens.length && wi + ti < normWords.length; ti++) {
-              if (normWords[wi + ti] === tokens[ti]) score += 2;
-              else if (
-                normWords[wi + ti]?.includes(tokens[ti]) ||
-                tokens[ti]?.includes(normWords[wi + ti])
-              ) score += 1;
-            }
-            if (score > bestScore) { bestScore = score; bestStart = wi; }
-          }
-          // Threshold: mínimo de 25% das tokens com match
-          const threshold = tokens.length * 0.25;
-          if (bestScore >= threshold && bestStart >= 0) {
-            const endIdx = Math.min(bestStart + tokens.length - 1, filteredWords.length - 1);
-            return {
-              wordStart: bestStart,
-              score: bestScore,
-              rawStart: filteredWords[bestStart].start,
-              rawEnd:   filteredWords[endIdx].end,
-              matched:  true,
-            };
-          }
-          return { wordStart: -1, score: 0, rawStart: -1, rawEnd: -1, matched: false };
-        });
-
-        // ── Passo 2: resolver conflitos — dois lines no mesmo wordStart ───────
-        // Mantém o de maior score; o outro vira unmatched
-        const usedWordStarts = new Map(); // wordStart → lineIdx com maior score
-        candidates.forEach((c, i) => {
-          if (!c?.matched) return;
-          const existing = usedWordStarts.get(c.wordStart);
-          if (existing === undefined) {
-            usedWordStarts.set(c.wordStart, i);
-          } else {
-            // Conflito: mantém maior score
-            const prevScore = candidates[existing].score;
-            if (c.score > prevScore) {
-              candidates[existing] = { ...candidates[existing], matched: false };
-              usedWordStarts.set(c.wordStart, i);
-            } else {
-              candidates[i] = { ...c, matched: false };
-            }
-          }
-        });
-
-        // ── Passo 3: garantir ordem monotônica ────────────────────────────────
-        // Se linha[i] matched em posição wordStart[i] > wordStart[i+1], há inversão.
-        // Desmatcha o de menor score entre os dois.
-        for (let i = 0; i < candidates.length - 1; i++) {
-          const a = candidates[i], b = candidates[i + 1];
-          if (a?.matched && b?.matched && a.wordStart >= b.wordStart) {
-            if (a.score >= b.score) candidates[i + 1] = { ...b, matched: false };
-            else                    candidates[i]     = { ...a, matched: false };
-          }
-        }
-
-        // ── Passo 4: interpolar linhas não-matchadas entre vizinhos ──────────
-        // Coleta âncoras (linhas com match) e distribui as não-matchadas
-        // proporcionalmente no espaço entre elas.
-        // Se não há nenhum match anterior → usa vocalStart.
-        // Se não há nenhum match posterior → usa vocalEnd.
-        const anchors = candidates.map((c, i) => c?.matched ? { idx: i, t: c.rawStart } : null).filter(Boolean);
-
-        const getAnchorBefore = (idx) => {
-          for (let k = anchors.length - 1; k >= 0; k--) if (anchors[k].idx < idx) return anchors[k];
-          return { idx: -1, t: vocalStart };
-        };
-        const getAnchorAfter = (idx) => {
-          for (let k = 0; k < anchors.length; k++) if (anchors[k].idx > idx) return anchors[k];
-          return { idx: lines.length, t: vocalEnd };
-        };
-
-        candidates.forEach((c, i) => {
-          if (c?.matched) return;
-          const prev = getAnchorBefore(i);
-          const next = getAnchorAfter(i);
-          // Quantas linhas não-matchadas neste intervalo?
-          const gapLines = next.idx - prev.idx - 1;
-          const posInGap = i - prev.idx;
-          const ratio = gapLines > 0 ? posInGap / (gapLines + 1) : 0.5;
-          const interpolated = prev.t + ratio * (next.t - prev.t);
-          candidates[i] = { wordStart: -1, score: 0, rawStart: interpolated, rawEnd: -1, matched: false };
-        });
-
-        // ── Passo 5: montar newLyrics com starts e ends ───────────────────────
+      if (vocalSegs.length >= 2) {
+        // ── Distribuição por segmentos ──────────────────────────────────────────
+        // Calcula a duração total dos segmentos vocais
+        const totalVocalDur = vocalSegs.reduce((s, seg) => s + (seg.end - seg.start), 0);
+        // Para cada linha, calcula sua posição proporcional (0→1) na letra
+        // e mapeia para um ponto absoluto na timeline vocal
         newLyrics = lines.map((text, idx) => {
-          const c = candidates[idx];
-          const start = adjustTime(c?.rawStart ?? vocalStart);
-          const next  = candidates[idx + 1];
-          let end;
-          if (c?.matched && c.rawEnd > 0) {
-            end = adjustTime(c.rawEnd + 0.15); // end real da última palavra + margem
-          } else if (next) {
-            // Sem match exato: ocupa até 85% do gap até a próxima linha
-            const nextStart = adjustTime(next.rawStart ?? vocalEnd);
-            end = start + (nextStart - start) * 0.85;
-          } else {
-            end = start + 3.0;
-          }
-          end = Math.max(end, start + 1.0); // mínimo 1s
-          // Não ultrapassa o início da próxima
-          if (next) {
-            const nextStart = adjustTime(next.rawStart ?? vocalEnd);
-            if (end > nextStart - 0.1) end = Math.max(nextStart - 0.1, start + 1.0);
-          }
-          return {
-            id: Date.now() + idx,
-            text,
-            start: Math.round(start * 100) / 100,
-            end:   Math.round(end   * 100) / 100,
-            x: cx, y: cy, rotation: 0,
-            fontSize:   fontSizeRef.current,
-            fontFamily: fontFamilyRef.current,
-            animType:   animTypeRef.current,
-            twSpeed:    twSpeedRef.current,
-          };
-        });
+          // Posição proporcional desta linha dentro da letra (0 = início, 1 = fim)
+          const ratio = lines.length > 1 ? idx / (lines.length - 1) : 0;
+          // Ponto absoluto na duração vocal total
+          const targetDur = ratio * totalVocalDur;
 
-      } else if (filteredSegments.length > 0) {
-        // ── Fallback: segment-level quando não há words ───────────────────────
-        const linesPerSeg = lines.length / filteredSegments.length;
-        newLyrics = lines.map((text, idx) => {
-          const segIdx = Math.min(Math.floor(idx / linesPerSeg), filteredSegments.length - 1);
-          const seg = filteredSegments[segIdx];
-          const linesInThisSeg = Math.round(linesPerSeg) || 1;
-          const posInSeg = idx - Math.floor(segIdx * linesPerSeg);
-          const segDur = seg.end - seg.start;
-          const slotSize = segDur / linesInThisSeg;
-          const rawStart = seg.start + posInSeg * slotSize;
-          const rawEnd   = rawStart + slotSize - 0.1;
-          return {
-            id: Date.now() + idx,
-            text,
-            start: Math.round(adjustTime(rawStart) * 100) / 100,
-            end:   Math.round(Math.max(adjustTime(rawEnd), adjustTime(rawStart) + 1.0) * 100) / 100,
-            x: cx, y: cy, rotation: 0,
-            fontSize:   fontSizeRef.current,
-            fontFamily: fontFamilyRef.current,
-            animType:   animTypeRef.current,
-            twSpeed:    twSpeedRef.current,
-          };
+          // Percorre os segmentos para encontrar onde esse ponto cai
+          let accumulated = 0;
+          let rawStart = vsRaw;
+          let rawEnd   = vsRaw + 2;
+          for (let si = 0; si < vocalSegs.length; si++) {
+            const seg = vocalSegs[si];
+            const segDur = seg.end - seg.start;
+            if (accumulated + segDur >= targetDur || si === vocalSegs.length - 1) {
+              // Este é o segmento onde esta linha cai
+              const posInSeg = targetDur - accumulated;
+              const fracInSeg = segDur > 0 ? Math.min(posInSeg / segDur, 1) : 0;
+              rawStart = seg.start + fracInSeg * segDur;
+              // End: até o próximo segmento ou até 85% do espaço restante neste seg
+              const nextSeg = vocalSegs[si + 1];
+              const nextLineRatio = lines.length > 1 ? (idx + 1) / (lines.length - 1) : 1;
+              const nextTargetDur = Math.min(nextLineRatio * totalVocalDur, totalVocalDur);
+              let nextAcc = 0;
+              let nextRawStart = veRaw;
+              for (let sj = 0; sj < vocalSegs.length; sj++) {
+                const segJ = vocalSegs[sj];
+                const segDurJ = segJ.end - segJ.start;
+                if (nextAcc + segDurJ >= nextTargetDur || sj === vocalSegs.length - 1) {
+                  const posJ = nextTargetDur - nextAcc;
+                  const fracJ = segDurJ > 0 ? Math.min(posJ / segDurJ, 1) : 0;
+                  nextRawStart = segJ.start + fracJ * segDurJ;
+                  break;
+                }
+                nextAcc += segDurJ;
+              }
+              rawEnd = idx < lines.length - 1
+                ? rawStart + (nextRawStart - rawStart) * 0.88
+                : veRaw;
+              break;
+            }
+            accumulated += segDur;
+          }
+          rawEnd = Math.max(rawEnd, rawStart + 1.0);
+          return makeLyric(text, idx, rawStart, rawEnd);
         });
 
       } else {
-        throw new Error('Nenhum segmento detectado no áudio.');
+        // ── Fallback: distribuição linear entre vocalStart e vocalEnd ─────────
+        // Usado quando há poucos segmentos (ex: música falada inteira como 1 bloco)
+        const span = Math.max(veRaw - vsRaw, lines.length * 2);
+        newLyrics = lines.map((text, idx) => {
+          const ratio    = lines.length > 1 ? idx / (lines.length - 1) : 0;
+          const rawStart = vsRaw + ratio * span;
+          const nextRatio = lines.length > 1 ? (idx + 1) / (lines.length - 1) : 1;
+          const nextStart = vsRaw + Math.min(nextRatio, 1) * span;
+          const rawEnd    = idx < lines.length - 1
+            ? rawStart + (nextStart - rawStart) * 0.88
+            : rawStart + (span / lines.length);
+          return makeLyric(text, idx, rawStart, rawEnd);
+        });
       }
 
       // Garantia final: ordenar e eliminar qualquer sobreposição residual
