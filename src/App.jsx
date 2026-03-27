@@ -8287,10 +8287,6 @@ _setDragging(null);
             </div>
           )}
 
-          {/* ── Mobile: show only the active tab section ── */}
-          {isMobile ? (
-          ) : null}
-
           {(!isMobile || mobileTab === 'imagem') && <>{/* ══ SEÇÃO SELEÇÃO IMAGEM/VÍDEO — rotação ══ */}
           {(activeImageId || activeVideoId) && (() => {
             const selImg  = activeImageId ? images.find(i => i.id === activeImageId) : null;
