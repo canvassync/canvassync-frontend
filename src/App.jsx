@@ -1163,10 +1163,22 @@ function App() {
     const { outcome } = await pwaPrompt.userChoice;
     if (outcome === 'accepted') { setPwaInstalled(true); setPwaPrompt(null); }
   };
+  // ── Mobile/resize detection ───────────────────────────────────────────────────
+  useEffect(() => {
+    const onResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener('resize', onResize);
+    window.addEventListener('orientationchange', () => setTimeout(onResize, 100));
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
   // ── Mobile banner ────────────────────────────────────────────────────────────
   const [showMobileBanner, setShowMobileBanner] = useState(
     () => typeof window !== 'undefined' && window.innerWidth < 768
   );
+  const [isMobile, setIsMobile] = useState(
+    () => typeof window !== 'undefined' && window.innerWidth < 768
+  );
+  const [showMobilePanel, setShowMobilePanel] = useState(false);
+  const [mobileTab, setMobileTab] = useState('letra'); // 'letra'|'imagem'|'extras'
   const [editingLyricId, setEditingLyricId] = useState(null);
   const [editingExtraTextId, setEditingExtraTextId] = useState(null);
 
@@ -6865,6 +6877,8 @@ _setDragging(null);
     }}
     onMouseMove={handleGlobalMouseMove}
     onMouseUp={handleGlobalMouseUp}
+    onTouchMove={e => { if (e.touches.length === 1) { const t = e.touches[0]; handleGlobalMouseMove({ clientX: t.clientX, clientY: t.clientY }); } }}
+    onTouchEnd={handleGlobalMouseUp}
     >
       <style>{`
         .lyrics-textarea::-webkit-scrollbar {
@@ -6887,15 +6901,90 @@ _setDragging(null);
         @media (max-width: 768px) {
           .cs-left-panel { display: none !important; }
           .cs-timeline    { display: none !important; }
-          .cs-header      { overflow-x: auto !important; -webkit-overflow-scrolling: touch !important; }
+          .cs-header      { overflow-x: visible !important; height: 52px !important; }
+          .cs-header-desktop-only { display: none !important; }
+          canvas { touch-action: none !important; }
+          .cs-left-panel.mobile-drawer-open { display: flex !important; position: fixed !important; left: 0 !important; top: 0 !important; bottom: 0 !important; width: 93vw !important; max-width: 420px !important; min-width: 0 !important; z-index: 9000 !important; height: 100dvh !important; overflow-y: auto !important; }
+          /* Make remaining header buttons easier to tap on mobile */
+          .cs-header button { min-height: 38px !important; }
+        }
+        @media (min-width: 769px) {
+          .mobile-fab { display: none !important; }
+          .mobile-bottom-bar { display: none !important; }
+          .mobile-drawer-backdrop { display: none !important; }
         }
       `}</style>
 
-      {/* Banner mobile */}
-      {showMobileBanner && (
-        <div style={{ background:'linear-gradient(90deg,#1a0e00,#0a1200)', borderBottom:'1px solid rgba(251,191,36,0.25)', padding:'7px 14px', display:'flex', alignItems:'center', justifyContent:'space-between', gap:8, zIndex:200, flexShrink:0 }}>
-          <span style={{ fontSize:11, color:'#fbbf24', lineHeight:1.4 }}>📱 Para melhor experiência use no <strong>computador</strong> em <strong>modo paisagem</strong>.</span>
-          <button onClick={() => setShowMobileBanner(false)} style={{ background:'none', border:'none', color:'#fbbf24', cursor:'pointer', fontSize:18, flexShrink:0, lineHeight:1 }}>✕</button>
+      {/* ── Mobile drawer backdrop ── */}
+      {isMobile && showMobilePanel && (
+        <div
+          className="mobile-drawer-backdrop"
+          onClick={() => setShowMobilePanel(false)}
+          style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.6)', zIndex:8999, backdropFilter:'blur(2px)' }}
+        />
+      )}
+
+      {/* ── Mobile bottom action bar ── */}
+      {isMobile && (
+        <div className="mobile-bottom-bar" style={{
+          position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 500,
+          background: 'linear-gradient(180deg,#0d1117 0%,#080a10 100%)',
+          borderTop: '1px solid rgba(255,255,255,0.1)',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-around',
+          padding: '8px 4px', height: 62, boxSizing: 'border-box',
+          paddingBottom: 'max(8px, env(safe-area-inset-bottom))',
+        }}>
+          {[
+            { icon: '🎵', label: 'Letra',  tab: 'letra'  },
+            { icon: '🖼️', label: 'Imagem', tab: 'imagem' },
+            { icon: '✏️', label: 'Textos', tab: 'extras' },
+            { icon: '🎨', label: 'Efeitos', tab: 'efeitos' },
+          ].map(({ icon, label, tab }) => (
+            <button key={tab}
+              onClick={() => { setMobileTab(tab); setShowMobilePanel(true); }}
+              style={{
+                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2,
+                background: mobileTab === tab && showMobilePanel ? 'rgba(0,191,255,0.15)' : 'transparent',
+                border: `1px solid ${mobileTab === tab && showMobilePanel ? 'rgba(0,191,255,0.4)' : 'transparent'}`,
+                borderRadius: 10, padding: '4px 12px', cursor: 'pointer', minWidth: 56,
+              }}>
+              <span style={{ fontSize: 18 }}>{icon}</span>
+              <span style={{ fontSize: 9, color: mobileTab === tab && showMobilePanel ? '#00BFFF' : '#555', fontWeight: 700 }}>{label}</span>
+            </button>
+          ))}
+          {/* Play rápido */}
+          <button
+            onClick={async () => {
+              const audio = audioRef.current;
+              if (isPlaying) {
+                isPlayingRef.current = false;
+                if (audio) { audio.pause(); virtualTimeRef.current = audioOffset + (audio.currentTime - audioTrimStart); setCurrentTime(virtualTimeRef.current); }
+                if (clockIntervalRef.current) { clearInterval(clockIntervalRef.current); clockIntervalRef.current = null; }
+                stopAllVideoAudio();
+                setIsPlaying(false);
+              } else {
+                isPlayingRef.current = true;
+                setIsPlaying(true);
+                if (audio && audioSrc) {
+                  audio.currentTime = Math.max(audioTrimStart, Math.min(virtualTimeRef.current - audioOffset + audioTrimStart, audio.duration - 0.05));
+                  try { await audio.play(); } catch {}
+                }
+                clockIntervalRef.current = setInterval(() => {
+                  if (!audioRef.current || !isPlayingRef.current) return;
+                  const t = audioOffset + (audioRef.current.currentTime - audioTrimStart);
+                  virtualTimeRef.current = t; setCurrentTime(t);
+                }, 80);
+              }
+            }}
+            style={{
+              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2,
+              background: isPlaying ? 'rgba(0,191,255,0.25)' : 'rgba(0,191,255,0.1)',
+              border: '1px solid rgba(0,191,255,0.4)', borderRadius: 10, padding: '4px 12px',
+              cursor: 'pointer', minWidth: 56,
+            }}>
+            <span style={{ fontSize: 18 }}>{isPlaying ? '⏸' : '▶'}</span>
+            <span style={{ fontSize: 9, color: '#00BFFF', fontWeight: 700 }}>{isPlaying ? 'Pausar' : 'Play'}</span>
+          </button>
         </div>
       )}
 
@@ -6952,7 +7041,8 @@ _setDragging(null);
             document.body
           )}
         </div>
-
+        {/* ── Desktop-only header groups ── */}
+        <div className="cs-header-desktop-only" style={{ display:'flex', alignItems:'center', gap:4, flexShrink:0 }}>
         {/* ── Templates ── */}
         <div style={{ position:'relative', flexShrink:0 }}>
           <button ref={templateBtnRef}
@@ -7029,7 +7119,6 @@ _setDragging(null);
             document.body
           )}
         </div>
-
         {/* ── Stickers ── */}
         <div style={{ position:'relative', flexShrink:0 }}>
           <button ref={stickerBtnRef}
@@ -7089,7 +7178,6 @@ _setDragging(null);
             document.body
           )}
         </div>
-
         {/* ── Sons (SFX) ── */}
         <div style={{ position:'relative', flexShrink:0 }}>
           <button ref={sfxBtnRef}
@@ -7152,7 +7240,6 @@ _setDragging(null);
             document.body
           )}
         </div>
-
         {/* ── Molduras ── */}
         <div style={{ position:'relative', flexShrink:0 }}>
           <button ref={frameBtnRef}
@@ -7325,7 +7412,6 @@ _setDragging(null);
             );
           })()}
         </div>
-
         {/* ── Visual (Efeitos + Cor) ── */}
         <div style={{ position:'relative', flexShrink:0 }}>
           <button ref={fxBtnRef}
@@ -7465,7 +7551,6 @@ _setDragging(null);
             );
           })()}
         </div>
-
         {/* ── Cor & Curvas ── */}
         <div style={{ position:'relative', flexShrink:0 }}>
           <button onClick={()=>setShowKeyframePanel(v=>!v)}
@@ -7528,7 +7613,6 @@ _setDragging(null);
 
         {/* Spacer */}
         <div style={{ flex:1 }} />
-
         {/* ── Undo / Redo ── */}
         <div style={{ display:'flex', alignItems:'center', gap:2, flexShrink:0 }}>
           <button
@@ -7548,7 +7632,6 @@ _setDragging(null);
             onMouseLeave={e=>{ e.currentTarget.style.background='transparent'; e.currentTarget.style.borderColor='transparent'; }}
           >↪</button>
         </div>
-
         {/* ── Limpar tudo ── */}
         <button
           onClick={handleClearProject}
@@ -7558,6 +7641,8 @@ _setDragging(null);
         >
           <span style={{fontSize:13}}>🗑️</span> {t('ed_clear_project').replace(/^🗑️\s*/,'')}
         </button>
+
+        </div>{/* end cs-header-desktop-only */}
 
         {/* ── Projeto ── */}
         <div style={{ position:'relative', flexShrink:0 }}>
@@ -8173,12 +8258,40 @@ _setDragging(null);
 
       </div>{/* fim HEADER CONTROLS */}
 
-      <div style={{ display: 'flex', flex: 1, width: '100%', overflow: 'hidden' }}>
+      <div style={{ display: 'flex', flex: 1, width: '100%', overflow: 'hidden', paddingBottom: isMobile ? 62 : 0, boxSizing: 'border-box' }}>
         
-        {/* EDITOR ESQUERDA — 580PX */}
-        <div className="cs-left-panel" style={{ width: '580px', minWidth: '580px', borderRight: '1px solid rgba(255,255,255,0.07)', display: 'flex', flexDirection: 'column', background: '#0d0d0d', boxShadow: 'none', overflowY: 'auto' }}>
+        {/* EDITOR ESQUERDA — 580PX desktop / drawer mobile */}
+        <div className={`cs-left-panel cs-panel${isMobile && showMobilePanel ? ' mobile-drawer-open' : ''}`}
+          style={{ width: '580px', minWidth: '580px', borderRight: '1px solid rgba(255,255,255,0.07)', display: 'flex', flexDirection: 'column', background: '#0d0d0d', boxShadow: isMobile && showMobilePanel ? '4px 0 32px rgba(0,0,0,0.8)' : 'none', overflowY: 'auto' }}>
 
-          {/* ══ SEÇÃO SELEÇÃO IMAGEM/VÍDEO — rotação ══ */}
+          {/* ── Mobile drawer header ── */}
+          {isMobile && (
+            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'12px 16px', borderBottom:'1px solid rgba(255,255,255,0.08)', flexShrink:0, background:'#0a0a12' }}>
+              {/* Tabs */}
+              <div style={{ display:'flex', gap:6 }}>
+                {[
+                  { icon:'🎵', label:'Letra',   tab:'letra'   },
+                  { icon:'🖼️', label:'Imagem',  tab:'imagem'  },
+                  { icon:'✏️', label:'Textos',  tab:'extras'  },
+                  { icon:'🎨', label:'Efeitos', tab:'efeitos' },
+                ].map(({ icon, label, tab }) => (
+                  <button key={tab} onClick={() => setMobileTab(tab)} style={{
+                    padding:'4px 10px', borderRadius:8, fontSize:11, fontWeight:700, cursor:'pointer',
+                    background: mobileTab===tab ? 'rgba(0,191,255,0.15)' : 'rgba(255,255,255,0.05)',
+                    border: `1px solid ${mobileTab===tab ? 'rgba(0,191,255,0.5)' : 'rgba(255,255,255,0.08)'}`,
+                    color: mobileTab===tab ? '#00BFFF' : '#666',
+                  }}>{icon} {label}</button>
+                ))}
+              </div>
+              <button onClick={() => setShowMobilePanel(false)} style={{ background:'rgba(239,68,68,0.1)', border:'1px solid rgba(239,68,68,0.3)', borderRadius:8, padding:'4px 10px', color:'#f87171', fontSize:13, cursor:'pointer' }}>✕</button>
+            </div>
+          )}
+
+          {/* ── Mobile: show only the active tab section ── */}
+          {isMobile ? (
+          ) : null}
+
+          {(!isMobile || mobileTab === 'imagem') && <>{/* ══ SEÇÃO SELEÇÃO IMAGEM/VÍDEO — rotação ══ */}
           {(activeImageId || activeVideoId) && (() => {
             const selImg  = activeImageId ? images.find(i => i.id === activeImageId) : null;
             const selVid  = activeVideoId ? videos.find(v => v.id === activeVideoId) : null;
@@ -8621,7 +8734,9 @@ _setDragging(null);
             );
           })()}
 
-          {/* ══ SEÇÃO TEXTOS EXTRAS ══ */}
+          </> /* end imagem tab */}
+
+          {(!isMobile || mobileTab === 'extras') && <>{/* ══ SEÇÃO TEXTOS EXTRAS ══ */}
           <div style={{ padding: '14px 18px 12px', borderBottom: '1px solid rgba(255,255,255,0.07)', display: 'flex', flexDirection: 'column', gap: '10px' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '6px' }}>
               <label style={{ fontSize: '11px', color: '#00BFFF', fontWeight: '700', letterSpacing: '0.6px' }}>{t('ed_extra_texts')}</label>
@@ -8778,7 +8893,43 @@ _setDragging(null);
             <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.22)', marginTop: '-4px' }}>{t('et_hint')}</span>
           </div>
 
-          {/* ══ SEÇÃO LETRA DA MÚSICA ══ */}
+          </> /* end extras tab */}
+
+          {/* ── Mobile Efeitos tab — wraps canvas format + screen effects from header ── */}
+          {isMobile && mobileTab === 'efeitos' && (
+            <div style={{ padding:'14px 16px', display:'flex', flexDirection:'column', gap:12 }}>
+              <label style={{ fontSize:11, color:'#a78bfa', fontWeight:700, letterSpacing:'0.6px' }}>📐 FORMATO DO CANVAS</label>
+              <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
+                {[['9:16','Vertical'],['16:9','Horizontal'],['1:1','Quadrado'],['4:3','Clássico']].map(([key]) => (
+                  <button key={key} onClick={() => { pushHistory(); setCanvasFormat(key); }}
+                    style={{ padding:'6px 14px', borderRadius:9, border:`1px solid ${canvasFormat===key?'rgba(167,139,250,0.6)':'rgba(255,255,255,0.1)'}`, background:canvasFormat===key?'rgba(167,139,250,0.15)':'rgba(255,255,255,0.04)', color:canvasFormat===key?'#c4b5fd':'#666', fontSize:12, fontWeight:700, cursor:'pointer' }}>
+                    {key}
+                  </button>
+                ))}
+              </div>
+              <div style={{ height:1, background:'rgba(255,255,255,0.07)' }} />
+              <label style={{ fontSize:11, color:'#a78bfa', fontWeight:700, letterSpacing:'0.6px' }}>🎨 EFEITO DE TELA</label>
+              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:6 }}>
+                {[
+                  { id:'none',       label:'Nenhum',      icon:'⬜' },
+                  { id:'vignette',   label:'Vinheta',     icon:'🌑' },
+                  { id:'film_grain', label:'Grão Filme',  icon:'📽️' },
+                  { id:'vintage',    label:'Vintage',     icon:'🎞️' },
+                  { id:'tv_static',  label:'TV Static',   icon:'📺' },
+                  { id:'vhs',        label:'VHS',         icon:'📼' },
+                  { id:'blur_fx',    label:'Blur',        icon:'🌫️' },
+                  { id:'neon_scanlines', label:'Neon',   icon:'💡' },
+                ].map(fx => (
+                  <button key={fx.id} onClick={() => { pushHistory(); setScreenEffect(fx.id); }}
+                    style={{ display:'flex', alignItems:'center', gap:8, padding:'9px 12px', borderRadius:10, border:`1px solid ${screenEffect===fx.id?'rgba(167,139,250,0.6)':'rgba(255,255,255,0.08)'}`, background:screenEffect===fx.id?'rgba(167,139,250,0.2)':'rgba(255,255,255,0.03)', color:screenEffect===fx.id?'#c4b5fd':'#888', fontSize:11, cursor:'pointer' }}>
+                    <span style={{fontSize:16}}>{fx.icon}</span> {fx.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {(!isMobile || mobileTab === 'letra') && <>{/* ══ SEÇÃO LETRA DA MÚSICA ══ */}
           <div style={{ flex: 1, padding: '14px 18px 14px', display: 'flex', flexDirection: 'column', gap: '10px', minHeight: 0 }}>
             
             {/* Linha config letra — por lyric selecionada ou padrão global */}
@@ -9104,10 +9255,11 @@ _setDragging(null);
               🤖 Sincronizar Letra com IA
             </button>
           </div>
+          </> /* end letra tab */}
         </div>
 
         {/* PREVIEW CENTRO */}
-        <div ref={canvasContainerRef} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg, #141b34 0%, #0b1024 100%)', position: 'relative', padding: '1mm' }}>
+        <div ref={canvasContainerRef} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg, #141b34 0%, #0b1024 100%)', position: 'relative', padding: isMobile ? '4px' : '1mm', overflow: 'hidden' }}>
           {/* Botão tela cheia */}
           <button
             onClick={() => setIsFullscreen(true)}
@@ -9136,6 +9288,21 @@ _setDragging(null);
             width={CANVAS_FORMATS[canvasFormat]?.width || 720}
             height={CANVAS_FORMATS[canvasFormat]?.height || 1280}
             onMouseDown={handleCanvasMouseDown}
+            onTouchStart={e => {
+              e.preventDefault();
+              if (e.touches.length === 1) {
+                const t = e.touches[0];
+                handleCanvasMouseDown({ clientX: t.clientX, clientY: t.clientY, preventDefault: () => {} });
+              }
+            }}
+            onTouchMove={e => {
+              e.preventDefault();
+              if (e.touches.length === 1) {
+                const t = e.touches[0];
+                handleGlobalMouseMove({ clientX: t.clientX, clientY: t.clientY });
+              }
+            }}
+            onTouchEnd={e => { e.preventDefault(); handleGlobalMouseUp(); }}
             onContextMenu={(e) => {
               e.preventDefault();
               const canvas = canvasRef.current;
@@ -9170,7 +9337,7 @@ _setDragging(null);
                 }
               });
             }}
-            style={{ border: '1px solid rgba(0,191,255,0.15)', borderRadius: '12px', maxWidth: '100%', maxHeight: '99%', cursor: 'move', boxShadow: '0 24px 50px rgba(10, 12, 24, 0.55)', objectFit: 'contain' }} 
+            style={{ border: '1px solid rgba(0,191,255,0.15)', borderRadius: '12px', maxWidth: '100%', maxHeight: '99%', cursor: 'move', boxShadow: '0 24px 50px rgba(10, 12, 24, 0.55)', objectFit: 'contain', touchAction: 'none' }} 
           />
 
 
