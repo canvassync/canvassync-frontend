@@ -4418,7 +4418,7 @@ _setDragging(null);
       const _grOn  = activeLine.gradientEnabled !== undefined ? activeLine.gradientEnabled : gradientEnabled;
       const _gr1   = activeLine.gradientColor1  || gradientColor1;
       const _gr2   = activeLine.gradientColor2  || gradientColor2;
-      const _col   = activeLine.color           || textColor;
+      const _col   = activeLine.textColor || activeLine.color || textColor;
       if (_shOn) {
         ctx.shadowBlur    = _shBlur;
         ctx.shadowColor   = _shCol;
@@ -5349,7 +5349,7 @@ _setDragging(null);
       const _grOn  = activeLine.gradientEnabled !== undefined ? activeLine.gradientEnabled : gradientEnabled;
       const _gr1   = activeLine.gradientColor1  || gradientColor1;
       const _gr2   = activeLine.gradientColor2  || gradientColor2;
-      const _col   = activeLine.color           || textColor;
+      const _col   = activeLine.textColor || activeLine.color || textColor;
       if (_shOn) {
         ctx.shadowBlur    = _shBlur;
         ctx.shadowColor   = _shCol;
@@ -6144,6 +6144,9 @@ _setDragging(null);
     narrOffset:       narrOffset || 0,
     narrTrimStart:    narrTrimStart || 0,
     narrTrimEnd:      narrTrimEnd ?? null,
+    audioOffset:      audioOffset || 0,
+    audioTrimStart:   audioTrimStart || 0,
+    audioTrimEnd:     audioTrimEnd ?? null,
   });
 
   const exportProject = async () => {
@@ -6340,8 +6343,12 @@ _setDragging(null);
         if (p.audioBase64) {
           setAudioBase64(p.audioBase64);
           setAudioMimeType(p.audioMimeType || 'audio/mpeg');
-          setAudioSrc(p.audioBase64); // data URL funciona diretamente como src
-          setAudioFile(null); // sem File object, mas audioBase64 disponível
+          setAudioSrc(p.audioBase64);
+          setAudioFile(null);
+          // Restaura corte e offset do áudio
+          if (p.audioOffset    !== undefined) { setAudioOffset(p.audioOffset);       audioOffsetRef.current    = p.audioOffset; }
+          if (p.audioTrimStart !== undefined) { setAudioTrimStart(p.audioTrimStart); audioTrimStartRef.current = p.audioTrimStart; }
+          if (p.audioTrimEnd   !== undefined) { setAudioTrimEnd(p.audioTrimEnd);     audioTrimEndRef.current   = p.audioTrimEnd; }
           // Decodifica waveform
           try {
             const b64 = p.audioBase64.split(',')[1];
@@ -8751,7 +8758,13 @@ _setDragging(null);
                 {activeLyricId && <span style={{ marginLeft: 6, color: 'rgba(0,191,255,0.6)', fontWeight: 400, fontSize: 10 }}>({t('ed_selected')})</span>}
               </label>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <input type="color" value={textColor} onChange={(e) => setTextColor(e.target.value)} title="Cor da letra" style={{ width: '28px', height: '28px', padding: 0, border: '1px solid rgba(0,191,255,0.2)', background: '#111', borderRadius: '8px', cursor: 'pointer' }} />
+              <input type="color"
+                value={activeLyricId ? (lyrics.find(l => l.id === activeLyricId)?.textColor || textColor) : textColor}
+                onChange={(e) => {
+                  setTextColor(e.target.value);
+                  if (activeLyricId) setLyrics(prev => prev.map(l => l.id === activeLyricId ? {...l, textColor: e.target.value} : l));
+                }}
+                title="Cor da letra" style={{ width: '28px', height: '28px', padding: 0, border: '1px solid rgba(0,191,255,0.2)', background: '#111', borderRadius: '8px', cursor: 'pointer' }} />
               <select
                 value={activeLyricId ? (lyrics.find(l => l.id === activeLyricId)?.fontFamily || fontFamily) : fontFamily}
                 onChange={(e) => {
