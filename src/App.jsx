@@ -6129,6 +6129,21 @@ _setDragging(null);
     fontSize,
     textColor,
     fontFamily,
+    fontBold,
+    fontItalic,
+    fontUnderline,
+    fontStrike,
+    textBgEffect,
+    shadowEnabled,
+    shadowBlur,
+    shadowColor,
+    shadowOffsetX,
+    shadowOffsetY,
+    gradientEnabled,
+    gradientColor1,
+    gradientColor2,
+    animType,
+    twSpeed,
     zoom,
     imageSrc,
     audioBase64: audioBase64 || null,
@@ -6231,9 +6246,24 @@ _setDragging(null);
         }
         if (Array.isArray(p.frames)) setFrames(p.frames);
         if (Array.isArray(p.soundEffects)) setSoundEffects(p.soundEffects);
-        if (p.fontSize !== undefined) setFontSize(p.fontSize);
-        if (p.textColor) setTextColor(p.textColor);
-        if (p.fontFamily) setFontFamily(p.fontFamily);
+        if (p.fontSize     !== undefined) setFontSize(p.fontSize);
+        if (p.textColor)                  setTextColor(p.textColor);
+        if (p.fontFamily)                 setFontFamily(p.fontFamily);
+        if (p.fontBold      !== undefined) setFontBold(p.fontBold);
+        if (p.fontItalic    !== undefined) setFontItalic(p.fontItalic);
+        if (p.fontUnderline !== undefined) setFontUnderline(p.fontUnderline);
+        if (p.fontStrike    !== undefined) setFontStrike(p.fontStrike);
+        if (p.textBgEffect  !== undefined) setTextBgEffect(p.textBgEffect);
+        if (p.shadowEnabled   !== undefined) setShadowEnabled(p.shadowEnabled);
+        if (p.shadowBlur      !== undefined) setShadowBlur(p.shadowBlur);
+        if (p.shadowColor     !== undefined) setShadowColor(p.shadowColor);
+        if (p.shadowOffsetX   !== undefined) setShadowOffsetX(p.shadowOffsetX);
+        if (p.shadowOffsetY   !== undefined) setShadowOffsetY(p.shadowOffsetY);
+        if (p.gradientEnabled !== undefined) setGradientEnabled(p.gradientEnabled);
+        if (p.gradientColor1  !== undefined) setGradientColor1(p.gradientColor1);
+        if (p.gradientColor2  !== undefined) setGradientColor2(p.gradientColor2);
+        if (p.animType !== undefined) setAnimType(p.animType);
+        if (p.twSpeed  !== undefined) setTwSpeed(p.twSpeed);
         if (p.zoom !== undefined) setZoom(p.zoom);
         if (p.imageSrc) {
           setImageSrc(p.imageSrc);
@@ -8761,15 +8791,21 @@ _setDragging(null);
               <input type="color"
                 value={activeLyricId ? (lyrics.find(l => l.id === activeLyricId)?.textColor || textColor) : textColor}
                 onChange={(e) => {
-                  setTextColor(e.target.value);
-                  if (activeLyricId) setLyrics(prev => prev.map(l => l.id === activeLyricId ? {...l, textColor: e.target.value} : l));
+                  if (activeLyricId) {
+                    setLyrics(prev => prev.map(l => l.id === activeLyricId ? {...l, textColor: e.target.value} : l));
+                  } else {
+                    setTextColor(e.target.value);
+                  }
                 }}
                 title="Cor da letra" style={{ width: '28px', height: '28px', padding: 0, border: '1px solid rgba(0,191,255,0.2)', background: '#111', borderRadius: '8px', cursor: 'pointer' }} />
               <select
                 value={activeLyricId ? (lyrics.find(l => l.id === activeLyricId)?.fontFamily || fontFamily) : fontFamily}
                 onChange={(e) => {
-                  setFontFamily(e.target.value);
-                  if (activeLyricId) setLyrics(prev => prev.map(l => l.id === activeLyricId ? {...l, fontFamily: e.target.value} : l));
+                  if (activeLyricId) {
+                    setLyrics(prev => prev.map(l => l.id === activeLyricId ? {...l, fontFamily: e.target.value} : l));
+                  } else {
+                    setFontFamily(e.target.value);
+                  }
                 }}
                 style={{ fontSize: '11px', backgroundColor: '#111', color: '#f0f0f0', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px', padding: '5px 8px' }}>
                 <optgroup label="── Display ──">
@@ -8817,15 +8853,21 @@ _setDragging(null);
                 value={activeLyricId ? (lyrics.find(l => l.id === activeLyricId)?.fontSize || fontSize) : fontSize}
                 onChange={(e) => {
                   const v = parseInt(e.target.value);
-                  setFontSize(v);
-                  if (activeLyricId) setLyrics(prev => prev.map(l => l.id === activeLyricId ? {...l, fontSize: v} : l));
+                  if (activeLyricId) {
+                    setLyrics(prev => prev.map(l => l.id === activeLyricId ? {...l, fontSize: v} : l));
+                  } else {
+                    setFontSize(v);
+                  }
                 }}
                 style={{ width: '90px', accentColor: '#00BFFF' }} />
               <select
                 value={activeLyricId ? (lyrics.find(l => l.id === activeLyricId)?.bgEffect ?? textBgEffect) : textBgEffect}
                 onChange={e => {
-                  setTextBgEffect(e.target.value);
-                  if (activeLyricId) setLyrics(prev => prev.map(l => l.id === activeLyricId ? {...l, bgEffect: e.target.value} : l));
+                  if (activeLyricId) {
+                    setLyrics(prev => prev.map(l => l.id === activeLyricId ? {...l, bgEffect: e.target.value} : l));
+                  } else {
+                    setTextBgEffect(e.target.value);
+                  }
                 }}
                 title="Efeito de fundo"
                 style={{ fontSize: '10px', backgroundColor: '#111', color: '#f0f0f0', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px', padding: '4px 6px' }}>
